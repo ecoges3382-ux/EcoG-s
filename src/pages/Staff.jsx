@@ -59,8 +59,8 @@ export default function Staff() {
                 <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr 1fr 1.8fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: i < staff.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0 }}>
-                      {initials(p.full_name)}
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+                      {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
                     </div>
                     <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{p.full_name}</span>
                   </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import PhotoPicker from './PhotoPicker.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -16,6 +17,7 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
   const [classes, setClasses] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -36,6 +38,7 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
       classes: classes.split(',').map((c) => c.trim()).filter(Boolean),
       phone: phone.trim(),
       email: email.trim(),
+      photo_url: photoUrl || null,
     });
     setSubmitting(false);
     if (insertError) {
@@ -80,9 +83,15 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
           </Field>
           <Field label="E-mail" last>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           </Field>
         </div>
+
+        <Field label="Photo (facultatif)">
+          <div style={{ marginBottom: 18 }}>
+            <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
+          </div>
+        </Field>
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 

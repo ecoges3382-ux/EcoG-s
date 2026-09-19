@@ -35,8 +35,8 @@ export default function StudentDetail() {
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux élèves
       </Link>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
-        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)' }}>
-          {initials(student.full_name)}
+        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden' }}>
+          {student.photo_url ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(student.full_name)}
         </div>
         <div>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600 }}>{student.full_name}</p>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import PhotoPicker from '../components/PhotoPicker.jsx';
 
 export default function Settings() {
   const { profile, refreshProfile } = useAuth();
@@ -65,8 +66,14 @@ export default function Settings() {
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>URL du logo (facultatif)</label>
-          <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} disabled={!isFondateur} placeholder="https://…" style={inputStyle} />
+          <label style={labelStyle}>Logo (facultatif)</label>
+          {isFondateur ? (
+            <PhotoPicker schoolId={profile.school_id} value={logoUrl} onChange={setLogoUrl} />
+          ) : (
+            logoUrl
+              ? <img src={logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} />
+              : <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Aucun logo</p>
+          )}
           <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>Sans logo, les initiales de l'école restent affichées.</p>
         </div>
 

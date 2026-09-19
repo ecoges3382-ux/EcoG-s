@@ -237,3 +237,33 @@ create policy "salary_advances: fondateur/directeur statuent" on salary_advances
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur')
   );
+
+-- ---------- Migration 3 : photos (logo école, élèves, personnel) ----------
+
+alter table students add column if not exists photo_url text;
+
+-- Bucket public : les photos ne sont pas des données sensibles et doivent
+-- s'afficher directement via une URL simple (balise <img>), sans passer
+-- par une authentification à chaque affichage.
+insert into storage.buckets (id, name, public)
+values ('photos', 'photos', true)
+on conflict (id) do nothing;
+
+-- Les fichiers sont rangés sous "<school_id>/...", donc on peut restreindre
+-- qui a le droit d'écrire en comparant ce premier segment du chemin à
+-- l'école de l'utilisateur connecté — même si le bucket est public en
+-- lecture, l'écriture reste cloisonnée par école.
+create policy "photos: lecture publique" on storage.objects
+  for select using (bucket_id = 'photos');
+create policy "photos: dépôt par école" on storage.objects
+  for insert with check (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+create policy "photos: modification par école" on storage.objects
+  for update using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+create policy "photos: suppression par école" on storage.objects
+  for delete using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = current_school_id()::text
+  );

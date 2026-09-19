@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import PhotoPicker from './PhotoPicker.jsx';
 
 export default function NewStudentModal({ schoolId, niveaux, onClose, onCreated }) {
   const [fullName, setFullName] = useState('');
   const [niveau, setNiveau] = useState(niveaux[0]);
   const [parentPhone, setParentPhone] = useState('');
   const [montantDu, setMontantDu] = useState(90000);
+  const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,6 +28,7 @@ export default function NewStudentModal({ schoolId, niveaux, onClose, onCreated 
       montant_paye: 0,
       frais_connexe_du: 0,
       frais_connexe_paye: 0,
+      photo_url: photoUrl || null,
     });
     setSubmitting(false);
     if (insertError) {
@@ -69,6 +72,11 @@ export default function NewStudentModal({ schoolId, niveaux, onClose, onCreated 
               style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)' }}
             />
           </div>
+        </div>
+
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Photo (facultatif)</label>
+        <div style={{ marginBottom: 18 }}>
+          <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
         </div>
 
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Téléphone parent</label>
