@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function SignUp() {
   const [schoolName, setSchoolName] = useState('');
@@ -75,7 +76,7 @@ export default function SignUp() {
             <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           </Field>
           <Field label="Mot de passe" last>
-            <input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
+            <PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
           </Field>
 
           {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}

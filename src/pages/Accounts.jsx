@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials, ROLES } from '../lib/utils.js';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -180,7 +181,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Mot de passe</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
+        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
@@ -344,7 +345,7 @@ function NewParentAccountModal({ onClose, onCreated }) {
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Mot de passe</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={inputStyle} />
+        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={inputStyle} />
 
         <label style={labelStyle}>Élève(s) rattaché(s)</label>
         <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>

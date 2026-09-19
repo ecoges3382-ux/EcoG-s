@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -40,8 +41,7 @@ export default function Login() {
             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 16, boxSizing: 'border-box', color: 'var(--ink)' }}
           />
           <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
-          <input
-            type="password"
+          <PasswordInput
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
