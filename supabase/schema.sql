@@ -810,3 +810,31 @@ create policy "documents-bucket: suppression par école" on storage.objects
 
 -- Rapports : lecture seule, réutilise les policies select déjà en place sur
 -- students/staff/classes/payments — rien à ajouter ici.
+
+-- ---------- Migration 8 : correctif — récursion infinie students ↔ student_guardians ----------
+-- "student_guardians: le personnel lit sa propre école" interroge students
+-- pour vérifier l'école, et "students: select (parent)" interroge
+-- student_guardians pour vérifier le lien parent → boucle : Postgres
+-- réévalue indéfiniment la RLS de l'une pour évaluer celle de l'autre.
+-- Comme pour current_school_id()/current_role_name(), on passe par une
+-- fonction security definer qui contourne la RLS de students pour casser
+-- la boucle — la fonction tourne avec les droits du propriétaire de la
+-- table, pas ceux de l'utilisateur connecté, donc plus de réévaluation
+-- récursive de la policy.
+
+create or replace function student_school_id(p_student_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select school_id from students where id = p_student_id
+$$;
+
+drop policy if exists "student_guardians: le personnel lit sa propre école" on student_guardians;
+create policy "student_guardians: le personnel lit sa propre école" on student_guardians
+  for select using (
+    student_school_id(student_guardians.student_id) = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
