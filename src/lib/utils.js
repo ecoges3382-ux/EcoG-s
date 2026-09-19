@@ -37,4 +37,5 @@ export const ROLES = {
   directeur: { label: 'Directeur' },
   secretaire: { label: 'Secrétaire' },
   enseignant: { label: 'Enseignant' },
+  parent: { label: 'Parent' },
 };

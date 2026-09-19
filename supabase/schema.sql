@@ -309,3 +309,112 @@ begin
   return v_school_id;
 end;
 $$;
+
+-- ---------- Migration 5 : comptes parents réels ----------
+-- Un compte parent est un profil comme les autres (role='parent'), mais il
+-- ne doit voir que ses propres enfants — pas la liste des élèves, pas le
+-- personnel, pas les finances de l'école. Comme role='parent' partage la
+-- colonne school_id avec le personnel, il faut resserrer les policies
+-- existantes : jusqu'ici "select using (school_id = current_school_id())"
+-- suffisait à donner accès à quiconque avait le bon school_id, personnel
+-- comme parent. On ajoute donc la vérification de rôle qui manquait.
+
+alter table profiles drop constraint if exists profiles_role_check;
+alter table profiles add constraint profiles_role_check
+  check (role in ('fondateur', 'directeur', 'secretaire', 'enseignant', 'parent'));
+
+alter table students add column if not exists parent_name text;
+alter table students add column if not exists parent_email text;
+
+create table if not exists student_guardians (
+  student_id uuid not null references students(id) on delete cascade,
+  parent_profile_id uuid not null references profiles(id) on delete cascade,
+  primary key (student_id, parent_profile_id)
+);
+alter table student_guardians enable row level security;
+
+create policy "student_guardians: le personnel lit sa propre école" on student_guardians
+  for select using (
+    exists (
+      select 1 from students s
+      where s.id = student_guardians.student_id
+        and s.school_id = current_school_id()
+        and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+    )
+  );
+create policy "student_guardians: le parent lit ses propres liens" on student_guardians
+  for select using (parent_profile_id = auth.uid());
+
+-- students : on remplace l'unique policy "select" par deux policies plus
+-- strictes (personnel de l'école vs parent limité à ses enfants).
+drop policy if exists "students: select" on students;
+create policy "students: select (personnel)" on students
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "students: select (parent)" on students
+  for select using (
+    exists (
+      select 1 from student_guardians sg
+      where sg.student_id = students.id and sg.parent_profile_id = auth.uid()
+    )
+  );
+
+-- Les autres tables scolaires/financières ne concernent que le personnel :
+-- on ajoute la vérification de rôle qui manquait à leurs policies "select".
+drop policy if exists "staff: select" on staff;
+create policy "staff: select" on staff
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "schedule_entries: select" on schedule_entries;
+create policy "schedule_entries: select" on schedule_entries
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "announcements: select" on announcements;
+create policy "announcements: select" on announcements
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "salary_advances: select" on salary_advances;
+create policy "salary_advances: select" on salary_advances
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "expenses: select" on expenses;
+create policy "expenses: select" on expenses
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+-- Créer un compte parent : réservé fondateur/directeur/secrétaire (le
+-- personnel d'accueil), jamais un enseignant ni un parent lui-même.
+create policy "profiles: personnel crée des comptes parents" on profiles
+  for insert with check (
+    role = 'parent'
+    and school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+-- Le directeur et la secrétaire peuvent aussi gérer les comptes parents
+-- (Comptes → Comptes parents), mais seul le fondateur a le droit plus large
+-- de lire tout profil de l'école ("profiles: le fondateur lit toute son
+-- école" ci-dessus) : ils ont donc besoin d'un droit de lecture propre,
+-- limité aux seuls comptes role='parent' — pas au reste du personnel.
+create policy "profiles: le personnel d'accueil lit les comptes parents" on profiles
+  for select using (
+    role = 'parent'
+    and school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );

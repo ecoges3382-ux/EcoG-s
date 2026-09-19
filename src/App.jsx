@@ -4,6 +4,8 @@ import { supabaseConfigured } from './lib/supabase.js';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
 import Shell from './layout/Shell.jsx';
+import ParentShell from './layout/ParentShell.jsx';
+import ParentHome from './pages/ParentHome.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
@@ -12,7 +14,6 @@ import Grades from './pages/Grades.jsx';
 import Schedule from './pages/Schedule.jsx';
 import Announce from './pages/Announce.jsx';
 import Settings from './pages/Settings.jsx';
-import Parent from './pages/Parent.jsx';
 import Money from './pages/Money.jsx';
 import Accounts from './pages/Accounts.jsx';
 
@@ -59,6 +60,41 @@ function RedirectIfAuthed({ children }) {
   return children;
 }
 
+// Les comptes parents n'ont accès qu'à leurs propres enfants : coquille et
+// jeu de routes entièrement séparés du personnel, pas juste un menu réduit.
+function RoleRouter() {
+  const { profile } = useAuth();
+
+  if (profile.role === 'parent') {
+    return (
+      <Routes>
+        <Route path="/" element={<ParentShell />}>
+          <Route index element={<ParentHome />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<Shell />}>
+        <Route index element={<Dashboard />} />
+        <Route path="argent" element={<Money />} />
+        <Route path="eleves" element={<Students />} />
+        <Route path="eleves/:id" element={<StudentDetail />} />
+        <Route path="personnel" element={<Staff />} />
+        <Route path="bulletins" element={<Grades />} />
+        <Route path="emploi-du-temps" element={<Schedule />} />
+        <Route path="annonces" element={<Announce />} />
+        <Route path="parametres" element={<Settings />} />
+        <Route path="comptes" element={<Accounts />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
 export default function App() {
   if (!supabaseConfigured) return <SetupNeeded />;
   return (
@@ -67,26 +103,13 @@ export default function App() {
         <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
         <Route
-          path="/"
+          path="/*"
           element={
             <RequireAuth>
-              <Shell />
+              <RoleRouter />
             </RequireAuth>
           }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="argent" element={<Money />} />
-          <Route path="eleves" element={<Students />} />
-          <Route path="eleves/:id" element={<StudentDetail />} />
-          <Route path="personnel" element={<Staff />} />
-          <Route path="bulletins" element={<Grades />} />
-          <Route path="emploi-du-temps" element={<Schedule />} />
-          <Route path="annonces" element={<Announce />} />
-          <Route path="parametres" element={<Settings />} />
-          <Route path="comptes" element={<Accounts />} />
-          <Route path="parent" element={<Parent />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        />
       </Routes>
     </AuthProvider>
   );

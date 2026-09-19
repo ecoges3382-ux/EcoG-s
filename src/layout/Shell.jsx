@@ -21,7 +21,7 @@ const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet' },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', group: SCHOOL_GROUP_PATHS },
-  { to: '/parent', shortLabel: 'Parent', icon: 'ti-device-mobile' },
+  { to: '/comptes', shortLabel: 'Comptes', icon: 'ti-users-group' },
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings' },
 ];
 
@@ -81,11 +81,6 @@ export default function Shell() {
               <span className="sidebar-label">{item.label}</span>
             </NavLink>
           ))}
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.12)', margin: '14px 6px' }}></div>
-          <NavLink to="/parent" className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)}>
-            <i className="ti ti-device-mobile" style={{ fontSize: 18, color: 'rgba(255,255,255,0.65)' }} aria-hidden="true"></i>
-            <span className="sidebar-label" style={{ color: 'rgba(255,255,255,0.65)' }}>Vue parent</span>
-          </NavLink>
         </div>
 
         <div id="screen">
