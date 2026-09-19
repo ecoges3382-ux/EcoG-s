@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, ROLES } from '../lib/utils.js';
+import { initials, ROLES, generateAccessCode } from '../lib/utils.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
 
@@ -26,15 +26,6 @@ const TABS = [
   { id: 'staff', label: 'Comptes utilisateurs' },
   { id: 'parents', label: 'Accès parents' },
 ];
-
-// Alphabet sans caractères ambigus (pas de 0/O, 1/I/L) — le code doit
-// rester lisible et saisissable facilement depuis un téléphone.
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-function generateAccessCode(length = 8) {
-  const bytes = new Uint32Array(length);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (n) => CODE_ALPHABET[n % CODE_ALPHABET.length]).join('');
-}
 
 export default function Accounts() {
   const [tab, setTab] = useState('staff');

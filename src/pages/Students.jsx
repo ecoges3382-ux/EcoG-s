@@ -181,6 +181,7 @@ export default function Students() {
         <NewStudentModal
           schoolId={profile.school_id}
           niveaux={NIVEAUX}
+          canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
         />
