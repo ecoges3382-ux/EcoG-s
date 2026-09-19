@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, initials, downloadCsv, NIVEAUX } from '../lib/utils.js';
+import { fmt, initials, downloadCsv, parseCsv, NIVEAUX } from '../lib/utils.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
@@ -20,6 +20,8 @@ export default function Students() {
   const [error, setError] = useState('');
   const [classFilter, setClassFilter] = useState('toutes');
   const [modalOpen, setModalOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState(null);
 
   async function reload() {
     const { data, error: fetchError } = await supabase
@@ -46,6 +48,62 @@ export default function Students() {
     downloadCsv('eleves.csv', rows);
   }
 
+  async function handleImportFile(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setImportMessage(null);
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length < 2) {
+      setImportMessage({ type: 'error', text: 'Fichier vide ou illisible.' });
+      return;
+    }
+    const header = rows[0].map((h) => h.trim().toLowerCase());
+    const idx = {
+      matricule: header.indexOf('matricule'),
+      nom: header.indexOf('nom'),
+      classe: header.indexOf('classe'),
+      du: header.findIndex((h) => h.startsWith('montant d')),
+      tel: header.findIndex((h) => h.startsWith('téléphone') || h.startsWith('telephone')),
+    };
+    if (idx.nom === -1 || idx.classe === -1) {
+      setImportMessage({ type: 'error', text: 'Le fichier doit contenir au moins les colonnes "Nom" et "Classe".' });
+      return;
+    }
+    const toInsert = [];
+    let skipped = 0;
+    rows.slice(1).forEach((r) => {
+      const nom = (r[idx.nom] || '').trim();
+      const classe = (r[idx.classe] || '').trim();
+      if (!nom || !NIVEAUX.includes(classe)) { skipped += 1; return; }
+      toInsert.push({
+        school_id: profile.school_id,
+        full_name: nom,
+        niveau: classe,
+        matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
+        parent_phone: idx.tel !== -1 ? (r[idx.tel] || '').trim() || null : null,
+        montant_du: idx.du !== -1 ? Number(r[idx.du]) || 0 : 0,
+        montant_paye: 0,
+        frais_connexe_du: 0,
+        frais_connexe_paye: 0,
+      });
+    });
+    if (toInsert.length === 0) {
+      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${NIVEAUX.join(', ')}).` });
+      return;
+    }
+    setImporting(true);
+    const { error: insertError } = await supabase.from('students').insert(toInsert);
+    setImporting(false);
+    if (insertError) {
+      setImportMessage({ type: 'error', text: insertError.message });
+      return;
+    }
+    setImportMessage({ type: 'success', text: `${toInsert.length} élève${toInsert.length > 1 ? 's' : ''} importé${toInsert.length > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
+    reload();
+  }
+
   return (
     <div>
       <SchoolTabs />
@@ -55,11 +113,22 @@ export default function Students() {
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
             <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter
           </button>
+          <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
+            <i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
+            {importing ? 'Import…' : 'Importer'}
+            <input type="file" accept=".csv,text/csv" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
+          </label>
           <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
           </button>
         </div>
       </div>
+
+      {importMessage && (
+        <p style={{ margin: '0 0 16px', fontSize: '12.5px', fontWeight: 600, color: importMessage.type === 'error' ? 'var(--danger)' : 'var(--success)' }}>
+          {importMessage.text}
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
         <button
