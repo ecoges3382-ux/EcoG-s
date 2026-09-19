@@ -4,6 +4,13 @@ import { generateAccessCode } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 
+// Dernier mot du nom complet de l'élève = nom de famille présumé, utilisé
+// pour pré-remplir la recherche de parent existant (fratrie).
+function familyNameOf(name) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
+}
+
 export default function NewStudentModal({ schoolId, niveaux, canManageParents, onClose, onCreated }) {
   const [fullName, setFullName] = useState('');
   const [niveau, setNiveau] = useState(niveaux[0]);
@@ -18,6 +25,7 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
   const [parentMode, setParentMode] = useState('new');
   const [existingParents, setExistingParents] = useState(null);
   const [existingParentId, setExistingParentId] = useState('');
+  const [parentSearch, setParentSearch] = useState('');
   const [parentName, setParentName] = useState('');
   const [parentAccessDial, setParentAccessDial] = useState(COUNTRIES[0].dial);
   const [parentAccessLocal, setParentAccessLocal] = useState('');
@@ -29,9 +37,12 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
     if (!canManageParents) return;
     supabase.from('parent_access').select('id, full_name, code').order('full_name').then(({ data }) => {
       setExistingParents(data || []);
-      if (data?.length) setExistingParentId(data[0].id);
     });
   }, [canManageParents]);
+
+  const filteredParents = (existingParents || []).filter((p) =>
+    p.full_name.toLowerCase().includes(parentSearch.trim().toLowerCase())
+  );
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -204,7 +215,10 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
                 <button
                   type="button"
                   key={m.id}
-                  onClick={() => setParentMode(m.id)}
+                  onClick={() => {
+                    setParentMode(m.id);
+                    if (m.id === 'existing') setParentSearch(familyNameOf(fullName));
+                  }}
                   style={{
                     flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
                     border: `1px solid ${parentMode === m.id ? 'var(--forest)' : 'var(--line-strong)'}`,
@@ -231,9 +245,38 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
                 {existingParents === null && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Chargement…</p>}
                 {existingParents?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun parent existant dans cette école pour l'instant.</p>}
                 {existingParents?.length > 0 && (
-                  <select value={existingParentId} onChange={(e) => setExistingParentId(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }}>
-                    {existingParents.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.code})</option>)}
-                  </select>
+                  <>
+                    <input
+                      value={parentSearch}
+                      onChange={(e) => setParentSearch(e.target.value)}
+                      placeholder="Rechercher par nom de famille…"
+                      style={inputStyle}
+                    />
+                    <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, marginBottom: 18 }}>
+                      {filteredParents.length === 0 && (
+                        <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0, padding: '10px 12px' }}>
+                          Aucun parent ne correspond à « {parentSearch} ».
+                        </p>
+                      )}
+                      {filteredParents.map((p, i) => (
+                        <button
+                          type="button"
+                          key={p.id}
+                          onClick={() => setExistingParentId(p.id)}
+                          style={{
+                            display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none',
+                            borderBottom: i < filteredParents.length - 1 ? '1px solid var(--line)' : 'none',
+                            cursor: 'pointer', fontSize: 13.5,
+                            background: existingParentId === p.id ? 'var(--forest-light)' : 'transparent',
+                            color: existingParentId === p.id ? 'var(--forest-dark)' : 'var(--ink)',
+                            fontWeight: existingParentId === p.id ? 600 : 400,
+                          }}
+                        >
+                          {p.full_name} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({p.code})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 )}
               </>
             )}
