@@ -838,3 +838,12 @@ create policy "student_guardians: le personnel lit sa propre école" on student_
     student_school_id(student_guardians.student_id) = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
   );
+
+-- ---------- Migration 9 : identification par numéro de téléphone ----------
+-- En plus de l'e-mail, un compte (personnel ou parent) peut désormais se
+-- connecter avec son numéro de téléphone + mot de passe. Le numéro est posé
+-- directement sur auth.users (via les Edge Functions manage-*-account, en
+-- format E.164, confirmé d'office comme l'e-mail) ; cette colonne n'est
+-- qu'une copie de confort pour l'affichage, comme profiles.email.
+
+alter table profiles add column if not exists phone text;

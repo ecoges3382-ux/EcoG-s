@@ -112,7 +112,7 @@ function StaffAccounts() {
                 </div>
                 <div>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{a.full_name}</p>
-                  <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email || '—'}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email || '—'}{a.phone ? ` · ${a.phone}` : ''}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -153,6 +153,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState(CREATABLE_STAFF_ROLES[0]);
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -170,7 +171,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
     setSubmitting(true);
     setError('');
     const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', {
-      body: { action: 'create', full_name: fullName.trim(), email: email.trim(), password, role },
+      body: { action: 'create', full_name: fullName.trim(), email: email.trim(), phone: phone.trim(), password, role },
     });
     setSubmitting(false);
     if (fnError || data?.error) {
@@ -193,6 +194,9 @@ function NewStaffAccountModal({ onClose, onCreated }) {
 
         <label style={labelStyle}>E-mail</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+
+        <label style={labelStyle}>Téléphone (facultatif — permet aussi de se connecter par téléphone)</label>
+        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="97 00 00 00" style={inputStyle} />
 
         <label style={labelStyle}>Mot de passe</label>
         <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
@@ -276,7 +280,7 @@ function ParentAccounts() {
                   </div>
                   <div>
                     <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{a.full_name}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email} · {children.length ? children.join(', ') : 'aucun enfant relié'}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email}{a.phone ? ` · ${a.phone}` : ''} · {children.length ? children.join(', ') : 'aucun enfant relié'}</p>
                   </div>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); handleDelete(a); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
@@ -397,6 +401,7 @@ function NewParentAccountModal({ onClose, onCreated }) {
 
 function EditAccountModal({ account, functionName, onClose, onSaved }) {
   const [email, setEmail] = useState(account.email || '');
+  const [phone, setPhone] = useState(account.phone || '');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -413,7 +418,7 @@ function EditAccountModal({ account, functionName, onClose, onSaved }) {
     }
     setSubmitting(true);
     setError('');
-    const body = { action: 'update', profileId: account.id, email: email.trim() };
+    const body = { action: 'update', profileId: account.id, email: email.trim(), phone: phone.trim() };
     if (password) body.password = password;
     const { data, error: fnError } = await supabase.functions.invoke(functionName, { body });
     setSubmitting(false);
@@ -429,6 +434,9 @@ function EditAccountModal({ account, functionName, onClose, onSaved }) {
       <form onSubmit={handleSubmit}>
         <label style={labelStyle}>E-mail</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+
+        <label style={labelStyle}>Téléphone (facultatif — permet aussi de se connecter par téléphone)</label>
+        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="97 00 00 00" style={inputStyle} />
 
         <label style={labelStyle}>Nouveau mot de passe</label>
         <PasswordInput

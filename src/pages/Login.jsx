@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
+import { formatPhoneE164 } from '../lib/utils.js';
 
 export default function Login() {
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
+  const [method, setMethod] = useState('email');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -14,7 +16,8 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSubmitting(true);
-    const { error: signInError } = await signIn(email.trim(), password);
+    const value = method === 'email' ? identifier.trim() : formatPhoneE164(identifier);
+    const { error: signInError } = await signIn(value, password);
     setSubmitting(false);
     if (signInError) {
       setError('Identifiant ou mot de passe incorrect.');
@@ -31,13 +34,32 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '26px 24px' }}>
-          <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>E-mail</p>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {[{ id: 'email', label: 'E-mail' }, { id: 'phone', label: 'Téléphone' }].map((m) => (
+              <button
+                type="button"
+                key={m.id}
+                onClick={() => { setMethod(m.id); setIdentifier(''); }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  border: `1px solid ${method === m.id ? 'var(--forest)' : 'var(--line-strong)'}`,
+                  background: method === m.id ? 'var(--forest)' : 'var(--paper)',
+                  color: method === m.id ? '#fff' : 'var(--ink)',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+            {method === 'email' ? 'E-mail' : 'Téléphone'}
+          </p>
           <input
-            type="email"
+            type={method === 'email' ? 'email' : 'tel'}
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="vous@ecole.bj"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder={method === 'email' ? 'vous@ecole.bj' : '97 00 00 00'}
             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 16, boxSizing: 'border-box', color: 'var(--ink)' }}
           />
           <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>

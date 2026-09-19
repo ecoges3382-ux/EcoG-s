@@ -13,6 +13,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const ALLOWED_ROLES = ['directeur', 'secretaire', 'enseignant'];
 
+// Même logique que formatPhoneE164 côté frontend (src/lib/utils.js) —
+// dupliquée ici car les Edge Functions tournent dans un runtime Deno
+// séparé, sans accès au code du frontend.
+function formatPhoneE164(raw: string, defaultCountryCode = '229'): string {
+  const cleaned = String(raw || '').replace(/[^\d+]/g, '');
+  if (!cleaned) return '';
+  if (cleaned.startsWith('+')) return cleaned;
+  return `+${defaultCountryCode}${cleaned.replace(/^0+/, '')}`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -79,9 +89,9 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === 'update') {
-      const { profileId, email, password } = body;
+      const { profileId, email, password, phone } = body;
       if (!profileId) throw new Error('profileId manquant.');
-      if (!email && !password) throw new Error('Rien à modifier.');
+      if (!email && !password && !phone) throw new Error('Rien à modifier.');
       if (password && String(password).length < 8) throw new Error('Mot de passe trop court (8 caractères minimum).');
 
       const { data: target, error: targetError } = await adminClient
@@ -95,12 +105,17 @@ Deno.serve(async (req) => {
       const authUpdate: Record<string, unknown> = {};
       if (email) { authUpdate.email = email; authUpdate.email_confirm = true; }
       if (password) authUpdate.password = password;
+      const formattedPhone = phone ? formatPhoneE164(phone) : null;
+      if (formattedPhone) { authUpdate.phone = formattedPhone; authUpdate.phone_confirm = true; }
 
       const { error: updateAuthError } = await adminClient.auth.admin.updateUserById(profileId, authUpdate);
       if (updateAuthError) throw new Error(updateAuthError.message);
 
-      if (email) {
-        const { error: updateProfileError } = await adminClient.from('profiles').update({ email }).eq('id', profileId);
+      const profileUpdate: Record<string, unknown> = {};
+      if (email) profileUpdate.email = email;
+      if (formattedPhone) profileUpdate.phone = formattedPhone;
+      if (Object.keys(profileUpdate).length) {
+        const { error: updateProfileError } = await adminClient.from('profiles').update(profileUpdate).eq('id', profileId);
         if (updateProfileError) throw new Error(updateProfileError.message);
       }
 
@@ -108,15 +123,17 @@ Deno.serve(async (req) => {
     }
 
     // action par défaut : "create"
-    const { full_name, email, password, role } = body;
+    const { full_name, email, password, role, phone } = body;
     if (!full_name || !email || !password || !role) throw new Error('Champs manquants.');
     if (!ALLOWED_ROLES.includes(role)) throw new Error('Rôle invalide.');
     if (String(password).length < 8) throw new Error('Mot de passe trop court (8 caractères minimum).');
 
+    const formattedPhone = phone ? formatPhoneE164(phone) : null;
     const { data: created, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
+      ...(formattedPhone ? { phone: formattedPhone, phone_confirm: true } : {}),
     });
     if (createError) throw new Error(createError.message);
 
@@ -126,6 +143,7 @@ Deno.serve(async (req) => {
       full_name,
       role,
       email,
+      phone: formattedPhone,
     });
     if (insertError) {
       // Compte orphelin sans profil : on annule plutôt que de le laisser traîner.
