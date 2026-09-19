@@ -5,6 +5,20 @@ import { initials, ROLES } from '../lib/utils.js';
 
 const CREATABLE_ROLES = ['directeur', 'secretaire', 'enseignant'];
 
+// supabase-js ne remplit pas `data` quand la fonction répond en erreur (code
+// non-2xx) : il faut relire le corps de la réponse via fnError.context pour
+// récupérer le vrai message, sinon on n'a que "non-2xx status code".
+async function describeFunctionError(fnError) {
+  if (!fnError) return null;
+  try {
+    const body = await fnError.context.json();
+    if (body?.error) return body.error;
+  } catch {
+    // corps non lisible en JSON : on retombe sur le message générique
+  }
+  return fnError.message;
+}
+
 export default function Accounts() {
   const { profile } = useAuth();
   const isFondateur = profile.role === 'fondateur';
@@ -27,7 +41,7 @@ export default function Accounts() {
       body: { action: 'delete', profileId: account.id },
     });
     if (fnError || data?.error) {
-      setError(data?.error || fnError.message);
+      setError(data?.error || (await describeFunctionError(fnError)));
       return;
     }
     reload();
@@ -124,7 +138,7 @@ function NewAccountModal({ onClose, onCreated }) {
     });
     setSubmitting(false);
     if (fnError || data?.error) {
-      setError(data?.error || fnError.message);
+      setError(data?.error || (await describeFunctionError(fnError)));
       return;
     }
     onCreated();
