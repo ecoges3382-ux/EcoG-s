@@ -847,3 +847,37 @@ create policy "student_guardians: le personnel lit sa propre école" on student_
 -- qu'une copie de confort pour l'affichage, comme profiles.email.
 
 alter table profiles add column if not exists phone text;
+
+-- ---------- Migration 10 : "Créer une école" par téléphone (code SMS) ----------
+-- Rejoue provision_school pour aussi reporter le téléphone du fondateur
+-- (le formulaire d'auto-inscription accepte maintenant l'un ou l'autre),
+-- exactement comme l'e-mail l'était déjà depuis la Migration 4.
+
+create or replace function provision_school(p_school_name text, p_full_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_school_id uuid;
+  v_email text;
+  v_phone text;
+begin
+  if auth.uid() is null then
+    raise exception 'Non authentifié';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Un profil existe déjà pour cet utilisateur';
+  end if;
+
+  select email, phone into v_email, v_phone from auth.users where id = auth.uid();
+
+  insert into schools (name) values (p_school_name) returning id into v_school_id;
+
+  insert into profiles (id, school_id, full_name, role, email, phone)
+  values (auth.uid(), v_school_id, p_full_name, 'fondateur', v_email, v_phone);
+
+  return v_school_id;
+end;
+$$;
