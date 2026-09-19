@@ -37,7 +37,7 @@ button:active { transform: scale(0.98); }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
 ::selection { background: var(--ink); color: #fff; }
 input { caret-color: #000; }
-.navlink { transition: background 0.1s; }
+.navlink { transition: background 0.1s; text-decoration: none; color: inherit; }
 .navlink:hover { background: rgba(255,255,255,0.08) !important; }
 .card { background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); }
 .card-bold { background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); }
