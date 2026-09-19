@@ -78,6 +78,35 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true });
     }
 
+    if (body.action === 'update') {
+      const { profileId, email, password } = body;
+      if (!profileId) throw new Error('profileId manquant.');
+      if (!email && !password) throw new Error('Rien à modifier.');
+      if (password && String(password).length < 8) throw new Error('Mot de passe trop court (8 caractères minimum).');
+
+      const { data: target, error: targetError } = await adminClient
+        .from('profiles')
+        .select('school_id')
+        .eq('id', profileId)
+        .single();
+      if (targetError || !target) throw new Error('Compte introuvable.');
+      if (target.school_id !== callerProfile.school_id) throw new Error("Ce compte n'appartient pas à votre école.");
+
+      const authUpdate: Record<string, unknown> = {};
+      if (email) { authUpdate.email = email; authUpdate.email_confirm = true; }
+      if (password) authUpdate.password = password;
+
+      const { error: updateAuthError } = await adminClient.auth.admin.updateUserById(profileId, authUpdate);
+      if (updateAuthError) throw new Error(updateAuthError.message);
+
+      if (email) {
+        const { error: updateProfileError } = await adminClient.from('profiles').update({ email }).eq('id', profileId);
+        if (updateProfileError) throw new Error(updateProfileError.message);
+      }
+
+      return jsonResponse({ ok: true });
+    }
+
     // action par défaut : "create"
     const { full_name, email, password, role } = body;
     if (!full_name || !email || !password || !role) throw new Error('Champs manquants.');

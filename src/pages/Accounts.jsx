@@ -54,6 +54,7 @@ function StaffAccounts() {
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
 
   async function reload() {
     const { data, error: fetchError } = await supabase.from('profiles').select('*').order('full_name');
@@ -100,7 +101,11 @@ function StaffAccounts() {
       {accounts && (
         <div className="card-bold" style={{ overflow: 'hidden' }}>
           {accounts.map((a, i) => (
-            <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < accounts.length - 1 ? '1px solid var(--line)' : 'none' }}>
+            <div
+              key={a.id}
+              onClick={() => setEditingAccount(a)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < accounts.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: 'var(--forest)', flexShrink: 0 }}>
                   {initials(a.full_name)}
@@ -115,7 +120,7 @@ function StaffAccounts() {
                   {ROLES[a.role]?.label || a.role}
                 </span>
                 {a.role !== 'fondateur' && a.id !== profile.id && (
-                  <button onClick={() => handleDelete(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(a); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
                     <i className="ti ti-trash" style={{ fontSize: 16 }} aria-hidden="true"></i>
                   </button>
                 )}
@@ -129,6 +134,15 @@ function StaffAccounts() {
         <NewStaffAccountModal
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
+        />
+      )}
+
+      {editingAccount && (
+        <EditAccountModal
+          account={editingAccount}
+          functionName="manage-staff-account"
+          onClose={() => setEditingAccount(null)}
+          onSaved={() => { setEditingAccount(null); reload(); }}
         />
       )}
     </div>
@@ -198,6 +212,7 @@ function ParentAccounts() {
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
 
   async function reload() {
     const { data, error: fetchError } = await supabase
@@ -250,7 +265,11 @@ function ParentAccounts() {
           {accounts.map((a, i) => {
             const children = (a.student_guardians || []).map((sg) => sg.students?.full_name).filter(Boolean);
             return (
-              <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < accounts.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div
+                key={a.id}
+                onClick={() => setEditingAccount(a)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < accounts.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer' }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
                     {initials(a.full_name)}
@@ -260,7 +279,7 @@ function ParentAccounts() {
                     <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email} · {children.length ? children.join(', ') : 'aucun enfant relié'}</p>
                   </div>
                 </div>
-                <button onClick={() => handleDelete(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(a); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
                   <i className="ti ti-trash" style={{ fontSize: 16 }} aria-hidden="true"></i>
                 </button>
               </div>
@@ -274,6 +293,15 @@ function ParentAccounts() {
         <NewParentAccountModal
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
+        />
+      )}
+
+      {editingAccount && (
+        <EditAccountModal
+          account={editingAccount}
+          functionName="manage-parent-account"
+          onClose={() => setEditingAccount(null)}
+          onSaved={() => { setEditingAccount(null); reload(); }}
         />
       )}
     </div>
@@ -362,6 +390,58 @@ function NewParentAccountModal({ onClose, onCreated }) {
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Créer" submittingLabel="Création…" />
+      </form>
+    </ModalShell>
+  );
+}
+
+function EditAccountModal({ account, functionName, onClose, onSaved }) {
+  const [email, setEmail] = useState(account.email || '');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!email.trim()) {
+      setError("L'e-mail est obligatoire.");
+      return;
+    }
+    if (password && password.length < 8) {
+      setError('Le nouveau mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    const body = { action: 'update', profileId: account.id, email: email.trim() };
+    if (password) body.password = password;
+    const { data, error: fnError } = await supabase.functions.invoke(functionName, { body });
+    setSubmitting(false);
+    if (fnError || data?.error) {
+      setError(data?.error || (await describeFunctionError(fnError)));
+      return;
+    }
+    onSaved();
+  }
+
+  return (
+    <ModalShell title={`Modifier — ${account.full_name}`} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <label style={labelStyle}>E-mail</label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+
+        <label style={labelStyle}>Nouveau mot de passe</label>
+        <PasswordInput
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          minLength={8}
+          placeholder="Laisser vide pour ne pas changer"
+          style={{ ...inputStyle, marginBottom: 18 }}
+        />
+
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+
+        <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
       </form>
     </ModalShell>
   );
