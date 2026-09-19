@@ -3,20 +3,36 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { fmt, initials } from '../lib/utils.js';
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function Dashboard() {
   const [students, setStudents] = useState(null);
+  const [absentsAujourdhui, setAbsentsAujourdhui] = useState(0);
+  const [paiementsDuJour, setPaiementsDuJour] = useState({ montant: 0, count: 0 });
+  const [revenusDuMois, setRevenusDuMois] = useState(0);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from('students')
-      .select('id, full_name, niveau, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye')
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return;
-        if (fetchError) setError(fetchError.message);
-        else setStudents(data);
-      });
+    const today = todayIso();
+    const debutMois = `${today.slice(0, 7)}-01`;
+
+    Promise.all([
+      supabase.from('students').select('id, full_name, niveau, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye'),
+      supabase.from('attendance_records').select('id', { count: 'exact', head: true }).eq('date', today).eq('statut', 'absent'),
+      supabase.from('payments').select('montant').eq('date', today),
+      supabase.from('payments').select('montant').gte('date', debutMois),
+    ]).then(([studentsRes, absentsRes, todayPayRes, monthPayRes]) => {
+      if (cancelled) return;
+      if (studentsRes.error) { setError(studentsRes.error.message); return; }
+      setStudents(studentsRes.data);
+      setAbsentsAujourdhui(absentsRes.count || 0);
+      const todayRows = todayPayRes.data || [];
+      setPaiementsDuJour({ montant: todayRows.reduce((a, p) => a + Number(p.montant), 0), count: todayRows.length });
+      setRevenusDuMois((monthPayRes.data || []).reduce((a, p) => a + Number(p.montant), 0));
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -66,7 +82,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 26 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Encaissé</p>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--success)' }}>{fmt(totalPaye)} F</p>
@@ -78,6 +94,22 @@ export default function Dashboard() {
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Élèves</p>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700 }}>{students.length}</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 26 }}>
+        <div className="card-bold" style={{ padding: '16px 18px' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Absents aujourd'hui</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: absentsAujourdhui > 0 ? 'var(--danger)' : 'var(--ink)' }}>{absentsAujourdhui}</p>
+        </div>
+        <div className="card-bold" style={{ padding: '16px 18px' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Paiements du jour</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700 }}>{fmt(paiementsDuJour.montant)} F</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{paiementsDuJour.count} paiement{paiementsDuJour.count > 1 ? 's' : ''}</p>
+        </div>
+        <div className="card-bold" style={{ padding: '16px 18px' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Revenus du mois</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--success)' }}>{fmt(revenusDuMois)} F</p>
         </div>
       </div>
 

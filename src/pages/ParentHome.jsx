@@ -4,12 +4,15 @@ import { fmt, initials } from '../lib/utils.js';
 
 export default function ParentHome() {
   const [students, setStudents] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
     // La RLS ("students: select (parent)") ne renvoie déjà que les enfants
-    // liés à ce compte — pas besoin de filtrer côté client.
+    // liés à ce compte — pas besoin de filtrer côté client. Idem pour les
+    // annonces ("announcements: select (parent)") : école entière, ou la
+    // classe d'un des enfants du compte.
     supabase
       .from('students')
       .select('*')
@@ -21,6 +24,12 @@ export default function ParentHome() {
           if (data?.length) setSelectedId(data[0].id);
         }
       });
+    supabase
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => setAnnouncements(data || []));
   }, []);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
@@ -98,6 +107,20 @@ export default function ParentHome() {
           </span>
         </div>
       </div>
+
+      {announcements.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <p style={{ margin: '0 0 10px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600 }}>Annonces</p>
+          <div className="card-bold" style={{ overflow: 'hidden' }}>
+            {announcements.map((a, i) => (
+              <div key={a.id} style={{ padding: '12px 18px', borderBottom: i < announcements.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <p style={{ margin: '0 0 3px', fontSize: 13.5, fontWeight: 600 }}>{a.titre}</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{a.auteur} · {a.role}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

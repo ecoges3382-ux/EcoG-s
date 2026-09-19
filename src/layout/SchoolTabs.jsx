@@ -10,6 +10,8 @@ const TABS = [
   { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time' },
   { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check' },
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
+  { to: '/documents', label: 'Documents', icon: 'ti-file' },
+  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar' },
 ];
 
 // Barre de sous-onglets visible seulement en dessous de 780px (voir

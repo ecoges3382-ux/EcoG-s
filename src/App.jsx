@@ -17,6 +17,8 @@ import Grades from './pages/Grades.jsx';
 import Attendance from './pages/Attendance.jsx';
 import Schedule from './pages/Schedule.jsx';
 import Announce from './pages/Announce.jsx';
+import Documents from './pages/Documents.jsx';
+import Reports from './pages/Reports.jsx';
 import Settings from './pages/Settings.jsx';
 import Money from './pages/Money.jsx';
 import Accounts from './pages/Accounts.jsx';
@@ -95,6 +97,8 @@ function RoleRouter() {
         <Route path="emploi-du-temps" element={<Schedule />} />
         <Route path="presences" element={<Attendance />} />
         <Route path="annonces" element={<Announce />} />
+        <Route path="documents" element={<Documents />} />
+        <Route path="rapports" element={<Reports />} />
         <Route path="parametres" element={<Settings />} />
         <Route path="comptes" element={<Accounts />} />
       </Route>

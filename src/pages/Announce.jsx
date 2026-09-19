@@ -7,15 +7,23 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 export default function Announce() {
   const { profile } = useAuth();
   const [items, setItems] = useState(null);
+  const [niveaux, setNiveaux] = useState([]);
   const [error, setError] = useState('');
   const [portee, setPortee] = useState('École entière');
+  const [classeCible, setClasseCible] = useState('');
   const [titre, setTitre] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   async function reload() {
-    const { data, error: fetchError } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+    const [{ data, error: fetchError }, { data: students }] = await Promise.all([
+      supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+      supabase.from('students').select('niveau'),
+    ]);
     if (fetchError) setError(fetchError.message);
     else setItems(data);
+    const distinctNiveaux = [...new Set((students || []).map((s) => s.niveau))].sort();
+    setNiveaux(distinctNiveaux);
+    if (!classeCible && distinctNiveaux.length) setClasseCible(distinctNiveaux[0]);
   }
 
   useEffect(() => { reload(); }, []);
@@ -23,12 +31,18 @@ export default function Announce() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!titre.trim()) return;
+    if (portee === 'Une classe' && !classeCible) {
+      setError('Choisis une classe.');
+      return;
+    }
     setSubmitting(true);
+    setError('');
     const { error: insertError } = await supabase.from('announcements').insert({
       school_id: profile.school_id,
       auteur: profile.full_name,
       role: ROLES[profile.role]?.label || profile.role,
       portee,
+      classe_cible: portee === 'Une classe' ? classeCible : null,
       titre: titre.trim(),
     });
     setSubmitting(false);
@@ -52,7 +66,7 @@ export default function Announce() {
 
       <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '20px 22px', marginBottom: 20, maxWidth: 640 }}>
         <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>Nouvelle annonce — en tant que {ROLES[profile.role]?.label || profile.role}</p>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           {['École entière', 'Une classe'].map((p) => (
             <button
               type="button" key={p} onClick={() => setPortee(p)}
@@ -61,6 +75,12 @@ export default function Announce() {
               {p}
             </button>
           ))}
+          {portee === 'Une classe' && (
+            <select value={classeCible} onChange={(e) => setClasseCible(e.target.value)} style={{ padding: '7px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
+              {niveaux.length === 0 && <option value="">Aucune classe</option>}
+              {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          )}
         </div>
         <input
           value={titre}
@@ -84,7 +104,9 @@ export default function Announce() {
             {items.map((a, i) => (
               <div key={a.id} style={{ padding: '14px 20px', borderBottom: i < items.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>{a.portee}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
+                    {a.portee === 'Une classe' && a.classe_cible ? `${a.classe_cible}` : a.portee}
+                  </span>
                   <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>{timeAgo(a.created_at)}</span>
                 </div>
                 <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 600 }}>{a.titre}</p>

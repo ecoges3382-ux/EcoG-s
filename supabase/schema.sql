@@ -733,3 +733,80 @@ drop trigger if exists trg_recompute_student_paye on payments;
 create trigger trg_recompute_student_paye
 after insert or update or delete on payments
 for each row execute function recompute_student_paye();
+
+-- ---------- Migration 7 : Communication (parents), Documents, Rapports ----------
+
+-- Communication : les annonces existent depuis la Migration 2, mais deux
+-- trous subsistaient — "Une classe" ne précisait jamais LAQUELLE (colonne
+-- manquante), et un compte parent ne pouvait de toute façon rien lire du
+-- tout (la policy select de la Migration 5 ne couvre que le personnel).
+-- On ajoute la classe ciblée et le droit de lecture du parent, limité aux
+-- annonces qui le concernent (école entière, ou la classe de son enfant).
+
+alter table announcements add column if not exists classe_cible text;
+
+create policy "announcements: select (parent)" on announcements
+  for select using (
+    exists (
+      select 1 from student_guardians sg
+      join students s on s.id = sg.student_id
+      where sg.parent_profile_id = auth.uid()
+        and s.school_id = announcements.school_id
+        and (announcements.portee = 'École entière' or announcements.classe_cible = s.niveau)
+    )
+  );
+
+-- Documents : circulaires et fichiers partagés par le personnel, visibles
+-- par tout le monde dans l'école (y compris les parents — un formulaire ou
+-- une circulaire n'a pas besoin d'être filtré par enfant).
+
+create table if not exists documents (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  titre text not null,
+  file_url text not null,
+  uploaded_by text,
+  created_at timestamptz not null default now()
+);
+alter table documents enable row level security;
+
+create policy "documents: select (personnel)" on documents
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "documents: select (parent)" on documents
+  for select using (
+    exists (
+      select 1 from profiles p
+      where p.id = auth.uid() and p.role = 'parent' and p.school_id = documents.school_id
+    )
+  );
+create policy "documents: insert" on documents
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "documents: delete" on documents
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+insert into storage.buckets (id, name, public)
+values ('documents', 'documents', true)
+on conflict (id) do nothing;
+
+create policy "documents-bucket: lecture publique" on storage.objects
+  for select using (bucket_id = 'documents');
+create policy "documents-bucket: dépôt par école" on storage.objects
+  for insert with check (
+    bucket_id = 'documents' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+create policy "documents-bucket: suppression par école" on storage.objects
+  for delete using (
+    bucket_id = 'documents' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+
+-- Rapports : lecture seule, réutilise les policies select déjà en place sur
+-- students/staff/classes/payments — rien à ajouter ici.
