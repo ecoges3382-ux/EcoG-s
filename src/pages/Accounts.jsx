@@ -24,8 +24,17 @@ async function describeFunctionError(fnError) {
 
 const TABS = [
   { id: 'staff', label: 'Comptes utilisateurs' },
-  { id: 'parents', label: 'Comptes parents' },
+  { id: 'parents', label: 'Accès parents' },
 ];
+
+// Alphabet sans caractères ambigus (pas de 0/O, 1/I/L) — le code doit
+// rester lisible et saisissable facilement depuis un téléphone.
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateAccessCode(length = 8) {
+  const bytes = new Uint32Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (n) => CODE_ALPHABET[n % CODE_ALPHABET.length]).join('');
+}
 
 export default function Accounts() {
   const [tab, setTab] = useState('staff');
@@ -43,7 +52,7 @@ export default function Accounts() {
           </button>
         ))}
       </div>
-      {tab === 'staff' ? <StaffAccounts /> : <ParentAccounts />}
+      {tab === 'staff' ? <StaffAccounts /> : <ParentAccessTab />}
     </div>
   );
 }
@@ -101,7 +110,10 @@ function StaffAccounts() {
       {!accounts && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {accounts && (
-        <div className="card-bold" style={{ overflow: 'hidden' }}>
+        // overflowX seul (pas overflow tout court) : coupe le débordement
+        // horizontal pour garder les coins arrondis propres, sans couper
+        // verticalement le petit menu déroulant qui s'ouvre sous chaque ligne.
+        <div className="card-bold" style={{ overflowX: 'hidden' }}>
           {accounts.map((a, i) => (
             <AccountRow
               key={a.id}
@@ -203,45 +215,60 @@ function NewStaffAccountModal({ onClose, onCreated }) {
   );
 }
 
-function ParentAccounts() {
+function ParentAccessTab() {
   const { profile } = useAuth();
   const canManage = PARENT_MANAGER_ROLES.includes(profile.role);
 
-  const [accounts, setAccounts] = useState(null);
+  const [accesses, setAccesses] = useState(null);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [menuForId, setMenuForId] = useState(null);
-  const [editing, setEditing] = useState(null); // { account, field }
+  const [editingStudents, setEditingStudents] = useState(null); // access
+  const [copiedId, setCopiedId] = useState(null);
 
   async function reload() {
     const { data, error: fetchError } = await supabase
-      .from('profiles')
-      .select('*, student_guardians ( students ( id, full_name ) )')
-      .eq('role', 'parent')
+      .from('parent_access')
+      .select('*, parent_access_students ( students ( id, full_name ) )')
       .order('full_name');
     if (fetchError) setError(fetchError.message);
-    else setAccounts(data);
+    else setAccesses(data);
   }
 
   useEffect(() => { reload(); }, []);
 
-  async function handleDelete(account) {
-    if (!window.confirm(`Supprimer le compte de ${account.full_name} ? Cette action est définitive.`)) return;
-    const { data, error: fnError } = await supabase.functions.invoke('manage-parent-account', {
-      body: { action: 'delete', profileId: account.id },
-    });
-    if (fnError || data?.error) {
-      setError(data?.error || (await describeFunctionError(fnError)));
-      return;
+  async function handleDelete(access) {
+    if (!window.confirm(`Supprimer l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner.`)) return;
+    const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', access.id);
+    if (deleteError) setError(deleteError.message);
+    else reload();
+  }
+
+  async function handleRegenerate(access) {
+    if (!window.confirm(`Régénérer le code de ${access.full_name} ? L'ancien lien cessera immédiatement de fonctionner.`)) return;
+    let done = false;
+    for (let attempt = 0; attempt < 5 && !done; attempt++) {
+      const { error: updateError } = await supabase.from('parent_access').update({ code: generateAccessCode() }).eq('id', access.id);
+      if (!updateError) { done = true; break; }
+      if (updateError.code !== '23505') { setError(updateError.message); return; }
     }
+    if (!done) { setError('Impossible de régénérer le code, réessaie.'); return; }
     reload();
+  }
+
+  function copyLink(access) {
+    const url = `${window.location.origin}/parent-access?code=${access.code}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedId(access.id);
+      setTimeout(() => setCopiedId((id) => (id === access.id ? null : id)), 1600);
+    });
   }
 
   if (!canManage) {
     return (
       <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
         <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
-          Seuls le fondateur, le directeur et la secrétaire peuvent créer ou supprimer des comptes parents.
+          Seuls le fondateur, le directeur et la secrétaire peuvent créer ou gérer des accès parents.
         </p>
       </div>
     );
@@ -250,68 +277,61 @@ function ParentAccounts() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Rattachés à un ou plusieurs élèves — ils ne voient que leurs propres enfants.</p>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Un code par parent, à partager par lien ou message — pas de compte, pas de mot de passe.</p>
         <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0 }}>
-          <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouveau compte parent
+          <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouvel accès parent
         </button>
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
-      {!accounts && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!accesses && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
-      {accounts && (
-        <div className="card-bold" style={{ overflow: 'hidden' }}>
-          {accounts.map((a, i) => {
-            const children = (a.student_guardians || []).map((sg) => sg.students?.full_name).filter(Boolean);
-            return (
-              <AccountRow
-                key={a.id}
-                account={a}
-                avatarBg="var(--clay-light)"
-                avatarColor="var(--clay-dark)"
-                subtitle={`${a.email}${a.phone ? ` · ${a.phone}` : ''} · ${children.length ? children.join(', ') : 'aucun enfant relié'}`}
-                isLast={i === accounts.length - 1}
-                menuOpen={menuForId === a.id}
-                onToggleMenu={() => setMenuForId((prev) => (prev === a.id ? null : a.id))}
-                onCloseMenu={() => setMenuForId(null)}
-                onSelectField={(field) => { setMenuForId(null); setEditing({ account: a, field }); }}
-                canDelete
-                onDelete={() => handleDelete(a)}
-              />
-            );
-          })}
-          {accounts.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun compte parent pour l'instant.</p>}
+      {accesses && (
+        <div className="card-bold" style={{ overflowX: 'hidden' }}>
+          {accesses.map((a, i) => (
+            <ParentAccessRow
+              key={a.id}
+              access={a}
+              isLast={i === accesses.length - 1}
+              menuOpen={menuForId === a.id}
+              onToggleMenu={() => setMenuForId((prev) => (prev === a.id ? null : a.id))}
+              onCloseMenu={() => setMenuForId(null)}
+              onCopyLink={() => copyLink(a)}
+              onRegenerate={() => handleRegenerate(a)}
+              onEditStudents={() => setEditingStudents(a)}
+              onDelete={() => handleDelete(a)}
+              copied={copiedId === a.id}
+            />
+          ))}
+          {accesses.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun accès parent pour l'instant.</p>}
         </div>
       )}
 
       {modalOpen && (
-        <NewParentAccountModal
+        <NewParentAccessModal
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
         />
       )}
 
-      {editing && (
-        <EditFieldModal
-          account={editing.account}
-          field={editing.field}
-          functionName="manage-parent-account"
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); reload(); }}
+      {editingStudents && (
+        <EditParentAccessStudentsModal
+          access={editingStudents}
+          onClose={() => setEditingStudents(null)}
+          onSaved={() => { setEditingStudents(null); reload(); }}
         />
       )}
     </div>
   );
 }
 
-function NewParentAccountModal({ onClose, onCreated }) {
+function NewParentAccessModal({ onClose, onCreated }) {
+  const { profile } = useAuth();
   const [students, setStudents] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [fullName, setFullName] = useState('');
   const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
   const [phoneLocal, setPhoneLocal] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -325,52 +345,51 @@ function NewParentAccountModal({ onClose, onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!fullName.trim() || !email.trim() || !password) {
-      setError('Nom, e-mail et mot de passe sont obligatoires.');
+    if (!fullName.trim()) {
+      setError('Le nom est obligatoire.');
       return;
     }
     if (selectedIds.length === 0) {
       setError('Sélectionne au moins un élève.');
       return;
     }
-    if (password.length < 8) {
-      setError('Le mot de passe doit faire au moins 8 caractères.');
-      return;
-    }
     setSubmitting(true);
     setError('');
-    const { data, error: fnError } = await supabase.functions.invoke('manage-parent-account', {
-      body: {
-        action: 'create',
+
+    let created = null;
+    for (let attempt = 0; attempt < 5 && !created; attempt++) {
+      const { data, error: insertError } = await supabase.from('parent_access').insert({
+        school_id: profile.school_id,
         full_name: fullName.trim(),
-        email: email.trim(),
-        password,
-        phone: composePhone(phoneDial, phoneLocal),
-        student_ids: selectedIds,
-      },
-    });
+        phone: composePhone(phoneDial, phoneLocal) || null,
+        code: generateAccessCode(),
+      }).select().single();
+      if (!insertError) { created = data; break; }
+      if (insertError.code !== '23505') { setSubmitting(false); setError(insertError.message); return; }
+      // sinon collision de code (extrêmement rare) : on retente avec un nouveau
+    }
+    if (!created) { setSubmitting(false); setError('Impossible de générer un code unique, réessaie.'); return; }
+
+    const { error: linkError } = await supabase.from('parent_access_students').insert(
+      selectedIds.map((student_id) => ({ parent_access_id: created.id, student_id })),
+    );
     setSubmitting(false);
-    if (fnError || data?.error) {
-      setError(data?.error || (await describeFunctionError(fnError)));
+    if (linkError) {
+      await supabase.from('parent_access').delete().eq('id', created.id);
+      setError(linkError.message);
       return;
     }
     onCreated();
   }
 
   return (
-    <ModalShell title="Nouveau compte parent" onClose={onClose}>
+    <ModalShell title="Nouvel accès parent" onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <label style={labelStyle}>Nom complet</label>
         <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
 
-        <label style={labelStyle}>Téléphone</label>
+        <label style={labelStyle}>Téléphone (facultatif, pour info seulement)</label>
         <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
-
-        <label style={labelStyle}>E-mail</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-
-        <label style={labelStyle}>Mot de passe</label>
-        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={inputStyle} />
 
         <label style={labelStyle}>Élève(s) rattaché(s)</label>
         <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
@@ -389,6 +408,126 @@ function NewParentAccountModal({ onClose, onCreated }) {
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Créer" submittingLabel="Création…" />
       </form>
     </ModalShell>
+  );
+}
+
+function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
+  const [students, setStudents] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(
+    (access.parent_access_students || []).map((row) => row.students?.id).filter(Boolean),
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    supabase.from('students').select('id, full_name, niveau').order('full_name').then(({ data }) => setStudents(data || []));
+  }, []);
+
+  function toggleStudent(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (selectedIds.length === 0) {
+      setError('Sélectionne au moins un élève.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    const { error: deleteError } = await supabase.from('parent_access_students').delete().eq('parent_access_id', access.id);
+    if (deleteError) { setSubmitting(false); setError(deleteError.message); return; }
+    const { error: insertError } = await supabase.from('parent_access_students').insert(
+      selectedIds.map((student_id) => ({ parent_access_id: access.id, student_id })),
+    );
+    setSubmitting(false);
+    if (insertError) { setError(insertError.message); return; }
+    onSaved();
+  }
+
+  return (
+    <ModalShell title={`Enfants rattachés — ${access.full_name}`} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
+          {students === null && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Chargement…</p>}
+          {students?.map((s) => (
+            <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
+              {s.full_name} <span style={{ color: 'var(--muted)' }}>· {s.niveau}</span>
+            </label>
+          ))}
+        </div>
+
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+
+        <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
+      </form>
+    </ModalShell>
+  );
+}
+
+function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, onCopyLink, onRegenerate, onEditStudents, onDelete, copied }) {
+  const children = (access.parent_access_students || []).map((row) => row.students?.full_name).filter(Boolean);
+  return (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+      <div onClick={onToggleMenu} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minWidth: 0, flex: 1 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
+          {initials(access.full_name)}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{access.full_name}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>{access.code}</span> · {children.length ? children.join(', ') : 'aucun enfant relié'}
+          </p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {copied && <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>Copié !</span>}
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+          <TrashIcon />
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }} title="Actions">
+          <GearIcon />
+        </button>
+      </div>
+
+      {menuOpen && (
+        <ParentAccessMenu
+          onCopyLink={onCopyLink}
+          onRegenerate={onRegenerate}
+          onEditStudents={onEditStudents}
+          onClose={onCloseMenu}
+        />
+      )}
+    </div>
+  );
+}
+
+function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onClose }) {
+  const items = [
+    { id: 'copy', label: 'Copier le lien', action: onCopyLink },
+    { id: 'students', label: 'Modifier les enfants rattachés', action: onEditStudents },
+    { id: 'regen', label: 'Régénérer le code', action: onRegenerate },
+  ];
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 20, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 240, overflow: 'hidden' }}
+      >
+        {items.map((it, i) => (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => { it.action(); onClose(); }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', border: 'none', background: 'none', borderBottom: i < items.length - 1 ? '1px solid var(--line)' : 'none' }}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 

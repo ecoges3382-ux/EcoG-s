@@ -3,9 +3,8 @@ import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { supabaseConfigured } from './lib/supabase.js';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
+import ParentAccess from './pages/ParentAccess.jsx';
 import Shell from './layout/Shell.jsx';
-import ParentShell from './layout/ParentShell.jsx';
-import ParentHome from './pages/ParentHome.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
@@ -66,22 +65,7 @@ function RedirectIfAuthed({ children }) {
   return children;
 }
 
-// Les comptes parents n'ont accès qu'à leurs propres enfants : coquille et
-// jeu de routes entièrement séparés du personnel, pas juste un menu réduit.
 function RoleRouter() {
-  const { profile } = useAuth();
-
-  if (profile.role === 'parent') {
-    return (
-      <Routes>
-        <Route path="/" element={<ParentShell />}>
-          <Route index element={<ParentHome />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    );
-  }
-
   return (
     <Routes>
       <Route path="/" element={<Shell />}>
@@ -114,6 +98,7 @@ export default function App() {
       <Routes>
         <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
+        <Route path="/parent-access" element={<ParentAccess />} />
         <Route
           path="/*"
           element={

@@ -881,3 +881,80 @@ begin
   return v_school_id;
 end;
 $$;
+
+-- ---------- Migration 11 : accès parent par code, sans compte ----------
+-- Un parent d'élève n'est pas un membre du personnel : il n'a pas besoin
+-- d'un vrai compte (e-mail/téléphone + mot de passe). On remplace donc les
+-- comptes parents par un simple code d'accès, généré par le personnel et
+-- partagé (lien ou message) : le parent le saisit sur une page publique et
+-- voit directement ses enfants. Aucune de ces deux tables n'accorde le
+-- moindre accès à un utilisateur anonyme — la lecture côté parent passe
+-- entièrement par l'Edge Function parent-portal (clé service_role), qui
+-- vérifie le code elle-même ; ici, seul le personnel (via une session
+-- authentifiée normale) peut gérer ces codes.
+
+create table if not exists parent_access (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  full_name text not null,
+  phone text,
+  code text not null unique,
+  created_at timestamptz not null default now()
+);
+alter table parent_access enable row level security;
+
+create policy "parent_access: select" on parent_access
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "parent_access: insert" on parent_access
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "parent_access: update" on parent_access
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "parent_access: delete" on parent_access
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+create table if not exists parent_access_students (
+  parent_access_id uuid not null references parent_access(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  primary key (parent_access_id, student_id)
+);
+alter table parent_access_students enable row level security;
+
+create policy "parent_access_students: select" on parent_access_students
+  for select using (
+    exists (
+      select 1 from parent_access pa
+      where pa.id = parent_access_students.parent_access_id
+        and pa.school_id = current_school_id()
+        and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    )
+  );
+create policy "parent_access_students: insert" on parent_access_students
+  for insert with check (
+    exists (
+      select 1 from parent_access pa
+      where pa.id = parent_access_students.parent_access_id
+        and pa.school_id = current_school_id()
+        and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    )
+  );
+create policy "parent_access_students: delete" on parent_access_students
+  for delete using (
+    exists (
+      select 1 from parent_access pa
+      where pa.id = parent_access_students.parent_access_id
+        and pa.school_id = current_school_id()
+        and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    )
+  );
