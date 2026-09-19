@@ -16,8 +16,9 @@ function SetupNeeded() {
         <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6 }}>
           Les identifiants Supabase (<code>VITE_SUPABASE_URL</code> et{' '}
           <code>VITE_SUPABASE_ANON_KEY</code>) ne sont pas configurés pour ce
-          déploiement. Ajoutez-les comme secrets du dépôt GitHub, puis
-          relancez le workflow.
+          déploiement. Ajoutez-les dans Vercel (Settings → Environment
+          Variables, cochées pour Production), puis relancez un
+          déploiement.
         </p>
       </div>
     </div>
