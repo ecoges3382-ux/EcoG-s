@@ -185,3 +185,55 @@ end;
 $$;
 
 grant execute on function provision_school(text, text) to authenticated;
+
+-- ---------- Migration 2 : Argent (dépenses), Bulletins, rôles ----------
+-- À exécuter en plus du bloc ci-dessus sur un projet qui a déjà tourné la
+-- première version de ce fichier (ce bloc-ci n'existait pas encore).
+
+alter table students add column if not exists moyenne numeric;
+alter table students add column if not exists bulletin_pret boolean not null default false;
+
+create table if not exists expenses (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  libelle text not null,
+  categorie text not null,
+  montant numeric not null,
+  created_at timestamptz not null default now()
+);
+
+alter table expenses enable row level security;
+
+create policy "expenses: select" on expenses
+  for select using (school_id = current_school_id());
+create policy "expenses: insert" on expenses
+  for insert with check (school_id = current_school_id());
+
+-- Rôle de l'utilisateur courant, pour les policies qui doivent restreindre
+-- une action à certains rôles (pas seulement à la bonne école).
+create or replace function current_role_name()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select role from profiles where id = auth.uid()
+$$;
+
+-- Modifier les paramètres de l'école : réservé au fondateur.
+create policy "schools: le fondateur modifie son école" on schools
+  for update using (id = current_school_id() and current_role_name() = 'fondateur');
+
+-- Statuer sur une avance sur salaire : réservé fondateur/directeur.
+-- Remplace la policy "salary_advances: update" de la migration 1, qui
+-- n'imposait qu'un scoping par école : avec deux policies "update"
+-- permissives, Postgres les combine en OR, donc la première ne
+-- suffisait pas à bloquer un enseignant. On la retire au profit d'une
+-- version qui vérifie aussi le rôle.
+drop policy if exists "salary_advances: update" on salary_advances;
+create policy "salary_advances: fondateur/directeur statuent" on salary_advances
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );

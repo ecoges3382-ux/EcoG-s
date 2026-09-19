@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmt, initials, downloadCsv, NIVEAUX } from '../lib/utils.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
+import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 function statusOf(s) {
   const reste = Number(s.montant_du) - Number(s.montant_paye);
@@ -47,6 +48,7 @@ export default function Students() {
 
   return (
     <div>
+      <SchoolTabs />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Élèves</p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>

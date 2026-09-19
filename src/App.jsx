@@ -7,6 +7,13 @@ import Shell from './layout/Shell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
+import Staff from './pages/Staff.jsx';
+import Grades from './pages/Grades.jsx';
+import Schedule from './pages/Schedule.jsx';
+import Announce from './pages/Announce.jsx';
+import Settings from './pages/Settings.jsx';
+import Parent from './pages/Parent.jsx';
+import Money from './pages/Money.jsx';
 
 function SetupNeeded() {
   return (
@@ -67,8 +74,15 @@ export default function App() {
           }
         >
           <Route index element={<Dashboard />} />
+          <Route path="argent" element={<Money />} />
           <Route path="eleves" element={<Students />} />
           <Route path="eleves/:id" element={<StudentDetail />} />
+          <Route path="personnel" element={<Staff />} />
+          <Route path="bulletins" element={<Grades />} />
+          <Route path="emploi-du-temps" element={<Schedule />} />
+          <Route path="annonces" element={<Announce />} />
+          <Route path="parametres" element={<Settings />} />
+          <Route path="parent" element={<Parent />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

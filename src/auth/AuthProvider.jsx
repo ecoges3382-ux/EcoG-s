@@ -73,6 +73,16 @@ export function AuthProvider({ children }) {
     return created;
   }
 
+  async function refreshProfile() {
+    if (!session?.user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, school_id, schools ( id, name, color, logo_url )')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (data) setProfile(data);
+  }
+
   const value = {
     session,
     user: session?.user ?? null,
@@ -80,6 +90,7 @@ export function AuthProvider({ children }) {
     loading: session === undefined || (session !== null && profileLoading),
     signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
     signOut: () => supabase.auth.signOut(),
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
