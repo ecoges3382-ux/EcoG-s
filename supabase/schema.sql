@@ -149,3 +149,39 @@ create policy "salary_advances: insert" on salary_advances
   for insert with check (school_id = current_school_id());
 create policy "salary_advances: update" on salary_advances
   for update using (school_id = current_school_id());
+
+-- ---------- Inscription en libre-service ----------
+-- Appelée par le frontend juste après qu'un nouvel utilisateur a confirmé
+-- son e-mail. Crée l'école et le profil "fondateur" en une fois. Tourne en
+-- security definer pour pouvoir écrire malgré la RLS (l'utilisateur n'a
+-- encore aucun profil à ce stade, donc current_school_id() renverrait
+-- null et bloquerait un insert normal) — mais elle ne peut créer un profil
+-- que pour l'utilisateur authentifié qui l'appelle (auth.uid()), jamais
+-- pour quelqu'un d'autre, et refuse si un profil existe déjà.
+
+create or replace function provision_school(p_school_name text, p_full_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_school_id uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Non authentifié';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Un profil existe déjà pour cet utilisateur';
+  end if;
+
+  insert into schools (name) values (p_school_name) returning id into v_school_id;
+
+  insert into profiles (id, school_id, full_name, role)
+  values (auth.uid(), v_school_id, p_full_name, 'fondateur');
+
+  return v_school_id;
+end;
+$$;
+
+grant execute on function provision_school(text, text) to authenticated;

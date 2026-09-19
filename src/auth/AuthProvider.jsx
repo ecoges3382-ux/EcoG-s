@@ -21,22 +21,57 @@ export function AuthProvider({ children }) {
       setProfile(null);
       return;
     }
+    let cancelled = false;
     setProfileLoading(true);
-    supabase
-      .from('profiles')
-      .select('id, full_name, role, school_id, schools ( id, name, color, logo_url )')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('Impossible de charger le profil :', error.message);
-          setProfile(null);
-        } else {
-          setProfile(data);
-        }
+    loadOrProvisionProfile(session.user).then((p) => {
+      if (!cancelled) {
+        setProfile(p);
         setProfileLoading(false);
-      });
+      }
+    });
+    return () => { cancelled = true; };
   }, [session?.user?.id]);
+
+  async function loadOrProvisionProfile(user) {
+    const select = 'id, full_name, role, school_id, schools ( id, name, color, logo_url )';
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(select)
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Impossible de charger le profil :', error.message);
+      return null;
+    }
+    if (data) return data;
+
+    // Pas de profil : si ce compte vient du formulaire "Créer une école"
+    // (métadonnées posées au signUp) et que c'est la première connexion
+    // après confirmation de l'e-mail, on crée l'école + le profil fondateur.
+    const meta = user.user_metadata || {};
+    if (!meta.school_name || !meta.full_name) return null;
+
+    const { error: rpcError } = await supabase.rpc('provision_school', {
+      p_school_name: meta.school_name,
+      p_full_name: meta.full_name,
+    });
+    if (rpcError) {
+      console.error('Échec de la création de l\'école :', rpcError.message);
+      return null;
+    }
+
+    const { data: created, error: reloadError } = await supabase
+      .from('profiles')
+      .select(select)
+      .eq('id', user.id)
+      .maybeSingle();
+    if (reloadError) {
+      console.error('Impossible de recharger le profil créé :', reloadError.message);
+      return null;
+    }
+    return created;
+  }
 
   const value = {
     session,

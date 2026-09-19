@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { supabaseConfigured } from './lib/supabase.js';
 import Login from './pages/Login.jsx';
+import SignUp from './pages/SignUp.jsx';
 import Shell from './layout/Shell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
@@ -55,6 +56,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+        <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
         <Route
           path="/"
           element={

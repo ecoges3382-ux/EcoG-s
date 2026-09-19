@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 
 export default function Login() {
@@ -58,6 +59,10 @@ export default function Login() {
             {submitting ? 'Connexion…' : 'Continuer'}
           </button>
         </form>
+
+        <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
+          Nouvelle école ? <Link to="/inscription" style={{ color: 'var(--forest)', fontWeight: 600 }}>Créer une école</Link>
+        </p>
       </div>
     </div>
   );
