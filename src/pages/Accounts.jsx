@@ -502,10 +502,10 @@ function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onClose })
   ];
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 29 }} />
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 20, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 240, overflow: 'hidden' }}
+        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 30, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 240, overflow: 'hidden' }}
       >
         {items.map((it, i) => (
           <button
@@ -566,10 +566,10 @@ function AccountActionsMenu({ onSelect, onClose }) {
   ];
   return (
     <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 29 }} />
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 20, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 230, overflow: 'hidden' }}
+        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 30, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 230, overflow: 'hidden' }}
       >
         {items.map((it, i) => (
           <button
