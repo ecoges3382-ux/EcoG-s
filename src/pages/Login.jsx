@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
-import { formatPhoneE164 } from '../lib/utils.js';
+import PhoneInput, { COUNTRIES, composePhone } from '../components/PhoneInput.jsx';
 
 export default function Login() {
   const { signIn } = useAuth();
   const [method, setMethod] = useState('email');
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
+  const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -15,8 +17,12 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    const value = method === 'email' ? email.trim() : composePhone(phoneDial, phoneLocal);
+    if (!value) {
+      setError(method === 'email' ? "L'e-mail est obligatoire." : 'Le numéro de téléphone est obligatoire.');
+      return;
+    }
     setSubmitting(true);
-    const value = method === 'email' ? identifier.trim() : formatPhoneE164(identifier);
     const { error: signInError } = await signIn(value, password);
     setSubmitting(false);
     if (signInError) {
@@ -39,7 +45,7 @@ export default function Login() {
               <button
                 type="button"
                 key={m.id}
-                onClick={() => { setMethod(m.id); setIdentifier(''); }}
+                onClick={() => { setMethod(m.id); setEmail(''); setPhoneLocal(''); }}
                 style={{
                   flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
                   border: `1px solid ${method === m.id ? 'var(--forest)' : 'var(--line-strong)'}`,
@@ -54,14 +60,24 @@ export default function Login() {
           <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             {method === 'email' ? 'E-mail' : 'Téléphone'}
           </p>
-          <input
-            type={method === 'email' ? 'email' : 'tel'}
-            required
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            placeholder={method === 'email' ? 'vous@ecole.bj' : '97 00 00 00'}
-            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 16, boxSizing: 'border-box', color: 'var(--ink)' }}
-          />
+          {method === 'email' ? (
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@ecole.bj"
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 16, boxSizing: 'border-box', color: 'var(--ink)' }}
+            />
+          ) : (
+            <PhoneInput
+              dial={phoneDial}
+              local={phoneLocal}
+              onDialChange={setPhoneDial}
+              onLocalChange={setPhoneLocal}
+              style={{ marginBottom: 16 }}
+            />
+          )}
           <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
           <PasswordInput
             required

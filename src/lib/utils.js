@@ -59,18 +59,6 @@ export function parseCsv(text) {
   return rows;
 }
 
-// Normalise un numéro saisi localement (ex. "97 00 00 00" ou "0197000000")
-// au format E.164 attendu par Supabase Auth. Un numéro déjà écrit avec un
-// "+" (n'importe quel pays) est laissé tel quel — seul le cas local sans
-// indicatif suppose le Bénin (+229), contexte de déploiement de l'appli.
-export function formatPhoneE164(raw, defaultCountryCode = '229') {
-  const cleaned = String(raw || '').replace(/[^\d+]/g, '');
-  if (!cleaned) return '';
-  if (cleaned.startsWith('+')) return cleaned;
-  const withoutTrunkZero = cleaned.replace(/^0+/, '');
-  return `+${defaultCountryCode}${withoutTrunkZero}`;
-}
-
 export const NIVEAUX = [
   'Maternelle', 'CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2',
   '6e', '5e', '4e', '3e', '2nde', '1ere', 'Tle',

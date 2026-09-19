@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials, ROLES } from '../lib/utils.js';
 import PasswordInput from '../components/PasswordInput.jsx';
+import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -54,7 +55,8 @@ function StaffAccounts() {
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState(null);
+  const [menuForId, setMenuForId] = useState(null);
+  const [editing, setEditing] = useState(null); // { account, field }
 
   async function reload() {
     const { data, error: fetchError } = await supabase.from('profiles').select('*').order('full_name');
@@ -101,31 +103,21 @@ function StaffAccounts() {
       {accounts && (
         <div className="card-bold" style={{ overflow: 'hidden' }}>
           {accounts.map((a, i) => (
-            <div
+            <AccountRow
               key={a.id}
-              onClick={() => setEditingAccount(a)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < accounts.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: 'var(--forest)', flexShrink: 0 }}>
-                  {initials(a.full_name)}
-                </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{a.full_name}</p>
-                  <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email || '—'}{a.phone ? ` · ${a.phone}` : ''}</p>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
-                  {ROLES[a.role]?.label || a.role}
-                </span>
-                {a.role !== 'fondateur' && a.id !== profile.id && (
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(a); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
-                    <i className="ti ti-trash" style={{ fontSize: 16 }} aria-hidden="true"></i>
-                  </button>
-                )}
-              </div>
-            </div>
+              account={a}
+              avatarBg="var(--forest-light)"
+              avatarColor="var(--forest)"
+              subtitle={`${a.email || '—'}${a.phone ? ` · ${a.phone}` : ''}`}
+              isLast={i === accounts.length - 1}
+              menuOpen={menuForId === a.id}
+              onToggleMenu={() => setMenuForId((prev) => (prev === a.id ? null : a.id))}
+              onCloseMenu={() => setMenuForId(null)}
+              onSelectField={(field) => { setMenuForId(null); setEditing({ account: a, field }); }}
+              canDelete={a.role !== 'fondateur' && a.id !== profile.id}
+              onDelete={() => handleDelete(a)}
+              badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>{ROLES[a.role]?.label || a.role}</span>}
+            />
           ))}
         </div>
       )}
@@ -137,12 +129,13 @@ function StaffAccounts() {
         />
       )}
 
-      {editingAccount && (
-        <EditAccountModal
-          account={editingAccount}
+      {editing && (
+        <EditFieldModal
+          account={editing.account}
+          field={editing.field}
           functionName="manage-staff-account"
-          onClose={() => setEditingAccount(null)}
-          onSaved={() => { setEditingAccount(null); reload(); }}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); reload(); }}
         />
       )}
     </div>
@@ -153,7 +146,8 @@ function NewStaffAccountModal({ onClose, onCreated }) {
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState(CREATABLE_STAFF_ROLES[0]);
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -171,7 +165,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
     setSubmitting(true);
     setError('');
     const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', {
-      body: { action: 'create', full_name: fullName.trim(), email: email.trim(), phone: phone.trim(), password, role },
+      body: { action: 'create', full_name: fullName.trim(), email: email.trim(), phone: composePhone(phoneDial, phoneLocal), password, role },
     });
     setSubmitting(false);
     if (fnError || data?.error) {
@@ -196,7 +190,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Téléphone (facultatif — permet aussi de se connecter par téléphone)</label>
-        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="97 00 00 00" style={inputStyle} />
+        <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
 
         <label style={labelStyle}>Mot de passe</label>
         <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
@@ -216,7 +210,8 @@ function ParentAccounts() {
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState(null);
+  const [menuForId, setMenuForId] = useState(null);
+  const [editing, setEditing] = useState(null); // { account, field }
 
   async function reload() {
     const { data, error: fetchError } = await supabase
@@ -269,24 +264,20 @@ function ParentAccounts() {
           {accounts.map((a, i) => {
             const children = (a.student_guardians || []).map((sg) => sg.students?.full_name).filter(Boolean);
             return (
-              <div
+              <AccountRow
                 key={a.id}
-                onClick={() => setEditingAccount(a)}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < accounts.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
-                    {initials(a.full_name)}
-                  </div>
-                  <div>
-                    <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{a.full_name}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.email}{a.phone ? ` · ${a.phone}` : ''} · {children.length ? children.join(', ') : 'aucun enfant relié'}</p>
-                  </div>
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(a); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
-                  <i className="ti ti-trash" style={{ fontSize: 16 }} aria-hidden="true"></i>
-                </button>
-              </div>
+                account={a}
+                avatarBg="var(--clay-light)"
+                avatarColor="var(--clay-dark)"
+                subtitle={`${a.email}${a.phone ? ` · ${a.phone}` : ''} · ${children.length ? children.join(', ') : 'aucun enfant relié'}`}
+                isLast={i === accounts.length - 1}
+                menuOpen={menuForId === a.id}
+                onToggleMenu={() => setMenuForId((prev) => (prev === a.id ? null : a.id))}
+                onCloseMenu={() => setMenuForId(null)}
+                onSelectField={(field) => { setMenuForId(null); setEditing({ account: a, field }); }}
+                canDelete
+                onDelete={() => handleDelete(a)}
+              />
             );
           })}
           {accounts.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun compte parent pour l'instant.</p>}
@@ -300,12 +291,13 @@ function ParentAccounts() {
         />
       )}
 
-      {editingAccount && (
-        <EditAccountModal
-          account={editingAccount}
+      {editing && (
+        <EditFieldModal
+          account={editing.account}
+          field={editing.field}
           functionName="manage-parent-account"
-          onClose={() => setEditingAccount(null)}
-          onSaved={() => { setEditingAccount(null); reload(); }}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); reload(); }}
         />
       )}
     </div>
@@ -316,7 +308,8 @@ function NewParentAccountModal({ onClose, onCreated }) {
   const [students, setStudents] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -352,7 +345,7 @@ function NewParentAccountModal({ onClose, onCreated }) {
         full_name: fullName.trim(),
         email: email.trim(),
         password,
-        phone: phone.trim(),
+        phone: composePhone(phoneDial, phoneLocal),
         student_ids: selectedIds,
       },
     });
@@ -371,7 +364,7 @@ function NewParentAccountModal({ onClose, onCreated }) {
         <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Téléphone</label>
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
+        <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
 
         <label style={labelStyle}>E-mail</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
@@ -399,27 +392,105 @@ function NewParentAccountModal({ onClose, onCreated }) {
   );
 }
 
-function EditAccountModal({ account, functionName, onClose, onSaved }) {
+// Ligne de compte partagée (personnel/parent) : nom cliquable et roue
+// dentée ouvrent le même petit menu d'actions, ancré à l'extrême droite.
+function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen, onToggleMenu, onCloseMenu, onSelectField, canDelete, onDelete, badge }) {
+  return (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+      <div onClick={onToggleMenu} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minWidth: 0, flex: 1 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: avatarColor, flexShrink: 0 }}>
+          {initials(account.full_name)}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{account.full_name}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        {badge}
+        {canDelete && (
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+            <TrashIcon />
+          </button>
+        )}
+        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }} title="Modifier ce compte">
+          <GearIcon />
+        </button>
+      </div>
+
+      {menuOpen && (
+        <AccountActionsMenu
+          onSelect={onSelectField}
+          onClose={onCloseMenu}
+        />
+      )}
+    </div>
+  );
+}
+
+function AccountActionsMenu({ onSelect, onClose }) {
+  const items = [
+    { field: 'email', label: "Modifier l'adresse e-mail" },
+    { field: 'phone', label: 'Modifier le numéro de téléphone' },
+    { field: 'password', label: 'Modifier le mot de passe' },
+  ];
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 20, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 230, overflow: 'hidden' }}
+      >
+        {items.map((it, i) => (
+          <button
+            key={it.field}
+            type="button"
+            onClick={() => onSelect(it.field)}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', border: 'none', background: 'none', borderBottom: i < items.length - 1 ? '1px solid var(--line)' : 'none' }}
+          >
+            {it.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function EditFieldModal({ account, field, functionName, onClose, onSaved }) {
   const [email, setEmail] = useState(account.email || '');
-  const [phone, setPhone] = useState(account.phone || '');
+  const initialPhone = decomposePhone(account.phone);
+  const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
+  const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const titles = {
+    email: "Modifier l'adresse e-mail",
+    phone: 'Modifier le numéro de téléphone',
+    password: 'Modifier le mot de passe',
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!email.trim()) {
-      setError("L'e-mail est obligatoire.");
-      return;
+    const body = { action: 'update', profileId: account.id };
+
+    if (field === 'email') {
+      if (!email.trim()) { setError("L'e-mail est obligatoire."); return; }
+      body.email = email.trim();
     }
-    if (password && password.length < 8) {
-      setError('Le nouveau mot de passe doit faire au moins 8 caractères.');
-      return;
+    if (field === 'phone') {
+      const composed = composePhone(phoneDial, phoneLocal);
+      if (!composed) { setError('Numéro de téléphone invalide.'); return; }
+      body.phone = composed;
     }
+    if (field === 'password') {
+      if (!password || password.length < 8) { setError('Le mot de passe doit faire au moins 8 caractères.'); return; }
+      body.password = password;
+    }
+
     setSubmitting(true);
     setError('');
-    const body = { action: 'update', profileId: account.id, email: email.trim(), phone: phone.trim() };
-    if (password) body.password = password;
     const { data, error: fnError } = await supabase.functions.invoke(functionName, { body });
     setSubmitting(false);
     if (fnError || data?.error) {
@@ -430,22 +501,26 @@ function EditAccountModal({ account, functionName, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title={`Modifier — ${account.full_name}`} onClose={onClose}>
+    <ModalShell title={`${titles[field]} — ${account.full_name}`} onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>E-mail</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-
-        <label style={labelStyle}>Téléphone (facultatif — permet aussi de se connecter par téléphone)</label>
-        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="97 00 00 00" style={inputStyle} />
-
-        <label style={labelStyle}>Nouveau mot de passe</label>
-        <PasswordInput
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          minLength={8}
-          placeholder="Laisser vide pour ne pas changer"
-          style={{ ...inputStyle, marginBottom: 18 }}
-        />
+        {field === 'email' && (
+          <>
+            <label style={labelStyle}>Nouvelle adresse e-mail</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
+          </>
+        )}
+        {field === 'phone' && (
+          <>
+            <label style={labelStyle}>Nouveau numéro de téléphone</label>
+            <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 18 }} />
+          </>
+        )}
+        {field === 'password' && (
+          <>
+            <label style={labelStyle}>Nouveau mot de passe</label>
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
+          </>
+        )}
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
@@ -480,6 +555,27 @@ function ModalActions({ onCancel, submitting, submitLabel, submittingLabel }) {
         {submitting ? submittingLabel : submitLabel}
       </button>
     </div>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" />
+      <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" />
+      <path d="M10 11l0 6" />
+      <path d="M14 11l0 6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+      <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
   );
 }
 

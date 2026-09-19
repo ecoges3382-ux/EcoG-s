@@ -89,8 +89,9 @@ export function AuthProvider({ children }) {
     profile,
     loading: session === undefined || (session !== null && profileLoading),
     // identifier : soit un e-mail, soit un numéro de téléphone déjà au
-    // format E.164 (voir formatPhoneE164) — Supabase Auth distingue les
-    // deux par la forme du champ envoyé, pas par une option à part.
+    // format E.164 (voir composePhone dans components/PhoneInput.jsx) —
+    // Supabase Auth distingue les deux par la forme du champ envoyé, pas
+    // par une option à part.
     signIn: (identifier, password) => (
       identifier.includes('@')
         ? supabase.auth.signInWithPassword({ email: identifier, password })
