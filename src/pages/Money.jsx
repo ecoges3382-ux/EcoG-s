@@ -7,8 +7,22 @@ import { fmt, initials } from '../lib/utils.js';
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
   { id: 'connexe', label: 'Frais connexes' },
+  { id: 'paiements', label: 'Paiements' },
   { id: 'depenses', label: 'Dépenses' },
   { id: 'avances', label: 'Avances sur salaire' },
+];
+
+const TYPES_FRAIS = [
+  { id: 'scolarite', label: 'Scolarité' },
+  { id: 'connexe', label: 'Frais connexes' },
+  { id: 'inscription', label: 'Inscription' },
+  { id: 'autre', label: 'Autre' },
+];
+const MODES = [
+  { id: 'especes', label: 'Espèces' },
+  { id: 'mobile_money', label: 'Mobile Money' },
+  { id: 'virement', label: 'Virement' },
+  { id: 'cheque', label: 'Chèque' },
 ];
 
 export default function Money() {
@@ -31,6 +45,7 @@ export default function Money() {
 
       {tab === 'vue' && <Overview />}
       {tab === 'connexe' && <FraisConnexes />}
+      {tab === 'paiements' && <Payments />}
       {tab === 'depenses' && <Expenses />}
       {tab === 'avances' && <Advances />}
     </div>
@@ -122,6 +137,179 @@ function FraisConnexes() {
     </div>
   );
 }
+
+function Payments() {
+  const { profile } = useAuth();
+  const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
+  const [payments, setPayments] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [error, setError] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+
+  async function reload() {
+    const [{ data: pay, error: payError }, { data: st }] = await Promise.all([
+      supabase.from('payments').select('*, students ( full_name, niveau )').order('date', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('students').select('id, full_name, niveau').order('full_name'),
+    ]);
+    if (payError) setError(payError.message); else setPayments(pay);
+    setStudents(st || []);
+  }
+  useEffect(() => { reload(); }, []);
+
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!payments) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+
+  const totalEncaisse = payments.reduce((a, p) => a + Number(p.montant), 0);
+  const partiels = payments.filter((p) => p.statut === 'partiel').length;
+
+  return (
+    <div>
+      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 22 }}>
+        <Stat label="Total encaissé" value={`${fmt(totalEncaisse)} F`} color="var(--success)" />
+        <Stat label="Nb paiements" value={payments.length} />
+        <Stat label="Paiements partiels" value={partiels} color="var(--amber)" />
+      </div>
+
+      {canManage && (
+        <button onClick={() => setModalOpen(true)} style={{ marginBottom: 18, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+          <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Enregistrer un paiement
+        </button>
+      )}
+
+      <div className="card-bold" style={{ overflow: 'hidden' }}>
+        {payments.map((p, i) => (
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
+                {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmt(p.montant)} F</p>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.statut === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.statut === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
+                {p.statut === 'complet' ? 'Complet' : 'Partiel'}
+              </span>
+            </div>
+          </div>
+        ))}
+        {payments.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré.</p>}
+      </div>
+
+      {modalOpen && (
+        <NewPaymentModal
+          schoolId={profile.school_id}
+          students={students}
+          onClose={() => setModalOpen(false)}
+          onCreated={() => { setModalOpen(false); reload(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
+  const [studentId, setStudentId] = useState(students[0]?.id || '');
+  const [typeFrais, setTypeFrais] = useState('scolarite');
+  const [montant, setMontant] = useState('');
+  const [mode, setMode] = useState('especes');
+  const [statut, setStatut] = useState('complet');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!studentId || !montant) {
+      setError("L'élève et le montant sont obligatoires.");
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    const { error: insertError } = await supabase.from('payments').insert({
+      school_id: schoolId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, statut, date, note: note.trim() || null,
+    });
+    setSubmitting(false);
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+    onCreated();
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 460, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Nouveau paiement</p>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+
+        <label style={modalLabelStyle}>Élève</label>
+        <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={modalInputStyle}>
+          {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} · {s.niveau}</option>)}
+        </select>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={modalLabelStyle}>Type de frais</label>
+            <select value={typeFrais} onChange={(e) => setTypeFrais(e.target.value)} style={modalInputStyle}>
+              {TYPES_FRAIS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={modalLabelStyle}>Montant (F)</label>
+            <input type="number" min="0" value={montant} onChange={(e) => setMontant(e.target.value)} style={modalInputStyle} />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={modalLabelStyle}>Mode</label>
+            <select value={mode} onChange={(e) => setMode(e.target.value)} style={modalInputStyle}>
+              {MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={modalLabelStyle}>Statut</label>
+            <select value={statut} onChange={(e) => setStatut(e.target.value)} style={modalInputStyle}>
+              <option value="complet">Complet</option>
+              <option value="partiel">Partiel</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={modalLabelStyle}>Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={modalInputStyle} />
+          </div>
+          <div>
+            <label style={modalLabelStyle}>Note</label>
+            <input value={note} onChange={(e) => setNote(e.target.value)} style={modalInputStyle} />
+          </div>
+        </div>
+
+        {students.length === 0 && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)' }}>Aucun élève inscrit.</p>}
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
+          <button type="submit" disabled={submitting || students.length === 0} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const modalInputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 12 };
+const modalLabelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
 
 function Expenses() {
   const { profile } = useAuth();

@@ -3,8 +3,12 @@ import { NavLink } from 'react-router-dom';
 const TABS = [
   { to: '/eleves', label: 'Élèves', icon: 'ti-users' },
   { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2' },
+  { to: '/classes', label: 'Classes', icon: 'ti-building' },
+  { to: '/matieres', label: 'Matières', icon: 'ti-book-2' },
+  { to: '/notes', label: 'Notes', icon: 'ti-pencil' },
   { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate' },
   { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time' },
+  { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check' },
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
 ];
 

@@ -418,3 +418,318 @@ create policy "profiles: le personnel d'accueil lit les comptes parents" on prof
     and school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire')
   );
+
+-- ---------- Migration 6 : Paiements réels, Présences, Classes → Matières → Notes → Bulletins ----------
+
+-- 1) Sécurité laissée ouverte par la Migration 5 : elle a fermé la LECTURE
+-- de students/staff/schedule_entries/announcements/salary_advances/expenses
+-- aux comptes parents, mais pas l'ÉCRITURE — leurs policies insert/update/
+-- delete ne vérifiaient que le school_id, jamais le rôle. Un compte parent
+-- pouvait donc, en théorie, créer ou modifier un élève, un membre du
+-- personnel, un créneau, une annonce, une avance ou une dépense de son
+-- école. On ferme ce trou avant d'ajouter de nouvelles tables sur le même
+-- modèle (école + rôle).
+
+drop policy if exists "students: insert" on students;
+create policy "students: insert" on students
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "students: update" on students;
+create policy "students: update" on students
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "students: delete" on students;
+create policy "students: delete" on students
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "staff: insert" on staff;
+create policy "staff: insert" on staff
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "staff: update" on staff;
+create policy "staff: update" on staff
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "staff: delete" on staff;
+create policy "staff: delete" on staff
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "schedule_entries: insert" on schedule_entries;
+create policy "schedule_entries: insert" on schedule_entries
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "schedule_entries: update" on schedule_entries;
+create policy "schedule_entries: update" on schedule_entries
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "schedule_entries: delete" on schedule_entries;
+create policy "schedule_entries: delete" on schedule_entries
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "announcements: insert" on announcements;
+create policy "announcements: insert" on announcements
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "salary_advances: insert" on salary_advances;
+create policy "salary_advances: insert" on salary_advances
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+drop policy if exists "expenses: insert" on expenses;
+create policy "expenses: insert" on expenses
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+-- 2) Classes et matières : listes de référence gérées par le personnel
+-- d'encadrement (pas les enseignants, qui les consultent seulement).
+
+create table if not exists classes (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  nom text not null,
+  niveau text not null,
+  section text,
+  salle text,
+  capacite integer,
+  prof_principal_id uuid references staff(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table classes enable row level security;
+
+create policy "classes: select" on classes
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "classes: insert" on classes
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "classes: update" on classes
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "classes: delete" on classes
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+create table if not exists subjects (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  nom text not null,
+  coefficient numeric not null default 1,
+  niveau text,
+  enseignant_id uuid references staff(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table subjects enable row level security;
+
+create policy "subjects: select" on subjects
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "subjects: insert" on subjects
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "subjects: update" on subjects
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "subjects: delete" on subjects
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+-- 3) Notes : une ligne par évaluation (contrôle/devoir/examen), pas une
+-- moyenne unique modifiable à la main — les bulletins se calculent à partir
+-- de ces lignes, exactement comme dans un vrai cahier de notes.
+
+create table if not exists grades (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  subject_id uuid not null references subjects(id) on delete cascade,
+  type text not null default 'controle' check (type in ('controle', 'devoir', 'examen')),
+  note numeric not null,
+  sur numeric not null default 20,
+  periode text not null default 'Trimestre 1',
+  created_at timestamptz not null default now()
+);
+alter table grades enable row level security;
+
+create policy "grades: select (personnel)" on grades
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "grades: select (parent)" on grades
+  for select using (
+    exists (
+      select 1 from student_guardians sg
+      where sg.student_id = grades.student_id and sg.parent_profile_id = auth.uid()
+    )
+  );
+create policy "grades: insert" on grades
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "grades: update" on grades
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "grades: delete" on grades
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+-- 4) Présences : un appel quotidien par élève (present/absent/retard),
+-- une seule ligne par élève et par jour (upsert depuis l'écran d'appel).
+
+create table if not exists attendance_records (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  date date not null,
+  statut text not null default 'present' check (statut in ('present', 'absent', 'retard')),
+  created_at timestamptz not null default now(),
+  unique (student_id, date)
+);
+alter table attendance_records enable row level security;
+
+create policy "attendance_records: select (personnel)" on attendance_records
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "attendance_records: select (parent)" on attendance_records
+  for select using (
+    exists (
+      select 1 from student_guardians sg
+      where sg.student_id = attendance_records.student_id and sg.parent_profile_id = auth.uid()
+    )
+  );
+create policy "attendance_records: insert" on attendance_records
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "attendance_records: update" on attendance_records
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "attendance_records: delete" on attendance_records
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+
+-- 5) Paiements : un vrai grand livre de transactions. Jusqu'ici
+-- students.montant_paye / frais_connexe_paye étaient posés à 0 à
+-- l'inscription et ne bougeaient plus jamais — rien dans l'appli ne
+-- permettait d'enregistrer qu'une famille avait payé quoi que ce soit.
+-- Désormais ces deux colonnes sont recalculées automatiquement (trigger
+-- ci-dessous) à partir de la somme des paiements réels : elles ne peuvent
+-- plus jamais afficher un montant qui ne correspond à aucune transaction.
+-- Restreint à fondateur/directeur/secrétaire (maniement d'argent), pas
+-- l'enseignant — à la différence des dépenses/avances qui restent ouvertes
+-- à tout le personnel.
+
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  type_frais text not null default 'scolarite' check (type_frais in ('scolarite', 'connexe', 'inscription', 'autre')),
+  montant numeric not null,
+  mode text not null default 'especes',
+  statut text not null default 'complet',
+  date date not null default current_date,
+  note text,
+  created_at timestamptz not null default now()
+);
+alter table payments enable row level security;
+
+create policy "payments: select (personnel)" on payments
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "payments: select (parent)" on payments
+  for select using (
+    exists (
+      select 1 from student_guardians sg
+      where sg.student_id = payments.student_id and sg.parent_profile_id = auth.uid()
+    )
+  );
+create policy "payments: insert" on payments
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "payments: delete" on payments
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+create or replace function recompute_student_paye()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_student_id uuid := coalesce(new.student_id, old.student_id);
+begin
+  update students set
+    montant_paye = coalesce((select sum(montant) from payments where student_id = v_student_id and type_frais = 'scolarite'), 0),
+    frais_connexe_paye = coalesce((select sum(montant) from payments where student_id = v_student_id and type_frais = 'connexe'), 0)
+  where id = v_student_id;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_recompute_student_paye on payments;
+create trigger trg_recompute_student_paye
+after insert or update or delete on payments
+for each row execute function recompute_student_paye();

@@ -8,14 +8,18 @@ const SIDEBAR_ITEMS = [
   { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
   { to: '/eleves', label: 'Élèves', icon: 'ti-users' },
   { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2' },
+  { to: '/classes', label: 'Classes', icon: 'ti-building' },
+  { to: '/matieres', label: 'Matières', icon: 'ti-book-2' },
+  { to: '/notes', label: 'Notes', icon: 'ti-pencil' },
   { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate' },
   { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time' },
+  { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check' },
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
   { to: '/parametres', label: 'Paramètres', icon: 'ti-settings' },
   { to: '/comptes', label: 'Comptes', icon: 'ti-users-group' },
 ];
 
-const SCHOOL_GROUP_PATHS = ['/eleves', '/personnel', '/bulletins', '/emploi-du-temps', '/annonces'];
+const SCHOOL_GROUP_PATHS = ['/eleves', '/personnel', '/classes', '/matieres', '/notes', '/bulletins', '/emploi-du-temps', '/presences', '/annonces'];
 
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', end: true },

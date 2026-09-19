@@ -10,7 +10,11 @@ import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
 import Staff from './pages/Staff.jsx';
+import Classes from './pages/Classes.jsx';
+import Subjects from './pages/Subjects.jsx';
+import Notes from './pages/Notes.jsx';
 import Grades from './pages/Grades.jsx';
+import Attendance from './pages/Attendance.jsx';
 import Schedule from './pages/Schedule.jsx';
 import Announce from './pages/Announce.jsx';
 import Settings from './pages/Settings.jsx';
@@ -84,8 +88,12 @@ function RoleRouter() {
         <Route path="eleves" element={<Students />} />
         <Route path="eleves/:id" element={<StudentDetail />} />
         <Route path="personnel" element={<Staff />} />
+        <Route path="classes" element={<Classes />} />
+        <Route path="matieres" element={<Subjects />} />
+        <Route path="notes" element={<Notes />} />
         <Route path="bulletins" element={<Grades />} />
         <Route path="emploi-du-temps" element={<Schedule />} />
+        <Route path="presences" element={<Attendance />} />
         <Route path="annonces" element={<Announce />} />
         <Route path="parametres" element={<Settings />} />
         <Route path="comptes" element={<Accounts />} />
