@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import PhotoPicker from '../components/PhotoPicker.jsx';
@@ -87,6 +88,20 @@ export default function Settings() {
           </button>
         )}
       </form>
+
+      {isFondateur && (
+        <Link
+          to="/comptes"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 16, maxWidth: 520 }}
+          className="card-bold"
+        >
+          <div style={{ padding: '16px 20px' }}>
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Comptes utilisateurs</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Créer ou retirer des accès pour l'équipe</p>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+        </Link>
+      )}
     </div>
   );
 }

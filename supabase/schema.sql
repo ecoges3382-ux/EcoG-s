@@ -267,3 +267,45 @@ create policy "photos: suppression par école" on storage.objects
   for delete using (
     bucket_id = 'photos' and (storage.foldername(name))[1] = current_school_id()::text
   );
+
+-- ---------- Migration 4 : comptes utilisateurs (directeur/secrétaire/enseignant) ----------
+-- Le fondateur peut créer des comptes de connexion pour son équipe (avec
+-- mot de passe qu'il choisit) via l'Edge Function create-staff-account.
+-- Ce bloc SQL prépare juste le terrain : colonne e-mail sur profiles (pour
+-- l'affichage, sans avoir à interroger auth.users) et le droit, pour le
+-- fondateur, de lire tous les profils de son école (pas seulement le sien).
+
+alter table profiles add column if not exists email text;
+
+create policy "profiles: le fondateur lit toute son école" on profiles
+  for select using (school_id = current_school_id() and current_role_name() = 'fondateur');
+
+-- Rejoue provision_school en y ajoutant l'e-mail du fondateur (lu depuis
+-- auth.users, accessible ici car la fonction tourne en security definer).
+create or replace function provision_school(p_school_name text, p_full_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_school_id uuid;
+  v_email text;
+begin
+  if auth.uid() is null then
+    raise exception 'Non authentifié';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Un profil existe déjà pour cet utilisateur';
+  end if;
+
+  select email into v_email from auth.users where id = auth.uid();
+
+  insert into schools (name) values (p_school_name) returning id into v_school_id;
+
+  insert into profiles (id, school_id, full_name, role, email)
+  values (auth.uid(), v_school_id, p_full_name, 'fondateur', v_email);
+
+  return v_school_id;
+end;
+$$;

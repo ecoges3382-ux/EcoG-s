@@ -14,6 +14,7 @@ import Announce from './pages/Announce.jsx';
 import Settings from './pages/Settings.jsx';
 import Parent from './pages/Parent.jsx';
 import Money from './pages/Money.jsx';
+import Accounts from './pages/Accounts.jsx';
 
 function SetupNeeded() {
   return (
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="emploi-du-temps" element={<Schedule />} />
           <Route path="annonces" element={<Announce />} />
           <Route path="parametres" element={<Settings />} />
+          <Route path="comptes" element={<Accounts />} />
           <Route path="parent" element={<Parent />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

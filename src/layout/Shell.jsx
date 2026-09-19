@@ -12,6 +12,7 @@ const SIDEBAR_ITEMS = [
   { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time' },
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
   { to: '/parametres', label: 'Paramètres', icon: 'ti-settings' },
+  { to: '/comptes', label: 'Comptes', icon: 'ti-users-group' },
 ];
 
 const SCHOOL_GROUP_PATHS = ['/eleves', '/personnel', '/bulletins', '/emploi-du-temps', '/annonces'];
