@@ -474,10 +474,10 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         {copied && <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>Copié !</span>}
-        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ ...iconButtonStyle, color: 'var(--danger)' }} title="Supprimer">
           <TrashIcon />
         </button>
-        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }} title="Actions">
+        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Actions">
           <GearIcon />
         </button>
       </div>
@@ -539,11 +539,11 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         {badge}
         {canDelete && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ ...iconButtonStyle, color: 'var(--danger)' }} title="Supprimer">
             <TrashIcon />
           </button>
         )}
-        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }} title="Modifier ce compte">
+        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
           <GearIcon />
         </button>
       </div>
@@ -711,3 +711,7 @@ function TrashIcon() {
 
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 12 };
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
+// Zone de clic élargie (min. 36px) : les icônes seules (17px) sont trop
+// petites à toucher précisément sur mobile, d'où l'impression que le bouton
+// « ne répond pas » alors qu'il suffit de rater le clic de quelques pixels.
+const iconButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer' };
