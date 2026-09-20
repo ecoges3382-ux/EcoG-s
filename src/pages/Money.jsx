@@ -387,7 +387,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Date</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={modalInputStyle} />
