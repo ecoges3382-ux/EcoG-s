@@ -6,6 +6,7 @@ import { fmt, initials } from '../lib/utils.js';
 export default function StudentDetail() {
   const { id } = useParams();
   const [student, setStudent] = useState(null);
+  const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -19,6 +20,15 @@ export default function StudentDetail() {
         if (cancelled) return;
         if (fetchError) setError(fetchError.message);
         else setStudent(data);
+      });
+    // Séparé de la fiche élève : un enseignant (RLS bloque parent_access
+    // pour ce rôle) verra simplement une liste vide plutôt qu'une erreur.
+    supabase
+      .from('parent_access_students')
+      .select('parent_access ( id, full_name, phone )')
+      .eq('student_id', id)
+      .then(({ data }) => {
+        if (!cancelled) setParents((data || []).map((row) => row.parent_access).filter(Boolean));
       });
     return () => { cancelled = true; };
   }, [id]);
@@ -57,6 +67,22 @@ export default function StudentDetail() {
           <Row label="Payé" value={`${fmt(student.frais_connexe_paye)} F`} color="var(--success)" />
           <Row label="Reste" value={`${fmt(resteFrais)} F`} bold color={resteFrais > 0 ? 'var(--danger)' : 'var(--success)'} topBorder />
         </div>
+      </div>
+
+      <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
+      <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
+        {parents === null && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+        {parents?.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun parent relié pour l'instant.</p>}
+        {parents?.map((p, i) => (
+          <Link
+            key={p.id}
+            to={`/parents/${p.id}`}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < parents.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+          >
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{p.full_name}</p>
+            <span style={{ fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>{p.phone || 'Pas de numéro'}</span>
+          </Link>
+        ))}
       </div>
     </div>
   );

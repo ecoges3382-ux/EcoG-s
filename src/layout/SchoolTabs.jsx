@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 const TABS = [
   { to: '/eleves', label: 'Élèves', icon: 'ti-users' },
+  { to: '/parents', label: 'Parents', icon: 'ti-users-group' },
   { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2' },
   { to: '/classes', label: 'Classes', icon: 'ti-building' },
   { to: '/matieres', label: 'Matières', icon: 'ti-book-2' },

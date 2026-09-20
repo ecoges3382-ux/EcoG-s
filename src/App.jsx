@@ -9,6 +9,8 @@ import Shell from './layout/Shell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
 import StudentDetail from './pages/StudentDetail.jsx';
+import Parents from './pages/Parents.jsx';
+import ParentDetail from './pages/ParentDetail.jsx';
 import Staff from './pages/Staff.jsx';
 import Classes from './pages/Classes.jsx';
 import Subjects from './pages/Subjects.jsx';
@@ -89,6 +91,8 @@ function RoleRouter() {
         <Route path="argent" element={<Money />} />
         <Route path="eleves" element={<Students />} />
         <Route path="eleves/:id" element={<StudentDetail />} />
+        <Route path="parents" element={<Parents />} />
+        <Route path="parents/:id" element={<ParentDetail />} />
         <Route path="personnel" element={<Staff />} />
         <Route path="classes" element={<Classes />} />
         <Route path="matieres" element={<Subjects />} />
