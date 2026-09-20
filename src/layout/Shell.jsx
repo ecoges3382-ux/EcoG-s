@@ -31,6 +31,19 @@ const BOTTOM_NAV_ITEMS = [
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings' },
 ];
 
+// Dessinée directement (plutôt qu'une classe de police d'icônes) pour être
+// certaine de s'afficher, y compris sur mobile où seule l'icône reste
+// visible (le texte "Administration" se cache sur petit écran).
+function ShieldIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M12 3l8 3v6c0 4.5 -3 7.5 -8 9c-5 -1.5 -8 -4.5 -8 -9v-6l8 -3z" />
+      <path d="M12 11m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0" />
+      <path d="M12 12.5v2.5" />
+    </svg>
+  );
+}
+
 function sidebarLinkStyle(isActive) {
   return {
     display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
@@ -71,7 +84,7 @@ export default function Shell() {
               to="/admin"
               style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}
             >
-              <i className="ti ti-shield-lock" style={{ fontSize: 15 }} aria-hidden="true"></i>
+              <ShieldIcon />
               <span className="logout-label">Administration</span>
             </NavLink>
           )}
