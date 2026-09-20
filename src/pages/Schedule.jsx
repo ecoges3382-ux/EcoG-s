@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { sortClasses } from '../lib/utils.js';
 import NewScheduleEntryModal from '../components/NewScheduleEntryModal.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
@@ -31,8 +32,8 @@ export default function Schedule() {
     reload();
     // Les classes proposées pour un créneau sont celles réellement créées
     // par l'école (page Classes) — pas une liste générique de niveaux.
-    supabase.from('classes').select('nom').order('nom').then(({ data }) => {
-      setClasses((data || []).map((c) => c.nom));
+    supabase.from('classes').select('nom, niveau, section').then(({ data }) => {
+      setClasses(sortClasses(data || []).map((c) => c.nom));
     });
   }, []);
 

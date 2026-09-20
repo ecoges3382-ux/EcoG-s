@@ -91,6 +91,16 @@ export const NIVEAUX = [
   '6e', '5e', '4e', '3e', '2nde', '1ere', 'Tle',
 ];
 
+// Trie les classes dans l'ordre pédagogique (Maternelle → Terminale), pas
+// alphabétique (où "6e" passerait avant "CE1") ni par date de création.
+export function sortClasses(list) {
+  return [...list].sort((a, b) => {
+    const diff = NIVEAUX.indexOf(a.niveau) - NIVEAUX.indexOf(b.niveau);
+    if (diff !== 0) return diff;
+    return (a.section || '').localeCompare(b.section || '');
+  });
+}
+
 export const ROLES = {
   fondateur: { label: 'Fondateur' },
   directeur: { label: 'Directeur' },

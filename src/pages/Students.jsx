@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, initials, downloadCsv, parseCsv, splitFullName } from '../lib/utils.js';
+import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses } from '../lib/utils.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -57,8 +57,8 @@ export default function Students() {
     // Les classes disponibles à l'inscription et à l'import CSV sont
     // celles réellement créées par l'école (page Classes) — pas une liste
     // générique de la maternelle à la terminale.
-    supabase.from('classes').select('nom').order('nom').then(({ data }) => {
-      setClasses((data || []).map((c) => c.nom));
+    supabase.from('classes').select('nom, niveau, section').then(({ data }) => {
+      setClasses(sortClasses(data || []).map((c) => c.nom));
     });
   }, []);
 

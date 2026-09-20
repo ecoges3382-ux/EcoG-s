@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { NIVEAUX } from '../lib/utils.js';
+import { NIVEAUX, sortClasses } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 export default function Classes() {
@@ -15,12 +15,12 @@ export default function Classes() {
 
   async function reload() {
     const [{ data: cl, error: clError }, { data: st }, { data: te }] = await Promise.all([
-      supabase.from('classes').select('*, staff ( full_name )').order('nom'),
+      supabase.from('classes').select('*, staff ( full_name )'),
       supabase.from('students').select('niveau'),
       supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
     ]);
     if (clError) setError(clError.message);
-    else setClasses(cl);
+    else setClasses(sortClasses(cl));
     setStudents(st || []);
     setTeachers(te || []);
   }
