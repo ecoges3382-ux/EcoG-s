@@ -4,6 +4,7 @@ import { supabaseConfigured } from './lib/supabase.js';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
 import ParentAccess from './pages/ParentAccess.jsx';
+import PlatformAdmin from './pages/PlatformAdmin.jsx';
 import Shell from './layout/Shell.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Students from './pages/Students.jsx';
@@ -58,6 +59,18 @@ function RequireAuth({ children }) {
   return children;
 }
 
+// Indépendant de RequireAuth : un administrateur de la plateforme n'a pas
+// forcément de profil d'école (RequireAuth le bloquerait sur ce critère).
+function RequirePlatformAdmin({ children }) {
+  const { user, isPlatformAdmin, adminLoading } = useAuth();
+  if (adminLoading) {
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>Chargement…</div>;
+  }
+  if (!user) return <Navigate to="/connexion" replace />;
+  if (!isPlatformAdmin) return <Navigate to="/" replace />;
+  return children;
+}
+
 function RedirectIfAuthed({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -99,6 +112,14 @@ export default function App() {
         <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
         <Route path="/parent-access" element={<ParentAccess />} />
+        <Route
+          path="/admin"
+          element={
+            <RequirePlatformAdmin>
+              <PlatformAdmin />
+            </RequirePlatformAdmin>
+          }
+        />
         <Route
           path="/*"
           element={

@@ -958,3 +958,21 @@ create policy "parent_access_students: delete" on parent_access_students
         and current_role_name() in ('fondateur', 'directeur', 'secretaire')
     )
   );
+
+-- Administration de la plateforme (la créatrice de l'app, pas un rôle
+-- d'école) : voir toutes les écoles et en supprimer, indépendamment de tout
+-- rôle "fondateur"
+-- scopé à une seule école. Une simple liste d'utilisateurs autorisés — la
+-- lecture/suppression de toutes les écoles passe entièrement par l'Edge
+-- Function platform-admin (clé service_role), qui vérifie ici l'appartenance
+-- avant d'agir. Le seul droit accordé directement par RLS est de lire SA
+-- PROPRE présence dans cette liste (pour que l'app sache afficher le lien
+-- "Administration").
+create table if not exists platform_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table platform_admins enable row level security;
+
+create policy "platform_admins: lecture de son propre statut" on platform_admins
+  for select using (user_id = auth.uid());

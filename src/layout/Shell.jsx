@@ -40,7 +40,7 @@ function sidebarLinkStyle(isActive) {
 }
 
 export default function Shell() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, isPlatformAdmin } = useAuth();
   const location = useLocation();
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
@@ -66,6 +66,15 @@ export default function Shell() {
           </p>
         </div>
         <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+          {isPlatformAdmin && (
+            <NavLink
+              to="/admin"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}
+            >
+              <i className="ti ti-shield-lock" style={{ fontSize: 15 }} aria-hidden="true"></i>
+              <span className="logout-label">Administration</span>
+            </NavLink>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20 }}>
             <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
             <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>

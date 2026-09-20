@@ -7,6 +7,10 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined); // undefined = pas encore chargé
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  // Indépendant du profil d'école : un administrateur de la plateforme n'a
+  // pas forcément de ligne "profiles" (il ne fait partie d'aucune école).
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -29,6 +33,27 @@ export function AuthProvider({ children }) {
         setProfileLoading(false);
       }
     });
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setIsPlatformAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    setAdminLoading(true);
+    supabase
+      .from('platform_admins')
+      .select('user_id')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) {
+          setIsPlatformAdmin(!!data);
+          setAdminLoading(false);
+        }
+      });
     return () => { cancelled = true; };
   }, [session?.user?.id]);
 
@@ -87,6 +112,8 @@ export function AuthProvider({ children }) {
     session,
     user: session?.user ?? null,
     profile,
+    isPlatformAdmin,
+    adminLoading: session === undefined || (session !== null && adminLoading),
     loading: session === undefined || (session !== null && profileLoading),
     // identifier : soit un e-mail, soit un numéro de téléphone déjà au
     // format E.164 (voir composePhone dans components/PhoneInput.jsx) —
