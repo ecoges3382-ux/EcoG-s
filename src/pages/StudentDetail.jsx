@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmt, initials } from '../lib/utils.js';
+
+const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function StudentDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { profile } = useAuth();
   const [student, setStudent] = useState(null);
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +45,15 @@ export default function StudentDetail() {
   const reste = Number(student.montant_du) - Number(student.montant_paye);
   const resteFrais = Number(student.frais_connexe_du) - Number(student.frais_connexe_paye);
 
+  async function handleDelete() {
+    if (!window.confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    navigate('/eleves');
+  }
+
   return (
     <div>
       <Link to="/eleves" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
@@ -49,7 +64,7 @@ export default function StudentDetail() {
           {student.photo_url ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(student.full_name)}
         </div>
         <div>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600 }}>{student.full_name}</p>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{student.full_name}</p>
           <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{student.niveau}</p>
         </div>
       </div>
@@ -84,6 +99,17 @@ export default function StudentDetail() {
           </Link>
         ))}
       </div>
+
+      {CAN_DELETE_ROLES.includes(profile.role) && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          style={{ marginTop: 24, padding: '10px 18px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+        >
+          {deleting ? 'Suppression…' : "Supprimer l'élève"}
+        </button>
+      )}
     </div>
   );
 }

@@ -44,7 +44,7 @@ export default function ParentDetail() {
           {initials(access.full_name)}
         </div>
         <div>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600 }}>{access.full_name}</p>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{access.full_name}</p>
           <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{access.phone || 'Pas de numéro enregistré'}</p>
         </div>
       </div>
