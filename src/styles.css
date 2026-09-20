@@ -47,7 +47,7 @@ input { caret-color: #000; }
 #app { display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
 #layout { display: flex; flex: 1; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
-#screen { flex: 1; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); }
+#screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
 
 /* Mode application (après connexion) : fond sombre */
 body.app-mode { background: var(--dark-bg); }
