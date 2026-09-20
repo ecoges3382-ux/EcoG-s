@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, NIVEAUX } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import MoneyInput from '../components/MoneyInput.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -356,7 +357,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
           <div>
             <label style={modalLabelStyle}>Montant (F CFA)</label>
-            <input type="number" min="0" value={montant} onChange={(e) => setMontant(e.target.value)} style={modalInputStyle} />
+            <MoneyInput value={montant} onChange={setMontant} style={modalInputStyle} />
           </div>
         </div>
 
@@ -460,7 +461,7 @@ function Expenses() {
       <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <input value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Libellé" style={{ ...smallInput, flex: '2 1 160px' }} />
         <input value={categorie} onChange={(e) => setCategorie(e.target.value)} placeholder="Catégorie" style={{ ...smallInput, flex: '1 1 120px' }} />
-        <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (F CFA)" style={{ ...smallInput, flex: '1 1 120px' }} />
+        <MoneyInput value={montant} onChange={setMontant} placeholder="Montant (F CFA)" style={{ ...smallInput, flex: '1 1 120px' }} />
         <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
           {submitting ? 'Ajout…' : 'Ajouter'}
         </button>
@@ -569,9 +570,9 @@ function FeeRow({ niveau, row, canManage, saving, onSave, isLast }) {
       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{niveau}</span>
       {canManage ? (
         <>
-          <input type="number" min="0" value={scolarite} onChange={(e) => setScolarite(e.target.value)} style={feeInputStyle} />
+          <MoneyInput value={scolarite} onChange={setScolarite} style={feeInputStyle} />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input type="number" min="0" value={connexe} onChange={(e) => setConnexe(e.target.value)} style={feeInputStyle} />
+            <MoneyInput value={connexe} onChange={setConnexe} style={feeInputStyle} />
             <button
               type="button"
               disabled={!dirty || saving}
@@ -675,7 +676,7 @@ function Advances() {
           <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ ...smallInput, flex: '2 1 180px' }}>
             {staff.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
           </select>
-          <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (F CFA)" style={{ ...smallInput, flex: '1 1 120px' }} />
+          <MoneyInput value={montant} onChange={setMontant} placeholder="Montant (F CFA)" style={{ ...smallInput, flex: '1 1 120px' }} />
           <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
             {submitting ? 'Envoi…' : 'Nouvelle demande'}
           </button>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { generateAccessCode } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
+import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, onClose, onCreated }) {
@@ -258,10 +259,9 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </div>
           <div>
             <label style={labelStyle}>Écolage dû (F CFA)</label>
-            <input
-              type="number"
+            <MoneyInput
               value={montantDu}
-              onChange={(e) => { setMontantDuTouched(true); setMontantDu(e.target.value); }}
+              onChange={(v) => { setMontantDuTouched(true); setMontantDu(v); }}
               style={inputStyle}
             />
           </div>
