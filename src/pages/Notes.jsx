@@ -4,10 +4,12 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 const TYPES = [
-  { id: 'controle', label: 'Contrôle' },
+  { id: 'controle', label: 'Interrogation' },
   { id: 'devoir', label: 'Devoir' },
   { id: 'examen', label: 'Examen' },
 ];
+
+const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Semestre 2'];
 
 export default function Notes() {
   const { profile } = useAuth();
@@ -144,7 +146,7 @@ function NewGradeModal({ schoolId, students, subjects, defaultNiveau, onClose, o
     setSubmitting(true);
     setError('');
     const { error: insertError } = await supabase.from('grades').insert({
-      school_id: schoolId, student_id: studentId, subject_id: subjectId, type, note: Number(note), sur: Number(sur), periode: periode.trim() || 'Trimestre 1',
+      school_id: schoolId, student_id: studentId, subject_id: subjectId, type, note: Number(note), sur: Number(sur), periode,
     });
     setSubmitting(false);
     if (insertError) {
@@ -207,7 +209,9 @@ function NewGradeModal({ schoolId, students, subjects, defaultNiveau, onClose, o
         </div>
 
         <label style={labelStyle}>Période</label>
-        <input value={periode} onChange={(e) => setPeriode(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
+        <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }}>
+          {PERIODES.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
 
         {studentsInNiveau.length === 0 && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)' }}>Aucun élève dans ce niveau.</p>}
         {subjectsForNiveau.length === 0 && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)' }}>Aucune matière pour ce niveau — ajoute-la d'abord dans « Matières ».</p>}
