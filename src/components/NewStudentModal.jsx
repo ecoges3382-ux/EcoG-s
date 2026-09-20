@@ -257,7 +257,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Écolage dû (F)</label>
+            <label style={labelStyle}>Écolage dû (F CFA)</label>
             <input
               type="number"
               value={montantDu}

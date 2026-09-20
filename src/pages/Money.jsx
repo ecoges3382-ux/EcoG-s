@@ -355,7 +355,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
             </select>
           </div>
           <div>
-            <label style={modalLabelStyle}>Montant (F)</label>
+            <label style={modalLabelStyle}>Montant (F CFA)</label>
             <input type="number" min="0" value={montant} onChange={(e) => setMontant(e.target.value)} style={modalInputStyle} />
           </div>
         </div>
@@ -460,7 +460,7 @@ function Expenses() {
       <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <input value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Libellé" style={{ ...smallInput, flex: '2 1 160px' }} />
         <input value={categorie} onChange={(e) => setCategorie(e.target.value)} placeholder="Catégorie" style={{ ...smallInput, flex: '1 1 120px' }} />
-        <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (F)" style={{ ...smallInput, flex: '1 1 120px' }} />
+        <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (F CFA)" style={{ ...smallInput, flex: '1 1 120px' }} />
         <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
           {submitting ? 'Ajout…' : 'Ajouter'}
         </button>
@@ -540,7 +540,7 @@ function FeeSchedules() {
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 560 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span>Niveau</span><span>Scolarité (F)</span><span>Frais connexes (F)</span>
+            <span>Niveau</span><span>Scolarité (F CFA)</span><span>Frais connexes (F CFA)</span>
           </div>
           {niveauxPresents.map((niveau, i) => (
             <FeeRow
@@ -675,7 +675,7 @@ function Advances() {
           <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ ...smallInput, flex: '2 1 180px' }}>
             {staff.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
           </select>
-          <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (F)" style={{ ...smallInput, flex: '1 1 120px' }} />
+          <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="Montant (F CFA)" style={{ ...smallInput, flex: '1 1 120px' }} />
           <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
             {submitting ? 'Envoi…' : 'Nouvelle demande'}
           </button>
