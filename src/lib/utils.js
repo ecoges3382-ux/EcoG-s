@@ -1,5 +1,7 @@
+// Séparateur de milliers "." et décimales "," (ex. 125.375,43) — demandé
+// explicitement, à la place de l'espace utilisé par la locale fr-FR.
 export function fmt(n) {
-  return Number(n ?? 0).toLocaleString('fr-FR');
+  return Number(n ?? 0).toLocaleString('de-DE');
 }
 
 // Pour tout montant affiché à l'écran (pas les exports CSV, qui gardent
