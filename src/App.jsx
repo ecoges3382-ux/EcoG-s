@@ -12,6 +12,7 @@ import StudentDetail from './pages/StudentDetail.jsx';
 import Parents from './pages/Parents.jsx';
 import ParentDetail from './pages/ParentDetail.jsx';
 import Staff from './pages/Staff.jsx';
+import StaffDetail from './pages/StaffDetail.jsx';
 import Classes from './pages/Classes.jsx';
 import Subjects from './pages/Subjects.jsx';
 import Notes from './pages/Notes.jsx';
@@ -94,6 +95,7 @@ function RoleRouter() {
         <Route path="parents" element={<Parents />} />
         <Route path="parents/:id" element={<ParentDetail />} />
         <Route path="personnel" element={<Staff />} />
+        <Route path="personnel/:id" element={<StaffDetail />} />
         <Route path="classes" element={<Classes />} />
         <Route path="matieres" element={<Subjects />} />
         <Route path="notes" element={<Notes />} />

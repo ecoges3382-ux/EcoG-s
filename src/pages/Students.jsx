@@ -14,6 +14,20 @@ function statusOf(s) {
   return { label: 'Retard critique', bg: 'var(--danger-light)', fg: 'var(--danger)' };
 }
 
+const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" />
+      <path d="M10 11l0 6" />
+      <path d="M14 11l0 6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+      <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
+
 export default function Students() {
   const { profile } = useAuth();
   const [students, setStudents] = useState(null);
@@ -23,6 +37,9 @@ export default function Students() {
   const [modalOpen, setModalOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = CAN_DELETE_ROLES.includes(profile.role);
 
   async function reload() {
     const { data, error: fetchError } = await supabase
@@ -116,6 +133,34 @@ export default function Students() {
     reload();
   }
 
+  function toggleOne(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleAll(ids) {
+    setSelectedIds((prev) => (ids.every((id) => prev.includes(id)) ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]));
+  }
+
+  async function handleDeleteOne(id, name) {
+    if (!window.confirm(`Supprimer définitivement ${name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
+    reload();
+  }
+
+  async function handleDeleteSelected() {
+    if (!window.confirm(`Supprimer définitivement ${selectedIds.length} élève${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('students').delete().in('id', selectedIds);
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    setSelectedIds([]);
+    reload();
+  }
+
   return (
     <div>
       <SchoolTabs />
@@ -164,30 +209,78 @@ export default function Students() {
         ))}
       </div>
 
-      <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
-        {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
+          {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
+        </p>
+        {canDelete && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', cursor: filtered.length ? 'pointer' : 'default' }}>
+              <input
+                type="checkbox"
+                disabled={filtered.length === 0}
+                checked={filtered.length > 0 && filtered.every((s) => selectedIds.includes(s.id))}
+                onChange={() => toggleAll(filtered.map((s) => s.id))}
+              />
+              Tout sélectionner
+            </label>
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={deleting}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+              >
+                <TrashIcon />
+                Supprimer ({selectedIds.length})
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="card-bold" style={{ overflow: 'hidden' }}>
         {filtered.map((s, i) => {
           const status = statusOf(s);
           return (
-            <Link
+            <div
               key={s.id}
-              to={`/eleves/${s.id}`}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
-                  {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
+              {canDelete && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(s.id)}
+                  onChange={() => toggleOne(s.id)}
+                  style={{ flexShrink: 0 }}
+                />
+              )}
+              <Link
+                to={`/eleves/${s.id}`}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+                    {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{s.full_name}</p>
+                    <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{s.niveau}</p>
+                  </div>
                 </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{s.full_name}</p>
-                  <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{s.niveau}</p>
-                </div>
-              </div>
-              <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20 }}>{status.label}</span>
-            </Link>
+                <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>{status.label}</span>
+              </Link>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteOne(s.id, s.full_name)}
+                  title="Supprimer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <TrashIcon />
+                </button>
+              )}
+            </div>
           );
         })}
         {filtered.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève.</p>}

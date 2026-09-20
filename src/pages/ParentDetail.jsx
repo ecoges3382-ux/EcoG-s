@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
+
+const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function ParentDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { profile } = useAuth();
   const [access, setAccess] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +38,15 @@ export default function ParentDetail() {
   function copyLink() {
     const url = `${window.location.origin}/parent-access?code=${access.code}`;
     navigator.clipboard.writeText(url).then(() => setCopied(true));
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Supprimer définitivement l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', id);
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    navigate('/parents');
   }
 
   return (
@@ -80,13 +95,25 @@ export default function ParentDetail() {
         {children.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun enfant rattaché.</p>}
       </div>
 
-      <button
-        type="button"
-        onClick={copyLink}
-        style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}
-      >
-        {copied ? 'Lien copié !' : 'Copier le lien à envoyer'}
-      </button>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={copyLink}
+          style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}
+        >
+          {copied ? 'Lien copié !' : 'Copier le lien à envoyer'}
+        </button>
+        {CAN_DELETE_ROLES.includes(profile.role) && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+          >
+            {deleting ? 'Suppression…' : "Supprimer l'accès"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
