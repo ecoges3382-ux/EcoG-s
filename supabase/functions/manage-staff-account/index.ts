@@ -30,6 +30,13 @@ function formatPhoneE164(raw: string, defaultCountryCode = '229'): string {
     const withPrefix = cleaned.length === 8 ? `01${cleaned}` : cleaned;
     return `+${defaultCountryCode}${withPrefix}`;
   }
+  // Même chose pour la Côte d'Ivoire depuis la réforme ARTCI du 31 janvier
+  // 2021 (+225 01/05/07 XX XX XXXX) — le préfixe dépend de l'opérateur,
+  // donc pas de complément automatique possible ici, juste ne pas retirer
+  // de zéro initial.
+  if (defaultCountryCode === '225') {
+    return `+${defaultCountryCode}${cleaned}`;
+  }
 
   return `+${defaultCountryCode}${cleaned.replace(/^0+/, '')}`;
 }
