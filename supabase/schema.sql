@@ -1010,3 +1010,165 @@ alter table parent_access alter column prenom set not null;
 -- n'est plus proposé à la saisie mais reste géré à l'affichage pour les
 -- paiements déjà enregistrés avant ce changement.
 alter table payments rename column statut to tranche;
+
+-- ---------- Migration : année scolaire, grille tarifaire, inscriptions ----------
+-- Jusqu'ici "students" portait directement niveau/montant_du/montant_paye/
+-- frais_connexe_* : des informations propres à UNE année scolaire, collées
+-- sur la fiche permanente de l'élève. Ça empêchait de distinguer les
+-- données d'une année de celles de la suivante (notes, paiements, dû/payé
+-- se seraient tous mélangés au premier passage à l'année suivante), et ne
+-- permettait aucune grille tarifaire centralisée (le montant dû était
+-- retapé à la main à chaque inscription).
+--
+-- Remplacé par : "school_years" (une ligne par année scolaire, une seule
+-- marquée is_current par école), "fee_schedules" (le montant attendu par
+-- niveau pour une année donnée), et "enrollments" (une ligne = un élève
+-- inscrit dans une classe pour une année scolaire donnée — c'est elle qui
+-- porte désormais classe/montant dû/montant payé/frais connexes).
+-- payments/grades/attendance_records reçoivent chacun un school_year_id.
+
+create table if not exists school_years (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  label text not null,
+  is_current boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists school_years_one_current_per_school
+  on school_years(school_id) where is_current;
+alter table school_years enable row level security;
+
+create policy "school_years: select" on school_years
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "school_years: insert" on school_years
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+create policy "school_years: update" on school_years
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+
+create table if not exists fee_schedules (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  school_year_id uuid not null references school_years(id) on delete cascade,
+  niveau text not null,
+  montant_scolarite numeric not null default 0,
+  montant_connexe numeric not null default 0,
+  created_at timestamptz not null default now(),
+  unique (school_year_id, niveau)
+);
+alter table fee_schedules enable row level security;
+
+create policy "fee_schedules: select" on fee_schedules
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "fee_schedules: insert" on fee_schedules
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+create policy "fee_schedules: update" on fee_schedules
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+create policy "fee_schedules: delete" on fee_schedules
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+
+create table if not exists enrollments (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  school_year_id uuid not null references school_years(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  classe_id uuid references classes(id) on delete set null,
+  montant_du numeric not null default 0,
+  montant_paye numeric not null default 0,
+  frais_connexe_du numeric not null default 0,
+  frais_connexe_paye numeric not null default 0,
+  statut text not null default 'inscrit' check (statut in ('inscrit', 'redouble', 'parti')),
+  created_at timestamptz not null default now(),
+  unique (school_year_id, student_id)
+);
+create index if not exists enrollments_year_classe_idx on enrollments(school_year_id, classe_id);
+alter table enrollments enable row level security;
+
+create policy "enrollments: select" on enrollments
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+create policy "enrollments: insert" on enrollments
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "enrollments: update" on enrollments
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+create policy "enrollments: delete" on enrollments
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+alter table payments add column if not exists school_year_id uuid references school_years(id);
+alter table grades add column if not exists school_year_id uuid references school_years(id);
+alter table attendance_records add column if not exists school_year_id uuid references school_years(id);
+create index if not exists payments_year_idx on payments(school_year_id);
+create index if not exists grades_year_idx on grades(school_year_id);
+create index if not exists attendance_year_idx on attendance_records(school_year_id);
+
+-- ---------- Bascule des données existantes ----------
+-- ⚠️ Remplace '2025-2026' par le libellé réel de l'année scolaire en cours
+-- dans TON école avant d'exécuter ce script.
+
+insert into school_years (school_id, label, is_current)
+select id, '2025-2026', true from schools
+where not exists (select 1 from school_years sy where sy.school_id = schools.id and sy.is_current);
+
+insert into enrollments (school_id, school_year_id, student_id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye)
+select s.school_id, sy.id, s.id, c.id, s.montant_du, s.montant_paye, s.frais_connexe_du, s.frais_connexe_paye
+from students s
+join school_years sy on sy.school_id = s.school_id and sy.is_current
+left join classes c on c.school_id = s.school_id and c.nom = s.niveau
+where not exists (
+  select 1 from enrollments e where e.student_id = s.id and e.school_year_id = sy.id
+);
+
+update payments p set school_year_id = sy.id
+from school_years sy
+where sy.school_id = p.school_id and sy.is_current and p.school_year_id is null;
+
+update grades g set school_year_id = sy.id
+from school_years sy
+where sy.school_id = g.school_id and sy.is_current and g.school_year_id is null;
+
+update attendance_records a set school_year_id = sy.id
+from school_years sy
+where sy.school_id = a.school_id and sy.is_current and a.school_year_id is null;
+
+alter table payments alter column school_year_id set not null;
+alter table grades alter column school_year_id set not null;
+alter table attendance_records alter column school_year_id set not null;
+
+-- students ne garde que l'identité permanente : classe/dû/payé/frais
+-- connexes vivent désormais dans "enrollments", propre à chaque année.
+alter table students drop column if exists niveau;
+alter table students drop column if exists montant_du;
+alter table students drop column if exists montant_paye;
+alter table students drop column if exists frais_connexe_du;
+alter table students drop column if exists frais_connexe_paye;
