@@ -58,7 +58,7 @@ export default function Classes() {
               return (
                 <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1.4fr 0.8fr', padding: '13px 20px', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{c.nom}</span>
-                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}{c.section ? ` ${c.section}` : ''}</span>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
                   <span style={{ fontSize: 13 }}>{effectif}{c.capacite ? ` / ${c.capacite}` : ''}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
@@ -96,7 +96,6 @@ export default function Classes() {
 }
 
 function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
-  const [nom, setNom] = useState(editing?.nom || '');
   const [niveau, setNiveau] = useState(editing?.niveau || NIVEAUX[0]);
   const [section, setSection] = useState(editing?.section || '');
   const [salle, setSalle] = useState(editing?.salle || '');
@@ -107,14 +106,10 @@ function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!nom.trim()) {
-      setError('Le nom de la classe est obligatoire.');
-      return;
-    }
     setSubmitting(true);
     setError('');
     const payload = {
-      nom: nom.trim(),
+      nom: section.trim() ? `${niveau} ${section.trim()}` : niveau,
       niveau,
       section: section.trim() || null,
       salle: salle.trim() || null,
@@ -143,9 +138,6 @@ function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <label style={labelStyle}>Nom de la classe</label>
-        <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="6e A" style={inputStyle} />
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Niveau</label>
@@ -154,10 +146,13 @@ function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Section</label>
+            <label style={labelStyle}>Section (optionnel)</label>
             <input value={section} onChange={(e) => setSection(e.target.value)} placeholder="A" style={inputStyle} />
           </div>
         </div>
+        <p style={{ margin: '-6px 0 12px', fontSize: '11.5px', color: 'var(--muted)' }}>
+          Nom de la classe : <strong>{section.trim() ? `${niveau} ${section.trim()}` : niveau}</strong>
+        </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
