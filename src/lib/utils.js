@@ -2,6 +2,13 @@ export function fmt(n) {
   return Number(n ?? 0).toLocaleString('fr-FR');
 }
 
+// Pour tout montant affiché à l'écran (pas les exports CSV, qui gardent
+// des nombres bruts) : "F" tout court ne précise pas de quel franc il
+// s'agit, ici c'est toujours le franc CFA.
+export function fmtF(n) {
+  return `${fmt(n)} F CFA`;
+}
+
 export function initials(name) {
   return (name || '').split(' ').map((w) => w[0]).join('');
 }

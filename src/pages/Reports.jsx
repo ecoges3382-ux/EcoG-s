@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { fmt } from '../lib/utils.js';
+import { fmtF } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 export default function Reports() {
@@ -48,7 +48,7 @@ export default function Reports() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }} className="desktop-grid-3">
         <Stat label="Élèves" value={students.length} />
         <Stat label="Enseignants" value={staff.length} />
-        <Stat label="Revenus totaux" value={`${fmt(revenusTotaux)} F`} color="var(--success)" />
+        <Stat label="Revenus totaux" value={fmtF(revenusTotaux)} color="var(--success)" />
         <Stat label="Paiements partiels" value={partiels.length} color="var(--amber)" />
       </div>
 
@@ -74,7 +74,7 @@ export default function Reports() {
             {partiels.slice(0, 12).map((p, i) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13.5 }}>
                 <span>{p.students?.full_name || '—'}</span>
-                <span style={{ fontWeight: 600, color: 'var(--amber)' }}>{fmt(p.montant)} F</span>
+                <span style={{ fontWeight: 600, color: 'var(--amber)' }}>{fmtF(p.montant)}</span>
               </div>
             ))}
             {partiels.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement partiel.</p>}

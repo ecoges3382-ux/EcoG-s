@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, initials } from '../lib/utils.js';
+import { fmtF, initials } from '../lib/utils.js';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -79,7 +79,7 @@ function Overview() {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
-        <Stat label="Attendu" value={`${fmt(totalDu)} F`} />
+        <Stat label="Attendu" value={fmtF(totalDu)} />
         <Stat label="Familles en retard" value={enRetard.length} color="var(--danger)" />
         <Stat label="Taux de recouvrement" value={`${tauxRecouv}%`} color="var(--success)" />
       </div>
@@ -88,7 +88,7 @@ function Overview() {
         {enRetard.slice(0, 10).map((s, i) => (
           <Link key={s.id} to={`/eleves/${s.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < Math.min(enRetard.length, 10) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{s.full_name}</p>
-            <p style={{ margin: 0, fontSize: 15, color: 'var(--danger)', fontWeight: 700 }}>{fmt(s.reste)} F</p>
+            <p style={{ margin: 0, fontSize: 15, color: 'var(--danger)', fontWeight: 700 }}>{fmtF(s.reste)}</p>
           </Link>
         ))}
         {enRetard.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune famille en retard.</p>}
@@ -109,8 +109,8 @@ function FraisConnexes() {
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
-        <Stat label="Attendu" value={`${fmt(totalDu)} F`} />
-        <Stat label="Encaissé" value={`${fmt(totalPaye)} F`} color="var(--success)" />
+        <Stat label="Attendu" value={fmtF(totalDu)} />
+        <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
         <Stat label="Taux" value={`${taux}%`} />
       </div>
       <div className="card-bold" style={{ overflowX: 'auto' }}>
@@ -124,8 +124,8 @@ function FraisConnexes() {
               <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', alignItems: 'center', borderBottom: i < students.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau}</span>
-                <span style={{ fontSize: 13 }}>{fmt(s.frais_connexe_du)} F</span>
-                <span style={{ fontSize: 13 }}>{fmt(s.frais_connexe_paye)} F</span>
+                <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_du)}</span>
+                <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_paye)}</span>
                 <span style={{ background: reste <= 0 ? 'var(--success-light)' : 'var(--amber-light)', color: reste <= 0 ? 'var(--success)' : 'var(--amber)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
                   {reste <= 0 ? 'À jour' : 'Retard'}
                 </span>
@@ -165,7 +165,7 @@ function Payments() {
   return (
     <div>
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 22 }}>
-        <Stat label="Total encaissé" value={`${fmt(totalEncaisse)} F`} color="var(--success)" />
+        <Stat label="Total encaissé" value={fmtF(totalEncaisse)} color="var(--success)" />
         <Stat label="Nb paiements" value={payments.length} />
         <Stat label="Paiements partiels" value={partiels} color="var(--amber)" />
       </div>
@@ -186,7 +186,7 @@ function Payments() {
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmt(p.montant)} F</p>
+              <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
               <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.statut === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.statut === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
                 {p.statut === 'complet' ? 'Complet' : 'Partiel'}
               </span>
@@ -400,7 +400,7 @@ function Expenses() {
     <div>
       <div className="card-bold" style={{ padding: '18px 20px', marginBottom: 24, maxWidth: 320 }}>
         <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>Total des dépenses</p>
-        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--danger)' }}>{fmt(total)} F</p>
+        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(total)}</p>
       </div>
 
       <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Dépenses récentes</p>
@@ -411,7 +411,7 @@ function Expenses() {
               <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{d.libelle}</p>
               <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{d.categorie}</p>
             </div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmt(d.montant)} F</p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmtF(d.montant)}</p>
           </div>
         ))}
         {expenses.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune dépense enregistrée.</p>}
@@ -489,7 +489,7 @@ function Advances() {
                 <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
                 <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{fmt(a.montant)} F</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <StatusBadge statut={a.statut} />

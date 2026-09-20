@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { fmt, initials } from '../lib/utils.js';
+import { fmtF, initials } from '../lib/utils.js';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -69,7 +69,7 @@ export default function Dashboard() {
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement — scolarité</p>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}>{tauxRecouv}%</p>
-            <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmt(totalDu)} F attendus</p>
+            <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmtF(totalDu)} attendus</p>
           </div>
           <div style={{ height: 9, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
@@ -85,11 +85,11 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Encaissé</p>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--success)' }}>{fmt(totalPaye)} F</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totalPaye)}</p>
         </div>
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Reste dû</p>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--danger)' }}>{fmt(totalReste)} F</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(totalReste)}</p>
         </div>
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Élèves</p>
@@ -104,12 +104,12 @@ export default function Dashboard() {
         </div>
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Paiements du jour</p>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700 }}>{fmt(paiementsDuJour.montant)} F</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700 }}>{fmtF(paiementsDuJour.montant)}</p>
           <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{paiementsDuJour.count} paiement{paiementsDuJour.count > 1 ? 's' : ''}</p>
         </div>
         <div className="card-bold" style={{ padding: '16px 18px' }}>
           <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>Revenus du mois</p>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--success)' }}>{fmt(revenusDuMois)} F</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color: 'var(--success)' }}>{fmtF(revenusDuMois)}</p>
         </div>
       </div>
 
@@ -134,7 +134,7 @@ export default function Dashboard() {
                 <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{s.niveau}</p>
               </div>
             </div>
-            <p style={{ margin: 0, fontSize: 14, color: 'var(--danger)', fontWeight: 700 }}>{fmt(s.reste)} F</p>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--danger)', fontWeight: 700 }}>{fmtF(s.reste)}</p>
           </Link>
         ))}
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { fmt, initials } from '../lib/utils.js';
+import { fmtF, initials } from '../lib/utils.js';
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
 
@@ -130,8 +130,8 @@ export default function ParentAccess() {
           {detail && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 22 }}>
-                <Stat label="Reste à payer" value={`${fmt(Number(selected.montant_du) - Number(selected.montant_paye))} F`} color={Number(selected.montant_du) - Number(selected.montant_paye) > 0 ? 'var(--danger)' : 'var(--success)'} />
-                <Stat label="Frais connexes restants" value={`${fmt(Number(selected.frais_connexe_du) - Number(selected.frais_connexe_paye))} F`} color={Number(selected.frais_connexe_du) - Number(selected.frais_connexe_paye) > 0 ? 'var(--amber)' : 'var(--success)'} />
+                <Stat label="Reste à payer" value={fmtF(Number(selected.montant_du) - Number(selected.montant_paye))} color={Number(selected.montant_du) - Number(selected.montant_paye) > 0 ? 'var(--danger)' : 'var(--success)'} />
+                <Stat label="Frais connexes restants" value={fmtF(Number(selected.frais_connexe_du) - Number(selected.frais_connexe_paye))} color={Number(selected.frais_connexe_du) - Number(selected.frais_connexe_paye) > 0 ? 'var(--amber)' : 'var(--success)'} />
               </div>
 
               <Section title="Bulletin">
@@ -161,7 +161,7 @@ export default function ParentAccess() {
                   {detail.payments.slice(0, 10).map((p, i) => (
                     <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
                       <span style={{ fontSize: 13 }}>{new Date(p.date).toLocaleDateString('fr-FR')}</span>
-                      <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(p.montant)} F</span>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</span>
                     </div>
                   ))}
                   {detail.payments.length === 0 && <p style={{ padding: '14px 18px', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré.</p>}
@@ -233,7 +233,7 @@ export default function ParentAccess() {
                   </div>
                 </div>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                  {reste > 0 ? `${fmt(reste)} F dû` : 'À jour'}
+                  {reste > 0 ? `${fmtF(reste)} dû` : 'À jour'}
                 </span>
               </button>
             );
