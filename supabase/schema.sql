@@ -1233,3 +1233,20 @@ for each row execute function recompute_enrollment_paye();
 
 update students set full_name = trim(upper(nom) || ' ' || prenom);
 update parent_access set full_name = trim(upper(nom) || ' ' || prenom);
+
+-- ---------- Migration : Nom/Prénom séparés pour le personnel ----------
+-- Même correctif que pour élèves/parents (Migration 5) : "staff" n'avait
+-- qu'un champ "Nom complet" libre, saisi "Prénom Nom". Découpage best-effort
+-- (dernier mot = nom de famille) pour les fiches déjà créées ; la nouvelle
+-- inscription (NewStaffModal) saisit maintenant Nom et Prénom séparément.
+
+alter table staff add column if not exists nom text;
+alter table staff add column if not exists prenom text;
+update staff set
+  prenom = trim(regexp_replace(full_name, '\S+$', '')),
+  nom = trim(regexp_replace(full_name, '^.*\s', ''))
+where nom is null;
+alter table staff alter column nom set not null;
+alter table staff alter column prenom set not null;
+
+update staff set full_name = trim(upper(nom) || ' ' || prenom);

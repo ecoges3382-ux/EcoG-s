@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
@@ -11,7 +12,8 @@ function nextMatricule(existingStaff, role) {
 }
 
 export default function NewStaffModal({ schoolId, existingStaff, onClose, onCreated }) {
-  const [fullName, setFullName] = useState('');
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
   const [role, setRole] = useState(ROLES[0]);
   const [niveauEtudes, setNiveauEtudes] = useState('');
   const [classes, setClasses] = useState('');
@@ -23,7 +25,7 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!fullName.trim()) {
+    if (!nom.trim()) {
       setError('Le nom est obligatoire.');
       return;
     }
@@ -32,7 +34,9 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
     const { error: insertError } = await supabase.from('staff').insert({
       school_id: schoolId,
       matricule: nextMatricule(existingStaff, role),
-      full_name: fullName.trim(),
+      full_name: displayName(nom.trim(), prenom.trim()),
+      nom: nom.trim(),
+      prenom: prenom.trim(),
       role,
       niveau_etudes: niveauEtudes.trim(),
       classes: classes.split(',').map((c) => c.trim()).filter(Boolean),
@@ -59,9 +63,14 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <Field label="Nom complet">
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
-        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Nom">
+            <input value={nom} onChange={(e) => setNom(e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label="Prénom">
+            <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={inputStyle} />
+          </Field>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Rôle">
