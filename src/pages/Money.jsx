@@ -477,16 +477,25 @@ function FeeSchedules() {
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur'].includes(profile.role);
   const [rows, setRows] = useState(null);
+  // Seuls les niveaux qui ont au moins une classe créée (page Classes) sont
+  // proposés ici — pas la liste générique Maternelle→Terminale, comme pour
+  // le sélecteur de classe à l'inscription.
+  const [niveauxPresents, setNiveauxPresents] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState('');
 
   async function reload() {
     if (!schoolYear) return;
-    const { data, error: e } = await supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id);
+    const [{ data, error: e }, { data: cl }] = await Promise.all([
+      supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
+      supabase.from('classes').select('niveau'),
+    ]);
     if (e) { setError(e.message); return; }
     const map = {};
     (data || []).forEach((f) => { map[f.niveau] = f; });
     setRows(map);
+    const present = new Set((cl || []).map((c) => c.niveau));
+    setNiveauxPresents(NIVEAUX.filter((n) => present.has(n)));
   }
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
@@ -510,7 +519,17 @@ function FeeSchedules() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!rows || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!rows || !niveauxPresents || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+
+  if (niveauxPresents.length === 0) {
+    return (
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+        Aucune classe créée pour l'instant. Crée d'abord tes classes dans l'onglet{' '}
+        <Link to="/classes" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Classes</Link>{' '}
+        pour pouvoir configurer leur tarif ici.
+      </p>
+    );
+  }
 
   return (
     <div>
@@ -523,7 +542,7 @@ function FeeSchedules() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
             <span>Niveau</span><span>Scolarité (F)</span><span>Frais connexes (F)</span>
           </div>
-          {NIVEAUX.map((niveau, i) => (
+          {niveauxPresents.map((niveau, i) => (
             <FeeRow
               key={niveau}
               niveau={niveau}
@@ -531,7 +550,7 @@ function FeeSchedules() {
               canManage={canManage}
               saving={saving === niveau}
               onSave={saveRow}
-              isLast={i === NIVEAUX.length - 1}
+              isLast={i === niveauxPresents.length - 1}
             />
           ))}
         </div>
