@@ -209,7 +209,19 @@ function Payments() {
 }
 
 function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
-  const [studentId, setStudentId] = useState(students[0]?.id || '');
+  // Filtre en deux temps (classe puis élève) plutôt qu'un seul menu avec
+  // tous les élèves de l'école mélangés — plus rapide à trouver quand il y
+  // en a beaucoup.
+  const classes = [...new Set(students.map((s) => s.niveau))].sort();
+  const [classeFilter, setClasseFilter] = useState(classes[0] || '');
+  const studentsInClasse = students.filter((s) => s.niveau === classeFilter);
+  const [studentId, setStudentId] = useState(studentsInClasse[0]?.id || '');
+
+  function handleClasseChange(niveau) {
+    setClasseFilter(niveau);
+    const first = students.find((s) => s.niveau === niveau);
+    setStudentId(first?.id || '');
+  }
   const [typeFrais, setTypeFrais] = useState('scolarite');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
@@ -238,6 +250,36 @@ function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
     onCreated();
   }
 
+  if (students.length === 0) {
+    return (
+      <div
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
+          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Aucun élève inscrit</p>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Il faut d'abord inscrire au moins un élève avant de pouvoir enregistrer un paiement.
+          </p>
+          <Link
+            to="/eleves"
+            onClick={onClose}
+            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}
+          >
+            Aller inscrire un élève
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -249,10 +291,20 @@ function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <label style={modalLabelStyle}>Élève</label>
-        <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={modalInputStyle}>
-          {students.map((s) => <option key={s.id} value={s.id}>{s.full_name} · {s.niveau}</option>)}
-        </select>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={modalLabelStyle}>Classe</label>
+            <select value={classeFilter} onChange={(e) => handleClasseChange(e.target.value)} style={modalInputStyle}>
+              {classes.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={modalLabelStyle}>Élève</label>
+            <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={modalInputStyle}>
+              {studentsInClasse.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
+          </div>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
