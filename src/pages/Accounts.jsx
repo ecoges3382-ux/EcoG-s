@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, ROLES, generateAccessCode } from '../lib/utils.js';
+import { initials, ROLES, generateAccessCode, displayName } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
@@ -370,7 +370,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
     for (let attempt = 0; attempt < 5 && !created; attempt++) {
       const { data, error: insertError } = await supabase.from('parent_access').insert({
         school_id: profile.school_id,
-        full_name: `${prenom.trim()} ${nom.trim()}`.trim(),
+        full_name: displayName(nom.trim(), prenom.trim()),
         nom: nom.trim(),
         prenom: prenom.trim(),
         phone: composePhone(phoneDial, phoneLocal) || null,

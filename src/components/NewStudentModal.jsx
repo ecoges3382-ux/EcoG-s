@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { generateAccessCode } from '../lib/utils.js';
+import { generateAccessCode, displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
@@ -88,7 +88,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
     const { data: student, error: insertError } = await supabase.from('students').insert({
       school_id: schoolId,
-      full_name: `${studentPrenom.trim()} ${studentNom.trim()}`.trim(),
+      full_name: displayName(studentNom.trim(), studentPrenom.trim()),
       nom: studentNom.trim(),
       prenom: studentPrenom.trim(),
       parent_phone: studentParentPhone,
@@ -144,7 +144,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     for (let attempt = 0; attempt < 5 && !created; attempt++) {
       const { data, error: paError } = await supabase.from('parent_access').insert({
         school_id: schoolId,
-        full_name: `${parentPrenom.trim()} ${parentNom.trim()}`.trim(),
+        full_name: displayName(parentNom.trim(), parentPrenom.trim()),
         nom: parentNom.trim(),
         prenom: parentPrenom.trim(),
         phone: composePhone(parentAccessDial, parentAccessLocal) || null,

@@ -15,6 +15,12 @@ export function initials(name) {
   return (name || '').split(' ').map((w) => w[0]).join('');
 }
 
+// Format d'affichage des noms dans toute l'app : "NOM Prénom" — le nom de
+// famille toujours en majuscules, même saisi en minuscule.
+export function displayName(nom, prenom) {
+  return `${(nom || '').toUpperCase()} ${prenom || ''}`.trim();
+}
+
 // Découpe un nom complet libre (une seule colonne dans un import CSV, par
 // exemple) en { nom, prenom } — le dernier mot devient le nom de famille.
 // Best-effort seulement : à utiliser en dernier recours, quand on n'a pas

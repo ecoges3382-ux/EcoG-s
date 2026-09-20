@@ -1224,3 +1224,12 @@ drop trigger if exists trg_recompute_enrollment_paye on payments;
 create trigger trg_recompute_enrollment_paye
 after insert or update or delete on payments
 for each row execute function recompute_enrollment_paye();
+
+-- ---------- Migration : affichage "NOM Prénom" (nom en majuscules) ----------
+-- full_name était jusqu'ici stocké "Prénom Nom" tel que saisi. Recalculé ici
+-- pour tous les élèves et parents déjà enregistrés à partir de leurs
+-- colonnes nom/prenom déjà séparées ; les nouvelles fiches sont créées
+-- directement dans ce format côté application.
+
+update students set full_name = trim(upper(nom) || ' ' || prenom);
+update parent_access set full_name = trim(upper(nom) || ' ' || prenom);

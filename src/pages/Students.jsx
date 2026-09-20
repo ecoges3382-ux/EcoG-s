@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses } from '../lib/utils.js';
+import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
@@ -134,7 +134,7 @@ export default function Students() {
       const { nom, prenom } = splitFullName(fullName);
       toInsertStudents.push({
         school_id: profile.school_id,
-        full_name: fullName,
+        full_name: displayName(nom, prenom),
         nom,
         prenom,
         matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
