@@ -1,0 +1,29 @@
+name: Déployer les fonctions Supabase
+
+# Redéploie automatiquement toutes les Edge Functions (supabase/functions/*)
+# dès qu'un fichier de ce dossier change sur la branche de travail — pour ne
+# plus jamais dépendre d'un copier-coller manuel dans le tableau de bord
+# Supabase, qui a déjà causé une régression silencieuse (manage-staff-account
+# resté à une vieille version pendant un moment sans que personne le sache).
+on:
+  push:
+    branches:
+      - claude/ecogès-school-saas-1ie7fr
+    paths:
+      - 'supabase/functions/**'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Déployer toutes les fonctions
+        run: supabase functions deploy --project-ref xdumihqihcffegjcfhyi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
