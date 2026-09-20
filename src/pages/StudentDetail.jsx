@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { computeRelance } from '../lib/retard.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -49,7 +50,7 @@ export default function StudentDetail() {
     let cancelled = false;
     supabase
       .from('enrollments')
-      .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom )')
+      .select('id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom )')
       .eq('student_id', id)
       .eq('school_year_id', schoolYear.id)
       .maybeSingle()
@@ -57,11 +58,19 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [id, schoolYear?.id]);
 
+  async function saveArrangement(note) {
+    if (!enrollment) return;
+    const { error: saveError } = await supabase.from('enrollments').update({ note_arrangement: note || null }).eq('id', enrollment.id);
+    if (saveError) { setError(saveError.message); return; }
+    setEnrollment((prev) => ({ ...prev, note_arrangement: note || null }));
+  }
+
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!student || enrollment === undefined) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
   const reste = Number(enrollment?.montant_du || 0) - Number(enrollment?.montant_paye || 0);
   const resteFrais = Number(enrollment?.frais_connexe_du || 0) - Number(enrollment?.frais_connexe_paye || 0);
+  const relance = enrollment ? computeRelance(enrollment, schoolYear) : null;
 
   async function handleDelete() {
     if (!window.confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
@@ -83,7 +92,15 @@ export default function StudentDetail() {
         </div>
         <div>
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{student.full_name}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{enrollment?.classes?.nom || 'Aucune classe cette année'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>{enrollment?.classes?.nom || 'Aucune classe cette année'}</span>
+            {relance?.moratoire && (
+              <span style={{ background: '#F0EDE5', color: 'var(--muted)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire</span>
+            )}
+            {relance?.relance && (
+              <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>À relancer</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -106,6 +123,14 @@ export default function StudentDetail() {
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>
           Pas d'inscription pour l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.
         </p>
+      )}
+
+      {enrollment && (
+        <ArrangementNote
+          note={enrollment.note_arrangement}
+          canEdit={CAN_DELETE_ROLES.includes(profile.role)}
+          onSave={saveArrangement}
+        />
       )}
 
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
@@ -143,6 +168,60 @@ function Row({ label, value, color, bold, topBorder }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: bold ? 14 : '13.5px', marginBottom: bold ? 0 : 8, paddingTop: topBorder ? 8 : 0, borderTop: topBorder ? '1px solid var(--line)' : 'none' }}>
       <span style={{ color: bold ? undefined : 'var(--muted)', fontWeight: bold ? 600 : 400 }}>{label}</span>
       <span style={{ fontWeight: bold ? 700 : 600, color }}>{value}</span>
+    </div>
+  );
+}
+
+// Un parent qui a négocié un arrangement (ex. payer par mensualités plutôt
+// que suivre les tranches) est exclu des relances automatiques tant que
+// cette note existe — voir computeRelance dans lib/retard.js.
+function ArrangementNote({ note, canEdit, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(note || '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(value.trim());
+    setSaving(false);
+    setEditing(false);
+  }
+
+  if (!canEdit && !note) return null;
+
+  return (
+    <div className="card-bold" style={{ padding: '16px 20px', marginBottom: 20, maxWidth: 640 }}>
+      <p style={{ margin: '0 0 8px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+        Arrangement de paiement
+      </p>
+      {editing ? (
+        <>
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="ex. Paie 20 000 F CFA par mois sur 5 mois, arrangement conclu le..."
+            rows={3}
+            style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 10, resize: 'vertical' }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => { setValue(note || ''); setEditing(false); }} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 12.5 }}>Annuler</button>
+            <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: 12.5, opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p style={{ margin: '0 0 10px', fontSize: 13.5, color: note ? 'var(--ink)' : 'var(--muted)', whiteSpace: 'pre-wrap' }}>
+            {note || "Aucun arrangement particulier — les relances automatiques s'appliquent normalement."}
+          </p>
+          {canEdit && (
+            <button type="button" onClick={() => setEditing(true)} style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 12.5 }}>
+              {note ? 'Modifier' : 'Ajouter une note'}
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }

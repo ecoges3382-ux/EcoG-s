@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { computeRelance } from '../lib/retard.js';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -27,7 +28,7 @@ export default function Dashboard() {
     const debutMois = `${today.slice(0, 7)}-01`;
 
     Promise.all([
-      supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
+      supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
       supabase.from('attendance_records').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id).eq('date', today).eq('statut', 'absent'),
       supabase.from('payments').select('montant').eq('school_year_id', schoolYear.id).eq('date', today),
       supabase.from('payments').select('montant').eq('school_year_id', schoolYear.id).gte('date', debutMois),
@@ -42,6 +43,7 @@ export default function Dashboard() {
         montant_paye: e.montant_paye,
         frais_connexe_du: e.frais_connexe_du,
         frais_connexe_paye: e.frais_connexe_paye,
+        note_arrangement: e.note_arrangement,
       })));
       setAbsentsAujourdhui(absentsRes.count || 0);
       const todayRows = todayPayRes.data || [];
@@ -67,9 +69,14 @@ export default function Dashboard() {
   const totalFraisPaye = students.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
   const tauxFrais = totalFraisDu > 0 ? Math.round((totalFraisPaye / totalFraisDu) * 100) : 0;
 
+  // Une fois un calendrier de paiement configuré, "en retard" veut dire un
+  // délai dépassé (voir computeRelance) plutôt que juste "reste à payer" —
+  // et exclut les élèves avec un moratoire actif.
+  const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3));
   const enRetard = students
     .map((s) => ({ ...s, reste: Number(s.montant_du) - Number(s.montant_paye) }))
     .filter((s) => s.reste > 0)
+    .filter((s) => !calendrierConfigure || computeRelance(s, schoolYear).relance)
     .sort((a, b) => b.reste - a.reste)
     .slice(0, 5);
 

@@ -4,11 +4,26 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
-function statusOf(s) {
+// Une fois un calendrier de paiement configuré (Argent → Grille tarifaire),
+// le statut se base sur les délais dépassés plutôt que sur un pourcentage
+// fixe — voir computeRelance dans lib/retard.js. Tant qu'aucune date n'est
+// configurée, on garde l'ancien calcul par pourcentage (pas de régression
+// pour une école qui n'a pas encore rempli son calendrier).
+function statusOf(s, schoolYear) {
+  const relance = computeRelance(s, schoolYear);
+  if (relance.moratoire) return { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' };
+
+  const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe));
+  if (calendrierConfigure) {
+    if (relance.relance) return { label: 'À relancer', bg: 'var(--danger-light)', fg: 'var(--danger)' };
+    return { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
+  }
+
   const reste = Number(s.montant_du) - Number(s.montant_paye);
   if (reste <= 0) return { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
   const ratioPaye = Number(s.montant_du) > 0 ? Number(s.montant_paye) / Number(s.montant_du) : 0;
@@ -52,7 +67,7 @@ export default function Students() {
     if (!schoolYear) return;
     const { data, error: fetchError } = await supabase
       .from('enrollments')
-      .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
+      .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
       .eq('school_year_id', schoolYear.id)
       .order('full_name', { foreignTable: 'students' });
     if (fetchError) { setError(fetchError.message); return; }
@@ -71,6 +86,7 @@ export default function Students() {
       montant_paye: e.montant_paye,
       frais_connexe_du: e.frais_connexe_du,
       frais_connexe_paye: e.frais_connexe_paye,
+      note_arrangement: e.note_arrangement,
     })));
   }
 
@@ -273,7 +289,7 @@ export default function Students() {
 
       <div className="card-bold" style={{ overflow: 'hidden' }}>
         {filtered.map((s, i) => {
-          const status = statusOf(s);
+          const status = statusOf(s, schoolYear);
           return (
             <div
               key={s.id}
