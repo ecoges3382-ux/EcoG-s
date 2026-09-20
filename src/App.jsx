@@ -41,12 +41,15 @@ function SetupNeeded() {
 }
 
 function RequireAuth({ children }) {
-  const { user, profile, loading } = useAuth();
-  if (loading) {
+  const { user, profile, loading, isPlatformAdmin, adminLoading } = useAuth();
+  if (loading || adminLoading) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>Chargement…</div>;
   }
   if (!user) return <Navigate to="/connexion" replace />;
   if (!profile) {
+    // Un administrateur de la plateforme n'a pas forcément de profil
+    // d'école : direction son propre espace plutôt qu'un mur bloquant.
+    if (isPlatformAdmin) return <Navigate to="/admin" replace />;
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
         <p style={{ color: 'var(--danger)', maxWidth: 420 }}>
