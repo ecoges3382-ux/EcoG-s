@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmt, initials, downloadCsv, parseCsv, splitFullName } from '../lib/utils.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
+import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 function statusOf(s) {
@@ -37,6 +38,7 @@ export default function Students() {
   const [modalOpen, setModalOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
@@ -137,8 +139,16 @@ export default function Students() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  function toggleAll(ids) {
-    setSelectedIds((prev) => (ids.every((id) => prev.includes(id)) ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]));
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const ids = filtered.map((s) => s.id);
+      return ids.every((id) => prev.includes(id)) ? [] : ids;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds([]);
   }
 
   async function handleDeleteOne(id, name) {
@@ -147,7 +157,6 @@ export default function Students() {
     const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
     setDeleting(false);
     if (deleteError) { setError(deleteError.message); return; }
-    setSelectedIds((prev) => prev.filter((x) => x !== id));
     reload();
   }
 
@@ -157,7 +166,7 @@ export default function Students() {
     const { error: deleteError } = await supabase.from('students').delete().in('id', selectedIds);
     setDeleting(false);
     if (deleteError) { setError(deleteError.message); return; }
-    setSelectedIds([]);
+    exitSelectMode();
     reload();
   }
 
@@ -182,6 +191,14 @@ export default function Students() {
           >
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
           </button>
+          {canDelete && !selectMode && (
+            <button
+              onClick={() => setSelectMode(true)}
+              style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}
+            >
+              Sélectionner
+            </button>
+          )}
         </div>
       </div>
 
@@ -209,35 +226,9 @@ export default function Students() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
-          {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
-        </p>
-        {canDelete && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', cursor: filtered.length ? 'pointer' : 'default' }}>
-              <input
-                type="checkbox"
-                disabled={filtered.length === 0}
-                checked={filtered.length > 0 && filtered.every((s) => selectedIds.includes(s.id))}
-                onChange={() => toggleAll(filtered.map((s) => s.id))}
-              />
-              Tout sélectionner
-            </label>
-            {selectedIds.length > 0 && (
-              <button
-                type="button"
-                onClick={handleDeleteSelected}
-                disabled={deleting}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
-              >
-                <TrashIcon />
-                Supprimer ({selectedIds.length})
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
+        {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
+      </p>
 
       <div className="card-bold" style={{ overflow: 'hidden' }}>
         {filtered.map((s, i) => {
@@ -247,7 +238,7 @@ export default function Students() {
               key={s.id}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
             >
-              {canDelete && (
+              {canDelete && selectMode && (
                 <input
                   type="checkbox"
                   checked={selectedIds.includes(s.id)}
@@ -256,7 +247,8 @@ export default function Students() {
                 />
               )}
               <Link
-                to={`/eleves/${s.id}`}
+                to={selectMode ? '#' : `/eleves/${s.id}`}
+                onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(s.id); } : undefined}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
@@ -270,7 +262,7 @@ export default function Students() {
                 </div>
                 <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>{status.label}</span>
               </Link>
-              {canDelete && (
+              {canDelete && !selectMode && (
                 <button
                   type="button"
                   onClick={() => handleDeleteOne(s.id, s.full_name)}
@@ -285,6 +277,17 @@ export default function Students() {
         })}
         {filtered.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève.</p>}
       </div>
+
+      {selectMode && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={filtered.length > 0 && filtered.every((s) => selectedIds.includes(s.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
 
       {modalOpen && (
         <NewStudentModal

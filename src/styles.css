@@ -66,6 +66,9 @@ body.app-mode .page-title { color: #fff !important; }
     padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
     z-index: 20;
   }
+  /* Au-dessus de la barre de navigation du bas (z-index 20), sinon la
+     barre de sélection se retrouve cachée derrière. */
+  .selection-bar { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
   #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 14px; border-radius: 10px; min-width: 0; }
   #bottomnav .navlink i { font-size: 20px; color: var(--ink); }
   #bottomnav .navlink span { font-size: 9.5px; color: var(--ink); font-weight: 600; white-space: nowrap; }

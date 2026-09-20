@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import SelectionBar from '../components/SelectionBar.jsx';
 
 const MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -23,6 +24,7 @@ export default function Parents() {
   const { profile } = useAuth();
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
@@ -54,8 +56,16 @@ export default function Parents() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  function toggleAll(ids) {
-    setSelectedIds((prev) => (ids.every((id) => prev.includes(id)) ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]));
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const ids = parents.map((p) => p.id);
+      return ids.every((id) => prev.includes(id)) ? [] : ids;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds([]);
   }
 
   async function handleDeleteOne(id, name) {
@@ -64,7 +74,6 @@ export default function Parents() {
     const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', id);
     setDeleting(false);
     if (deleteError) { setError(deleteError.message); return; }
-    setSelectedIds((prev) => prev.filter((x) => x !== id));
     reload();
   }
 
@@ -74,74 +83,64 @@ export default function Parents() {
     const { error: deleteError } = await supabase.from('parent_access').delete().in('id', selectedIds);
     setDeleting(false);
     if (deleteError) { setError(deleteError.message); return; }
-    setSelectedIds([]);
+    exitSelectMode();
     reload();
   }
 
   return (
     <div>
       <SchoolTabs />
-      <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Parents</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Parents</p>
+        {!selectMode && (
+          <button
+            onClick={() => setSelectMode(true)}
+            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}
+          >
+            Sélectionner
+          </button>
+        )}
+      </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {!parents && !error && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {parents && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginBottom: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', cursor: parents.length ? 'pointer' : 'default' }}>
-              <input
-                type="checkbox"
-                disabled={parents.length === 0}
-                checked={parents.length > 0 && parents.every((p) => selectedIds.includes(p.id))}
-                onChange={() => toggleAll(parents.map((p) => p.id))}
-              />
-              Tout sélectionner
-            </label>
-            {selectedIds.length > 0 && (
-              <button
-                type="button"
-                onClick={handleDeleteSelected}
-                disabled={deleting}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+        <div className="card-bold" style={{ overflow: 'hidden' }}>
+          {parents.map((p, i) => {
+            const childCount = (p.parent_access_students || []).length;
+            return (
+              <div
+                key={p.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < parents.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
-                <TrashIcon />
-                Supprimer ({selectedIds.length})
-              </button>
-            )}
-          </div>
-
-          <div className="card-bold" style={{ overflow: 'hidden' }}>
-            {parents.map((p, i) => {
-              const childCount = (p.parent_access_students || []).length;
-              return (
-                <div
-                  key={p.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < parents.length - 1 ? '1px solid var(--line)' : 'none' }}
-                >
+                {selectMode && (
                   <input
                     type="checkbox"
                     checked={selectedIds.includes(p.id)}
                     onChange={() => toggleOne(p.id)}
                     style={{ flexShrink: 0 }}
                   />
-                  <Link
-                    to={`/parents/${p.id}`}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
-                        {initials(p.full_name)}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{p.full_name}</p>
-                        <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{p.phone || 'Pas de numéro'}</p>
-                      </div>
+                )}
+                <Link
+                  to={selectMode ? '#' : `/parents/${p.id}`}
+                  onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(p.id); } : undefined}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
+                      {initials(p.full_name)}
                     </div>
-                    <span style={{ background: 'var(--forest-light)', color: 'var(--forest-dark)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>
-                      {childCount} enfant{childCount > 1 ? 's' : ''}
-                    </span>
-                  </Link>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{p.full_name}</p>
+                      <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{p.phone || 'Pas de numéro'}</p>
+                    </div>
+                  </div>
+                  <span style={{ background: 'var(--forest-light)', color: 'var(--forest-dark)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>
+                    {childCount} enfant{childCount > 1 ? 's' : ''}
+                  </span>
+                </Link>
+                {!selectMode && (
                   <button
                     type="button"
                     onClick={() => handleDeleteOne(p.id, p.full_name)}
@@ -150,12 +149,23 @@ export default function Parents() {
                   >
                     <TrashIcon />
                   </button>
-                </div>
-              );
-            })}
-            {parents.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun parent pour l'instant.</p>}
-          </div>
-        </>
+                )}
+              </div>
+            );
+          })}
+          {parents.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun parent pour l'instant.</p>}
+        </div>
+      )}
+
+      {selectMode && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={!!parents && parents.length > 0 && parents.every((p) => selectedIds.includes(p.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
       )}
     </div>
   );
