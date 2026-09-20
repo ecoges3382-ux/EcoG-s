@@ -86,7 +86,7 @@ body.app-mode .page-title { color: #fff !important; }
   .schedule-grid { grid-template-columns: 1fr 1fr !important; }
   .role-badge-label { font-size: 11px; }
   .logout-label { display: none; }
-  select { font-size: 16px !important; }
+  input, select, textarea { font-size: 16px !important; }
   .school-tabs-mobile { display: flex !important; }
 }
 
