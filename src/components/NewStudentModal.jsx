@@ -8,7 +8,6 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
   const [studentNom, setStudentNom] = useState('');
   const [studentPrenom, setStudentPrenom] = useState('');
   const [niveau, setNiveau] = useState(niveaux[0]);
-  const [parentPhone, setParentPhone] = useState('');
   const [montantDu, setMontantDu] = useState(90000);
   const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -30,7 +29,7 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
 
   useEffect(() => {
     if (!canManageParents) return;
-    supabase.from('parent_access').select('id, full_name, nom, code').order('full_name').then(({ data }) => {
+    supabase.from('parent_access').select('id, full_name, nom, phone, code').order('full_name').then(({ data }) => {
       setExistingParents(data || []);
     });
   }, [canManageParents]);
@@ -52,13 +51,23 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
     setSubmitting(true);
     setError('');
 
+    // Le téléphone du parent (saisi une seule fois, dans la section Parent
+    // ci-dessous) est repris sur la fiche élève — nouveau parent créé à
+    // l'instant, ou parent existant déjà rattaché.
+    let studentParentPhone = null;
+    if (canManageParents && parentMode === 'new') {
+      studentParentPhone = composePhone(parentAccessDial, parentAccessLocal) || null;
+    } else if (canManageParents && parentMode === 'existing') {
+      studentParentPhone = (existingParents || []).find((p) => p.id === existingParentId)?.phone || null;
+    }
+
     const { data: student, error: insertError } = await supabase.from('students').insert({
       school_id: schoolId,
       full_name: `${studentPrenom.trim()} ${studentNom.trim()}`.trim(),
       nom: studentNom.trim(),
       prenom: studentPrenom.trim(),
       niveau,
-      parent_phone: parentPhone.trim(),
+      parent_phone: studentParentPhone,
       montant_du: Number(montantDu) || 0,
       montant_paye: 0,
       frais_connexe_du: 0,
@@ -197,14 +206,6 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
         <div style={{ marginBottom: 18 }}>
           <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
         </div>
-
-        <label style={labelStyle}>Téléphone parent (information libre, affichée sur la fiche)</label>
-        <input
-          value={parentPhone}
-          onChange={(e) => setParentPhone(e.target.value)}
-          placeholder="01 XX XX XX XX"
-          style={{ ...inputStyle, marginBottom: 18 }}
-        />
 
         {canManageParents && (
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 4 }}>

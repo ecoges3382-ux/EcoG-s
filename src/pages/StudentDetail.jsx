@@ -50,7 +50,7 @@ export default function StudentDetail() {
         </div>
         <div>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600 }}>{student.full_name}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{student.niveau} · Parent : {student.parent_phone || '—'}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{student.niveau}</p>
         </div>
       </div>
 

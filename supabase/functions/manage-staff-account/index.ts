@@ -13,13 +13,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const ALLOWED_ROLES = ['directeur', 'secretaire', 'enseignant'];
 
-// Même logique que formatPhoneE164 côté frontend (src/lib/utils.js) —
-// dupliquée ici car les Edge Functions tournent dans un runtime Deno
-// séparé, sans accès au code du frontend.
+// Même logique que composePhone côté frontend (src/components/PhoneInput.jsx)
+// — dupliquée ici car les Edge Functions tournent dans un runtime Deno
+// séparé, sans accès au code du frontend. En pratique, le téléphone reçu
+// est déjà composé en E.164 par le frontend (donc déjà préfixé par '+') ;
+// cette fonction ne sert de filet que si jamais un numéro brut arrive.
 function formatPhoneE164(raw: string, defaultCountryCode = '229'): string {
   const cleaned = String(raw || '').replace(/[^\d+]/g, '');
   if (!cleaned) return '';
   if (cleaned.startsWith('+')) return cleaned;
+
+  // Réforme du 30 novembre 2024 (ARCEP Bénin) : le « 01 » fait désormais
+  // partie intégrante du numéro national à 10 chiffres, ce n'est plus un
+  // préfixe de tronc à retirer pour l'international (+229 01 XX XX XX XX).
+  if (defaultCountryCode === '229') {
+    const withPrefix = cleaned.length === 8 ? `01${cleaned}` : cleaned;
+    return `+${defaultCountryCode}${withPrefix}`;
+  }
+
   return `+${defaultCountryCode}${cleaned.replace(/^0+/, '')}`;
 }
 
