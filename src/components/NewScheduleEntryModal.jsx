@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
@@ -12,6 +13,36 @@ export default function NewScheduleEntryModal({ schoolId, niveaux, enseignants, 
   const [enseignant, setEnseignant] = useState(enseignants[0] || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  if (niveaux.length === 0) {
+    return (
+      <div
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
+          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Aucune classe créée</p>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Il faut d'abord créer au moins une classe avant de pouvoir lui assigner un créneau.
+          </p>
+          <Link
+            to="/classes"
+            onClick={onClose}
+            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}
+          >
+            Aller créer une classe
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();

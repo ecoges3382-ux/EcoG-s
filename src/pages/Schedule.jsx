@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { NIVEAUX } from '../lib/utils.js';
 import NewScheduleEntryModal from '../components/NewScheduleEntryModal.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
@@ -12,6 +11,7 @@ export default function Schedule() {
   const { profile } = useAuth();
   const [entries, setEntries] = useState(null);
   const [enseignants, setEnseignants] = useState([]);
+  const [classes, setClasses] = useState(null);
   const [error, setError] = useState('');
   const [view, setView] = useState('classe');
   const [filter, setFilter] = useState(null);
@@ -27,7 +27,14 @@ export default function Schedule() {
     setEnseignants((staff || []).map((s) => s.full_name));
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    // Les classes proposées pour un créneau sont celles réellement créées
+    // par l'école (page Classes) — pas une liste générique de niveaux.
+    supabase.from('classes').select('nom').order('nom').then(({ data }) => {
+      setClasses((data || []).map((c) => c.nom));
+    });
+  }, []);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!entries) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -78,14 +85,18 @@ export default function Schedule() {
         })}
       </div>
 
-      <button onClick={() => setModalOpen(true)} style={{ marginTop: 24, background: 'var(--clay)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: '13px 22px', borderRadius: 'var(--radius)' }}>
+      <button
+        onClick={() => setModalOpen(true)}
+        disabled={classes === null}
+        style={{ marginTop: 24, background: 'var(--clay)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: '13px 22px', borderRadius: 'var(--radius)', opacity: classes === null ? 0.7 : 1 }}
+      >
         <i className="ti ti-plus" style={{ fontSize: 16, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>Ajouter un créneau
       </button>
 
       {modalOpen && (
         <NewScheduleEntryModal
           schoolId={profile.school_id}
-          niveaux={NIVEAUX}
+          niveaux={classes || []}
           enseignants={enseignants}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}

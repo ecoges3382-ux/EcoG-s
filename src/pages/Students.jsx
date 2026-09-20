@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, initials, downloadCsv, parseCsv, splitFullName, NIVEAUX } from '../lib/utils.js';
+import { fmt, initials, downloadCsv, parseCsv, splitFullName } from '../lib/utils.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
@@ -17,6 +17,7 @@ function statusOf(s) {
 export default function Students() {
   const { profile } = useAuth();
   const [students, setStudents] = useState(null);
+  const [classes, setClasses] = useState(null);
   const [error, setError] = useState('');
   const [classFilter, setClassFilter] = useState('toutes');
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,7 +33,15 @@ export default function Students() {
     else setStudents(data);
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    // Les classes disponibles à l'inscription et à l'import CSV sont
+    // celles réellement créées par l'école (page Classes) — pas une liste
+    // générique de la maternelle à la terminale.
+    supabase.from('classes').select('nom').order('nom').then(({ data }) => {
+      setClasses((data || []).map((c) => c.nom));
+    });
+  }, []);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -76,7 +85,7 @@ export default function Students() {
     rows.slice(1).forEach((r) => {
       const fullName = (r[idx.nom] || '').trim();
       const classe = (r[idx.classe] || '').trim();
-      if (!fullName || !NIVEAUX.includes(classe)) { skipped += 1; return; }
+      if (!fullName || !(classes || []).includes(classe)) { skipped += 1; return; }
       const { nom, prenom } = splitFullName(fullName);
       toInsert.push({
         school_id: profile.school_id,
@@ -93,7 +102,7 @@ export default function Students() {
       });
     });
     if (toInsert.length === 0) {
-      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${NIVEAUX.join(', ')}).` });
+      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${(classes || []).join(', ') || 'aucune classe créée pour l\'instant'}).` });
       return;
     }
     setImporting(true);
@@ -121,7 +130,11 @@ export default function Students() {
             {importing ? 'Import…' : 'Importer'}
             <input type="file" accept=".csv,text/csv" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
           </label>
-          <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+          <button
+            onClick={() => setModalOpen(true)}
+            disabled={classes === null}
+            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null ? 0.7 : 1 }}
+          >
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
           </button>
         </div>
@@ -183,7 +196,7 @@ export default function Students() {
       {modalOpen && (
         <NewStudentModal
           schoolId={profile.school_id}
-          niveaux={NIVEAUX}
+          niveaux={classes || []}
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
