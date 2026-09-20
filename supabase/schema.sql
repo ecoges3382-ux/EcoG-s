@@ -1250,3 +1250,18 @@ alter table staff alter column nom set not null;
 alter table staff alter column prenom set not null;
 
 update staff set full_name = trim(upper(nom) || ' ' || prenom);
+
+-- ---------- Migration : calendrier de paiement + moratoires ----------
+-- Délais de paiement des tranches et des frais connexes, identiques pour
+-- toute l'école (pas par niveau) : un calendrier par année scolaire. Sert
+-- à générer automatiquement la liste des familles "à relancer" (voir
+-- src/lib/retard.js côté application) une fois un délai dépassé.
+alter table school_years add column if not exists date_tranche1 date;
+alter table school_years add column if not exists date_tranche2 date;
+alter table school_years add column if not exists date_tranche3 date;
+alter table school_years add column if not exists date_connexe date;
+
+-- Note de moratoire par élève pour l'année : une famille qui a négocié un
+-- arrangement (ex. payer par mensualités plutôt que par tranches) reste
+-- ainsi exclue des relances automatiques tant que la note existe.
+alter table enrollments add column if not exists note_arrangement text;
