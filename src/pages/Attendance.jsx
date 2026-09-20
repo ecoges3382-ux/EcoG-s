@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 const STATUTS = [
@@ -16,6 +17,7 @@ function todayIso() {
 
 export default function Attendance() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
   const [niveau, setNiveau] = useState('');
@@ -25,13 +27,23 @@ export default function Attendance() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // La classe d'un élève est propre à l'année scolaire en cours
+  // (enrollments) — students ne garde que son identité.
   useEffect(() => {
-    supabase.from('students').select('id, full_name, niveau, photo_url').order('full_name').then(({ data, error: fetchError }) => {
-      if (fetchError) { setError(fetchError.message); return; }
-      setStudents(data);
-      if (data?.length) setNiveau(data[0].niveau);
-    });
-  }, []);
+    if (!schoolYear) return;
+    supabase
+      .from('enrollments')
+      .select('classes ( nom ), students ( id, full_name, photo_url )')
+      .eq('school_year_id', schoolYear.id)
+      .then(({ data, error: fetchError }) => {
+        if (fetchError) { setError(fetchError.message); return; }
+        const st = (data || [])
+          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, photo_url: e.students.photo_url, niveau: e.classes?.nom || '—' }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        setStudents(st);
+        if (st.length) setNiveau(st[0].niveau);
+      });
+  }, [schoolYear?.id]);
 
   const niveaux = useMemo(() => [...new Set((students || []).map((s) => s.niveau))].sort(), [students]);
   const studentsInNiveau = (students || []).filter((s) => s.niveau === niveau);
@@ -59,7 +71,7 @@ export default function Attendance() {
     setSaving(true);
     setError('');
     const rows = studentsInNiveau.map((s) => ({
-      school_id: profile.school_id, student_id: s.id, date, statut: statuts[s.id] || 'present',
+      school_id: profile.school_id, school_year_id: schoolYear.id, student_id: s.id, date, statut: statuts[s.id] || 'present',
     }));
     const { error: upsertError } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'student_id,date' });
     setSaving(false);

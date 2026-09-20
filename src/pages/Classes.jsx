@@ -2,30 +2,33 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { NIVEAUX, sortClasses } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 export default function Classes() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [classes, setClasses] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [enrollments, setEnrollments] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
   async function reload() {
-    const [{ data: cl, error: clError }, { data: st }, { data: te }] = await Promise.all([
+    if (!schoolYear) return;
+    const [{ data: cl, error: clError }, { data: en }, { data: te }] = await Promise.all([
       supabase.from('classes').select('*, staff ( full_name )'),
-      supabase.from('students').select('niveau'),
+      supabase.from('enrollments').select('classe_id').eq('school_year_id', schoolYear.id),
       supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
     ]);
     if (clError) setError(clError.message);
     else setClasses(sortClasses(cl));
-    setStudents(st || []);
+    setEnrollments(en || []);
     setTeachers(te || []);
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); }, [schoolYear?.id]);
 
   async function handleDelete(c) {
     if (!window.confirm(`Supprimer la classe ${c.nom} ?`)) return;
@@ -54,7 +57,7 @@ export default function Classes() {
               <span>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span><span></span>
             </div>
             {classes.map((c, i) => {
-              const effectif = students.filter((s) => s.niveau === c.niveau).length;
+              const effectif = enrollments.filter((e) => e.classe_id === c.id).length;
               return (
                 <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1.4fr 0.8fr', padding: '13px 20px', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{c.nom}</span>
@@ -79,7 +82,7 @@ export default function Classes() {
       )}
 
       <p style={{ margin: '14px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>
-        L'effectif est compté à partir du niveau renseigné sur chaque fiche élève.
+        L'effectif est compté à partir des inscriptions de l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.
       </p>
 
       {modalOpen && (

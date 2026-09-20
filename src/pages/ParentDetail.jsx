@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -10,7 +11,11 @@ export default function ParentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [access, setAccess] = useState(null);
+  // La classe d'un élève est propre à l'année scolaire en cours
+  // (enrollments) — students ne garde que son identité.
+  const [niveauById, setNiveauById] = useState({});
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -19,7 +24,7 @@ export default function ParentDetail() {
     let cancelled = false;
     supabase
       .from('parent_access')
-      .select('*, parent_access_students ( students ( id, full_name, niveau ) )')
+      .select('*, parent_access_students ( students ( id, full_name ) )')
       .eq('id', id)
       .single()
       .then(({ data, error: fetchError }) => {
@@ -29,6 +34,25 @@ export default function ParentDetail() {
       });
     return () => { cancelled = true; };
   }, [id]);
+
+  useEffect(() => {
+    if (!access || !schoolYear) return;
+    const ids = (access.parent_access_students || []).map((row) => row.students?.id).filter(Boolean);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    supabase
+      .from('enrollments')
+      .select('student_id, classes ( nom )')
+      .eq('school_year_id', schoolYear.id)
+      .in('student_id', ids)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map = {};
+        (data || []).forEach((e) => { map[e.student_id] = e.classes?.nom || '—'; });
+        setNiveauById(map);
+      });
+    return () => { cancelled = true; };
+  }, [access, schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!access) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -89,7 +113,7 @@ export default function ParentDetail() {
               </div>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{c.full_name}</p>
             </div>
-            <span style={{ fontSize: '11.5px', color: 'var(--muted)', fontWeight: 600 }}>{c.niveau}</span>
+            <span style={{ fontSize: '11.5px', color: 'var(--muted)', fontWeight: 600 }}>{niveauById[c.id] || '—'}</span>
           </Link>
         ))}
         {children.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun enfant rattaché.</p>}

@@ -1,40 +1,55 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function Dashboard() {
+  const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [absentsAujourdhui, setAbsentsAujourdhui] = useState(0);
   const [paiementsDuJour, setPaiementsDuJour] = useState({ montant: 0, count: 0 });
   const [revenusDuMois, setRevenusDuMois] = useState(0);
   const [error, setError] = useState('');
 
+  // Le dû/payé et la classe d'un élève sont propres à l'année scolaire en
+  // cours (enrollments) — students ne garde que son identité.
   useEffect(() => {
+    if (!schoolYear) return;
     let cancelled = false;
     const today = todayIso();
     const debutMois = `${today.slice(0, 7)}-01`;
 
     Promise.all([
-      supabase.from('students').select('id, full_name, niveau, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye'),
-      supabase.from('attendance_records').select('id', { count: 'exact', head: true }).eq('date', today).eq('statut', 'absent'),
-      supabase.from('payments').select('montant').eq('date', today),
-      supabase.from('payments').select('montant').gte('date', debutMois),
-    ]).then(([studentsRes, absentsRes, todayPayRes, monthPayRes]) => {
+      supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
+      supabase.from('attendance_records').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id).eq('date', today).eq('statut', 'absent'),
+      supabase.from('payments').select('montant').eq('school_year_id', schoolYear.id).eq('date', today),
+      supabase.from('payments').select('montant').eq('school_year_id', schoolYear.id).gte('date', debutMois),
+    ]).then(([enrRes, absentsRes, todayPayRes, monthPayRes]) => {
       if (cancelled) return;
-      if (studentsRes.error) { setError(studentsRes.error.message); return; }
-      setStudents(studentsRes.data);
+      if (enrRes.error) { setError(enrRes.error.message); return; }
+      setStudents((enrRes.data || []).map((e) => ({
+        id: e.students.id,
+        full_name: e.students.full_name,
+        niveau: e.classes?.nom || '—',
+        montant_du: e.montant_du,
+        montant_paye: e.montant_paye,
+        frais_connexe_du: e.frais_connexe_du,
+        frais_connexe_paye: e.frais_connexe_paye,
+      })));
       setAbsentsAujourdhui(absentsRes.count || 0);
       const todayRows = todayPayRes.data || [];
       setPaiementsDuJour({ montant: todayRows.reduce((a, p) => a + Number(p.montant), 0), count: todayRows.length });
       setRevenusDuMois((monthPayRes.data || []).reduce((a, p) => a + Number(p.montant), 0));
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [schoolYear?.id]);
 
   if (error) {
     return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;

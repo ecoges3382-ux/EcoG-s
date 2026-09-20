@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 const TYPES = [
@@ -13,6 +14,7 @@ const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Se
 
 export default function Notes() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState(null);
@@ -20,23 +22,33 @@ export default function Notes() {
   const [niveau, setNiveau] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 
+  // La classe d'un élève est propre à l'année scolaire en cours
+  // (enrollments) — students ne garde que son identité.
   async function reload() {
-    const [{ data: st }, { data: su }, { data: gr, error: grError }] = await Promise.all([
-      supabase.from('students').select('id, full_name, niveau').order('full_name'),
+    if (!schoolYear) return;
+    const [{ data: enr }, { data: su }, { data: gr, error: grError }] = await Promise.all([
+      supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
       supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-      supabase.from('grades').select('*, students ( full_name, niveau ), subjects ( nom, coefficient )').order('created_at', { ascending: false }),
+      supabase.from('grades').select('*, students ( full_name ), subjects ( nom, coefficient )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false }),
     ]);
-    if (grError) setError(grError.message);
-    else setGrades(gr);
-    setStudents(st || []);
+    if (grError) { setError(grError.message); return; }
+    const st = (enr || [])
+      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
+      .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    setGrades(gr);
+    setStudents(st);
     setSubjects(su || []);
-    if (!niveau && st?.length) setNiveau(st[0].niveau);
+    if (!niveau && st.length) setNiveau(st[0].niveau);
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolYear?.id]);
 
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
-  const filteredGrades = niveau ? (grades || []).filter((g) => g.students?.niveau === niveau) : (grades || []);
+  const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
+  const filteredGrades = niveau ? (grades || []).filter((g) => niveauByStudent.get(g.student_id) === niveau) : (grades || []);
 
   const classement = useMemo(() => {
     const byStudent = new Map();
@@ -59,7 +71,7 @@ export default function Notes() {
       <SchoolTabs />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Notes</p>
-        <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+        <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Saisir une note
         </button>
       </div>
@@ -101,9 +113,10 @@ export default function Notes() {
         </div>
       )}
 
-      {modalOpen && (
+      {modalOpen && schoolYear && (
         <NewGradeModal
           schoolId={profile.school_id}
+          schoolYearId={schoolYear.id}
           students={students}
           subjects={subjects}
           defaultNiveau={niveau}
@@ -115,7 +128,7 @@ export default function Notes() {
   );
 }
 
-function NewGradeModal({ schoolId, students, subjects, defaultNiveau, onClose, onCreated }) {
+function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, onClose, onCreated }) {
   const [niveau, setNiveau] = useState(defaultNiveau || '');
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
@@ -146,7 +159,7 @@ function NewGradeModal({ schoolId, students, subjects, defaultNiveau, onClose, o
     setSubmitting(true);
     setError('');
     const { error: insertError } = await supabase.from('grades').insert({
-      school_id: schoolId, student_id: studentId, subject_id: subjectId, type, note: Number(note), sur: Number(sur), periode,
+      school_id: schoolId, school_year_id: schoolYearId, student_id: studentId, subject_id: subjectId, type, note: Number(note), sur: Number(sur), periode,
     });
     setSubmitting(false);
     if (insertError) {

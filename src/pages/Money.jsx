@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials } from '../lib/utils.js';
+import { fmtF, initials, NIVEAUX } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -10,6 +11,7 @@ const TABS = [
   { id: 'paiements', label: 'Paiements' },
   { id: 'depenses', label: 'Dépenses' },
   { id: 'avances', label: 'Avances sur salaire' },
+  { id: 'grille', label: 'Grille tarifaire' },
 ];
 
 const TYPES_FRAIS = [
@@ -63,23 +65,42 @@ export default function Money() {
       {tab === 'paiements' && <Payments />}
       {tab === 'depenses' && <Expenses />}
       {tab === 'avances' && <Advances />}
+      {tab === 'grille' && <FeeSchedules />}
     </div>
   );
 }
 
-function useStudents() {
+// Le dû/payé et la classe d'un élève sont propres à l'année scolaire en
+// cours (table enrollments) — students ne garde que son identité.
+function useEnrollments() {
+  const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    supabase.from('students').select('*').then(({ data, error: e }) => {
-      if (e) setError(e.message); else setStudents(data);
-    });
-  }, []);
+    if (!schoolYear) return;
+    supabase
+      .from('enrollments')
+      .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom ), students ( id, full_name )')
+      .eq('school_year_id', schoolYear.id)
+      .then(({ data, error: e }) => {
+        if (e) { setError(e.message); return; }
+        setStudents((data || []).map((en) => ({
+          id: en.students.id,
+          full_name: en.students.full_name,
+          niveau: en.classes?.nom || '—',
+          montant_du: en.montant_du,
+          montant_paye: en.montant_paye,
+          frais_connexe_du: en.frais_connexe_du,
+          frais_connexe_paye: en.frais_connexe_paye,
+        })));
+      });
+  }, [schoolYear?.id]);
   return { students, error };
 }
 
 function Overview() {
-  const { students, error } = useStudents();
+  const { students, error } = useEnrollments();
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
@@ -113,7 +134,7 @@ function Overview() {
 }
 
 function FraisConnexes() {
-  const { students, error } = useStudents();
+  const { students, error } = useEnrollments();
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
@@ -155,6 +176,7 @@ function FraisConnexes() {
 
 function Payments() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
   const [students, setStudents] = useState([]);
@@ -162,14 +184,17 @@ function Payments() {
   const [modalOpen, setModalOpen] = useState(false);
 
   async function reload() {
-    const [{ data: pay, error: payError }, { data: st }] = await Promise.all([
-      supabase.from('payments').select('*, students ( full_name, niveau )').order('date', { ascending: false }).order('created_at', { ascending: false }),
-      supabase.from('students').select('id, full_name, niveau').order('full_name'),
+    if (!schoolYear) return;
+    const [{ data: pay, error: payError }, { data: enr }] = await Promise.all([
+      supabase.from('payments').select('*, students ( full_name )').eq('school_year_id', schoolYear.id).order('date', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
     ]);
     if (payError) setError(payError.message); else setPayments(pay);
-    setStudents(st || []);
+    setStudents((enr || [])
+      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
+      .sort((a, b) => a.full_name.localeCompare(b.full_name)));
   }
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); }, [schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!payments) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -186,7 +211,7 @@ function Payments() {
       </div>
 
       {canManage && (
-        <button onClick={() => setModalOpen(true)} style={{ marginBottom: 18, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+        <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ marginBottom: 18, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Enregistrer un paiement
         </button>
       )}
@@ -211,9 +236,10 @@ function Payments() {
         {payments.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré.</p>}
       </div>
 
-      {modalOpen && (
+      {modalOpen && schoolYear && (
         <NewPaymentModal
           schoolId={profile.school_id}
+          schoolYearId={schoolYear.id}
           students={students}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
@@ -223,7 +249,7 @@ function Payments() {
   );
 }
 
-function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
+function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated }) {
   // Filtre en deux temps (classe puis élève) plutôt qu'un seul menu avec
   // tous les élèves de l'école mélangés — plus rapide à trouver quand il y
   // en a beaucoup.
@@ -255,7 +281,7 @@ function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
     setSubmitting(true);
     setError('');
     const { error: insertError } = await supabase.from('payments').insert({
-      school_id: schoolId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, tranche, date, note: note.trim() || null,
+      school_id: schoolId, school_year_id: schoolYearId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, tranche, date, note: note.trim() || null,
     });
     setSubmitting(false);
     if (insertError) {
@@ -442,6 +468,112 @@ function Expenses() {
     </div>
   );
 }
+
+// Le montant de scolarité par niveau, pour l'année en cours — se
+// pré-remplit automatiquement à l'inscription (voir NewStudentModal), au
+// lieu d'être retapé à la main élève par élève.
+function FeeSchedules() {
+  const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const canManage = ['fondateur', 'directeur'].includes(profile.role);
+  const [rows, setRows] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState('');
+
+  async function reload() {
+    if (!schoolYear) return;
+    const { data, error: e } = await supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id);
+    if (e) { setError(e.message); return; }
+    const map = {};
+    (data || []).forEach((f) => { map[f.niveau] = f; });
+    setRows(map);
+  }
+  useEffect(() => { reload(); }, [schoolYear?.id]);
+
+  async function saveRow(niveau, montantScolarite, montantConnexe) {
+    if (!schoolYear) return;
+    setSaving(niveau);
+    const existing = rows?.[niveau];
+    const payload = {
+      school_id: profile.school_id,
+      school_year_id: schoolYear.id,
+      niveau,
+      montant_scolarite: Number(montantScolarite) || 0,
+      montant_connexe: Number(montantConnexe) || 0,
+    };
+    const { error: saveError } = existing
+      ? await supabase.from('fee_schedules').update(payload).eq('id', existing.id)
+      : await supabase.from('fee_schedules').insert(payload);
+    setSaving('');
+    if (saveError) { setError(saveError.message); return; }
+    reload();
+  }
+
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!rows || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+
+  return (
+    <div>
+      <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+        Montant attendu par niveau pour {schoolYear.label} — se pré-remplit automatiquement à
+        l'inscription d'un élève.{!canManage && ' Seuls le fondateur et le directeur peuvent modifier ces montants.'}
+      </p>
+      <div className="card-bold" style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 560 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <span>Niveau</span><span>Scolarité (F)</span><span>Frais connexes (F)</span>
+          </div>
+          {NIVEAUX.map((niveau, i) => (
+            <FeeRow
+              key={niveau}
+              niveau={niveau}
+              row={rows[niveau]}
+              canManage={canManage}
+              saving={saving === niveau}
+              onSave={saveRow}
+              isLast={i === NIVEAUX.length - 1}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeeRow({ niveau, row, canManage, saving, onSave, isLast }) {
+  const [scolarite, setScolarite] = useState(row?.montant_scolarite ?? 0);
+  const [connexe, setConnexe] = useState(row?.montant_connexe ?? 0);
+  const dirty = Number(scolarite) !== Number(row?.montant_scolarite ?? 0) || Number(connexe) !== Number(row?.montant_connexe ?? 0);
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', padding: '10px 20px', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
+      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{niveau}</span>
+      {canManage ? (
+        <>
+          <input type="number" min="0" value={scolarite} onChange={(e) => setScolarite(e.target.value)} style={feeInputStyle} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input type="number" min="0" value={connexe} onChange={(e) => setConnexe(e.target.value)} style={feeInputStyle} />
+            <button
+              type="button"
+              disabled={!dirty || saving}
+              onClick={() => onSave(niveau, scolarite, connexe)}
+              style={{ fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default', flexShrink: 0 }}
+            >
+              {saving ? '…' : 'OK'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <span style={{ fontSize: 13 }}>{fmtF(row?.montant_scolarite || 0)}</span>
+          <span style={{ fontSize: 13 }}>{fmtF(row?.montant_connexe || 0)}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+const feeInputStyle = { width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)' };
 
 function Advances() {
   const { profile } = useAuth();

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -31,6 +32,7 @@ function TrashIcon() {
 
 export default function Students() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [classes, setClasses] = useState(null);
   const [error, setError] = useState('');
@@ -43,24 +45,46 @@ export default function Students() {
   const [deleting, setDeleting] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
 
+  // La liste des élèves vient des inscriptions de l'année scolaire en
+  // cours (enrollments), pas directement de "students" — c'est elle qui
+  // porte désormais la classe et le dû/payé, propres à chaque année.
   async function reload() {
+    if (!schoolYear) return;
     const { data, error: fetchError } = await supabase
-      .from('students')
-      .select('*')
-      .order('full_name');
-    if (fetchError) setError(fetchError.message);
-    else setStudents(data);
+      .from('enrollments')
+      .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
+      .eq('school_year_id', schoolYear.id)
+      .order('full_name', { foreignTable: 'students' });
+    if (fetchError) { setError(fetchError.message); return; }
+    setStudents((data || []).map((e) => ({
+      id: e.students.id,
+      enrollment_id: e.id,
+      full_name: e.students.full_name,
+      nom: e.students.nom,
+      prenom: e.students.prenom,
+      matricule: e.students.matricule,
+      parent_phone: e.students.parent_phone,
+      photo_url: e.students.photo_url,
+      classe_id: e.classe_id,
+      niveau: e.classes?.nom || '—',
+      montant_du: e.montant_du,
+      montant_paye: e.montant_paye,
+      frais_connexe_du: e.frais_connexe_du,
+      frais_connexe_paye: e.frais_connexe_paye,
+    })));
   }
 
   useEffect(() => {
+    if (!schoolYear) return;
     reload();
     // Les classes disponibles à l'inscription et à l'import CSV sont
     // celles réellement créées par l'école (page Classes) — pas une liste
     // générique de la maternelle à la terminale.
-    supabase.from('classes').select('nom, niveau, section').then(({ data }) => {
-      setClasses(sortClasses(data || []).map((c) => c.nom));
+    supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
+      setClasses(sortClasses(data || []));
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -99,39 +123,56 @@ export default function Students() {
       setImportMessage({ type: 'error', text: 'Le fichier doit contenir au moins les colonnes "Nom" et "Classe".' });
       return;
     }
-    const toInsert = [];
+    const toInsertStudents = [];
+    const enrollmentInfo = []; // aligné index à index avec toInsertStudents
     let skipped = 0;
     rows.slice(1).forEach((r) => {
       const fullName = (r[idx.nom] || '').trim();
-      const classe = (r[idx.classe] || '').trim();
-      if (!fullName || !(classes || []).includes(classe)) { skipped += 1; return; }
+      const classeNom = (r[idx.classe] || '').trim();
+      const classeObj = (classes || []).find((c) => c.nom === classeNom);
+      if (!fullName || !classeObj) { skipped += 1; return; }
       const { nom, prenom } = splitFullName(fullName);
-      toInsert.push({
+      toInsertStudents.push({
         school_id: profile.school_id,
         full_name: fullName,
         nom,
         prenom,
-        niveau: classe,
         matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
         parent_phone: idx.tel !== -1 ? (r[idx.tel] || '').trim() || null : null,
-        montant_du: idx.du !== -1 ? Number(r[idx.du]) || 0 : 0,
-        montant_paye: 0,
-        frais_connexe_du: 0,
-        frais_connexe_paye: 0,
+      });
+      enrollmentInfo.push({
+        classeId: classeObj.id,
+        montantDu: idx.du !== -1 ? Number(r[idx.du]) || 0 : 0,
       });
     });
-    if (toInsert.length === 0) {
-      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${(classes || []).join(', ') || 'aucune classe créée pour l\'instant'}).` });
+    if (toInsertStudents.length === 0) {
+      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${(classes || []).map((c) => c.nom).join(', ') || 'aucune classe créée pour l\'instant'}).` });
       return;
     }
     setImporting(true);
-    const { error: insertError } = await supabase.from('students').insert(toInsert);
-    setImporting(false);
+    const { data: insertedStudents, error: insertError } = await supabase.from('students').insert(toInsertStudents).select('id');
     if (insertError) {
+      setImporting(false);
       setImportMessage({ type: 'error', text: insertError.message });
       return;
     }
-    setImportMessage({ type: 'success', text: `${toInsert.length} élève${toInsert.length > 1 ? 's' : ''} importé${toInsert.length > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
+    const enrollmentRows = insertedStudents.map((s, i) => ({
+      school_id: profile.school_id,
+      school_year_id: schoolYear.id,
+      student_id: s.id,
+      classe_id: enrollmentInfo[i].classeId,
+      montant_du: enrollmentInfo[i].montantDu,
+      montant_paye: 0,
+      frais_connexe_du: 0,
+      frais_connexe_paye: 0,
+    }));
+    const { error: enrollError } = await supabase.from('enrollments').insert(enrollmentRows);
+    setImporting(false);
+    if (enrollError) {
+      setImportMessage({ type: 'error', text: enrollError.message });
+      return;
+    }
+    setImportMessage({ type: 'success', text: `${toInsertStudents.length} élève${toInsertStudents.length > 1 ? 's' : ''} importé${toInsertStudents.length > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
     reload();
   }
 
@@ -186,8 +227,8 @@ export default function Students() {
           </label>
           <button
             onClick={() => setModalOpen(true)}
-            disabled={classes === null}
-            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null ? 0.7 : 1 }}
+            disabled={classes === null || !schoolYear}
+            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !schoolYear ? 0.7 : 1 }}
           >
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
           </button>
@@ -289,10 +330,11 @@ export default function Students() {
         />
       )}
 
-      {modalOpen && (
+      {modalOpen && schoolYear && (
         <NewStudentModal
           schoolId={profile.school_id}
-          niveaux={classes || []}
+          schoolYearId={schoolYear.id}
+          classes={classes || []}
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}

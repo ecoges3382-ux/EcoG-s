@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
       .select(`
         id, full_name, school_id,
         parent_access_students (
-          students ( id, full_name, niveau, photo_url, matricule, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, moyenne, bulletin_pret )
+          students ( id, full_name, photo_url, matricule, moyenne, bulletin_pret )
         )
       `)
       .eq('code', code)
@@ -46,18 +46,50 @@ Deno.serve(async (req) => {
     if (accessError) throw new Error(accessError.message);
     if (!access) throw new Error('Code invalide.');
 
-    const students = (access.parent_access_students || [])
+    // La classe et le dû/payé d'un élève sont propres à l'année scolaire en
+    // cours (table enrollments) — students ne garde que son identité.
+    const { data: schoolYear } = await adminClient
+      .from('school_years')
+      .select('id, label')
+      .eq('school_id', access.school_id)
+      .eq('is_current', true)
+      .maybeSingle();
+
+    const rawStudents = (access.parent_access_students || [])
       .map((row: { students: unknown }) => row.students)
-      .filter(Boolean);
+      .filter(Boolean) as { id: string }[];
+
+    const enrollmentByStudent = new Map<string, { montant_du: number; montant_paye: number; frais_connexe_du: number; frais_connexe_paye: number; classes: { nom: string } | null }>();
+    if (schoolYear && rawStudents.length > 0) {
+      const { data: enr } = await adminClient
+        .from('enrollments')
+        .select('student_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom )')
+        .eq('school_year_id', schoolYear.id)
+        .in('student_id', rawStudents.map((s) => s.id));
+      (enr || []).forEach((e: { student_id: string } & Record<string, unknown>) => enrollmentByStudent.set(e.student_id, e as never));
+    }
+
+    const students = rawStudents.map((s) => {
+      const en = enrollmentByStudent.get(s.id);
+      return {
+        ...s,
+        niveau: en?.classes?.nom || null,
+        montant_du: en?.montant_du ?? 0,
+        montant_paye: en?.montant_paye ?? 0,
+        frais_connexe_du: en?.frais_connexe_du ?? 0,
+        frais_connexe_paye: en?.frais_connexe_paye ?? 0,
+      };
+    });
 
     if (body.action === 'detail') {
       const student = students.find((s: { id: string }) => s.id === body.student_id);
       if (!student) throw new Error("Cet élève n'est pas rattaché à ce code.");
 
+      const yearId = schoolYear?.id || null;
       const [{ data: payments }, { data: attendance }, { data: grades }, { data: subjects }, { data: announcements }] = await Promise.all([
-        adminClient.from('payments').select('*').eq('student_id', student.id).order('date', { ascending: false }),
-        adminClient.from('attendance_records').select('*').eq('student_id', student.id).order('date', { ascending: false }).limit(30),
-        adminClient.from('grades').select('*').eq('student_id', student.id).order('created_at', { ascending: false }),
+        adminClient.from('payments').select('*').eq('student_id', student.id).eq('school_year_id', yearId).order('date', { ascending: false }),
+        adminClient.from('attendance_records').select('*').eq('student_id', student.id).eq('school_year_id', yearId).order('date', { ascending: false }).limit(30),
+        adminClient.from('grades').select('*').eq('student_id', student.id).eq('school_year_id', yearId).order('created_at', { ascending: false }),
         adminClient.from('subjects').select('id, nom, coefficient').eq('school_id', access.school_id),
         adminClient.from('announcements').select('*').eq('school_id', access.school_id).order('created_at', { ascending: false }).limit(10),
       ]);

@@ -2,8 +2,29 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials, ROLES, generateAccessCode } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
+
+// La classe d'un élève est propre à l'année scolaire en cours
+// (enrollments) — students ne garde que son identité. Utilisé par les deux
+// modales ci-dessous (nouveau lien parent / modification des enfants liés).
+function useStudentsForLinking(schoolYearId) {
+  const [students, setStudents] = useState(null);
+  useEffect(() => {
+    if (!schoolYearId) return;
+    supabase
+      .from('enrollments')
+      .select('students ( id, full_name ), classes ( nom )')
+      .eq('school_year_id', schoolYearId)
+      .then(({ data }) => {
+        setStudents((data || [])
+          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      });
+  }, [schoolYearId]);
+  return students;
+}
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -318,7 +339,8 @@ function ParentAccessTab() {
 
 function NewParentAccessModal({ onClose, onCreated }) {
   const { profile } = useAuth();
-  const [students, setStudents] = useState(null);
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const students = useStudentsForLinking(schoolYear?.id);
   const [selectedIds, setSelectedIds] = useState([]);
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
@@ -326,10 +348,6 @@ function NewParentAccessModal({ onClose, onCreated }) {
   const [phoneLocal, setPhoneLocal] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    supabase.from('students').select('id, full_name, niveau').order('full_name').then(({ data }) => setStudents(data || []));
-  }, []);
 
   function toggleStudent(id) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -414,16 +432,14 @@ function NewParentAccessModal({ onClose, onCreated }) {
 }
 
 function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
-  const [students, setStudents] = useState(null);
+  const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const students = useStudentsForLinking(schoolYear?.id);
   const [selectedIds, setSelectedIds] = useState(
     (access.parent_access_students || []).map((row) => row.students?.id).filter(Boolean),
   );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    supabase.from('students').select('id, full_name, niveau').order('full_name').then(({ data }) => setStudents(data || []));
-  }, []);
 
   function toggleStudent(id) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));

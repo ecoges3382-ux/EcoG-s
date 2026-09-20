@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 export default function Announce() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [items, setItems] = useState(null);
   const [niveaux, setNiveaux] = useState([]);
   const [error, setError] = useState('');
@@ -14,19 +16,26 @@ export default function Announce() {
   const [titre, setTitre] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Les classes proposées comme cible sont celles qui ont des élèves
+  // inscrits cette année (enrollments) — students ne garde que son
+  // identité, plus de niveau directement dessus.
   async function reload() {
-    const [{ data, error: fetchError }, { data: students }] = await Promise.all([
+    if (!schoolYear) return;
+    const [{ data, error: fetchError }, { data: enr }] = await Promise.all([
       supabase.from('announcements').select('*').order('created_at', { ascending: false }),
-      supabase.from('students').select('niveau'),
+      supabase.from('enrollments').select('classes ( nom )').eq('school_year_id', schoolYear.id),
     ]);
     if (fetchError) setError(fetchError.message);
     else setItems(data);
-    const distinctNiveaux = [...new Set((students || []).map((s) => s.niveau))].sort();
+    const distinctNiveaux = [...new Set((enr || []).map((e) => e.classes?.nom).filter(Boolean))].sort();
     setNiveaux(distinctNiveaux);
     if (!classeCible && distinctNiveaux.length) setClasseCible(distinctNiveaux[0]);
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolYear?.id]);
 
   async function handleSubmit(e) {
     e.preventDefault();

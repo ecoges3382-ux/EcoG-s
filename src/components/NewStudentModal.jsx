@@ -5,14 +5,37 @@ import { generateAccessCode } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 
-export default function NewStudentModal({ schoolId, niveaux, canManageParents, onClose, onCreated }) {
+export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, onClose, onCreated }) {
   const [studentNom, setStudentNom] = useState('');
   const [studentPrenom, setStudentPrenom] = useState('');
-  const [niveau, setNiveau] = useState(niveaux[0]);
-  const [montantDu, setMontantDu] = useState(90000);
+  const [classeId, setClasseId] = useState(classes[0]?.id || '');
+  const [montantDu, setMontantDu] = useState(0);
+  const [montantDuTouched, setMontantDuTouched] = useState(false);
+  const [feeSchedules, setFeeSchedules] = useState({});
   const [photoUrl, setPhotoUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const selectedClasse = classes.find((c) => c.id === classeId);
+
+  // Grille tarifaire (Argent → Grille tarifaire) : pré-remplit le montant dû
+  // selon le niveau choisi, tant que l'utilisateur ne l'a pas modifié à la
+  // main (bourse, réduction…).
+  useEffect(() => {
+    if (!schoolYearId) return;
+    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe').eq('school_year_id', schoolYearId).then(({ data }) => {
+      const map = {};
+      (data || []).forEach((f) => { map[f.niveau] = f; });
+      setFeeSchedules(map);
+    });
+  }, [schoolYearId]);
+
+  useEffect(() => {
+    if (montantDuTouched) return;
+    const fee = selectedClasse ? feeSchedules[selectedClasse.niveau] : null;
+    setMontantDu(fee ? fee.montant_scolarite : 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classeId, feeSchedules]);
 
   // Parent : nouveau (avec code d'accès généré à l'inscription) ou
   // rattachement à un parent déjà présent dans l'école (fratrie).
@@ -67,17 +90,28 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
       full_name: `${studentPrenom.trim()} ${studentNom.trim()}`.trim(),
       nom: studentNom.trim(),
       prenom: studentPrenom.trim(),
-      niveau,
       parent_phone: studentParentPhone,
-      montant_du: Number(montantDu) || 0,
-      montant_paye: 0,
-      frais_connexe_du: 0,
-      frais_connexe_paye: 0,
       photo_url: photoUrl || null,
     }).select().single();
     if (insertError) {
       setSubmitting(false);
       setError(insertError.message);
+      return;
+    }
+
+    const { error: enrollError } = await supabase.from('enrollments').insert({
+      school_id: schoolId,
+      school_year_id: schoolYearId,
+      student_id: student.id,
+      classe_id: classeId || null,
+      montant_du: Number(montantDu) || 0,
+      montant_paye: 0,
+      frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
+      frais_connexe_paye: 0,
+    });
+    if (enrollError) {
+      setSubmitting(false);
+      setError(enrollError.message);
       return;
     }
 
@@ -133,7 +167,7 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
     navigator.clipboard.writeText(url).then(() => setCopied(true));
   }
 
-  if (niveaux.length === 0) {
+  if (classes.length === 0) {
     return (
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -218,8 +252,8 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
-            <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={inputStyle}>
-              {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
+            <select value={classeId} onChange={(e) => setClasseId(e.target.value)} style={inputStyle}>
+              {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
             </select>
           </div>
           <div>
@@ -227,11 +261,17 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
             <input
               type="number"
               value={montantDu}
-              onChange={(e) => setMontantDu(e.target.value)}
+              onChange={(e) => { setMontantDuTouched(true); setMontantDu(e.target.value); }}
               style={inputStyle}
             />
           </div>
         </div>
+        {selectedClasse && !feeSchedules[selectedClasse.niveau] && (
+          <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>
+            Aucun tarif configuré pour {selectedClasse.niveau} — configure la grille tarifaire dans
+            Argent pour un pré-remplissage automatique la prochaine fois.
+          </p>
+        )}
 
         <label style={labelStyle}>Photo (facultatif)</label>
         <div style={{ marginBottom: 18 }}>

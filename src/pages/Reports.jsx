@@ -1,27 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 export default function Reports() {
+  const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [staff, setStaff] = useState([]);
   const [payments, setPayments] = useState([]);
   const [error, setError] = useState('');
 
+  // La classe d'un élève est propre à l'année scolaire en cours
+  // (enrollments) — students ne garde que son identité.
   useEffect(() => {
+    if (!schoolYear) return;
     Promise.all([
-      supabase.from('students').select('id, niveau'),
+      supabase.from('enrollments').select('classes ( nom )').eq('school_year_id', schoolYear.id),
       supabase.from('staff').select('id'),
-      supabase.from('payments').select('id, montant, tranche, students ( full_name )'),
-    ]).then(([{ data: st, error: stError }, { data: sf }, { data: pay }]) => {
-      if (stError) { setError(stError.message); return; }
-      setStudents(st);
+      supabase.from('payments').select('id, montant, tranche, students ( full_name )').eq('school_year_id', schoolYear.id),
+    ]).then(([{ data: enr, error: enrError }, { data: sf }, { data: pay }]) => {
+      if (enrError) { setError(enrError.message); return; }
+      setStudents((enr || []).map((e) => ({ niveau: e.classes?.nom || '—' })));
       setStaff(sf || []);
       setPayments(pay || []);
     });
-  }, []);
+  }, [schoolYear?.id]);
 
   const parClasse = useMemo(() => {
     const map = new Map();

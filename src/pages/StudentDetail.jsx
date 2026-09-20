@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -10,7 +11,11 @@ export default function StudentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [student, setStudent] = useState(null);
+  // undefined = pas encore chargé, null = chargé mais aucune inscription
+  // cette année (élève sans classe pour l'année en cours).
+  const [enrollment, setEnrollment] = useState(undefined);
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -39,11 +44,24 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
-  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!student) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    supabase
+      .from('enrollments')
+      .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom )')
+      .eq('student_id', id)
+      .eq('school_year_id', schoolYear.id)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setEnrollment(data || null); });
+    return () => { cancelled = true; };
+  }, [id, schoolYear?.id]);
 
-  const reste = Number(student.montant_du) - Number(student.montant_paye);
-  const resteFrais = Number(student.frais_connexe_du) - Number(student.frais_connexe_paye);
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!student || enrollment === undefined) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+
+  const reste = Number(enrollment?.montant_du || 0) - Number(enrollment?.montant_paye || 0);
+  const resteFrais = Number(enrollment?.frais_connexe_du || 0) - Number(enrollment?.frais_connexe_paye || 0);
 
   async function handleDelete() {
     if (!window.confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
@@ -65,24 +83,30 @@ export default function StudentDetail() {
         </div>
         <div>
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{student.full_name}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{student.niveau}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{enrollment?.classes?.nom || 'Aucune classe cette année'}</p>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640 }}>
-        <div className="card-bold" style={{ padding: '18px 20px' }}>
-          <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Droit d'écolage</p>
-          <Row label="Dû" value={fmtF(student.montant_du)} />
-          <Row label="Payé" value={fmtF(student.montant_paye)} color="var(--success)" />
-          <Row label="Reste" value={fmtF(reste)} bold color="var(--danger)" topBorder />
+      {enrollment ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640 }}>
+          <div className="card-bold" style={{ padding: '18px 20px' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Droit d'écolage</p>
+            <Row label="Dû" value={fmtF(enrollment.montant_du)} />
+            <Row label="Payé" value={fmtF(enrollment.montant_paye)} color="var(--success)" />
+            <Row label="Reste" value={fmtF(reste)} bold color="var(--danger)" topBorder />
+          </div>
+          <div className="card-bold" style={{ padding: '18px 20px' }}>
+            <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Frais connexes</p>
+            <Row label="Dû" value={fmtF(enrollment.frais_connexe_du)} />
+            <Row label="Payé" value={fmtF(enrollment.frais_connexe_paye)} color="var(--success)" />
+            <Row label="Reste" value={fmtF(resteFrais)} bold color={resteFrais > 0 ? 'var(--danger)' : 'var(--success)'} topBorder />
+          </div>
         </div>
-        <div className="card-bold" style={{ padding: '18px 20px' }}>
-          <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Frais connexes</p>
-          <Row label="Dû" value={fmtF(student.frais_connexe_du)} />
-          <Row label="Payé" value={fmtF(student.frais_connexe_paye)} color="var(--success)" />
-          <Row label="Reste" value={fmtF(resteFrais)} bold color={resteFrais > 0 ? 'var(--danger)' : 'var(--success)'} topBorder />
-        </div>
-      </div>
+      ) : (
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>
+          Pas d'inscription pour l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.
+        </p>
+      )}
 
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
       <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>

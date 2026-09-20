@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 function appreciation(moyenne) {
@@ -13,6 +14,7 @@ function appreciation(moyenne) {
 
 export default function Grades() {
   const { profile } = useAuth();
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState(null);
@@ -21,19 +23,25 @@ export default function Grades() {
   const [studentId, setStudentId] = useState('');
   const [periode, setPeriode] = useState('Trimestre 1');
 
+  // La classe d'un élève est propre à l'année scolaire en cours
+  // (enrollments) — students ne garde que son identité.
   useEffect(() => {
+    if (!schoolYear) return;
     Promise.all([
-      supabase.from('students').select('id, full_name, niveau, matricule').order('full_name'),
+      supabase.from('enrollments').select('classes ( nom ), students ( id, full_name, matricule ) ').eq('school_year_id', schoolYear.id),
       supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-      supabase.from('grades').select('student_id, subject_id, note, sur, periode'),
-    ]).then(([{ data: st, error: stError }, { data: su }, { data: gr }]) => {
-      if (stError) { setError(stError.message); return; }
-      setStudents(st || []);
+      supabase.from('grades').select('student_id, subject_id, note, sur, periode').eq('school_year_id', schoolYear.id),
+    ]).then(([{ data: enr, error: enrError }, { data: su }, { data: gr }]) => {
+      if (enrError) { setError(enrError.message); return; }
+      const st = (enr || [])
+        .map((e) => ({ id: e.students.id, full_name: e.students.full_name, matricule: e.students.matricule, niveau: e.classes?.nom || '—' }))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+      setStudents(st);
       setSubjects(su || []);
       setGrades(gr || []);
-      if (st?.length) setNiveau(st[0].niveau);
+      if (st.length) setNiveau(st[0].niveau);
     });
-  }, []);
+  }, [schoolYear?.id]);
 
   const niveaux = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
