@@ -619,7 +619,7 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
       </p>
       {canManage ? (
         <>
-          <div className="desktop-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             <div>
               <label style={calLabelStyle}>1ère tranche</label>
               <input type="date" value={d1} onChange={(e) => setD1(e.target.value)} style={calInputStyle} />
@@ -648,7 +648,7 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
           </button>
         </>
       ) : (
-        <div className="desktop-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
           <CalDateDisplay label="1ère tranche" value={schoolYear.date_tranche1} />
           <CalDateDisplay label="2ème tranche" value={schoolYear.date_tranche2} />
           <CalDateDisplay label="3ème tranche" value={schoolYear.date_tranche3} />
