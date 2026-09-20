@@ -6,6 +6,17 @@ export function initials(name) {
   return (name || '').split(' ').map((w) => w[0]).join('');
 }
 
+// Découpe un nom complet libre (une seule colonne dans un import CSV, par
+// exemple) en { nom, prenom } — le dernier mot devient le nom de famille.
+// Best-effort seulement : à utiliser en dernier recours, quand on n'a pas
+// de champs Nom/Prénom déjà séparés à la saisie.
+export function splitFullName(fullName) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { nom: '', prenom: '' };
+  if (parts.length === 1) return { nom: parts[0], prenom: '' };
+  return { nom: parts[parts.length - 1], prenom: parts.slice(0, -1).join(' ') };
+}
+
 export function csvEscape(val) {
   const s = String(val ?? '');
   if (s.includes(',') || s.includes('"') || s.includes('\n')) {

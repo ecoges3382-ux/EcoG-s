@@ -4,15 +4,9 @@ import { generateAccessCode } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 
-// Dernier mot du nom complet de l'élève = nom de famille présumé, utilisé
-// pour pré-remplir la recherche de parent existant (fratrie).
-function familyNameOf(name) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : '';
-}
-
 export default function NewStudentModal({ schoolId, niveaux, canManageParents, onClose, onCreated }) {
-  const [fullName, setFullName] = useState('');
+  const [studentNom, setStudentNom] = useState('');
+  const [studentPrenom, setStudentPrenom] = useState('');
   const [niveau, setNiveau] = useState(niveaux[0]);
   const [parentPhone, setParentPhone] = useState('');
   const [montantDu, setMontantDu] = useState(90000);
@@ -26,7 +20,8 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
   const [existingParents, setExistingParents] = useState(null);
   const [existingParentId, setExistingParentId] = useState('');
   const [parentSearch, setParentSearch] = useState('');
-  const [parentName, setParentName] = useState('');
+  const [parentNom, setParentNom] = useState('');
+  const [parentPrenom, setParentPrenom] = useState('');
   const [parentAccessDial, setParentAccessDial] = useState(COUNTRIES[0].dial);
   const [parentAccessLocal, setParentAccessLocal] = useState('');
 
@@ -35,18 +30,18 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
 
   useEffect(() => {
     if (!canManageParents) return;
-    supabase.from('parent_access').select('id, full_name, code').order('full_name').then(({ data }) => {
+    supabase.from('parent_access').select('id, full_name, nom, code').order('full_name').then(({ data }) => {
       setExistingParents(data || []);
     });
   }, [canManageParents]);
 
   const filteredParents = (existingParents || []).filter((p) =>
-    p.full_name.toLowerCase().includes(parentSearch.trim().toLowerCase())
+    p.nom.toLowerCase().includes(parentSearch.trim().toLowerCase())
   );
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!fullName.trim()) {
+    if (!studentNom.trim()) {
       setError('Le nom est obligatoire.');
       return;
     }
@@ -59,7 +54,9 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
 
     const { data: student, error: insertError } = await supabase.from('students').insert({
       school_id: schoolId,
-      full_name: fullName.trim(),
+      full_name: `${studentPrenom.trim()} ${studentNom.trim()}`.trim(),
+      nom: studentNom.trim(),
+      prenom: studentPrenom.trim(),
       niveau,
       parent_phone: parentPhone.trim(),
       montant_du: Number(montantDu) || 0,
@@ -92,7 +89,7 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
 
     // parentMode === 'new' : rien à créer si le nom du parent est resté vide
     // (l'accès parent pourra toujours être ajouté plus tard depuis Comptes).
-    if (!parentName.trim()) {
+    if (!parentNom.trim()) {
       setSubmitting(false);
       onCreated();
       return;
@@ -102,7 +99,9 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
     for (let attempt = 0; attempt < 5 && !created; attempt++) {
       const { data, error: paError } = await supabase.from('parent_access').insert({
         school_id: schoolId,
-        full_name: parentName.trim(),
+        full_name: `${parentPrenom.trim()} ${parentNom.trim()}`.trim(),
+        nom: parentNom.trim(),
+        prenom: parentPrenom.trim(),
         phone: composePhone(parentAccessDial, parentAccessLocal) || null,
         code: generateAccessCode(),
       }).select().single();
@@ -165,12 +164,16 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <label style={labelStyle}>Nom complet</label>
-        <input
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          style={inputStyle}
-        />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Nom</label>
+            <input value={studentNom} onChange={(e) => setStudentNom(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Prénom</label>
+            <input value={studentPrenom} onChange={(e) => setStudentPrenom(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
@@ -217,7 +220,7 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
                   key={m.id}
                   onClick={() => {
                     setParentMode(m.id);
-                    if (m.id === 'existing') setParentSearch(familyNameOf(fullName));
+                    if (m.id === 'existing') setParentSearch(studentNom.trim());
                   }}
                   style={{
                     flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
@@ -233,8 +236,17 @@ export default function NewStudentModal({ schoolId, niveaux, canManageParents, o
 
             {parentMode === 'new' ? (
               <>
-                <label style={labelStyle}>Nom du parent (laisser vide pour ne pas créer d'accès maintenant)</label>
-                <input value={parentName} onChange={(e) => setParentName(e.target.value)} style={inputStyle} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Nom du parent</label>
+                    <input value={parentNom} onChange={(e) => setParentNom(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Prénom du parent</label>
+                    <input value={parentPrenom} onChange={(e) => setParentPrenom(e.target.value)} style={inputStyle} />
+                  </div>
+                </div>
+                <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>Laisser vide pour ne pas créer d'accès maintenant.</p>
 
                 <label style={labelStyle}>Téléphone du parent</label>
                 <PhoneInput dial={parentAccessDial} local={parentAccessLocal} onDialChange={setParentAccessDial} onLocalChange={setParentAccessLocal} style={{ marginBottom: 18 }} />

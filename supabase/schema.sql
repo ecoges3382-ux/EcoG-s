@@ -976,3 +976,28 @@ alter table platform_admins enable row level security;
 
 create policy "platform_admins: lecture de son propre statut" on platform_admins
   for select using (user_id = auth.uid());
+
+-- Nom / prénom séparés pour les élèves et les parents, en plus de
+-- full_name (conservé tel quel pour tout l'affichage existant, composé
+-- désormais à la saisie comme "prénom nom"). Nécessaire pour rapprocher de
+-- façon fiable un parent existant au nom de famille d'un élève : deviner le
+-- nom de famille en prenant le dernier mot d'un champ "nom complet" libre
+-- échouait dès que l'ordre de saisie changeait (ex. un parent enregistré
+-- "Nom Prénom" au lieu de "Prénom Nom").
+alter table students add column if not exists nom text;
+alter table students add column if not exists prenom text;
+update students set
+  prenom = trim(regexp_replace(full_name, '\S+$', '')),
+  nom = trim(regexp_replace(full_name, '^.*\s', ''))
+where nom is null;
+alter table students alter column nom set not null;
+alter table students alter column prenom set not null;
+
+alter table parent_access add column if not exists nom text;
+alter table parent_access add column if not exists prenom text;
+update parent_access set
+  prenom = trim(regexp_replace(full_name, '\S+$', '')),
+  nom = trim(regexp_replace(full_name, '^.*\s', ''))
+where nom is null;
+alter table parent_access alter column nom set not null;
+alter table parent_access alter column prenom set not null;

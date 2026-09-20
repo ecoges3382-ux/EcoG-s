@@ -320,7 +320,8 @@ function NewParentAccessModal({ onClose, onCreated }) {
   const { profile } = useAuth();
   const [students, setStudents] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [fullName, setFullName] = useState('');
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
   const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
   const [phoneLocal, setPhoneLocal] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -336,7 +337,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!fullName.trim()) {
+    if (!nom.trim()) {
       setError('Le nom est obligatoire.');
       return;
     }
@@ -351,7 +352,9 @@ function NewParentAccessModal({ onClose, onCreated }) {
     for (let attempt = 0; attempt < 5 && !created; attempt++) {
       const { data, error: insertError } = await supabase.from('parent_access').insert({
         school_id: profile.school_id,
-        full_name: fullName.trim(),
+        full_name: `${prenom.trim()} ${nom.trim()}`.trim(),
+        nom: nom.trim(),
+        prenom: prenom.trim(),
         phone: composePhone(phoneDial, phoneLocal) || null,
         code: generateAccessCode(),
       }).select().single();
@@ -376,8 +379,16 @@ function NewParentAccessModal({ onClose, onCreated }) {
   return (
     <ModalShell title="Nouvel accès parent" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>Nom complet</label>
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Nom</label>
+            <input value={nom} onChange={(e) => setNom(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Prénom</label>
+            <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
 
         <label style={labelStyle}>Téléphone (facultatif, pour info seulement)</label>
         <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />

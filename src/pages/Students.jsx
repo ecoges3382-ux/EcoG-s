@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, initials, downloadCsv, parseCsv, NIVEAUX } from '../lib/utils.js';
+import { fmt, initials, downloadCsv, parseCsv, splitFullName, NIVEAUX } from '../lib/utils.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
@@ -74,12 +74,15 @@ export default function Students() {
     const toInsert = [];
     let skipped = 0;
     rows.slice(1).forEach((r) => {
-      const nom = (r[idx.nom] || '').trim();
+      const fullName = (r[idx.nom] || '').trim();
       const classe = (r[idx.classe] || '').trim();
-      if (!nom || !NIVEAUX.includes(classe)) { skipped += 1; return; }
+      if (!fullName || !NIVEAUX.includes(classe)) { skipped += 1; return; }
+      const { nom, prenom } = splitFullName(fullName);
       toInsert.push({
         school_id: profile.school_id,
-        full_name: nom,
+        full_name: fullName,
+        nom,
+        prenom,
         niveau: classe,
         matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
         parent_phone: idx.tel !== -1 ? (r[idx.tel] || '').trim() || null : null,
