@@ -24,6 +24,21 @@ const MODES = [
   { id: 'virement', label: 'Virement' },
   { id: 'cheque', label: 'Chèque' },
 ];
+// Certaines écoles fonctionnent en 2 tranches, d'autres en 3 — la liste
+// reste la même pour toutes, une école à 2 tranches n'utilise juste pas la
+// 3ème. "partiel" reste géré en affichage pour d'anciens paiements
+// enregistrés avant ce champ (voir tranceLabel), mais n'est plus proposé
+// à la saisie.
+const TRANCHES = [
+  { id: 'tranche1', label: '1ère tranche' },
+  { id: 'tranche2', label: '2ème tranche' },
+  { id: 'tranche3', label: '3ème tranche' },
+  { id: 'moitie', label: 'Moitié' },
+  { id: 'complet', label: 'Complet' },
+];
+function trancheLabel(id) {
+  return TRANCHES.find((t) => t.id === id)?.label || (id === 'partiel' ? 'Partiel' : id);
+}
 
 export default function Money() {
   const [tab, setTab] = useState('vue');
@@ -160,7 +175,7 @@ function Payments() {
   if (!payments) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
   const totalEncaisse = payments.reduce((a, p) => a + Number(p.montant), 0);
-  const partiels = payments.filter((p) => p.statut === 'partiel').length;
+  const partiels = payments.filter((p) => p.tranche !== 'complet').length;
 
   return (
     <div>
@@ -187,8 +202,8 @@ function Payments() {
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.statut === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.statut === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
-                {p.statut === 'complet' ? 'Complet' : 'Partiel'}
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
+                {trancheLabel(p.tranche)}
               </span>
             </div>
           </div>
@@ -225,7 +240,7 @@ function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
   const [typeFrais, setTypeFrais] = useState('scolarite');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
-  const [statut, setStatut] = useState('complet');
+  const [tranche, setTranche] = useState('complet');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -240,7 +255,7 @@ function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
     setSubmitting(true);
     setError('');
     const { error: insertError } = await supabase.from('payments').insert({
-      school_id: schoolId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, statut, date, note: note.trim() || null,
+      school_id: schoolId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, tranche, date, note: note.trim() || null,
     });
     setSubmitting(false);
     if (insertError) {
@@ -327,10 +342,9 @@ function NewPaymentModal({ schoolId, students, onClose, onCreated }) {
             </select>
           </div>
           <div>
-            <label style={modalLabelStyle}>Statut</label>
-            <select value={statut} onChange={(e) => setStatut(e.target.value)} style={modalInputStyle}>
-              <option value="complet">Complet</option>
-              <option value="partiel">Partiel</option>
+            <label style={modalLabelStyle}>Tranche</label>
+            <select value={tranche} onChange={(e) => setTranche(e.target.value)} style={modalInputStyle}>
+              {TRANCHES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
             </select>
           </div>
         </div>

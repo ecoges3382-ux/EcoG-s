@@ -14,7 +14,7 @@ export default function Reports() {
     Promise.all([
       supabase.from('students').select('id, niveau'),
       supabase.from('staff').select('id'),
-      supabase.from('payments').select('id, montant, statut, students ( full_name )'),
+      supabase.from('payments').select('id, montant, tranche, students ( full_name )'),
     ]).then(([{ data: st, error: stError }, { data: sf }, { data: pay }]) => {
       if (stError) { setError(stError.message); return; }
       setStudents(st);
@@ -30,7 +30,7 @@ export default function Reports() {
   }, [students]);
 
   const revenusTotaux = payments.reduce((a, p) => a + Number(p.montant), 0);
-  const partiels = payments.filter((p) => p.statut === 'partiel');
+  const partiels = payments.filter((p) => p.tranche !== 'complet');
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;

@@ -1001,3 +1001,12 @@ update parent_access set
 where nom is null;
 alter table parent_access alter column nom set not null;
 alter table parent_access alter column prenom set not null;
+
+-- "statut" (complet/partiel) ne suffisait pas : certaines écoles
+-- fonctionnent en 2 ou 3 tranches, un paiement peut être la 1ère, la 2ème,
+-- la 3ème tranche, la moitié, ou le complet. Renommé en "tranche" — le nom
+-- "statut" ne correspondait plus à ce que le champ représente. Les
+-- anciennes valeurs ('complet'/'partiel') restent telles quelles ; 'partiel'
+-- n'est plus proposé à la saisie mais reste géré à l'affichage pour les
+-- paiements déjà enregistrés avant ce changement.
+alter table payments rename column statut to tranche;
