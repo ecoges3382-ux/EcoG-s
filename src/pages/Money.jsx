@@ -519,7 +519,7 @@ function Advances() {
         {advances.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune demande.</p>}
       </div>
 
-      {staff.length > 0 && (
+      {staff.length > 0 ? (
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ ...smallInput, flex: '2 1 180px' }}>
             {staff.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
@@ -529,6 +529,12 @@ function Advances() {
             {submitting ? 'Envoi…' : 'Nouvelle demande'}
           </button>
         </form>
+      ) : (
+        <p className="card-bold" style={{ padding: '18px 20px', margin: 0, fontSize: 13, color: 'var(--muted)' }}>
+          Aucun membre du personnel enregistré pour l'instant. Ajoute d'abord des membres dans l'onglet{' '}
+          <Link to="/personnel" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Personnel</Link>{' '}
+          pour pouvoir soumettre une demande d'avance sur salaire.
+        </p>
       )}
     </div>
   );
