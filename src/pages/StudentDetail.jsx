@@ -88,7 +88,7 @@ export default function StudentDetail() {
       </div>
 
       {enrollment ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640 }}>
           <div className="card-bold" style={{ padding: '18px 20px' }}>
             <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Droit d'écolage</p>
             <Row label="Dû" value={fmtF(enrollment.montant_du)} />
