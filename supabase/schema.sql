@@ -1038,16 +1038,19 @@ create unique index if not exists school_years_one_current_per_school
   on school_years(school_id) where is_current;
 alter table school_years enable row level security;
 
+drop policy if exists "school_years: select" on school_years;
 create policy "school_years: select" on school_years
   for select using (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
   );
+drop policy if exists "school_years: insert" on school_years;
 create policy "school_years: insert" on school_years
   for insert with check (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur')
   );
+drop policy if exists "school_years: update" on school_years;
 create policy "school_years: update" on school_years
   for update using (
     school_id = current_school_id()
@@ -1066,21 +1069,25 @@ create table if not exists fee_schedules (
 );
 alter table fee_schedules enable row level security;
 
+drop policy if exists "fee_schedules: select" on fee_schedules;
 create policy "fee_schedules: select" on fee_schedules
   for select using (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
   );
+drop policy if exists "fee_schedules: insert" on fee_schedules;
 create policy "fee_schedules: insert" on fee_schedules
   for insert with check (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur')
   );
+drop policy if exists "fee_schedules: update" on fee_schedules;
 create policy "fee_schedules: update" on fee_schedules
   for update using (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur')
   );
+drop policy if exists "fee_schedules: delete" on fee_schedules;
 create policy "fee_schedules: delete" on fee_schedules
   for delete using (
     school_id = current_school_id()
@@ -1104,21 +1111,25 @@ create table if not exists enrollments (
 create index if not exists enrollments_year_classe_idx on enrollments(school_year_id, classe_id);
 alter table enrollments enable row level security;
 
+drop policy if exists "enrollments: select" on enrollments;
 create policy "enrollments: select" on enrollments
   for select using (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
   );
+drop policy if exists "enrollments: insert" on enrollments;
 create policy "enrollments: insert" on enrollments
   for insert with check (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire')
   );
+drop policy if exists "enrollments: update" on enrollments;
 create policy "enrollments: update" on enrollments
   for update using (
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire')
   );
+drop policy if exists "enrollments: delete" on enrollments;
 create policy "enrollments: delete" on enrollments
   for delete using (
     school_id = current_school_id()
@@ -1131,6 +1142,13 @@ alter table attendance_records add column if not exists school_year_id uuid refe
 create index if not exists payments_year_idx on payments(school_year_id);
 create index if not exists grades_year_idx on grades(school_year_id);
 create index if not exists attendance_year_idx on attendance_records(school_year_id);
+
+-- L'ancien trigger tenait students.montant_paye/frais_connexe_paye à jour
+-- automatiquement à partir des paiements réels (voir Migration 6). On le
+-- retire avant la bascule ; il est remplacé plus bas par une version qui
+-- fait la même chose sur enrollments, une fois cette table en place.
+drop trigger if exists trg_recompute_student_paye on payments;
+drop function if exists recompute_student_paye();
 
 -- ---------- Bascule des données existantes ----------
 -- ⚠️ Remplace '2025-2026' par le libellé réel de l'année scolaire en cours
@@ -1165,6 +1183,13 @@ alter table payments alter column school_year_id set not null;
 alter table grades alter column school_year_id set not null;
 alter table attendance_records alter column school_year_id set not null;
 
+-- Cette règle de sécurité (jamais vraiment utilisée : les parents de
+-- l'appli passent par un code d'accès via l'Edge Function "parent-portal",
+-- pas par une session Supabase Auth — voir student_guardians, jamais
+-- alimentée par le code) lisait encore students.niveau et bloque sinon la
+-- suppression de la colonne.
+drop policy if exists "announcements: select (parent)" on announcements;
+
 -- students ne garde que l'identité permanente : classe/dû/payé/frais
 -- connexes vivent désormais dans "enrollments", propre à chaque année.
 alter table students drop column if exists niveau;
@@ -1172,3 +1197,30 @@ alter table students drop column if exists montant_du;
 alter table students drop column if exists montant_paye;
 alter table students drop column if exists frais_connexe_du;
 alter table students drop column if exists frais_connexe_paye;
+
+-- Nouveau trigger, équivalent à l'ancien mais sur enrollments (scopé à
+-- l'année scolaire du paiement) : à chaque paiement créé/modifié/supprimé,
+-- le dû/payé de l'inscription reste toujours calculé depuis les vraies
+-- transactions, jamais modifiable "à la main".
+create or replace function recompute_enrollment_paye()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_student_id uuid := coalesce(new.student_id, old.student_id);
+  v_school_year_id uuid := coalesce(new.school_year_id, old.school_year_id);
+begin
+  update enrollments set
+    montant_paye = coalesce((select sum(montant) from payments where student_id = v_student_id and school_year_id = v_school_year_id and type_frais = 'scolarite'), 0),
+    frais_connexe_paye = coalesce((select sum(montant) from payments where student_id = v_student_id and school_year_id = v_school_year_id and type_frais = 'connexe'), 0)
+  where student_id = v_student_id and school_year_id = v_school_year_id;
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists trg_recompute_enrollment_paye on payments;
+create trigger trg_recompute_enrollment_paye
+after insert or update or delete on payments
+for each row execute function recompute_enrollment_paye();
