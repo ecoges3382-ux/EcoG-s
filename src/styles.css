@@ -26,6 +26,7 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 * { box-sizing: border-box; }
+html, body { overflow-x: hidden; }
 body {
   margin:0; padding: 0; background: var(--cream);
   font-family: var(--sans); color: var(--ink);
@@ -43,7 +44,7 @@ input { caret-color: #000; }
 .card-bold { background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); }
 
 /* ---- Layout shell ---- */
-#app { display: flex; flex-direction: column; min-height: 100vh; }
+#app { display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
 #layout { display: flex; flex: 1; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
 #screen { flex: 1; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); }
