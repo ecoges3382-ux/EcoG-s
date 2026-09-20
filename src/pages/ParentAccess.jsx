@@ -129,7 +129,7 @@ export default function ParentAccess() {
 
           {detail && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 22 }}>
+              <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 22 }}>
                 <Stat label="Reste à payer" value={fmtF(Number(selected.montant_du) - Number(selected.montant_paye))} color={Number(selected.montant_du) - Number(selected.montant_paye) > 0 ? 'var(--danger)' : 'var(--success)'} />
                 <Stat label="Frais connexes restants" value={fmtF(Number(selected.frais_connexe_du) - Number(selected.frais_connexe_paye))} color={Number(selected.frais_connexe_du) - Number(selected.frais_connexe_paye) > 0 ? 'var(--amber)' : 'var(--success)'} />
               </div>
