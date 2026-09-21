@@ -261,6 +261,7 @@ const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, bor
 function PassageThresholds({ schoolId }) {
   const [rows, setRows] = useState(null);
   const [niveauxPresents, setNiveauxPresents] = useState(null);
+  const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState('');
 
@@ -275,7 +276,9 @@ function PassageThresholds({ schoolId }) {
     (th || []).forEach((t) => { if (t.niveau === null) def = t; else byNiveau[t.niveau] = t; });
     setRows({ default: def, byNiveau });
     const present = new Set((cl || []).map((c) => c.niveau));
-    setNiveauxPresents(NIVEAUX.filter((n) => present.has(n)));
+    const list = NIVEAUX.filter((n) => present.has(n));
+    setNiveauxPresents(list);
+    setSelected((prev) => (prev && list.includes(prev) ? prev : (list[0] || '')));
   }
 
   useEffect(() => { reload(); }, []);
@@ -319,37 +322,44 @@ function PassageThresholds({ schoolId }) {
       <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600 }}>Seuil de passage automatique</p>
       <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
         Moyenne annuelle minimale (sur 20) pour qu'un élève soit classé automatiquement « Passe »
-        plutôt que « Redouble » lors de la préparation d'une nouvelle année. Laisse un niveau vide
-        pour qu'il utilise le seuil par défaut.
+        plutôt que « Redouble » lors de la préparation d'une nouvelle année. Laisse un niveau sur le
+        seuil par défaut (grisé) ou personnalise-le pour ce niveau uniquement.
       </p>
+
       <ThresholdRow
         label="Seuil par défaut (toute l'école)"
         value={rows.default?.seuil}
         placeholder="10"
         saving={saving === '__default__'}
         onSave={saveDefault}
-        isLast={niveauxPresents.length === 0}
       />
-      {niveauxPresents.map((n, i) => (
-        <ThresholdRow
-          key={n}
-          label={n}
-          value={rows.byNiveau[n]?.seuil}
-          placeholder={rows.default?.seuil != null ? String(rows.default.seuil) : '10'}
-          saving={saving === n}
-          onSave={(v) => saveNiveau(n, v)}
-          isLast={i === niveauxPresents.length - 1}
-        />
-      ))}
+
+      {niveauxPresents.length > 0 && (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>Personnaliser pour un niveau</label>
+          <select value={selected} onChange={(e) => setSelected(e.target.value)} style={{ width: '100%', maxWidth: 280, padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', background: 'var(--paper)', marginBottom: 12 }}>
+            {niveauxPresents.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+
+          <NiveauThresholdEditor
+            key={`${selected}-${rows.default?.seuil ?? ''}-${rows.byNiveau[selected]?.seuil ?? ''}`}
+            niveau={selected}
+            override={rows.byNiveau[selected]?.seuil}
+            defaultValue={rows.default?.seuil}
+            saving={saving === selected}
+            onSave={(v) => saveNiveau(selected, v)}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function ThresholdRow({ label, value, placeholder, saving, onSave, isLast }) {
+function ThresholdRow({ label, value, placeholder, saving, onSave }) {
   const [v, setV] = useState(value ?? '');
   const dirty = String(v) !== String(value ?? '');
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 10 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</span>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
         <input
@@ -364,6 +374,55 @@ function ThresholdRow({ label, value, placeholder, saving, onSave, isLast }) {
           {saving ? '…' : 'OK'}
         </button>
       </div>
+    </div>
+  );
+}
+
+// Sans surcharge pour ce niveau, le champ affiche la valeur du seuil par
+// défaut en grisé (fond + texte atténués) — dès que le seuil par défaut
+// change et est confirmé, la key (recalculée par le parent) fait remonter
+// ce composant avec la nouvelle valeur : le grisage se met à jour tout
+// seul, sans action de l'utilisateur sur ce niveau. Le champ reste
+// modifiable directement : taper dedans crée une surcharge propre à ce
+// niveau (fond blanc, texte normal) ; "Revenir au défaut" la supprime.
+function NiveauThresholdEditor({ niveau, override, defaultValue, saving, onSave }) {
+  const hasOverride = override != null;
+  const fallback = defaultValue != null ? String(defaultValue) : '10';
+  const [v, setV] = useState(hasOverride ? String(override) : fallback);
+  const inherited = !hasOverride && v === fallback;
+  const dirty = hasOverride ? String(v) !== String(override) : v !== fallback;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="number" min="0" max="20" step="0.5" value={v}
+          onChange={(e) => setV(e.target.value)}
+          style={{
+            width: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)',
+            fontSize: 14, textAlign: 'center', boxSizing: 'border-box',
+            color: inherited ? 'var(--muted)' : 'var(--ink)',
+            background: inherited ? 'var(--line)' : 'var(--paper)',
+          }}
+        />
+        <button
+          type="button" disabled={!dirty || saving} onClick={() => onSave(v)}
+          style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
+        >
+          {saving ? '…' : 'OK'}
+        </button>
+        {hasOverride && (
+          <button
+            type="button" disabled={saving} onClick={() => onSave('')}
+            style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            Revenir au défaut
+          </button>
+        )}
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+        {niveau} — {inherited ? 'suit le seuil par défaut' : 'seuil personnalisé pour ce niveau'}
+      </p>
     </div>
   );
 }
