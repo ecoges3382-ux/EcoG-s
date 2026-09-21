@@ -1,24 +1,39 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase.js';
+
+// supabase-js ne remplit PAS `data` quand la fonction répond en erreur (code
+// non 2xx) — il faut aller lire le corps JSON réel dans error.context (une
+// Response brute) pour récupérer le message envoyé par la fonction, sinon
+// on retombe sur un message générique qui masque la vraie raison (ex.
+// "WhatsApp n'est pas configuré pour votre école") à chaque échec serveur.
+async function invokeFn(name, body, fallbackMessage) {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    let serverMessage = null;
+    if (error instanceof FunctionsHttpError) {
+      // .json() ne peut échouer que si le corps n'est pas du JSON valide —
+      // dans ce cas on se rabat sur fallbackMessage, jamais sur ce throw.
+      serverMessage = await error.context.json().then((b) => b?.error || null).catch(() => null);
+    }
+    throw new Error(serverMessage || fallbackMessage);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
 
 // Le frontend ne parle jamais directement à l'API Meta ni ne voit de jeton
 // — tout passe par ces deux Edge Functions (service_role côté serveur),
 // qui vérifient elles-mêmes l'appelant, son école et son droit d'agir.
-export async function getWhatsAppConfig() {
-  const { data, error } = await supabase.functions.invoke('whatsapp-config', { body: {} });
-  if (error || data?.error) throw new Error(data?.error || 'Erreur de chargement.');
-  return data;
+export function getWhatsAppConfig() {
+  return invokeFn('whatsapp-config', {}, 'Erreur de chargement.');
 }
 
-export async function saveWhatsAppConfig(payload) {
-  const { data, error } = await supabase.functions.invoke('whatsapp-config', { body: { action: 'save', ...payload } });
-  if (error || data?.error) throw new Error(data?.error || 'Erreur d\'enregistrement.');
-  return data;
+export function saveWhatsAppConfig(payload) {
+  return invokeFn('whatsapp-config', { action: 'save', ...payload }, "Erreur d'enregistrement.");
 }
 
-export async function sendWhatsAppMessage(payload) {
-  const { data, error } = await supabase.functions.invoke('whatsapp-send', { body: payload });
-  if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi.");
-  return data;
+export function sendWhatsAppMessage(payload) {
+  return invokeFn('whatsapp-send', payload, "Erreur d'envoi.");
 }
 
 export const WHATSAPP_TYPE_LABELS = {
