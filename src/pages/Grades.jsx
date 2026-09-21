@@ -2,15 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
+import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation, computeRang } from '../lib/bulletin.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
-function appreciation(moyenne) {
-  if (moyenne >= 16) return 'Excellent';
-  if (moyenne >= 14) return 'Très bien';
-  if (moyenne >= 12) return 'Bien';
-  if (moyenne >= 10) return 'Passable';
-  return 'Insuffisant';
+const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
+function periodeLabel(p) {
+  return p === 'annuel' ? 'Année complète' : p;
 }
 
 export default function Grades() {
@@ -24,8 +22,10 @@ export default function Grades() {
   const [studentId, setStudentId] = useState('');
   const [periode, setPeriode] = useState('Trimestre 1');
 
-  // La classe d'un élève est propre à l'année scolaire en cours
-  // (enrollments) — students ne garde que son identité.
+  // La classe d'un élève est propre à l'année scolaire sélectionnée
+  // (enrollments) — students ne garde que son identité. Les notes utilisées
+  // pour ce bulletin sont filtrées sur cette même année (school_year_id) :
+  // jamais de notes d'une autre année mélangées à celles-ci.
   useEffect(() => {
     if (!schoolYear) return;
     Promise.all([
@@ -55,19 +55,30 @@ export default function Grades() {
 
   const student = students.find((s) => s.id === studentId);
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
+  const annuel = periode === 'annuel';
 
-  const lignes = subjectsForNiveau.map((su) => {
-    const notes = (grades || []).filter((g) => g.student_id === studentId && g.subject_id === su.id && g.periode === periode);
-    if (notes.length === 0) return { ...su, moyenne: null };
-    const moyenne = notes.reduce((a, g) => a + (Number(g.note) / Number(g.sur)) * 20, 0) / notes.length;
-    return { ...su, moyenne };
-  });
+  // Une matière ou une période sans aucune note n'est jamais transformée en
+  // 0 — les fonctions de lib/bulletin.js renvoient null, affiché "—" plus
+  // bas, jamais une moyenne trompeuse.
+  const lignes = subjectsForNiveau.map((su) => (
+    annuel
+      ? {
+          ...su,
+          t1: subjectPeriodeMoyenne(grades || [], studentId, su.id, 'Trimestre 1'),
+          t2: subjectPeriodeMoyenne(grades || [], studentId, su.id, 'Trimestre 2'),
+          t3: subjectPeriodeMoyenne(grades || [], studentId, su.id, 'Trimestre 3'),
+          moyenne: subjectAnnualMoyenne(grades || [], studentId, su.id),
+        }
+      : { ...su, moyenne: subjectPeriodeMoyenne(grades || [], studentId, su.id, periode) }
+  ));
 
-  const avecNotes = lignes.filter((l) => l.moyenne != null);
-  const sommeCoef = avecNotes.reduce((a, l) => a + Number(l.coefficient), 0);
-  const moyenneGenerale = sommeCoef > 0
-    ? avecNotes.reduce((a, l) => a + l.moyenne * Number(l.coefficient), 0) / sommeCoef
-    : 0;
+  const moyenneGenerale = annuel
+    ? annualMoyenneGenerale(subjectsForNiveau, grades || [], studentId)
+    : periodeMoyenneGenerale(subjectsForNiveau, grades || [], studentId, periode);
+
+  const rang = studentId
+    ? computeRang(subjectsForNiveau, grades || [], studentsInNiveau.map((s) => s.id), studentId, annuel ? 'annuel' : periode)
+    : null;
 
   return (
     <div>
@@ -80,53 +91,102 @@ export default function Grades() {
 
       {grades !== null && (
         <>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
-            <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={selectStyle}>
-              {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={selectStyle}>
-              {studentsInNiveau.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
-            <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={selectStyle}>
-              {['Trimestre 1', 'Trimestre 2', 'Trimestre 3'].map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 22, alignItems: 'flex-end' }}>
+            <div>
+              <label style={labelStyle}>Classe</label>
+              <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={selectStyle}>
+                {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Élève</label>
+              <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={selectStyle}>
+                {studentsInNiveau.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Période</label>
+              <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={selectStyle}>
+                {PERIODE_OPTIONS.map((p) => <option key={p} value={p}>{periodeLabel(p)}</option>)}
+              </select>
+            </div>
             <button onClick={() => window.print()} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
               <i className="ti ti-printer" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Imprimer / PDF
             </button>
           </div>
 
           {student ? (
-            <div className="card-bold" style={{ padding: '26px 28px', maxWidth: 640 }}>
+            <div className="card-bold" style={{ padding: '26px 28px', maxWidth: 680 }}>
               <p style={{ margin: '0 0 2px', fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 600 }}>{profile?.schools?.name || 'École'}</p>
-              <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--muted)' }}>Bulletin — {periode}</p>
+              <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--muted)' }}>
+                Bulletin — {periodeLabel(periode)} · Année scolaire {schoolYear?.label}
+              </p>
               <p style={{ margin: '0 0 18px', fontSize: '13.5px', fontWeight: 600 }}>
                 {student.full_name} {student.matricule ? `· ${student.matricule}` : ''} · {student.niveau}
               </p>
 
               <div style={{ borderTop: '1px solid var(--line)', marginBottom: 14 }} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', padding: '0 0 10px', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                <span>Matière</span><span>Coef.</span><span>Moyenne /20</span><span>Appréciation</span>
-              </div>
-              {lignes.map((l) => (
-                <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13.5, alignItems: 'center' }}>
-                  <span>{l.nom}</span>
-                  <span style={{ color: 'var(--muted)' }}>×{l.coefficient}</span>
-                  <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
-                  <span style={{ color: 'var(--muted)' }}>{l.moyenne != null ? appreciation(l.moyenne) : '—'}</span>
-                </div>
-              ))}
+              {annuel ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr', padding: '0 0 10px', fontSize: '10.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    <span>Matière</span><span>Coef.</span><span>T1</span><span>T2</span><span>T3</span><span>Annuelle</span><span>Appréciation</span>
+                  </div>
+                  {lignes.map((l) => (
+                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1.8fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13, alignItems: 'center' }}>
+                      <span>{l.nom}</span>
+                      <span style={{ color: 'var(--muted)' }}>×{l.coefficient}</span>
+                      <span style={{ color: 'var(--muted)' }}>{l.t1 != null ? l.t1.toFixed(2) : '—'}</span>
+                      <span style={{ color: 'var(--muted)' }}>{l.t2 != null ? l.t2.toFixed(2) : '—'}</span>
+                      <span style={{ color: 'var(--muted)' }}>{l.t3 != null ? l.t3.toFixed(2) : '—'}</span>
+                      <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                      <span style={{ color: 'var(--muted)' }}>{appreciation(l.moyenne) || '—'}</span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', padding: '0 0 10px', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    <span>Matière</span><span>Coef.</span><span>Moyenne /20</span><span>Appréciation</span>
+                  </div>
+                  {lignes.map((l) => (
+                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13.5, alignItems: 'center' }}>
+                      <span>{l.nom}</span>
+                      <span style={{ color: 'var(--muted)' }}>×{l.coefficient}</span>
+                      <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                      <span style={{ color: 'var(--muted)' }}>{appreciation(l.moyenne) || '—'}</span>
+                    </div>
+                  ))}
+                </>
+              )}
               {lignes.length === 0 && <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>Aucune matière pour ce niveau.</p>}
-              {lignes.length > 0 && avecNotes.length === 0 && <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>Aucune note pour cette période.</p>}
+              {lignes.length > 0 && moyenneGenerale == null && (
+                <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
+                  Aucune note enregistrée {annuel ? 'sur cette année' : 'pour cette période'} — aucune moyenne ne peut être calculée.
+                </p>
+              )}
 
-              <div style={{ marginTop: 18, background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 600 }}>Moyenne générale</span>
-                <span style={{ fontSize: 19, fontWeight: 700, color: 'var(--forest-dark)' }}>{moyenneGenerale.toFixed(2)} / 20</span>
+              <div style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 220px', background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 600, color: 'var(--forest-dark)' }}>Moyenne générale</p>
+                  <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: 'var(--forest-dark)' }}>
+                    {moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}
+                  </p>
+                  {moyenneGenerale != null && (
+                    <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--forest-dark)' }}>{appreciation(moyenneGenerale)}</p>
+                  )}
+                </div>
+                <div style={{ flex: '1 1 160px', background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '14px 18px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 600, color: 'var(--muted)' }}>Rang</p>
+                  <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: 'var(--ink)' }}>
+                    {rang ? `${rang.rang}${rang.rang === 1 ? 'er' : 'e'} / ${rang.total}` : 'Non classé'}
+                  </p>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 30, fontSize: 12, color: 'var(--muted)' }}>
                 <span>Signature de l'enseignant</span>
-                <span>Le directeur</span>
+                <span>Cachet de l'école — Le directeur</span>
               </div>
             </div>
           ) : (
@@ -139,3 +199,4 @@ export default function Grades() {
 }
 
 const selectStyle = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 13, fontWeight: 600, color: 'var(--ink)', background: 'var(--paper)' };
+const labelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
