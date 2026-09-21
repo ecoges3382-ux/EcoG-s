@@ -145,6 +145,20 @@ export default function Settings() {
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
         </Link>
       )}
+
+      {['fondateur', 'directeur', 'secretaire'].includes(profile.role) && (
+        <Link
+          to="/parametres/whatsapp"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 12, maxWidth: 520 }}
+          className="card-bold"
+        >
+          <div style={{ padding: '16px 20px' }}>
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>WhatsApp</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Connecter le compte WhatsApp Business de l'école et suivre les envois</p>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+        </Link>
+      )}
     </div>
   );
 }

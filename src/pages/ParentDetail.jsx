@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
+import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
+const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function ParentDetail() {
   const { id } = useParams();
@@ -119,6 +121,10 @@ export default function ParentDetail() {
         {children.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun enfant rattaché.</p>}
       </div>
 
+      {CAN_SEND_WHATSAPP_ROLES.includes(profile.role) && access.phone && (
+        <IndividualMessage parentAccessId={access.id} />
+      )}
+
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button
           type="button"
@@ -138,6 +144,57 @@ export default function ParentDetail() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+// Envoi ponctuel, hors relance/annonce — passe par le même canal serveur
+// (whatsapp-send) que tout le reste : le frontend n'appelle jamais l'API
+// WhatsApp lui-même. Nécessite qu'un template "message individuel" (avec un
+// seul paramètre libre) soit configuré côté Paramètres → WhatsApp ; sinon
+// le serveur refuse l'envoi avec une erreur claire, jamais silencieusement.
+function IndividualMessage({ parentAccessId }) {
+  const [contenu, setContenu] = useState('');
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function handleSend() {
+    if (!contenu.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const data = await sendWhatsAppMessage({ type: 'message_individuel', parent_access_id: parentAccessId, contenu: contenu.trim() });
+      const ok = data.results?.[0]?.statut === 'envoye';
+      setResult({ ok, text: ok ? 'Message envoyé.' : (data.results?.[0]?.erreur || "Échec de l'envoi.") });
+      if (ok) setContenu('');
+    } catch (err) {
+      setResult({ ok: false, text: err.message });
+    }
+    setSending(false);
+  }
+
+  return (
+    <div className="card-bold" style={{ padding: '16px 20px', marginBottom: 20, maxWidth: 640 }}>
+      <p style={{ margin: '0 0 8px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+        Message WhatsApp individuel
+      </p>
+      <textarea
+        value={contenu}
+        onChange={(e) => setContenu(e.target.value)}
+        placeholder="ex. Merci de passer au secrétariat cette semaine…"
+        rows={3}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 10, resize: 'vertical' }}
+      />
+      <button
+        type="button"
+        onClick={handleSend}
+        disabled={sending || !contenu.trim()}
+        style={{ fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: '#25D366', color: '#fff', opacity: (sending || !contenu.trim()) ? 0.7 : 1, cursor: (sending || !contenu.trim()) ? 'default' : 'pointer' }}
+      >
+        <i className="ti ti-brand-whatsapp" style={{ fontSize: 15, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
+        {sending ? 'Envoi…' : 'Envoyer'}
+      </button>
+      {result && <p style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 600, color: result.ok ? 'var(--success)' : 'var(--danger)' }}>{result.text}</p>}
     </div>
   );
 }

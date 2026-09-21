@@ -2466,3 +2466,78 @@ create policy "announcements: delete" on announcements
     and current_role_name() in ('fondateur', 'directeur', 'secretaire')
     and statut = 'brouillon'
   );
+
+-- ---------- WhatsApp Business : configuration par école + historique ----------
+-- Canal de communication optionnel, découplé du reste d'EcoGès : aucune
+-- autre table/fonction n'en dépend, seul le contenu (élève, paiement,
+-- annonce déjà existants) est lu pour construire les messages.
+--
+-- whatsapp_configs porte le jeton d'accès Meta (access_token) — un secret
+-- réel, pas seulement une donnée "privée". Volontairement AUCUNE policy RLS
+-- n'est créée sur cette table : RLS activée + zéro policy = accès refusé
+-- par défaut à anon ET authenticated, quel que soit le rôle, y compris le
+-- fondateur de l'école propriétaire. Seul service_role (donc uniquement les
+-- Edge Functions whatsapp-config et whatsapp-send, jamais le navigateur)
+-- contourne RLS et peut lire/écrire cette table. C'est ce qui garantit
+-- qu'une école ne peut ni lire ni halluciner la configuration d'une autre :
+-- même en cas de bug côté client, aucune requête directe vers cette table
+-- ne peut jamais aboutir.
+create table if not exists whatsapp_configs (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null unique references schools(id) on delete cascade,
+  provider text not null default 'meta_cloud_api' check (provider in ('meta_cloud_api')),
+  phone_number_id text,
+  waba_id text,
+  display_phone_number text,
+  access_token text,
+  -- { "relance_paiement": {"name": "...", "lang": "fr"}, "echeance": {...},
+  --   "annonce": {...}, "vie_scolaire": {...}, "message_individuel": {...} }
+  -- Noms de templates déjà approuvés côté Meta Business Manager par
+  -- l'école — EcoGès ne crée ni n'approuve aucun template lui-même.
+  templates jsonb not null default '{}'::jsonb,
+  quota_quotidien integer not null default 200,
+  statut text not null default 'non_configure' check (statut in ('non_configure', 'actif', 'erreur')),
+  derniere_erreur text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table whatsapp_configs enable row level security;
+
+create table if not exists whatsapp_messages (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  parent_access_id uuid references parent_access(id) on delete set null,
+  student_id uuid references students(id) on delete set null,
+  announcement_id uuid references announcements(id) on delete set null,
+  type text not null check (type in ('relance_paiement', 'echeance', 'annonce', 'vie_scolaire', 'message_individuel')),
+  destinataire_phone text not null,
+  contenu text,
+  template_name text,
+  statut text not null default 'en_attente' check (statut in ('en_attente', 'envoye', 'livre', 'lu', 'echec')),
+  provider_message_id text,
+  erreur text,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists whatsapp_messages_school_created_idx on whatsapp_messages(school_id, created_at desc);
+create index if not exists whatsapp_messages_student_idx on whatsapp_messages(student_id);
+-- Recherche par id fournisseur : c'est la seule clé fournie par un webhook
+-- entrant pour retrouver la ligne à mettre à jour (jamais un school_id fourni
+-- par le webhook lui-même, qui n'est pas fiable).
+create index if not exists whatsapp_messages_provider_message_id_idx on whatsapp_messages(provider_message_id);
+
+alter table whatsapp_messages enable row level security;
+
+-- Lecture directe (historique) ouverte au personnel habilité de la même
+-- école — même périmètre que les autres actions administratives
+-- (Comptes/Argent/Annonces). Volontairement AUCUNE policy insert/update
+-- pour authenticated : seule whatsapp-send (service_role) écrit ici, pour
+-- garantir que le statut vient réellement du fournisseur et jamais d'une
+-- prétention du frontend ("la requête est partie" ne veut pas dire "envoyé").
+drop policy if exists "whatsapp_messages: select" on whatsapp_messages;
+create policy "whatsapp_messages: select" on whatsapp_messages
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );

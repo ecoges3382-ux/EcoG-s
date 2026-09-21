@@ -5,10 +5,12 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, trancheLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance, computeEcheances } from '../lib/retard.js';
+import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
+const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function StudentDetail() {
   const { id } = useParams();
@@ -25,6 +27,8 @@ export default function StudentDetail() {
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [whatsappSending, setWhatsappSending] = useState(false);
+  const [whatsappResult, setWhatsappResult] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +107,23 @@ export default function StudentDetail() {
     const { error: saveError } = await supabase.from('enrollments').update({ note_arrangement: note || null }).eq('id', enrollment.id);
     if (saveError) { setError(saveError.message); return; }
     setEnrollment((prev) => ({ ...prev, note_arrangement: note || null }));
+  }
+
+  async function sendRelance() {
+    setWhatsappSending(true);
+    setWhatsappResult(null);
+    try {
+      // Le serveur recalcule tout lui-même (élève, échéance, montants) —
+      // on ne lui envoie que le type de message et l'élève concerné,
+      // jamais un montant depuis l'écran.
+      const data = await sendWhatsAppMessage({ type: 'relance_paiement', student_id: id });
+      const ok = data.results?.some((r) => r.statut === 'envoye');
+      const fail = data.results?.find((r) => r.statut === 'echec');
+      setWhatsappResult(ok ? { ok: true, text: 'Relance WhatsApp envoyée.' } : { ok: false, text: fail?.erreur || "Échec de l'envoi." });
+    } catch (err) {
+      setWhatsappResult({ ok: false, text: err.message });
+    }
+    setWhatsappSending(false);
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
@@ -189,6 +210,26 @@ export default function StudentDetail() {
                   </div>
                 ))}
               </div>
+              {/* Une relance ne porte que sur l'année en cours (le serveur
+                  recalcule tout lui-même) — jamais proposée en consultation
+                  d'un historique, où les données affichées concernent une
+                  autre année que celle que le message enverrait réellement. */}
+              {!isHistorical && CAN_SEND_WHATSAPP_ROLES.includes(profile.role) && echeances.some((e) => e.enRetard) && (
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    type="button"
+                    onClick={sendRelance}
+                    disabled={whatsappSending}
+                    style={{ fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: '#25D366', color: '#fff', opacity: whatsappSending ? 0.7 : 1, cursor: whatsappSending ? 'default' : 'pointer' }}
+                  >
+                    <i className="ti ti-brand-whatsapp" style={{ fontSize: 15, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
+                    {whatsappSending ? 'Envoi…' : 'Envoyer une relance WhatsApp'}
+                  </button>
+                  {whatsappResult && (
+                    <p style={{ margin: '8px 0 0', fontSize: 12, fontWeight: 600, color: whatsappResult.ok ? 'var(--success)' : 'var(--danger)' }}>{whatsappResult.text}</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </>

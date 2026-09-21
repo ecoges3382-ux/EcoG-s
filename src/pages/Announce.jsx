@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
+import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
@@ -287,6 +288,21 @@ function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
   const cibleLabel = a.portee === 'Une classe' ? (a.classes?.nom || a.classe_cible || 'Classe') : a.portee;
   const expiree = a.date_expiration && a.date_expiration < todayIso() && a.statut === 'publiee';
   const st = STATUT_LABELS[a.statut] || STATUT_LABELS.publiee;
+  const [waSending, setWaSending] = useState(false);
+  const [waResult, setWaResult] = useState(null);
+
+  async function diffuserWhatsApp() {
+    if (!window.confirm(`Diffuser « ${a.titre} » par WhatsApp à ${cibleLabel === 'École entière' ? 'tous les parents' : `la classe « ${cibleLabel} »`} ?`)) return;
+    setWaSending(true);
+    setWaResult(null);
+    try {
+      const data = await sendWhatsAppMessage({ type: 'annonce', announcement_id: a.id });
+      setWaResult({ ok: true, text: `Diffusée à ${data.envoyes}/${data.total} destinataire${data.total > 1 ? 's' : ''}${data.echecs ? ` (${data.echecs} échec${data.echecs > 1 ? 's' : ''})` : ''}${data.skipped_quota ? ` — ${data.skipped_quota} non envoyés (quota atteint)` : ''}.` });
+    } catch (err) {
+      setWaResult({ ok: false, text: err.message });
+    }
+    setWaSending(false);
+  }
 
   return (
     <div style={{ padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
@@ -317,12 +333,19 @@ function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
             <>
               <button onClick={onEdit} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Modifier</button>
               <button onClick={() => onSetStatut('archivee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Archiver</button>
+              <button onClick={diffuserWhatsApp} disabled={waSending} style={actionBtnStyle('#25D366', '#fff')}>
+                <i className="ti ti-brand-whatsapp" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+                {waSending ? 'Diffusion…' : 'Diffuser par WhatsApp'}
+              </button>
             </>
           )}
           {a.statut === 'archivee' && (
             <button onClick={() => onSetStatut('publiee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Republier</button>
           )}
         </div>
+      )}
+      {waResult && (
+        <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 600, color: waResult.ok ? 'var(--success)' : 'var(--danger)' }}>{waResult.text}</p>
       )}
     </div>
   );

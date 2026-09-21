@@ -24,6 +24,7 @@ import Documents from './pages/Documents.jsx';
 import Reports from './pages/Reports.jsx';
 import Settings from './pages/Settings.jsx';
 import SchoolYearSettings from './pages/SchoolYearSettings.jsx';
+import SettingsWhatsApp from './pages/SettingsWhatsApp.jsx';
 import PrepareSchoolYear from './pages/PrepareSchoolYear.jsx';
 import Money from './pages/Money.jsx';
 import Accounts from './pages/Accounts.jsx';
@@ -110,6 +111,7 @@ function RoleRouter() {
         <Route path="parametres" element={<Settings />} />
         <Route path="parametres/annee-scolaire" element={<SchoolYearSettings />} />
         <Route path="parametres/annee-scolaire/preparation" element={<PrepareSchoolYear />} />
+        <Route path="parametres/whatsapp" element={<SettingsWhatsApp />} />
         <Route path="comptes" element={<Accounts />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
