@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
   }, [session?.user?.id]);
 
   async function loadOrProvisionProfile(user) {
-    const select = 'id, full_name, role, school_id, schools ( id, name, color, logo_url )';
+    const select = 'id, full_name, role, school_id, schools ( id, name, color, logo_url, adresse, telephone, email )';
     const { data, error } = await supabase
       .from('profiles')
       .select(select)
@@ -102,7 +102,7 @@ export function AuthProvider({ children }) {
     if (!session?.user) return;
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, role, school_id, schools ( id, name, color, logo_url )')
+      .select('id, full_name, role, school_id, schools ( id, name, color, logo_url, adresse, telephone, email )')
       .eq('id', session.user.id)
       .maybeSingle();
     if (data) setProfile(data);

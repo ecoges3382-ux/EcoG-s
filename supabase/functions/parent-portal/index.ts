@@ -148,6 +148,16 @@ Deno.serve(async (req) => {
       throw new Error('Code invalide.');
     }
 
+    // Identité de l'établissement pour l'en-tête des documents imprimables
+    // (bulletin, situation financière) côté portail parent — toujours celle
+    // de l'école du code d'accès, jamais une autre (access.school_id vient
+    // de la ligne parent_access déjà résolue par le code, pas du client).
+    const { data: school } = await adminClient
+      .from('schools')
+      .select('id, name, logo_url, adresse, telephone, email')
+      .eq('id', access.school_id)
+      .maybeSingle();
+
     // Les seuls élèves que ce code autorise à consulter — toute la suite ne
     // travaille plus qu'à partir de cette liste, jamais d'un id fourni tel
     // quel par le client.
@@ -228,7 +238,7 @@ Deno.serve(async (req) => {
       }
 
       if (!targetYear) {
-        return jsonResponse({ full_name: access.full_name, student, years, school_year: null, enrollment: null, payments: [], attendance: [], grades: [], subjects: [], rangs: null, fee_schedule: null, announcements: [] });
+        return jsonResponse({ full_name: access.full_name, school, student, years, school_year: null, enrollment: null, payments: [], attendance: [], grades: [], subjects: [], rangs: null, fee_schedule: null, announcements: [] });
       }
 
       const { data: enr } = await adminClient
@@ -289,6 +299,7 @@ Deno.serve(async (req) => {
 
       return jsonResponse({
         full_name: access.full_name,
+        school,
         student,
         years,
         school_year: targetYear,
@@ -351,6 +362,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       full_name: access.full_name,
+      school,
       students: studentsWithAlerts,
       school_year: schoolYear,
       fee_schedules: feeSchedules,

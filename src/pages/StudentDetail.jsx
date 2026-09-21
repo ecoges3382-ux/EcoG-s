@@ -8,6 +8,8 @@ import { computeRelance, computeEcheances } from '../lib/retard.js';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import PaymentReceipt from '../components/PaymentReceipt.jsx';
+import FinancialStatement from '../components/FinancialStatement.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -29,6 +31,8 @@ export default function StudentDetail() {
   const [deleting, setDeleting] = useState(false);
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappResult, setWhatsappResult] = useState(null);
+  const [receiptPayment, setReceiptPayment] = useState(null);
+  const [showStatement, setShowStatement] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,6 +236,15 @@ export default function StudentDetail() {
               )}
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowStatement(true)}
+            style={{ marginBottom: 20, fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+          >
+            <i className="ti ti-file-invoice" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
+            Imprimer la situation financière
+          </button>
         </>
       ) : (
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>
@@ -263,7 +276,17 @@ export default function StudentDetail() {
                     {trancheLabel(p.tranche)} · {new Date(p.date).toLocaleDateString('fr-FR')}{p.note ? ` · ${p.note}` : ''}
                   </p>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{p.mode}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{p.mode}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptPayment(p)}
+                    title="Imprimer le reçu"
+                    style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                  >
+                    <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -334,6 +357,32 @@ export default function StudentDetail() {
             {deleting ? 'Suppression…' : "Supprimer l'élève"}
           </button>
         )
+      )}
+
+      {receiptPayment && (
+        <PaymentReceipt
+          payment={receiptPayment}
+          studentName={student.full_name}
+          classeNom={enrollment?.classes?.nom}
+          schoolYearLabel={schoolYear?.label}
+          school={profile.schools}
+          onClose={() => setReceiptPayment(null)}
+        />
+      )}
+
+      {showStatement && enrollment && (
+        <FinancialStatement
+          studentName={student.full_name}
+          classeNom={enrollment.classes?.nom}
+          schoolYearLabel={schoolYear?.label}
+          montantDu={Number(enrollment.montant_du || 0)}
+          montantPaye={Number(enrollment.montant_paye || 0)}
+          resteFrais={resteFrais}
+          echeances={echeances}
+          payments={payments}
+          school={profile.schools}
+          onClose={() => setShowStatement(false)}
+        />
       )}
     </div>
   );

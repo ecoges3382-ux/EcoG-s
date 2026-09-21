@@ -19,6 +19,9 @@ export default function Settings() {
   const [name, setName] = useState(school?.name || '');
   const [color, setColor] = useState(school?.color || '#0F4C3A');
   const [logoUrl, setLogoUrl] = useState(school?.logo_url || '');
+  const [adresse, setAdresse] = useState(school?.adresse || '');
+  const [telephone, setTelephone] = useState(school?.telephone || '');
+  const [email, setEmail] = useState(school?.email || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -34,7 +37,10 @@ export default function Settings() {
     setSaved(false);
     const { error: updateError } = await supabase
       .from('schools')
-      .update({ name: name.trim(), color, logo_url: logoUrl.trim() || null })
+      .update({
+        name: name.trim(), color, logo_url: logoUrl.trim() || null,
+        adresse: adresse.trim() || null, telephone: telephone.trim() || null, email: email.trim() || null,
+      })
       .eq('id', profile.school_id);
     setSaving(false);
     if (updateError) {
@@ -83,6 +89,24 @@ export default function Settings() {
               : <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Aucun logo</p>
           )}
           <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>Sans logo, les initiales de l'école restent affichées.</p>
+        </div>
+
+        <p style={{ margin: '0 0 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+          Coordonnées (affichées sur les documents imprimés)
+        </p>
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Adresse (facultatif)</label>
+          <input value={adresse} onChange={(e) => setAdresse(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="ex. Cotonou, Akpakpa" />
+        </div>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div>
+            <label style={labelStyle}>Téléphone (facultatif)</label>
+            <input value={telephone} onChange={(e) => setTelephone(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="+229 XX XX XX XX" />
+          </div>
+          <div>
+            <label style={labelStyle}>E-mail (facultatif)</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="contact@ecole.bj" />
+          </div>
         </div>
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}

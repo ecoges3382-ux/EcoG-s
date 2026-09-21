@@ -2541,3 +2541,13 @@ create policy "whatsapp_messages: select" on whatsapp_messages
     school_id = current_school_id()
     and current_role_name() in ('fondateur', 'directeur', 'secretaire')
   );
+
+-- ---------- Documents imprimables : identité complète de l'établissement ----------
+-- Les documents imprimés (bulletin, reçu, situation financière) ont besoin
+-- de plus que le nom/logo déjà présents sur schools — adresse/téléphone/
+-- email pour un en-tête institutionnel correct. Déjà couvertes par la
+-- policy "schools: le fondateur modifie son école" (update ligne entière,
+-- pas colonne par colonne) — aucune nouvelle policy nécessaire.
+alter table schools add column if not exists adresse text;
+alter table schools add column if not exists telephone text;
+alter table schools add column if not exists email text;

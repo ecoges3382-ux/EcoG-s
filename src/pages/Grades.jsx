@@ -3,8 +3,10 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation, computeRang } from '../lib/bulletin.js';
+import { printDocument, slug } from '../lib/print.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import DocumentHeader from '../components/DocumentHeader.jsx';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
@@ -110,17 +112,22 @@ export default function Grades() {
                 {PERIODE_OPTIONS.map((p) => <option key={p} value={p}>{periodeLabel(p)}</option>)}
               </select>
             </div>
-            <button onClick={() => window.print()} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+            <button
+              onClick={() => printDocument(`bulletin-${slug(student?.full_name)}-${slug(periodeLabel(periode))}`)}
+              disabled={!student}
+              style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: student ? 1 : 0.6 }}
+            >
               <i className="ti ti-printer" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Imprimer / PDF
             </button>
           </div>
 
           {student ? (
-            <div className="card-bold" style={{ padding: '26px 28px', maxWidth: 680 }}>
-              <p style={{ margin: '0 0 2px', fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 600 }}>{profile?.schools?.name || 'École'}</p>
-              <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--muted)' }}>
-                Bulletin — {periodeLabel(periode)} · Année scolaire {schoolYear?.label}
-              </p>
+            <div className="card-bold print-sheet" style={{ padding: '26px 28px', maxWidth: 680 }}>
+              <DocumentHeader
+                school={profile?.schools}
+                title="Bulletin scolaire"
+                subtitle={`${periodeLabel(periode)} · Année scolaire ${schoolYear?.label || ''}`}
+              />
               <p style={{ margin: '0 0 18px', fontSize: '13.5px', fontWeight: 600 }}>
                 {student.full_name} {student.matricule ? `· ${student.matricule}` : ''} · {student.niveau}
               </p>

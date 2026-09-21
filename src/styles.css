@@ -110,3 +110,24 @@ body.app-mode .page-title { color: #fff !important; }
   text-decoration: none;
 }
 .school-tabs-mobile a.active { border-color: var(--forest); background: var(--forest); color: #fff; }
+
+/* ---- Impression / export PDF (bulletin, reçu, situation financière) ----
+   Un seul mécanisme réutilisé par tous les documents imprimables plutôt
+   qu'un moteur PDF séparé : chaque document se marque .print-sheet, et
+   cette règle masque tout le reste de la page (nav, filtres, boutons)
+   pendant l'impression — jamais besoin de retirer un .no-print sur chaque
+   élément d'interface au cas par cas. `visibility` (pas `display`) pour ne
+   pas perturber la mise en page au moment de basculer, puis le document
+   repositionné en (0,0) pour ne pas laisser une page blanche à l'endroit
+   qu'il occupait dans le flux normal. */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .print-sheet, .print-sheet * { visibility: visible; }
+  .print-sheet {
+    position: absolute; top: 0; left: 0; width: 100%; margin: 0 !important;
+    box-shadow: none !important; border: none !important;
+  }
+  #sidebar, #bottomnav, .topbar-row { display: none !important; }
+}

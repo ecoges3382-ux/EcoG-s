@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials, TRANCHES, MODES, trancheLabel } from '../lib/utils.js';
+import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import MoneyInput from '../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import PaymentReceipt from '../components/PaymentReceipt.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -17,12 +18,6 @@ const TABS = [
   { id: 'avances', label: 'Avances sur salaire' },
 ];
 
-const TYPES_FRAIS = [
-  { id: 'scolarite', label: 'Scolarité' },
-  { id: 'connexe', label: 'Frais connexes' },
-  { id: 'inscription', label: 'Inscription' },
-  { id: 'autre', label: 'Autre' },
-];
 
 export default function Money() {
   const [tab, setTab] = useState('vue');
@@ -240,6 +235,7 @@ function Payments() {
   const [students, setStudents] = useState([]);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [receiptPayment, setReceiptPayment] = useState(null);
 
   async function reload() {
     if (!schoolYear) return;
@@ -283,11 +279,21 @@ function Payments() {
                 {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
               </p>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
-                {trancheLabel(p.tranche)}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
+                <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
+                  {trancheLabel(p.tranche)}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReceiptPayment(p)}
+                title="Imprimer le reçu"
+                style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
+              >
+                <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
+              </button>
             </div>
           </div>
         ))}
@@ -301,6 +307,17 @@ function Payments() {
           students={students}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
+        />
+      )}
+
+      {receiptPayment && (
+        <PaymentReceipt
+          payment={receiptPayment}
+          studentName={receiptPayment.students?.full_name || '—'}
+          classeNom={students.find((s) => s.id === receiptPayment.student_id)?.niveau}
+          schoolYearLabel={schoolYear?.label}
+          school={profile.schools}
+          onClose={() => setReceiptPayment(null)}
         />
       )}
     </div>

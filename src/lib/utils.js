@@ -146,6 +146,19 @@ export const MODES = [
   { id: 'virement', label: 'Virement' },
   { id: 'cheque', label: 'Chèque' },
 ];
+export function modeLabel(id) {
+  return MODES.find((m) => m.id === id)?.label || id;
+}
+
+export const TYPES_FRAIS = [
+  { id: 'scolarite', label: 'Scolarité' },
+  { id: 'connexe', label: 'Frais connexes' },
+  { id: 'inscription', label: 'Inscription' },
+  { id: 'autre', label: 'Autre' },
+];
+export function typeFraisLabel(id) {
+  return TYPES_FRAIS.find((t) => t.id === id)?.label || id;
+}
 
 export const ROLES = {
   fondateur: { label: 'Fondateur' },

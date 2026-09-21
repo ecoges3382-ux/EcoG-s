@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase.js';
 import { fmtF, initials, trancheLabel } from '../lib/utils.js';
 import { computeEcheances } from '../lib/retard.js';
 import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation } from '../lib/bulletin.js';
+import { printDocument, slug } from '../lib/print.js';
+import DocumentHeader from '../components/DocumentHeader.jsx';
+import PaymentReceipt from '../components/PaymentReceipt.jsx';
+import FinancialStatement from '../components/FinancialStatement.jsx';
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
@@ -264,9 +268,11 @@ function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
 }
 
 function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
-  const { student, school_year: schoolYear, enrollment, years, payments, attendance, grades, subjects, rangs, announcements } = detail;
+  const { student, school, school_year: schoolYear, enrollment, years, payments, attendance, grades, subjects, rangs, announcements } = detail;
   const isHistorical = schoolYear && years?.length && !schoolYear.is_current;
   const annuel = periode === 'annuel';
+  const [receiptPayment, setReceiptPayment] = useState(null);
+  const [showStatement, setShowStatement] = useState(false);
 
   if (!enrollment) {
     return (
@@ -335,6 +341,14 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
             ))}
           </div>
         )}
+        <button
+          type="button"
+          onClick={() => setShowStatement(true)}
+          style={{ marginTop: 12, fontSize: 11.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+        >
+          <i className="ti ti-file-invoice" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
+          Imprimer la situation financière
+        </button>
       </Section>
 
       <Section title="Paiements enregistrés">
@@ -345,7 +359,17 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
                 <span style={{ fontSize: 13 }}>{new Date(p.date).toLocaleDateString('fr-FR')}</span>
                 <span style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 8 }}>{trancheLabel(p.tranche)}</span>
               </div>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</span>
+                <button
+                  type="button"
+                  onClick={() => setReceiptPayment(p)}
+                  title="Imprimer le reçu"
+                  style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                >
+                  <i className="ti ti-receipt" style={{ fontSize: 16 }} aria-hidden="true"></i>
+                </button>
+              </div>
             </div>
           ))}
           {(payments || []).length === 0 && <p style={{ padding: '14px 18px', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré.</p>}
@@ -362,12 +386,23 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
               {periodeLabel(p)}
             </button>
           ))}
-          <button onClick={() => window.print()} style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--clay)', color: '#fff', cursor: 'pointer' }}>
+          <button
+            onClick={() => printDocument(`bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}`)}
+            style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--clay)', color: '#fff', cursor: 'pointer' }}
+          >
             <i className="ti ti-printer" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Imprimer
           </button>
         </div>
 
-        <div className="card-bold" style={{ padding: '18px 20px', overflow: 'hidden' }}>
+        <div className="card-bold print-sheet" style={{ padding: '18px 20px', overflow: 'hidden' }}>
+          <DocumentHeader
+            school={school}
+            title="Bulletin scolaire"
+            subtitle={`${periodeLabel(periode)} · Année scolaire ${schoolYear?.label || ''}`}
+          />
+          <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600 }}>
+            {student.full_name} · {enrollment.classe?.nom || '—'}
+          </p>
           {lignes.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune matière pour cette classe.</p>}
           {lignes.length > 0 && (
             annuel ? (
@@ -452,6 +487,32 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
             ))}
           </div>
         </Section>
+      )}
+
+      {receiptPayment && (
+        <PaymentReceipt
+          payment={receiptPayment}
+          studentName={student.full_name}
+          classeNom={enrollment.classe?.nom}
+          schoolYearLabel={schoolYear?.label}
+          school={school}
+          onClose={() => setReceiptPayment(null)}
+        />
+      )}
+
+      {showStatement && (
+        <FinancialStatement
+          studentName={student.full_name}
+          classeNom={enrollment.classe?.nom}
+          schoolYearLabel={schoolYear?.label}
+          montantDu={Number(enrollment.montant_du || 0)}
+          montantPaye={Number(enrollment.montant_paye || 0)}
+          resteFrais={resteFrais}
+          echeances={echeances}
+          payments={payments}
+          school={school}
+          onClose={() => setShowStatement(false)}
+        />
       )}
     </>
   );
