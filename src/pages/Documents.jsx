@@ -71,14 +71,23 @@ export default function Documents() {
       if (doc.file_url) window.open(doc.file_url, '_blank', 'noopener');
       return;
     }
+    // L'onglet doit s'ouvrir tout de suite, dans le même geste que le
+    // clic — sinon Safari (et certains autres navigateurs) bloque
+    // silencieusement une fenêtre ouverte après un await, sans aucun
+    // message d'erreur visible. On l'ouvre vide puis on le redirige une
+    // fois l'URL signée obtenue.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
     setOpeningId(doc.id);
     const { data, error: signError } = await supabase.storage.from('documents').createSignedUrl(doc.storage_path, 300);
     setOpeningId(null);
     if (signError || !data?.signedUrl) {
+      if (tab) tab.close();
       setError("Impossible d'ouvrir ce document.");
       return;
     }
-    window.open(data.signedUrl, '_blank', 'noopener');
+    if (tab) tab.location.href = data.signedUrl;
+    else window.open(data.signedUrl, '_blank', 'noopener');
   }
 
   return (
