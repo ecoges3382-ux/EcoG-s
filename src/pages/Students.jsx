@@ -15,8 +15,8 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 // fixe — voir computeRelance dans lib/retard.js. Tant qu'aucune date n'est
 // configurée, on garde l'ancien calcul par pourcentage (pas de régression
 // pour une école qui n'a pas encore rempli son calendrier).
-function statusOf(s, schoolYear) {
-  const relance = computeRelance(s, schoolYear);
+function statusOf(s, schoolYear, feeSchedule) {
+  const relance = computeRelance(s, schoolYear, feeSchedule);
   if (relance.moratoire) return { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' };
 
   const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe));
@@ -51,6 +51,10 @@ export default function Students() {
   const { schoolYear, activeYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [classes, setClasses] = useState(null);
+  // Grille tarifaire de l'année consultée, indexée par niveau pédagogique
+  // (pas le nom de classe) — sert à répartir les échéances proportionnellement
+  // aux vrais montants de tranche configurés (voir lib/retard.js).
+  const [feeSchedulesByNiveau, setFeeSchedulesByNiveau] = useState({});
   const [error, setError] = useState('');
   const [classFilter, setClassFilter] = useState('toutes');
   const [modalOpen, setModalOpen] = useState(false);
@@ -71,7 +75,7 @@ export default function Students() {
     if (!schoolYear) return;
     const { data, error: fetchError } = await supabase
       .from('enrollments')
-      .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
+      .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
       .eq('school_year_id', schoolYear.id)
       .order('full_name', { foreignTable: 'students' });
     if (fetchError) { setError(fetchError.message); return; }
@@ -86,6 +90,7 @@ export default function Students() {
       photo_url: e.students.photo_url,
       classe_id: e.classe_id,
       niveau: e.classes?.nom || '—',
+      classeNiveau: e.classes?.niveau || null,
       montant_du: e.montant_du,
       montant_paye: e.montant_paye,
       frais_connexe_du: e.frais_connexe_du,
@@ -102,6 +107,11 @@ export default function Students() {
     // générique de la maternelle à la terminale.
     supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
       setClasses(sortClasses(data || []));
+    });
+    supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id).then(({ data }) => {
+      const map = {};
+      (data || []).forEach((f) => { map[f.niveau] = f; });
+      setFeeSchedulesByNiveau(map);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear?.id]);
@@ -313,7 +323,7 @@ export default function Students() {
 
       <div className="card-bold" style={{ overflow: 'hidden' }}>
         {filtered.map((s, i) => {
-          const status = statusOf(s, schoolYear);
+          const status = statusOf(s, schoolYear, feeSchedulesByNiveau[s.classeNiveau]);
           return (
             <div
               key={s.id}

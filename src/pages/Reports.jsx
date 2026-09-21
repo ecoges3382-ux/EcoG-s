@@ -20,12 +20,12 @@ export default function Reports() {
   useEffect(() => {
     if (!schoolYear) return;
     Promise.all([
-      supabase.from('enrollments').select('classes ( nom )').eq('school_year_id', schoolYear.id),
+      supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom )').eq('school_year_id', schoolYear.id),
       supabase.from('staff').select('id'),
       supabase.from('payments').select('id, montant, tranche, students ( full_name )').eq('school_year_id', schoolYear.id),
     ]).then(([{ data: enr, error: enrError }, { data: sf }, { data: pay }]) => {
       if (enrError) { setError(enrError.message); return; }
-      setStudents((enr || []).map((e) => ({ niveau: e.classes?.nom || '—' })));
+      setStudents((enr || []).map((e) => ({ niveau: e.classes?.nom || '—', montant_du: e.montant_du, montant_paye: e.montant_paye })));
       setStaff(sf || []);
       setPayments(pay || []);
     });
@@ -39,6 +39,12 @@ export default function Reports() {
 
   const revenusTotaux = payments.reduce((a, p) => a + Number(p.montant), 0);
   const partiels = payments.filter((p) => p.tranche !== 'complet');
+
+  // Même calcul que Dashboard/Argent (totalPayé / totalDû des inscriptions
+  // de l'année) — jamais une formule différente pour le même indicateur.
+  const totalDu = (students || []).reduce((a, s) => a + Number(s.montant_du || 0), 0);
+  const totalPaye = (students || []).reduce((a, s) => a + Number(s.montant_paye || 0), 0);
+  const tauxRecouv = totalDu > 0 ? Math.round((totalPaye / totalDu) * 100) : 0;
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -54,10 +60,14 @@ export default function Reports() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 28 }} className="desktop-grid-3">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }} className="desktop-grid-3">
         <Stat label="Élèves" value={students.length} />
         <Stat label="Enseignants" value={staff.length} />
         <Stat label="Revenus totaux" value={fmtF(revenusTotaux)} color="var(--success)" />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 28 }} className="desktop-grid-3">
+        <Stat label="Taux de recouvrement" value={`${tauxRecouv}%`} color="var(--success)" />
+        <Stat label="Reste à recouvrer" value={fmtF(totalDu - totalPaye)} color="var(--danger)" />
         <Stat label="Paiements partiels" value={partiels.length} color="var(--amber)" />
       </div>
 

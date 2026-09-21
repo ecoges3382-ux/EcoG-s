@@ -54,7 +54,10 @@ export default function Money() {
 }
 
 // Le dû/payé et la classe d'un élève sont propres à l'année scolaire en
-// cours (table enrollments) — students ne garde que son identité.
+// cours (table enrollments) — students ne garde que son identité. La
+// grille tarifaire de l'année (fee_schedules) est chargée en une seule
+// requête pour toute l'école, jamais une par élève — voir lib/retard.js
+// pour comment elle sert à répartir les échéances proportionnellement.
 function useEnrollments() {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
@@ -62,62 +65,124 @@ function useEnrollments() {
   const [error, setError] = useState('');
   useEffect(() => {
     if (!schoolYear) return;
-    supabase
-      .from('enrollments')
-      .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom ), students ( id, full_name )')
-      .eq('school_year_id', schoolYear.id)
-      .then(({ data, error: e }) => {
-        if (e) { setError(e.message); return; }
-        setStudents((data || []).map((en) => ({
-          id: en.students.id,
-          full_name: en.students.full_name,
-          niveau: en.classes?.nom || '—',
-          montant_du: en.montant_du,
-          montant_paye: en.montant_paye,
-          frais_connexe_du: en.frais_connexe_du,
-          frais_connexe_paye: en.frais_connexe_paye,
-          note_arrangement: en.note_arrangement,
-        })));
-      });
+    Promise.all([
+      supabase
+        .from('enrollments')
+        .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name )')
+        .eq('school_year_id', schoolYear.id),
+      supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
+    ]).then(([{ data, error: e }, { data: fees }]) => {
+      if (e) { setError(e.message); return; }
+      const feeByNiveau = {};
+      (fees || []).forEach((f) => { feeByNiveau[f.niveau] = f; });
+      setStudents((data || []).map((en) => ({
+        id: en.students.id,
+        full_name: en.students.full_name,
+        niveau: en.classes?.nom || '—',
+        feeSchedule: en.classes?.niveau ? feeByNiveau[en.classes.niveau] : undefined,
+        montant_du: en.montant_du,
+        montant_paye: en.montant_paye,
+        frais_connexe_du: en.frais_connexe_du,
+        frais_connexe_paye: en.frais_connexe_paye,
+        note_arrangement: en.note_arrangement,
+      })));
+    });
   }, [schoolYear?.id]);
   return { students, error, schoolYear };
 }
 
 function Overview() {
   const { students, error, schoolYear } = useEnrollments();
+  const [search, setSearch] = useState('');
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
+  const totalReste = totalDu - totalPaye;
   const tauxRecouv = totalDu > 0 ? Math.round((totalPaye / totalDu) * 100) : 0;
 
   // Une fois un calendrier de paiement configuré, "en retard" veut dire
   // un délai dépassé (voir computeRelance) plutôt que juste "reste à
-  // payer" — et exclut les élèves avec un moratoire actif.
+  // payer" — et exclut les élèves avec un moratoire actif. computeRelance
+  // n'est calculé qu'une fois par élève, jamais recalculé pour les stats
+  // puis à nouveau pour le tableau.
   const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3));
-  const enRetard = students
-    .map((s) => ({ ...s, reste: Number(s.montant_du) - Number(s.montant_paye) }))
-    .filter((s) => s.reste > 0)
-    .filter((s) => !calendrierConfigure || computeRelance(s, schoolYear).relance)
+  const enrichis = students.map((s) => ({
+    ...s,
+    reste: Number(s.montant_du) - Number(s.montant_paye),
+    relance: computeRelance(s, schoolYear, s.feeSchedule),
+  }));
+  const avecReste = enrichis.filter((s) => s.reste > 0);
+  const enRetard = avecReste.filter((s) => !calendrierConfigure || s.relance.relance);
+  const nbAJour = enrichis.length - avecReste.length;
+
+  const filtered = enrichis
+    .filter((s) => !search.trim() || s.full_name.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => b.reste - a.reste);
+
+  function statutOf(s) {
+    if (s.relance.moratoire) return { label: 'Moratoire', color: null };
+    if (s.reste <= 0) return { label: 'À jour', color: 'success' };
+    if (calendrierConfigure) return s.relance.relance ? { label: 'À relancer', color: 'danger' } : { label: 'Dans les délais', color: 'amber' };
+    return { label: 'Solde restant', color: 'amber' };
+  }
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
         <Stat label="Attendu" value={fmtF(totalDu)} />
-        <Stat label="Familles en retard" value={enRetard.length} color="var(--danger)" />
-        <Stat label="Taux de recouvrement" value={`${tauxRecouv}%`} color="var(--success)" />
+        <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
+        <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
       </div>
-      <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Priorité de relance</p>
-      <div className="card-bold" style={{ overflow: 'hidden' }}>
-        {enRetard.slice(0, 10).map((s, i) => (
-          <Link key={s.id} to={`/eleves/${s.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < Math.min(enRetard.length, 10) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{s.full_name}</p>
-            <p style={{ margin: 0, fontSize: 15, color: 'var(--danger)', fontWeight: 700 }}>{fmtF(s.reste)}</p>
-          </Link>
-        ))}
-        {enRetard.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune famille en retard.</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
+        <Stat label="Taux de recouvrement" value={`${tauxRecouv}%`} color="var(--success)" />
+        <Stat label="Élèves à jour" value={nbAJour} color="var(--success)" />
+        <Stat label="Élèves avec un solde" value={avecReste.length} color={enRetard.length > 0 ? 'var(--danger)' : undefined} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Élèves</p>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher un élève…"
+          style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, width: 220, boxSizing: 'border-box', color: 'var(--ink)' }}
+        />
+      </div>
+      <div className="card-bold" style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 620 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <span>Élève</span><span>Dû</span><span>Payé</span><span>Solde</span><span>Statut</span>
+          </div>
+          {filtered.slice(0, 200).map((s, i) => {
+            const st = statutOf(s);
+            return (
+              <Link
+                key={s.id}
+                to={`/eleves/${s.id}`}
+                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', alignItems: 'center', borderBottom: i < Math.min(filtered.length, 200) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+              >
+                <div>
+                  <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
+                </div>
+                <span style={{ fontSize: 13 }}>{fmtF(s.montant_du)}</span>
+                <span style={{ fontSize: 13 }}>{fmtF(s.montant_paye)}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: s.reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(s.reste)}</span>
+                <span style={{ background: st.color ? `var(--${st.color}-light)` : '#F0EDE5', color: st.color ? `var(--${st.color})` : 'var(--muted)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
+                  {st.label}
+                </span>
+              </Link>
+            );
+          })}
+          {filtered.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève ne correspond à « {search} ».</p>}
+        </div>
+        {filtered.length > 200 && (
+          <p style={{ padding: '10px 20px', margin: 0, fontSize: 12, color: 'var(--muted)', borderTop: '1px solid var(--line)' }}>
+            200 élèves affichés sur {filtered.length} — affine la recherche pour voir les autres.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -146,7 +211,7 @@ function FraisConnexes() {
           </div>
           {students.map((s, i) => {
             const reste = Number(s.frais_connexe_du) - Number(s.frais_connexe_paye);
-            const relance = computeRelance(s, schoolYear);
+            const relance = computeRelance(s, schoolYear, s.feeSchedule);
             const label = reste <= 0 ? 'À jour' : relance.moratoire ? 'Moratoire' : relance.relanceConnexe ? 'À relancer' : 'Retard';
             const color = reste <= 0 ? 'success' : relance.moratoire ? null : relance.relanceConnexe ? 'danger' : 'amber';
             return (

@@ -29,17 +29,21 @@ export default function Dashboard() {
     const debutMois = `${today.slice(0, 7)}-01`;
 
     Promise.all([
-      supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
+      supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
       supabase.from('attendance_records').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id).eq('date', today).eq('statut', 'absent'),
       supabase.from('payments').select('montant').eq('school_year_id', schoolYear.id).eq('date', today),
       supabase.from('payments').select('montant').eq('school_year_id', schoolYear.id).gte('date', debutMois),
-    ]).then(([enrRes, absentsRes, todayPayRes, monthPayRes]) => {
+      supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
+    ]).then(([enrRes, absentsRes, todayPayRes, monthPayRes, feeRes]) => {
       if (cancelled) return;
       if (enrRes.error) { setError(enrRes.error.message); return; }
+      const feeByNiveau = {};
+      (feeRes.data || []).forEach((f) => { feeByNiveau[f.niveau] = f; });
       setStudents((enrRes.data || []).map((e) => ({
         id: e.students.id,
         full_name: e.students.full_name,
         niveau: e.classes?.nom || '—',
+        feeSchedule: e.classes?.niveau ? feeByNiveau[e.classes.niveau] : undefined,
         montant_du: e.montant_du,
         montant_paye: e.montant_paye,
         frais_connexe_du: e.frais_connexe_du,
@@ -77,7 +81,7 @@ export default function Dashboard() {
   const enRetard = students
     .map((s) => ({ ...s, reste: Number(s.montant_du) - Number(s.montant_paye) }))
     .filter((s) => s.reste > 0)
-    .filter((s) => !calendrierConfigure || computeRelance(s, schoolYear).relance)
+    .filter((s) => !calendrierConfigure || computeRelance(s, schoolYear, s.feeSchedule).relance)
     .sort((a, b) => b.reste - a.reste)
     .slice(0, 5);
 

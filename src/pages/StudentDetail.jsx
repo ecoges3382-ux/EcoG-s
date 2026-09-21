@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials } from '../lib/utils.js';
+import { fmtF, initials, trancheLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
-import { computeRelance } from '../lib/retard.js';
+import { computeRelance, computeEcheances } from '../lib/retard.js';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
@@ -19,6 +19,8 @@ export default function StudentDetail() {
   // undefined = pas encore chargé, null = chargé mais aucune inscription
   // cette année (élève sans classe pour l'année en cours).
   const [enrollment, setEnrollment] = useState(undefined);
+  const [feeSchedule, setFeeSchedule] = useState(null);
+  const [payments, setPayments] = useState(undefined);
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -50,13 +52,38 @@ export default function StudentDetail() {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
+    setPayments(undefined);
     supabase
       .from('enrollments')
-      .select('id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom )')
+      .select('id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau )')
       .eq('student_id', id)
       .eq('school_year_id', schoolYear.id)
       .maybeSingle()
-      .then(({ data }) => { if (!cancelled) setEnrollment(data || null); });
+      .then(async ({ data }) => {
+        if (cancelled) return;
+        setEnrollment(data || null);
+        if (data?.classes?.niveau) {
+          const { data: fee } = await supabase
+            .from('fee_schedules')
+            .select('*')
+            .eq('school_year_id', schoolYear.id)
+            .eq('niveau', data.classes.niveau)
+            .maybeSingle();
+          if (!cancelled) setFeeSchedule(fee || null);
+        } else if (!cancelled) {
+          setFeeSchedule(null);
+        }
+      });
+    // Historique des paiements de cet élève pour l'année consultée
+    // uniquement — jamais mélangé avec ceux d'une autre année.
+    supabase
+      .from('payments')
+      .select('id, montant, type_frais, mode, tranche, date, note')
+      .eq('student_id', id)
+      .eq('school_year_id', schoolYear.id)
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .then(({ data }) => { if (!cancelled) setPayments(data || []); });
     return () => { cancelled = true; };
   }, [id, schoolYear?.id]);
 
@@ -72,7 +99,8 @@ export default function StudentDetail() {
 
   const reste = Number(enrollment?.montant_du || 0) - Number(enrollment?.montant_paye || 0);
   const resteFrais = Number(enrollment?.frais_connexe_du || 0) - Number(enrollment?.frais_connexe_paye || 0);
-  const relance = enrollment ? computeRelance(enrollment, schoolYear) : null;
+  const relance = enrollment ? computeRelance(enrollment, schoolYear, feeSchedule) : null;
+  const echeances = enrollment ? computeEcheances(enrollment, schoolYear, feeSchedule) : [];
 
   async function handleDelete() {
     if (!window.confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
@@ -108,20 +136,42 @@ export default function StudentDetail() {
       </div>
 
       {enrollment ? (
-        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640 }}>
-          <div className="card-bold" style={{ padding: '18px 20px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Droit d'écolage</p>
-            <Row label="Dû" value={fmtF(enrollment.montant_du)} />
-            <Row label="Payé" value={fmtF(enrollment.montant_paye)} color="var(--success)" />
-            <Row label="Reste" value={fmtF(reste)} bold color="var(--danger)" topBorder />
+        <>
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640, marginBottom: 20 }}>
+            <div className="card-bold" style={{ padding: '18px 20px' }}>
+              <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Droit d'écolage</p>
+              <Row label="Dû" value={fmtF(enrollment.montant_du)} />
+              <Row label="Payé" value={fmtF(enrollment.montant_paye)} color="var(--success)" />
+              <Row label="Reste" value={fmtF(reste)} bold color="var(--danger)" topBorder />
+            </div>
+            <div className="card-bold" style={{ padding: '18px 20px' }}>
+              <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Frais connexes</p>
+              <Row label="Dû" value={fmtF(enrollment.frais_connexe_du)} />
+              <Row label="Payé" value={fmtF(enrollment.frais_connexe_paye)} color="var(--success)" />
+              <Row label="Reste" value={fmtF(resteFrais)} bold color={resteFrais > 0 ? 'var(--danger)' : 'var(--success)'} topBorder />
+            </div>
           </div>
-          <div className="card-bold" style={{ padding: '18px 20px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Frais connexes</p>
-            <Row label="Dû" value={fmtF(enrollment.frais_connexe_du)} />
-            <Row label="Payé" value={fmtF(enrollment.frais_connexe_paye)} color="var(--success)" />
-            <Row label="Reste" value={fmtF(resteFrais)} bold color={resteFrais > 0 ? 'var(--danger)' : 'var(--success)'} topBorder />
-          </div>
-        </div>
+
+          {echeances.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Échéancier — {schoolYear.label}</p>
+              <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
+                {echeances.map((ec, i) => (
+                  <div key={ec.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: i < echeances.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{ec.label}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                        {fmtF(ec.montant)}{ec.dateLimite ? ` · avant le ${new Date(ec.dateLimite).toLocaleDateString('fr-FR')}` : ''}
+                        {ec.enRetard ? ' · en retard' : ''}
+                      </p>
+                    </div>
+                    <EcheanceBadge statut={ec.statut} montantPaye={ec.montantPaye} montantRestant={ec.montantRestant} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>
           Pas d'inscription pour {isHistorical ? 'cette année scolaire' : "l'année scolaire en cours"}{schoolYear ? ` (${schoolYear.label})` : ''}.
@@ -134,6 +184,29 @@ export default function StudentDetail() {
           canEdit={CAN_DELETE_ROLES.includes(profile.role)}
           onSave={saveArrangement}
         />
+      )}
+
+      {schoolYear && (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+            Historique des paiements — {schoolYear.label}
+          </p>
+          <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
+            {payments === undefined && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+            {payments?.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré pour cette année.</p>}
+            {payments?.map((p, i) => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{fmtF(p.montant)}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                    {trancheLabel(p.tranche)} · {new Date(p.date).toLocaleDateString('fr-FR')}{p.note ? ` · ${p.note}` : ''}
+                  </p>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{p.mode}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
@@ -178,6 +251,22 @@ function Row({ label, value, color, bold, topBorder }) {
       <span style={{ color: bold ? undefined : 'var(--muted)', fontWeight: bold ? 600 : 400 }}>{label}</span>
       <span style={{ fontWeight: bold ? 700 : 600, color }}>{value}</span>
     </div>
+  );
+}
+
+// Le statut d'une échéance ne dépend que des paiements réellement
+// enregistrés (jamais de la date) — voir computeEcheances dans lib/retard.js.
+function EcheanceBadge({ statut, montantPaye, montantRestant }) {
+  const map = {
+    payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
+    partielle: { label: `Partielle · ${fmtF(montantPaye)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
+    impayee: { label: `Impayée · reste ${fmtF(montantRestant)}`, bg: 'var(--danger-light)', fg: 'var(--danger)' },
+  };
+  const s = map[statut] || map.impayee;
+  return (
+    <span style={{ background: s.bg, color: s.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+      {s.label}
+    </span>
   );
 }
 
