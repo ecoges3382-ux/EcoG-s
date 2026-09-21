@@ -48,7 +48,7 @@ function TrashIcon() {
 
 export default function Students() {
   const { profile } = useAuth();
-  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
+  const { schoolYear, activeYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [classes, setClasses] = useState(null);
   const [error, setError] = useState('');
@@ -187,7 +187,11 @@ export default function Students() {
     }));
     const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', {
       p_school_id: profile.school_id,
-      p_school_year_id: schoolYear.id,
+      // Toujours l'année active, jamais l'année consultée : importer des
+      // élèves crée de nouvelles identités, ça n'a de sens que pour
+      // l'année en cours (le bouton est de toute façon masqué en
+      // consultation d'un historique, mais on ne veut pas en dépendre).
+      p_school_year_id: activeYear.id,
       p_rows: importRows,
     });
     setImporting(false);
@@ -254,8 +258,8 @@ export default function Students() {
           {!isHistorical && (
             <button
               onClick={() => setModalOpen(true)}
-              disabled={classes === null || !schoolYear}
-              style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !schoolYear ? 0.7 : 1 }}
+              disabled={classes === null || !activeYear}
+              style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !activeYear ? 0.7 : 1 }}
             >
               <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
             </button>
@@ -366,10 +370,10 @@ export default function Students() {
         />
       )}
 
-      {modalOpen && schoolYear && (
+      {modalOpen && activeYear && (
         <NewStudentModal
           schoolId={profile.school_id}
-          schoolYearId={schoolYear.id}
+          schoolYearId={activeYear.id}
           classes={classes || []}
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
           onClose={() => setModalOpen(false)}
