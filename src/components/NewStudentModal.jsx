@@ -87,48 +87,34 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       studentParentPhone = (existingParents || []).find((p) => p.id === existingParentId)?.phone || null;
     }
 
-    const { data: student, error: insertError } = await supabase.from('students').insert({
-      school_id: schoolId,
-      full_name: displayName(studentNom.trim(), studentPrenom.trim()),
-      nom: studentNom.trim(),
-      prenom: studentPrenom.trim(),
-      parent_phone: studentParentPhone,
-      photo_url: photoUrl || null,
-    }).select().single();
-    if (insertError) {
-      setSubmitting(false);
-      setError(insertError.message);
-      return;
-    }
-
-    const { error: enrollError } = await supabase.from('enrollments').insert({
-      school_id: schoolId,
-      school_year_id: schoolYearId,
-      student_id: student.id,
-      classe_id: classeId || null,
-      montant_du: Number(montantDu) || 0,
-      montant_paye: 0,
-      frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
-      frais_connexe_paye: 0,
+    // Élève + inscription (+ rattachement à un parent existant le cas
+    // échéant) en une seule transaction côté base : si une étape échoue,
+    // tout est annulé — jamais d'élève créé sans inscription. La fonction
+    // tourne "security invoker", donc soumise à la même RLS qu'un insert
+    // direct (aucune élévation de privilège), voir supabase/schema.sql.
+    const isExistingParent = canManageParents && parentMode === 'existing' && !!existingParentId;
+    const { data: studentId, error: rpcError } = await supabase.rpc('create_student_with_enrollment', {
+      p_school_id: schoolId,
+      p_nom: studentNom.trim(),
+      p_prenom: studentPrenom.trim(),
+      p_full_name: displayName(studentNom.trim(), studentPrenom.trim()),
+      p_parent_phone: studentParentPhone,
+      p_photo_url: photoUrl || null,
+      p_matricule: null,
+      p_school_year_id: schoolYearId,
+      p_classe_id: classeId || null,
+      p_montant_du: Number(montantDu) || 0,
+      p_frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
+      p_existing_parent_access_id: isExistingParent ? existingParentId : null,
     });
-    if (enrollError) {
+    if (rpcError) {
       setSubmitting(false);
-      setError(enrollError.message);
+      setError(rpcError.message);
       return;
     }
 
-    if (!canManageParents) {
+    if (!canManageParents || isExistingParent) {
       setSubmitting(false);
-      onCreated();
-      return;
-    }
-
-    if (parentMode === 'existing') {
-      const { error: linkError } = await supabase.from('parent_access_students').insert({
-        parent_access_id: existingParentId, student_id: student.id,
-      });
-      setSubmitting(false);
-      if (linkError) { setError(linkError.message); return; }
       onCreated();
       return;
     }
@@ -157,7 +143,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     if (!created) { setSubmitting(false); setError('Impossible de générer un code unique, réessaie.'); return; }
 
     const { error: linkError } = await supabase.from('parent_access_students').insert({
-      parent_access_id: created.id, student_id: student.id,
+      parent_access_id: created.id, student_id: studentId,
     });
     setSubmitting(false);
     if (linkError) { setError(linkError.message); return; }

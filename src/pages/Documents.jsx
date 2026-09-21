@@ -12,6 +12,7 @@ export default function Documents() {
   const [error, setError] = useState('');
   const [titre, setTitre] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [openingId, setOpeningId] = useState(null);
 
   async function reload() {
     const { data, error: fetchError } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
@@ -40,9 +41,11 @@ export default function Documents() {
       setError(uploadError.message);
       return;
     }
-    const { data } = supabase.storage.from('documents').getPublicUrl(path);
+    // Bucket privé (voir supabase/schema.sql) : on garde le chemin de
+    // stockage, pas d'URL publique — l'ouverture du document génère une
+    // URL signée à la demande (voir openDocument), valable quelques minutes.
     const { error: insertError } = await supabase.from('documents').insert({
-      school_id: profile.school_id, titre: titre.trim(), file_url: data.publicUrl, uploaded_by: profile.full_name,
+      school_id: profile.school_id, titre: titre.trim(), storage_path: path, uploaded_by: profile.full_name,
     });
     setUploading(false);
     if (insertError) { setError(insertError.message); return; }
@@ -55,6 +58,27 @@ export default function Documents() {
     const { error: deleteError } = await supabase.from('documents').delete().eq('id', doc.id);
     if (deleteError) setError(deleteError.message);
     else reload();
+  }
+
+  // URL signée générée à la demande (bucket privé) : repose sur la session
+  // de l'utilisateur déjà connecté, donc soumise à la policy de lecture par
+  // école du bucket "documents" (voir supabase/schema.sql) — un membre
+  // d'une autre école ne peut pas en obtenir une, même en connaissant le
+  // chemin de stockage. Repli sur l'ancien file_url pour d'éventuelles
+  // fiches créées avant cette migration si jamais storage_path est absent.
+  async function openDocument(doc) {
+    if (!doc.storage_path) {
+      if (doc.file_url) window.open(doc.file_url, '_blank', 'noopener');
+      return;
+    }
+    setOpeningId(doc.id);
+    const { data, error: signError } = await supabase.storage.from('documents').createSignedUrl(doc.storage_path, 300);
+    setOpeningId(null);
+    if (signError || !data?.signedUrl) {
+      setError("Impossible d'ouvrir ce document.");
+      return;
+    }
+    window.open(data.signedUrl, '_blank', 'noopener');
   }
 
   return (
@@ -86,7 +110,12 @@ export default function Documents() {
         <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
           {documents.map((d, i) => (
             <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < documents.length - 1 ? '1px solid var(--line)' : 'none', gap: 10 }}>
-              <a href={d.file_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit', minWidth: 0 }}>
+              <button
+                type="button"
+                onClick={() => openDocument(d)}
+                disabled={openingId === d.id}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit', minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: openingId === d.id ? 'default' : 'pointer', opacity: openingId === d.id ? 0.7 : 1 }}
+              >
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <i className="ti ti-file-text" style={{ fontSize: 16, color: 'var(--forest)' }} aria-hidden="true"></i>
                 </div>
@@ -94,7 +123,7 @@ export default function Documents() {
                   <p style={{ margin: '0 0 2px', fontSize: '13.5px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.titre}</p>
                   <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{d.uploaded_by || '—'} · {new Date(d.created_at).toLocaleDateString('fr-FR')}</p>
                 </div>
-              </a>
+              </button>
               {canManage && (
                 <button onClick={() => handleDelete(d)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', flexShrink: 0 }} title="Supprimer">
                   <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>

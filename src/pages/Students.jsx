@@ -166,29 +166,33 @@ export default function Students() {
       return;
     }
     setImporting(true);
-    const { data: insertedStudents, error: insertError } = await supabase.from('students').insert(toInsertStudents).select('id');
-    if (insertError) {
-      setImporting(false);
-      setImportMessage({ type: 'error', text: insertError.message });
-      return;
-    }
-    const enrollmentRows = insertedStudents.map((s, i) => ({
-      school_id: profile.school_id,
-      school_year_id: schoolYear.id,
-      student_id: s.id,
+    // Tout le fichier dans un seul appel RPC, donc une seule transaction :
+    // soit toutes les lignes sont importées, soit aucune (voir
+    // import_students_csv dans supabase/schema.sql). Les lignes invalides
+    // (nom vide, classe non reconnue) ont déjà été filtrées ci-dessus,
+    // avant l'appel — un échec ici est un vrai problème de fond, pas une
+    // ligne à corriger, donc bloquer tout le fichier plutôt que produire un
+    // import à moitié fait est le bon choix.
+    const importRows = toInsertStudents.map((s, i) => ({
+      nom: s.nom,
+      prenom: s.prenom,
+      full_name: s.full_name,
+      matricule: s.matricule,
+      parent_phone: s.parent_phone,
       classe_id: enrollmentInfo[i].classeId,
       montant_du: enrollmentInfo[i].montantDu,
-      montant_paye: 0,
-      frais_connexe_du: 0,
-      frais_connexe_paye: 0,
     }));
-    const { error: enrollError } = await supabase.from('enrollments').insert(enrollmentRows);
+    const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', {
+      p_school_id: profile.school_id,
+      p_school_year_id: schoolYear.id,
+      p_rows: importRows,
+    });
     setImporting(false);
-    if (enrollError) {
-      setImportMessage({ type: 'error', text: enrollError.message });
+    if (importError) {
+      setImportMessage({ type: 'error', text: importError.message });
       return;
     }
-    setImportMessage({ type: 'success', text: `${toInsertStudents.length} élève${toInsertStudents.length > 1 ? 's' : ''} importé${toInsertStudents.length > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
+    setImportMessage({ type: 'success', text: `${importedCount} élève${importedCount > 1 ? 's' : ''} importé${importedCount > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
     reload();
   }
 

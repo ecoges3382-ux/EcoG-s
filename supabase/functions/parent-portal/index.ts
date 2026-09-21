@@ -21,6 +21,25 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+// Anti-brute-force : le code (8 caractères, alphabet de 32 sans caractères
+// ambigus, ~40 bits) résiste déjà à un brute-force aléatoire pur, mais cet
+// endpoint est public et sans compte — rien d'autre ne limitait le débit.
+// Seules les tentatives à code INVALIDE comptent (une session légitime
+// renvoie son propre code correct plusieurs fois sans jamais déclencher ce
+// compteur). Fenêtre généreuse : une école utilise souvent une seule
+// adresse IP publique (Wi-Fi/NAT) partagée par des dizaines de parents en
+// même temps (ex. soir de remise des bulletins) — trop bas bloquerait des
+// familles légitimes. 30 échecs/15 min par IP reste des ordres de grandeur
+// en dessous de ce qu'il faudrait pour espérer trouver un code au hasard.
+const RATE_LIMIT_MAX_ATTEMPTS = 30;
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || 'unknown';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -28,6 +47,17 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, serviceKey);
+    const ip = clientIp(req);
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+
+    const { count: recentFailures } = await adminClient
+      .from('parent_access_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .gte('created_at', windowStart);
+    if ((recentFailures || 0) >= RATE_LIMIT_MAX_ATTEMPTS) {
+      return jsonResponse({ error: 'Trop de tentatives. Réessaie dans quelques minutes.' }, 429);
+    }
 
     const body = await req.json();
     const code = String(body.code || '').trim().toUpperCase();
@@ -44,7 +74,14 @@ Deno.serve(async (req) => {
       .eq('code', code)
       .maybeSingle();
     if (accessError) throw new Error(accessError.message);
-    if (!access) throw new Error('Code invalide.');
+    if (!access) {
+      // Journalise l'échec (purge au passage les entrées de plus d'une
+      // heure, tous IPs confondus, pour ne pas laisser grossir la table
+      // indéfiniment sans avoir besoin d'un job planifié séparé).
+      await adminClient.from('parent_access_attempts').insert({ ip });
+      await adminClient.from('parent_access_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString());
+      throw new Error('Code invalide.');
+    }
 
     // La classe et le dû/payé d'un élève sont propres à l'année scolaire en
     // cours (table enrollments) — students ne garde que son identité.

@@ -284,6 +284,14 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // Générée une seule fois à l'ouverture de ce formulaire (pas à chaque
+  // frappe ni à chaque tentative d'envoi) : si la même soumission part deux
+  // fois (double-clic qui passe outre le bouton désactivé, retry réseau),
+  // les deux requêtes portent la même clé. La contrainte unique côté base
+  // (voir supabase/schema.sql) rejette la 2e avec l'erreur 23505, qu'on
+  // traite ci-dessous comme "déjà enregistré" plutôt que comme un échec —
+  // une vraie protection serveur, pas seulement le bouton désactivé.
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -295,7 +303,15 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     setError('');
     const { error: insertError } = await supabase.from('payments').insert({
       school_id: schoolId, school_year_id: schoolYearId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, tranche, date, note: note.trim() || null,
+      idempotency_key: idempotencyKey,
     });
+    if (insertError && insertError.code === '23505') {
+      // Cette clé a déjà été enregistrée avec succès par une requête
+      // précédente (retry réseau ou double envoi) : rien à refaire.
+      setSubmitting(false);
+      onCreated();
+      return;
+    }
     setSubmitting(false);
     if (insertError) {
       setError(insertError.message);

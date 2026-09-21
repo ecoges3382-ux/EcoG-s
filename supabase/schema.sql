@@ -1276,3 +1276,218 @@ alter table enrollments add column if not exists note_arrangement text;
 alter table profiles drop constraint if exists profiles_role_check;
 alter table profiles add constraint profiles_role_check
   check (role in ('fondateur', 'directeur', 'censeur', 'secretaire', 'enseignant', 'parent'));
+
+-- ---------- Migration : audit sécurité/intégrité — atomicité élève+inscription ----------
+-- Jusqu'ici NewStudentModal et l'import CSV faisaient "insert students" puis
+-- "insert enrollments" en deux appels séparés depuis le navigateur : si le
+-- second échouait (coupure réseau, erreur de contrainte...), l'élève restait
+-- créé sans inscription — état incohérent, invisible dans les listes
+-- filtrées par année, et source de doublons au nouvel essai.
+--
+-- Remplacé par deux fonctions RPC "security invoker" (donc soumises à la
+-- RLS existante, exactement comme les inserts directs qu'elles remplacent —
+-- aucune élévation de privilège) : un appel de fonction est une seule
+-- transaction implicite, une erreur à n'importe quelle étape annule tout.
+
+create or replace function create_student_with_enrollment(
+  p_school_id uuid,
+  p_nom text,
+  p_prenom text,
+  p_full_name text,
+  p_parent_phone text,
+  p_photo_url text,
+  p_matricule text,
+  p_school_year_id uuid,
+  p_classe_id uuid,
+  p_montant_du numeric,
+  p_frais_connexe_du numeric,
+  p_existing_parent_access_id uuid default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_student_id uuid;
+begin
+  insert into students (school_id, full_name, nom, prenom, parent_phone, photo_url, matricule)
+  values (p_school_id, p_full_name, p_nom, p_prenom, p_parent_phone, p_photo_url, p_matricule)
+  returning id into v_student_id;
+
+  insert into enrollments (school_id, school_year_id, student_id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye)
+  values (p_school_id, p_school_year_id, v_student_id, p_classe_id, coalesce(p_montant_du, 0), 0, coalesce(p_frais_connexe_du, 0), 0);
+
+  if p_existing_parent_access_id is not null then
+    insert into parent_access_students (parent_access_id, student_id)
+    values (p_existing_parent_access_id, v_student_id);
+  end if;
+
+  return v_student_id;
+end;
+$$;
+
+grant execute on function create_student_with_enrollment(uuid, text, text, text, text, text, text, uuid, uuid, numeric, numeric, uuid) to authenticated;
+
+-- Import CSV : tout le fichier dans une seule transaction (all-or-nothing).
+-- Choix délibéré plutôt qu'un import partiel avec rapport de lignes en
+-- échec : les lignes invalides (nom vide, classe non reconnue) sont déjà
+-- filtrées côté client AVANT l'appel, donc un échec ici ne peut venir que
+-- d'un problème de fond (RLS, contrainte) qui doit bloquer tout le fichier
+-- plutôt que produire un import à moitié fait, difficile à corriger à la main.
+create or replace function import_students_csv(
+  p_school_id uuid,
+  p_school_year_id uuid,
+  p_rows jsonb
+)
+returns integer
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  r record;
+  v_count integer := 0;
+  v_index integer := 0;
+begin
+  for r in
+    select * from jsonb_to_recordset(p_rows) as x(
+      nom text, prenom text, full_name text, matricule text,
+      parent_phone text, classe_id uuid, montant_du numeric
+    )
+  loop
+    v_index := v_index + 1;
+    begin
+      perform create_student_with_enrollment(
+        p_school_id, r.nom, r.prenom, r.full_name, r.parent_phone, null, r.matricule,
+        p_school_year_id, r.classe_id, r.montant_du, 0, null
+      );
+    exception when others then
+      raise exception 'Ligne % du fichier : %', v_index + 1, sqlerrm;
+    end;
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+
+grant execute on function import_students_csv(uuid, uuid, jsonb) to authenticated;
+
+-- ---------- Migration : traçabilité des paiements ----------
+-- payments n'avait ni colonne "créé par" ni aucune trace en cas de
+-- suppression (autorisée pour fondateur/directeur/secrétaire) : impossible
+-- de savoir qui a enregistré ou supprimé une transaction. created_by est
+-- posé côté serveur (défaut auth.uid(), jamais fourni par le client) ; la
+-- suppression est journalisée par un trigger security definer dans une
+-- table que ni la RLS ni aucun rôle applicatif ne permet de modifier —
+-- seul le trigger y écrit, donc infalsifiable depuis le client.
+
+alter table payments add column if not exists created_by uuid references profiles(id);
+alter table payments alter column created_by set default auth.uid();
+
+create table if not exists payments_audit (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null,
+  school_id uuid not null,
+  student_id uuid,
+  montant numeric,
+  type_frais text,
+  mode text,
+  tranche text,
+  date date,
+  note text,
+  created_by uuid,
+  payment_created_at timestamptz,
+  action text not null default 'delete',
+  performed_by uuid,
+  performed_at timestamptz not null default now()
+);
+alter table payments_audit enable row level security;
+
+drop policy if exists "payments_audit: select" on payments_audit;
+create policy "payments_audit: select" on payments_audit
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+-- Volontairement aucune policy insert/update/delete pour authenticated :
+-- seul le trigger ci-dessous (security definer, donc hors RLS) y écrit.
+
+create or replace function log_payment_deletion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into payments_audit (
+    payment_id, school_id, student_id, montant, type_frais, mode, tranche, date, note,
+    created_by, payment_created_at, action, performed_by
+  ) values (
+    old.id, old.school_id, old.student_id, old.montant, old.type_frais, old.mode, old.tranche, old.date, old.note,
+    old.created_by, old.created_at, 'delete', auth.uid()
+  );
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_log_payment_deletion on payments;
+create trigger trg_log_payment_deletion
+before delete on payments
+for each row execute function log_payment_deletion();
+
+-- ---------- Migration : idempotence des paiements (anti-doublon) ----------
+-- Le bouton "Enregistrer" est déjà désactivé pendant l'envoi côté React,
+-- mais ça ne protège pas d'un retry réseau (la requête part une 2e fois
+-- alors que la 1re a en fait réussi côté serveur) ni d'un appel direct à
+-- l'API. Clé d'idempotence générée une seule fois à l'ouverture du
+-- formulaire (voir NewPaymentModal) : une contrainte unique empêche deux
+-- lignes de paiement de partager la même clé, donc un retry de la même
+-- soumission échoue proprement (23505) plutôt que de créer un doublon —
+-- le frontend traite cette erreur précise comme "déjà enregistré".
+alter table payments add column if not exists idempotency_key uuid;
+create unique index if not exists payments_idempotency_key_uidx
+  on payments(idempotency_key) where idempotency_key is not null;
+
+-- ---------- Migration : bucket "documents" privé (URLs signées) ----------
+-- Le bucket était public : n'importe qui muni de l'URL y accédait pour
+-- toujours, sans jamais repasser par une vérification d'école. Le chemin
+-- inclut un UUID v4 non énumérable (pas de fuite par balayage), mais ce
+-- n'est pas un vrai contrôle d'accès. Vérifié avant de modifier le Storage :
+-- "documents" n'est utilisé QUE par src/pages/Documents.jsx (upload, liste,
+-- ouverture, suppression), jamais par le portail parent (parent-portal ne
+-- lit jamais cette table) — tous les lecteurs sont déjà des utilisateurs
+-- authentifiés de l'appli, donc les URLs signées générées à la volée avec
+-- leur propre session (pas de nouvelle Edge Function nécessaire) suffisent.
+alter table documents add column if not exists storage_path text;
+update documents set storage_path = regexp_replace(file_url, '^.*/object/public/documents/', '')
+where storage_path is null and file_url like '%/object/public/documents/%';
+alter table documents alter column file_url drop not null;
+
+update storage.buckets set public = false where id = 'documents';
+
+drop policy if exists "documents-bucket: lecture publique" on storage.objects;
+drop policy if exists "documents-bucket: lecture par école" on storage.objects;
+create policy "documents-bucket: lecture par école" on storage.objects
+  for select using (
+    bucket_id = 'documents' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+
+-- ---------- Migration : anti-brute-force du portail parent ----------
+-- Le code d'accès (8 caractères, alphabet de 32 sans caractères ambigus,
+-- ~40 bits — voir generateAccessCode dans src/lib/utils.js) résiste déjà à
+-- un brute-force aléatoire pur (32^8 ≈ 1,1×10^12 combinaisons), mais
+-- l'Edge Function parent-portal est un endpoint public, sans compte, et ne
+-- limitait jusqu'ici aucun débit — rien n'empêchait un script de tester des
+-- milliers de codes par minute. Ne stocke que les tentatives avec un code
+-- INVALIDE (une navigation légitime peut renvoyer le même code correct des
+-- dizaines de fois en une session sans jamais compter ici). Lue/écrite
+-- uniquement par la clé service_role (l'Edge Function) : RLS activée, sans
+-- aucune policy, donc inaccessible à anon/authenticated.
+create table if not exists parent_access_attempts (
+  id bigint generated always as identity primary key,
+  ip text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists parent_access_attempts_ip_time_idx on parent_access_attempts (ip, created_at);
+alter table parent_access_attempts enable row level security;
