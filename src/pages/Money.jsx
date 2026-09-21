@@ -6,6 +6,7 @@ import { fmtF, initials, NIVEAUX } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import { computeRelance } from '../lib/retard.js';
 import MoneyInput from '../components/MoneyInput.jsx';
+import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -394,7 +395,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
           <div>
             <label style={modalLabelStyle}>Note</label>
-            <input value={note} onChange={(e) => setNote(e.target.value)} style={modalInputStyle} />
+            <AmountAwareTextarea value={note} onChange={setNote} multiline={false} style={modalInputStyle} />
           </div>
         </div>
 
@@ -629,7 +630,7 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
               <input type="date" value={d2} onChange={(e) => setD2(e.target.value)} style={calInputStyle} />
             </div>
             <div>
-              <label style={calLabelStyle}>3ème tranche (optionnel)</label>
+              <label style={calLabelStyle}>3ème tranche</label>
               <input type="date" value={d3} onChange={(e) => setD3(e.target.value)} style={calInputStyle} />
             </div>
             <div>

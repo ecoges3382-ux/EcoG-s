@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import { computeRelance } from '../lib/retard.js';
+import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -196,9 +197,9 @@ function ArrangementNote({ note, canEdit, onSave }) {
       </p>
       {editing ? (
         <>
-          <textarea
+          <AmountAwareTextarea
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={setValue}
             placeholder="ex. Paie 20 000 F CFA par mois sur 5 mois, arrangement conclu le..."
             rows={3}
             style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 10, resize: 'vertical' }}

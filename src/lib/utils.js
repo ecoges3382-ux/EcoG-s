@@ -11,6 +11,20 @@ export function fmtF(n) {
   return `${fmt(n)} F CFA`;
 }
 
+// Reformate chaque montant repéré dans un texte libre (ex. note
+// d'arrangement "paye 20000 par mois") au même format que le reste de
+// l'app ("20.000") — sans toucher au reste du texte. Un nombre déjà
+// collé à un point n'est reformaté que si le point est suivi d'autres
+// chiffres (sinon on mangerait un point de fin de phrase comme "5.").
+export function formatAmountsInText(text) {
+  return (text || '').replace(/\d+(?:\.\d+)*(?:,\d+)?/g, (token) => {
+    const [intPart, decPart] = token.split(',');
+    const digits = intPart.replace(/\./g, '');
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return decPart !== undefined ? `${grouped},${decPart}` : grouped;
+  });
+}
+
 export function initials(name) {
   return (name || '').split(' ').map((w) => w[0]).join('');
 }
