@@ -2395,3 +2395,9 @@ end;
 $$;
 
 grant execute on function create_student_with_enrollment(uuid, text, text, text, text, text, text, uuid, uuid, numeric, numeric, uuid, numeric, text, text, numeric) to authenticated;
+
+-- Frais de réinscription (élève déjà inscrit l'année précédente), distinct
+-- du frais d'inscription (nouvel élève) — souvent moins cher. Même logique
+-- que montant_inscription : montant fixe par niveau, encaissé en une fois,
+-- pas de colonne _du/_paye dédiée sur enrollments.
+alter table fee_schedules add column if not exists montant_reinscription numeric not null default 0;

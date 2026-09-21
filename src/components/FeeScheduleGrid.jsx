@@ -59,7 +59,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
         if (!cancelled && (count || 0) === 0) {
           const { data: previous } = await supabase
             .from('fee_schedules')
-            .select('niveau, montant_scolarite, montant_connexe, montant_tranche1, montant_tranche2, montant_tranche3, montant_inscription')
+            .select('niveau, montant_scolarite, montant_connexe, montant_tranche1, montant_tranche2, montant_tranche3, montant_inscription, montant_reinscription')
             .eq('school_year_id', copyFromSchoolYearId);
           if (!cancelled && previous && previous.length > 0) {
             await supabase.from('fee_schedules').insert(
@@ -67,7 +67,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
                 school_id: schoolId, school_year_id: schoolYear.id,
                 niveau: p.niveau, montant_scolarite: p.montant_scolarite, montant_connexe: p.montant_connexe,
                 montant_tranche1: p.montant_tranche1, montant_tranche2: p.montant_tranche2, montant_tranche3: p.montant_tranche3,
-                montant_inscription: p.montant_inscription,
+                montant_inscription: p.montant_inscription, montant_reinscription: p.montant_reinscription,
               })),
             );
           }
@@ -79,7 +79,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear?.id]);
 
-  async function saveRow(niveau, t1, t2, t3, connexe, inscription) {
+  async function saveRow(niveau, t1, t2, t3, connexe, inscription, reinscription) {
     if (!schoolYear) return;
     setSaving(true);
     const existing = rows?.[niveau];
@@ -93,6 +93,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
       montant_tranche2: Number(t2) || 0,
       montant_tranche3: Number(t3) || 0,
       montant_inscription: Number(inscription) || 0,
+      montant_reinscription: Number(reinscription) || 0,
     };
     const { error: saveError } = existing
       ? await supabase.from('fee_schedules').update(payload).eq('id', existing.id)
@@ -149,13 +150,15 @@ function FeeEditor({ niveau, row, canManage, saving, onSave }) {
   const [t3, setT3] = useState(row?.montant_tranche3 ?? 0);
   const [connexe, setConnexe] = useState(row?.montant_connexe ?? 0);
   const [inscription, setInscription] = useState(row?.montant_inscription ?? 0);
+  const [reinscription, setReinscription] = useState(row?.montant_reinscription ?? 0);
 
   const total = (Number(t1) || 0) + (Number(t2) || 0) + (Number(t3) || 0);
   const dirty = Number(t1) !== Number(row?.montant_tranche1 ?? 0)
     || Number(t2) !== Number(row?.montant_tranche2 ?? 0)
     || Number(t3) !== Number(row?.montant_tranche3 ?? 0)
     || Number(connexe) !== Number(row?.montant_connexe ?? 0)
-    || Number(inscription) !== Number(row?.montant_inscription ?? 0);
+    || Number(inscription) !== Number(row?.montant_inscription ?? 0)
+    || Number(reinscription) !== Number(row?.montant_reinscription ?? 0);
 
   return (
     <div className="card-bold" style={{ padding: '18px 20px' }}>
@@ -200,20 +203,32 @@ function FeeEditor({ niveau, row, canManage, saving, onSave }) {
       <p style={{ margin: '18px 0 8px', fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Frais d'inscription</p>
       {canManage ? (
         <>
-          <MoneyInput value={inscription} onChange={setInscription} style={{ ...feeInputStyle, maxWidth: 240 }} suffix="F CFA" />
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <label style={feeLabelStyle}>Nouvel élève</label>
+              <MoneyInput value={inscription} onChange={setInscription} style={feeInputStyle} suffix="F CFA" />
+            </div>
+            <div>
+              <label style={feeLabelStyle}>Élève déjà inscrit (réinscription)</label>
+              <MoneyInput value={reinscription} onChange={setReinscription} style={feeInputStyle} suffix="F CFA" />
+            </div>
+          </div>
           <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--muted)' }}>
-            Montant fixe, non négociable — encaissé en une fois à l'inscription ou à la réinscription de l'élève.
+            Montants fixes, non négociables — encaissés en une fois, à l'inscription ou à la réinscription selon le cas.
           </p>
         </>
       ) : (
-        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{fmtF(row?.montant_inscription || 0)}</p>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <FeeDisplay label="Nouvel élève" value={row?.montant_inscription} />
+          <FeeDisplay label="Réinscription" value={row?.montant_reinscription} />
+        </div>
       )}
 
       {canManage && (
         <button
           type="button"
           disabled={!dirty || saving}
-          onClick={() => onSave(niveau, t1, t2, t3, connexe, inscription)}
+          onClick={() => onSave(niveau, t1, t2, t3, connexe, inscription, reinscription)}
           style={{ marginTop: 16, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
         >
           {saving ? 'Enregistrement…' : 'Enregistrer'}
