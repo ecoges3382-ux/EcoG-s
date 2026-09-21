@@ -7,18 +7,24 @@ import { formatAmountsInText } from '../lib/utils.js';
 // React (defaultValue + manipulation directe du DOM), même raison que
 // MoneyInput : garder la main sur la position du curseur pendant la frappe.
 
-function digitsBeforeCaret(str, pos) {
-  return (str.slice(0, pos).match(/\d/g) || []).length;
+// Le formatage n'ajoute et ne retire jamais que des points de regroupement
+// ("."), jamais un autre caractère — donc compter tout ce qui N'EST PAS un
+// point avant le curseur (chiffres, lettres, espaces...) donne une position
+// stable, qu'on soit en train de taper dans un nombre ou juste après.
+// L'ancienne version ne comptait que les chiffres : dès qu'on continuait à
+// taper du texte après un montant déjà formaté, le curseur revenait se
+// coller juste après le montant au lieu d'avancer avec la frappe.
+function keptCharsBeforeCaret(str, pos) {
+  let n = 0;
+  for (let i = 0; i < pos; i++) if (str[i] !== '.') n++;
+  return n;
 }
 
-// n <= 0 : le curseur était avant tout chiffre, donc dans une portion de
-// texte que le formatage ne touche jamais — sa position d'origine reste
-// valable telle quelle.
-function caretAfterDigits(str, n, fallback) {
-  if (n <= 0) return fallback;
+function caretAfterKeptChars(str, n) {
+  if (n <= 0) return 0;
   let count = 0;
   for (let i = 0; i < str.length; i++) {
-    if (/\d/.test(str[i])) {
+    if (str[i] !== '.') {
       count += 1;
       if (count === n) return i + 1;
     }
@@ -39,11 +45,11 @@ export default function AmountAwareTextarea({ value, onChange, style, placeholde
   function handleInput(e) {
     const el = e.target;
     const caret = el.selectionStart ?? el.value.length;
-    const nBefore = digitsBeforeCaret(el.value, caret);
+    const nBefore = keptCharsBeforeCaret(el.value, caret);
     const formatted = formatAmountsInText(el.value);
 
     el.value = formatted;
-    const newCaret = caretAfterDigits(formatted, nBefore, caret);
+    const newCaret = caretAfterKeptChars(formatted, nBefore);
     el.setSelectionRange(newCaret, newCaret);
 
     lastValueRef.current = formatted;
