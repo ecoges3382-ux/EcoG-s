@@ -117,7 +117,7 @@ export default function StaffDetail() {
         <Row label="Salaire mensuel" value={person.salaire_mensuel != null ? fmtF(person.salaire_mensuel) : '—'} topBorder />
       </div>
 
-      {schoolYear && <SalariesCard staffId={id} schoolId={profile.school_id} schoolYear={schoolYear} salaries={salaries} canManage={canManage} onChanged={reloadSalaries} />}
+      {schoolYear && <SalariesCard staffId={id} schoolId={profile.school_id} schoolYear={schoolYear} salaries={salaries} canManage={canManage} onChanged={reloadSalaries} createdBy={profile.id} />}
 
       <AdvancesCard advances={advances} />
 
@@ -160,7 +160,7 @@ function Row({ label, value, topBorder }) {
 // d'écolage (Argent) : chaque versement est une ligne, jamais un solde
 // modifié à la main. Filtré sur l'année scolaire sélectionnée, comme le
 // reste des indicateurs annuels de l'appli.
-function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onChanged }) {
+function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onChanged, createdBy }) {
   const [mois, setMois] = useState('');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
@@ -176,11 +176,10 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
     if (!mois.trim() || !montant) { setFormError('Le mois et le montant sont obligatoires.'); return; }
     setSubmitting(true);
     setFormError('');
-    const { data: userData } = await supabase.auth.getUser();
     const { error: insertError } = await supabase.from('staff_salaries').insert({
       school_id: schoolId, staff_id: staffId, school_year_id: schoolYear.id,
       montant: Number(montant), mois: mois.trim(), mode, date, note: note.trim() || null,
-      created_by: userData?.user?.id,
+      created_by: createdBy,
     });
     setSubmitting(false);
     if (insertError) { setFormError(insertError.message); return; }
