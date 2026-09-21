@@ -2074,3 +2074,221 @@ end;
 $$;
 
 grant execute on function activate_school_year(uuid) to authenticated;
+
+-- ---------- Migration : classification automatique passe/redouble ----------
+-- Suite au test du rollover V1 : la décision passe/redouble ne doit pas
+-- reposer sur un clic manuel élève par élève (ingérable à l'échelle d'une
+-- école de plusieurs centaines d'élèves) — elle doit se déduire
+-- automatiquement de la moyenne annuelle de l'élève comparée à un seuil que
+-- l'école configure une fois. Un élève reste "à traiter" seulement s'il n'a
+-- pas assez de notes pour calculer une moyenne fiable, ou si aucune classe
+-- cible n'existe encore — jamais par défaut aveugle.
+
+-- 1) Seuil de passage : réglage permanent par école (pas par année scolaire
+-- — la politique de passage change rarement d'une rentrée à l'autre), avec
+-- possibilité de override par niveau. niveau = null représente le seuil par
+-- défaut de l'école ; une ligne avec un niveau précis le surcharge pour ce
+-- niveau seulement. Deux index uniques partiels plutôt qu'un unique(school_id,
+-- niveau) classique : NULL n'est jamais égal à NULL pour une contrainte
+-- unique standard, ce qui aurait permis plusieurs lignes "par défaut" pour
+-- la même école.
+create table if not exists passage_thresholds (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  niveau text,
+  seuil numeric not null,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists passage_thresholds_default_per_school
+  on passage_thresholds(school_id) where niveau is null;
+create unique index if not exists passage_thresholds_niveau_per_school
+  on passage_thresholds(school_id, niveau) where niveau is not null;
+alter table passage_thresholds enable row level security;
+
+drop policy if exists "passage_thresholds: select" on passage_thresholds;
+create policy "passage_thresholds: select" on passage_thresholds
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "passage_thresholds: insert" on passage_thresholds;
+create policy "passage_thresholds: insert" on passage_thresholds
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "passage_thresholds: update" on passage_thresholds;
+create policy "passage_thresholds: update" on passage_thresholds
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "passage_thresholds: delete" on passage_thresholds;
+create policy "passage_thresholds: delete" on passage_thresholds
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+
+-- 2) next_niveau : même ordre pédagogique que NIVEAUX côté frontend
+-- (src/lib/utils.js) — dupliqué ici volontairement (pas d'import cross-
+-- langage possible) ; à maintenir en cohérence si NIVEAUX change un jour.
+-- Renvoie null pour 'Tle' (aucun niveau supérieur), comme un accès de
+-- tableau hors bornes en Postgres.
+create or replace function next_niveau(p_niveau text)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+  select (array['Maternelle','CI','CP','CE1','CE2','CM1','CM2','6e','5e','4e','3e','2nde','1ere','Tle'])[
+    array_position(array['Maternelle','CI','CP','CE1','CE2','CM1','CM2','6e','5e','4e','3e','2nde','1ere','Tle'], p_niveau) + 1
+  ]
+$$;
+
+-- 3) Moyenne annuelle d'un élève pour une année scolaire donnée : réplique
+-- exactement la formule déjà utilisée dans Bulletins (src/pages/Grades.jsx)
+-- — moyenne par matière sur chaque trimestre (matières de "niveau" nul
+-- comptant pour toutes les classes), pondérée par le coefficient de la
+-- matière, puis moyenne des trimestres qui ont effectivement des notes
+-- (un trimestre sans aucune note n'est jamais compté comme 0, il est
+-- simplement ignoré). Renvoie null si l'élève n'a absolument aucune note
+-- sur les 3 trimestres — c'est ce qui déclenche "reste à traiter".
+create or replace function student_annual_average(p_student_id uuid, p_school_year_id uuid, p_niveau text)
+returns numeric
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select avg(per_trimestre.trimestre_moyenne)
+  from (
+    select
+      per_subject.periode,
+      sum(per_subject.subject_moyenne * per_subject.coefficient) / nullif(sum(per_subject.coefficient), 0) as trimestre_moyenne
+    from (
+      select
+        g.periode,
+        g.subject_id,
+        sub.coefficient,
+        avg(g.note / g.sur * 20) as subject_moyenne
+      from grades g
+      join subjects sub on sub.id = g.subject_id
+      where g.student_id = p_student_id
+        and g.school_year_id = p_school_year_id
+        and g.periode in ('Trimestre 1', 'Trimestre 2', 'Trimestre 3')
+        and (sub.niveau is null or sub.niveau = p_niveau)
+      group by g.periode, g.subject_id, sub.coefficient
+    ) per_subject
+    group by per_subject.periode
+  ) per_trimestre
+$$;
+
+-- 4) start_school_year_preparation : remplacée pour classer automatiquement
+-- chaque élève au lieu de toujours pré-remplir "à traiter". Reste "à
+-- traiter" uniquement si (a) pas assez de notes pour une moyenne fiable, ou
+-- (b) passe proposé depuis le niveau le plus élevé (aucun niveau supérieur
+-- n'existe). La classe et le montant proposés viennent de la même logique
+-- que le bouton de masse déjà existant (niveau cible + classe de même
+-- section si possible + grille tarifaire de la nouvelle année) — jamais un
+-- recopiage de l'ancienne inscription.
+create or replace function start_school_year_preparation(
+  p_label text,
+  p_date_debut date default null,
+  p_date_fin date default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_school_id uuid := current_school_id();
+  v_new_year_id uuid;
+  v_old_year_id uuid;
+  r record;
+  v_moyenne numeric;
+  v_seuil numeric;
+  v_niveau_cible text;
+  v_decision text;
+  v_classe_id uuid;
+  v_montant numeric;
+  v_frais numeric;
+begin
+  if current_role_name() not in ('fondateur', 'directeur') then
+    raise exception 'Réservé au fondateur ou au directeur.';
+  end if;
+  if v_school_id is null then
+    raise exception 'Non authentifié.';
+  end if;
+  if p_label is null or trim(p_label) = '' then
+    raise exception 'Le nom de l''année est obligatoire.';
+  end if;
+
+  if exists (select 1 from school_years where school_id = v_school_id and statut = 'preparation') then
+    raise exception 'Une préparation est déjà en cours pour cette école.';
+  end if;
+
+  begin
+    insert into school_years (school_id, label, is_current, statut, date_debut, date_fin)
+    values (v_school_id, trim(p_label), false, 'preparation', p_date_debut, p_date_fin)
+    returning id into v_new_year_id;
+  exception when unique_violation then
+    raise exception 'Une préparation est déjà en cours pour cette école.';
+  end;
+
+  select id into v_old_year_id from school_years where school_id = v_school_id and is_current = true;
+  if v_old_year_id is not null then
+    for r in
+      select e.student_id, c.niveau as niveau_actuel, c.section as section_actuelle
+      from enrollments e
+      left join classes c on c.id = e.classe_id
+      where e.school_year_id = v_old_year_id and e.statut <> 'parti'
+    loop
+      v_decision := 'a_traiter';
+      v_classe_id := null;
+      v_montant := 0;
+      v_frais := 0;
+
+      if r.niveau_actuel is not null then
+        v_moyenne := student_annual_average(r.student_id, v_old_year_id, r.niveau_actuel);
+        if v_moyenne is not null then
+          v_seuil := coalesce(
+            (select seuil from passage_thresholds where school_id = v_school_id and niveau = r.niveau_actuel),
+            (select seuil from passage_thresholds where school_id = v_school_id and niveau is null),
+            10
+          );
+          if v_moyenne >= v_seuil then
+            v_niveau_cible := next_niveau(r.niveau_actuel);
+            v_decision := case when v_niveau_cible is not null then 'passe' else 'a_traiter' end;
+          else
+            v_niveau_cible := r.niveau_actuel;
+            v_decision := 'redouble';
+          end if;
+
+          if v_decision in ('passe', 'redouble') then
+            select c.id into v_classe_id from classes c
+              where c.school_id = v_school_id and c.niveau = v_niveau_cible
+              order by (c.section is not distinct from r.section_actuelle) desc, c.nom
+              limit 1;
+            select fs.montant_scolarite, fs.montant_connexe into v_montant, v_frais
+              from fee_schedules fs where fs.school_year_id = v_new_year_id and fs.niveau = v_niveau_cible;
+          end if;
+        end if;
+      end if;
+
+      insert into enrollment_decisions (school_id, school_year_id, student_id, decision, classe_id, montant_du, frais_connexe_du)
+      values (v_school_id, v_new_year_id, r.student_id, v_decision, v_classe_id, coalesce(v_montant, 0), coalesce(v_frais, 0))
+      on conflict (school_year_id, student_id) do nothing;
+    end loop;
+  end if;
+
+  return v_new_year_id;
+end;
+$$;
+
+grant execute on function start_school_year_preparation(text, date, date) to authenticated;

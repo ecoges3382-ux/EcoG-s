@@ -58,7 +58,7 @@ export default function PrepareSchoolYear() {
 
       {prep === undefined && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
-      {prep === null && <CreateYearForm onCreated={reload} />}
+      {prep === null && <CreateYearForm oldYear={oldYear} onCreated={reload} />}
 
       {prep && (
         <>
@@ -100,8 +100,22 @@ function tabStyle(active) {
   };
 }
 
-function CreateYearForm({ onCreated }) {
-  const [label, setLabel] = useState('');
+// Génère une plage d'années "AAAA-AAAA" plutôt que de laisser saisir du
+// texte libre (source d'erreurs : tiret oublié, format incohérent d'une
+// école à l'autre — voir school_years.label). Centrée sur l'année logique
+// qui suit l'année active (déduite de son propre libellé si possible,
+// sinon de la date du jour, même règle que provision_school côté SQL).
+function computeYearOptions(oldLabel) {
+  const now = new Date();
+  const match = oldLabel && oldLabel.match(/^(\d{4})-(\d{4})$/);
+  const nextStart = match ? Number(match[2]) : (now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear());
+  const starts = [nextStart - 2, nextStart - 1, nextStart, nextStart + 1, nextStart + 2, nextStart + 3];
+  return { options: starts.map((s) => `${s}-${s + 1}`), defaultLabel: `${nextStart}-${nextStart + 1}` };
+}
+
+function CreateYearForm({ oldYear, onCreated }) {
+  const { options, defaultLabel } = computeYearOptions(oldYear?.label);
+  const [label, setLabel] = useState(defaultLabel);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -109,11 +123,10 @@ function CreateYearForm({ onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!label.trim()) { setError("Le nom de l'année est obligatoire."); return; }
     setSubmitting(true);
     setError('');
     const { error: rpcError } = await supabase.rpc('start_school_year_preparation', {
-      p_label: label.trim(),
+      p_label: label,
       p_date_debut: dateDebut || null,
       p_date_fin: dateFin || null,
     });
@@ -131,7 +144,9 @@ function CreateYearForm({ onCreated }) {
       </p>
 
       <label style={labelStyle}>Nom de l'année</label>
-      <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ex. 2027-2028" style={inputStyle} />
+      <select value={label} onChange={(e) => setLabel(e.target.value)} style={inputStyle}>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
@@ -154,10 +169,11 @@ function CreateYearForm({ onCreated }) {
 }
 
 // Traite chaque élève actuellement inscrit (passe / redouble / part / à
-// traiter) — les lignes viennent de enrollment_decisions, pré-remplies par
-// start_school_year_preparation. Édition locale, un seul appel réseau pour
-// tout enregistrer (comme l'appel de présences) plutôt qu'un aller-retour
-// par élève.
+// traiter) — les lignes viennent de enrollment_decisions, pré-remplies et
+// pré-classées automatiquement par start_school_year_preparation (moyenne
+// annuelle comparée au seuil de passage — voir Paramètres → Année
+// scolaire). Édition locale, un seul appel réseau pour tout enregistrer
+// (comme l'appel de présences) plutôt qu'un aller-retour par élève.
 function TraiterElevesStep({ schoolId, prep, oldYearId }) {
   const [rows, setRows] = useState(null);
   const [classes, setClasses] = useState([]);
@@ -167,6 +183,9 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
   const [saved, setSaved] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [newStudentOpen, setNewStudentOpen] = useState(false);
+  const [filter, setFilter] = useState('tous');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   async function reload() {
     const [{ data: decisions, error: decError }, { data: cl }, { data: fees }, oldEnrResult] = await Promise.all([
@@ -203,6 +222,38 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
 
   useEffect(() => { reload(); }, [prep.id, oldYearId]);
 
+  // Classe/montant suggérés pour un niveau cible donné (niveau supérieur
+  // pour un passage, même niveau pour un redoublement) — même logique
+  // utilisée par la classification automatique côté serveur, par le bouton
+  // de masse, et par un changement de décision individuel : les trois
+  // doivent proposer la même chose plutôt que de laisser un clic
+  // individuel vide comme avant ce correctif.
+  function suggestFor(niveauCible, oldClasse) {
+    if (!niveauCible) return { classe_id: null, montant_du: 0, frais_connexe_du: 0 };
+    const candidates = classes.filter((c) => c.niveau === niveauCible);
+    const match = candidates.find((c) => c.section === oldClasse?.section) || candidates[0] || null;
+    const fee = feeByNiveau[niveauCible];
+    return {
+      classe_id: match ? match.id : null,
+      montant_du: fee ? fee.montant_scolarite : 0,
+      frais_connexe_du: fee ? fee.montant_connexe : 0,
+    };
+  }
+
+  function applyDecision(studentIds, decision) {
+    setRows((prev) => prev.map((r) => {
+      if (!studentIds.includes(r.student_id)) return r;
+      if (decision === 'passe' && r.oldClasse) {
+        return { ...r, decision, ...suggestFor(NIVEAUX[NIVEAUX.indexOf(r.oldClasse.niveau) + 1], r.oldClasse) };
+      }
+      if (decision === 'redouble' && r.oldClasse) {
+        return { ...r, decision, ...suggestFor(r.oldClasse.niveau, r.oldClasse) };
+      }
+      return { ...r, decision };
+    }));
+    setSaved(false);
+  }
+
   function updateRow(studentId, patch) {
     setRows((prev) => prev.map((r) => (r.student_id === studentId ? { ...r, ...patch } : r)));
     setSaved(false);
@@ -219,26 +270,27 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
   }
 
   // Action de masse : ne touche que les élèves encore "à traiter" — jamais
-  // une décision déjà prise individuellement — et propose une classe du
-  // niveau pédagogique suivant (même section si possible). Reste
+  // une décision déjà prise (automatiquement ou à la main) — et propose une
+  // classe du niveau pédagogique suivant (même section si possible). Reste
   // entièrement modifiable ligne par ligne avant l'enregistrement.
   function applyBulkPassage() {
-    setRows((prev) => prev.map((r) => {
-      if (r.decision !== 'a_traiter' || !r.oldClasse) return r;
-      const nextNiveau = NIVEAUX[NIVEAUX.indexOf(r.oldClasse.niveau) + 1];
-      if (!nextNiveau) return r;
-      const candidates = classes.filter((c) => c.niveau === nextNiveau);
-      const match = candidates.find((c) => c.section === r.oldClasse.section) || candidates[0] || null;
-      const fee = feeByNiveau[nextNiveau];
-      return {
-        ...r,
-        decision: 'passe',
-        classe_id: match ? match.id : null,
-        montant_du: fee ? fee.montant_scolarite : r.montant_du,
-        frais_connexe_du: fee ? fee.montant_connexe : r.frais_connexe_du,
-      };
-    }));
-    setSaved(false);
+    const ids = rows.filter((r) => r.decision === 'a_traiter' && r.oldClasse && NIVEAUX[NIVEAUX.indexOf(r.oldClasse.niveau) + 1]).map((r) => r.student_id);
+    applyDecision(ids, 'passe');
+  }
+
+  function toggleSelected(studentId) {
+    setSelectedIds((prev) => (prev.includes(studentId) ? prev.filter((x) => x !== studentId) : [...prev, studentId]));
+  }
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const ids = filteredRows.map((r) => r.student_id);
+      return ids.every((id) => prev.includes(id)) ? [] : ids;
+    });
+  }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+  function applyDecisionToSelection(decision) {
+    applyDecision(selectedIds, decision);
+    exitSelectMode();
   }
 
   async function handleSave() {
@@ -273,38 +325,61 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!rows) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
-  const pendingCount = rows.filter((r) => r.decision === 'a_traiter').length;
+  const counts = { tous: rows.length, a_traiter: 0, passe: 0, redouble: 0, part: 0 };
+  rows.forEach((r) => { counts[r.decision] += 1; });
+  const filteredRows = filter === 'tous' ? rows : rows.filter((r) => r.decision === filter);
+  const gridCols = selectMode ? '24px 1.5fr 1fr 1.3fr 1fr 1fr' : '1.6fr 1fr 1.3fr 1fr 1fr';
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+    <div style={{ paddingBottom: selectMode ? 70 : 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>
-          {rows.length} élève{rows.length > 1 ? 's' : ''} · {pendingCount} à traiter
+          {rows.length} élève{rows.length > 1 ? 's' : ''} · {counts.a_traiter} à traiter
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={applyBulkPassage} style={secondaryButtonStyle}>Passage en classe supérieure pour les élèves restants</button>
           <button type="button" onClick={() => setAddOpen(true)} style={secondaryButtonStyle}>Ajouter un élève existant</button>
           <button type="button" onClick={() => setNewStudentOpen(true)} style={secondaryButtonStyle}>Nouvel élève</button>
+          {!selectMode && <button type="button" onClick={() => setSelectMode(true)} style={secondaryButtonStyle}>Sélectionner</button>}
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[
+          { id: 'tous', label: 'Tous' },
+          { id: 'a_traiter', label: 'À traiter' },
+          { id: 'passe', label: 'Passe' },
+          { id: 'redouble', label: 'Redouble' },
+          { id: 'part', label: "Quitte l'école" },
+        ].map((f) => (
+          <button key={f.id} onClick={() => setFilter(f.id)} style={filterPillStyle(filter === f.id)}>
+            {f.label} <span style={{ opacity: 0.7 }}>{counts[f.id]}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="card-bold" style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 720 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.3fr 1fr 1fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+        <div style={{ minWidth: selectMode ? 740 : 720 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+            {selectMode && <span></span>}
             <span>Élève</span><span>Classe actuelle</span><span>Décision</span><span>Nouvelle classe</span><span>Montant</span>
           </div>
-          {rows.map((r, i) => (
+          {filteredRows.map((r, i) => (
             <DecisionRow
               key={r.student_id}
               row={r}
               classes={classes}
-              isLast={i === rows.length - 1}
-              onDecision={(d) => updateRow(r.student_id, { decision: d })}
+              gridCols={gridCols}
+              isLast={i === filteredRows.length - 1}
+              selectMode={selectMode}
+              selected={selectedIds.includes(r.student_id)}
+              onToggleSelected={() => toggleSelected(r.student_id)}
+              onDecision={(d) => applyDecision([r.student_id], d)}
               onClasse={(id) => setClasse(r.student_id, id)}
               onMontant={(field, v) => updateRow(r.student_id, { [field]: v })}
             />
           ))}
-          {rows.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève à traiter pour l'instant.</p>}
+          {filteredRows.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève dans ce filtre.</p>}
         </div>
       </div>
 
@@ -327,14 +402,53 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
           onCreated={() => { setNewStudentOpen(false); reload(); }}
         />
       )}
+
+      {selectMode && (
+        <div
+          style={{
+            position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 24, zIndex: 25,
+            display: 'flex', alignItems: 'center', gap: 4, padding: 6, borderRadius: 30, flexWrap: 'wrap', justifyContent: 'center', maxWidth: '92vw',
+            background: 'var(--forest-dark)', boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+          }}
+          className="selection-bar"
+        >
+          <button type="button" onClick={exitSelectMode} style={selectionPillStyle()}>Annuler</button>
+          <button type="button" onClick={toggleAllVisible} style={selectionPillStyle()}>Tout</button>
+          <span style={{ minWidth: 22, textAlign: 'center', color: 'var(--gold)', fontWeight: 700, fontSize: 13.5 }}>{selectedIds.length}</span>
+          {DECISIONS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              disabled={selectedIds.length === 0}
+              onClick={() => applyDecisionToSelection(d.id)}
+              style={{ ...selectionPillStyle(), opacity: selectedIds.length === 0 ? 0.5 : 1 }}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function DecisionRow({ row, classes, isLast, onDecision, onClasse, onMontant }) {
+function filterPillStyle(active) {
+  return {
+    padding: '7px 14px', borderRadius: 20, fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+    border: `1px solid ${active ? 'var(--forest)' : 'var(--line-strong)'}`,
+    background: active ? 'var(--forest)' : 'var(--paper)', color: active ? '#fff' : 'var(--ink)',
+  };
+}
+
+function selectionPillStyle() {
+  return { padding: '9px 14px', borderRadius: 24, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff' };
+}
+
+function DecisionRow({ row, classes, gridCols, isLast, selectMode, selected, onToggleSelected, onDecision, onClasse, onMontant }) {
   const showClasse = row.decision === 'passe' || row.decision === 'redouble';
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.3fr 1fr 1fr', padding: '13px 20px', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '13px 20px', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
+      {selectMode && <input type="checkbox" checked={selected} onChange={onToggleSelected} style={{ flexShrink: 0 }} />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
           {row.photo_url ? <img src={row.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(row.full_name)}
@@ -366,9 +480,15 @@ function DecisionRow({ row, classes, isLast, onDecision, onClasse, onMontant }) 
         </select>
       ) : <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>}
       {showClasse ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <MoneyInput value={row.montant_du} onChange={(v) => onMontant('montant_du', v)} placeholder="Écolage" style={smallInputStyle} />
-          <MoneyInput value={row.frais_connexe_du} onChange={(v) => onMontant('frais_connexe_du', v)} placeholder="Connexes" style={smallInputStyle} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 10, color: 'var(--muted)', width: 46, flexShrink: 0 }}>Écolage</span>
+            <MoneyInput value={row.montant_du} onChange={(v) => onMontant('montant_du', v)} style={smallInputStyle} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 10, color: 'var(--muted)', width: 46, flexShrink: 0 }}>Connexes</span>
+            <MoneyInput value={row.frais_connexe_du} onChange={(v) => onMontant('frais_connexe_du', v)} style={smallInputStyle} />
+          </div>
         </div>
       ) : <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>}
     </div>
