@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { generateAccessCode, displayName, fmtF, TRANCHES, MODES } from '../lib/utils.js';
+import { generateAccessCode, displayName, fmtF, MODES } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 import NameInput from './NameInput.jsx';
+
+// Propre à ce formulaire : pas de "Moitié" (n'a pas de montant à
+// pré-remplir depuis la grille tarifaire), et "Autre" en plus — le parent
+// n'a pas payé un montant qui correspond à l'une des tranches ni à
+// l'écolage complet.
+const PAIEMENT_TRANCHES = [
+  { id: 'tranche1', label: '1ère tranche' },
+  { id: 'tranche2', label: '2ème tranche' },
+  { id: 'tranche3', label: '3ème tranche' },
+  { id: 'complet', label: 'Complet' },
+  { id: 'autre', label: 'Autre' },
+];
 
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, onClose, onCreated }) {
   const [studentNom, setStudentNom] = useState('');
@@ -19,10 +31,14 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [error, setError] = useState('');
 
   // Paiement encaissé sur place au moment de l'inscription (le parent paie
-  // souvent immédiatement) : facultatif, montant libre — un parent peut
-  // payer moins ou plus que le montant officiel de la tranche choisie.
-  const [paiementTranche, setPaiementTranche] = useState(TRANCHES[0].id);
+  // souvent immédiatement) : facultatif. Choisir une tranche pré-remplit le
+  // montant déjà paramétré dans la grille tarifaire pour ce niveau — mais
+  // reste modifiable, un parent peut payer moins ou plus que ce montant
+  // officiel. "Autre" vide le champ : le montant ne correspond à aucune
+  // tranche ni à l'écolage complet, à saisir entièrement à la main.
+  const [paiementTranche, setPaiementTranche] = useState(PAIEMENT_TRANCHES[0].id);
   const [paiementMontant, setPaiementMontant] = useState(0);
+  const [paiementMontantTouched, setPaiementMontantTouched] = useState(false);
   const [paiementMode, setPaiementMode] = useState(MODES[0].id);
 
   const selectedClasse = classes.find((c) => c.id === classeId);
@@ -33,7 +49,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   // modifié à la main (bourse, réduction…).
   useEffect(() => {
     if (!schoolYearId) return;
-    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe, montant_inscription').eq('school_year_id', schoolYearId).then(({ data }) => {
+    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe, montant_inscription, montant_tranche1, montant_tranche2, montant_tranche3').eq('school_year_id', schoolYearId).then(({ data }) => {
       const map = {};
       (data || []).forEach((f) => { map[f.niveau] = f; });
       setFeeSchedules(map);
@@ -46,6 +62,25 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     setMontantDu(fee ? fee.montant_scolarite : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classeId, feeSchedules]);
+
+  // Suit la tranche choisie (et le niveau/l'écolage dû tant que l'utilisateur
+  // n'a pas modifié le montant versé à la main) — se réinitialise à chaque
+  // changement de tranche via handleTrancheChange ci-dessous.
+  useEffect(() => {
+    if (paiementMontantTouched) return;
+    const fee = selectedClasse ? feeSchedules[selectedClasse.niveau] : null;
+    if (paiementTranche === 'tranche1') setPaiementMontant(fee?.montant_tranche1 ?? 0);
+    else if (paiementTranche === 'tranche2') setPaiementMontant(fee?.montant_tranche2 ?? 0);
+    else if (paiementTranche === 'tranche3') setPaiementMontant(fee?.montant_tranche3 ?? 0);
+    else if (paiementTranche === 'complet') setPaiementMontant(montantDu);
+    else setPaiementMontant('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paiementTranche, classeId, feeSchedules, montantDu]);
+
+  function handleTrancheChange(value) {
+    setPaiementTranche(value);
+    setPaiementMontantTouched(false);
+  }
 
   // Parent : nouveau (avec code d'accès généré à l'inscription) ou
   // rattachement à un parent déjà présent dans l'école (fratrie).
@@ -257,11 +292,12 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Écolage dû (F CFA)</label>
+            <label style={labelStyle}>Écolage dû</label>
             <MoneyInput
               value={montantDu}
               onChange={(v) => { setMontantDuTouched(true); setMontantDu(v); }}
               style={inputStyle}
+              suffix="F CFA"
             />
           </div>
         </div>
@@ -278,7 +314,9 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 18 }}>
           <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Paiement à l'inscription</p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
-            Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui.
+            Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui. Choisir une tranche
+            pré-remplit son montant depuis la grille tarifaire, modifiable si le parent paie
+            moins ou plus.
           </p>
 
           {fraisInscription > 0 && (
@@ -294,13 +332,18 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: paiementMontant > 0 ? 12 : 0 }}>
             <div>
               <label style={labelStyle}>Pour</label>
-              <select value={paiementTranche} onChange={(e) => setPaiementTranche(e.target.value)} style={inputStyle}>
-                {TRANCHES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              <select value={paiementTranche} onChange={(e) => handleTrancheChange(e.target.value)} style={inputStyle}>
+                {PAIEMENT_TRANCHES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
               </select>
             </div>
             <div>
               <label style={labelStyle}>Montant versé</label>
-              <MoneyInput value={paiementMontant} onChange={setPaiementMontant} style={inputStyle} suffix="F CFA" />
+              <MoneyInput
+                value={paiementMontant}
+                onChange={(v) => { setPaiementMontantTouched(true); setPaiementMontant(v); }}
+                style={inputStyle}
+                suffix="F CFA"
+              />
             </div>
           </div>
 

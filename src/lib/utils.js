@@ -134,6 +134,7 @@ export const TRANCHES = [
   { id: 'tranche3', label: '3ème tranche' },
   { id: 'moitie', label: 'Moitié' },
   { id: 'complet', label: 'Complet' },
+  { id: 'autre', label: 'Autre' },
 ];
 export function trancheLabel(id) {
   return TRANCHES.find((t) => t.id === id)?.label || (id === 'partiel' ? 'Partiel' : id);
