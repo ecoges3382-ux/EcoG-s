@@ -77,6 +77,8 @@ export default function Dashboard() {
 
       <ClassBreakdown students={students} attendance={attendance} classResults={classResults} />
 
+      <PersonnelSection schoolYear={schoolYear} />
+
       {/* isHistorical implique selectedYear !== activeYear : quand cette
           section est visible, l'année sélectionnée EST l'année active, donc
           `students` (déjà chargé plus haut pour schoolYear) est directement
@@ -220,6 +222,47 @@ function ClassBreakdown({ students, attendance, classResults }) {
           })}
           {rows.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune classe avec des élèves inscrits cette année.</p>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Trois totaux simples (masse salariale versée, avances en attente de
+// remboursement, dépenses) sur l'année sélectionnée — jamais une deuxième
+// formule : mêmes tables et mêmes colonnes que StaffDetail/Argent, juste
+// agrégées ici en une somme par école plutôt que par personne.
+function PersonnelSection({ schoolYear }) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    setData(null);
+    Promise.all([
+      supabase.from('staff').select('id').eq('statut', 'actif'),
+      supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
+      supabase.from('salary_advances').select('solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
+      supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id),
+    ]).then(([{ data: staff }, { data: salaries }, { data: advances }, { data: expenses }]) => {
+      if (cancelled) return;
+      setData({
+        effectifPersonnel: (staff || []).length,
+        masseSalariale: (salaries || []).reduce((a, s) => a + Number(s.montant), 0),
+        avancesEnCours: (advances || []).reduce((a, s) => a + Number(s.solde), 0),
+        depenses: (expenses || []).reduce((a, s) => a + Number(s.montant), 0),
+      });
+    });
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Personnel</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }} className="desktop-grid-4">
+        <Stat label="Membres actifs" value={data ? data.effectifPersonnel : '…'} />
+        <Stat label="Masse salariale versée" value={data ? fmtF(data.masseSalariale) : '…'} color="var(--success)" />
+        <Stat label="Avances en cours" value={data ? fmtF(data.avancesEnCours) : '…'} color={data && data.avancesEnCours > 0 ? 'var(--amber)' : undefined} />
+        <Stat label="Dépenses" value={data ? fmtF(data.depenses) : '…'} color="var(--danger)" />
       </div>
     </div>
   );

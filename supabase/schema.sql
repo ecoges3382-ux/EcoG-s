@@ -2592,3 +2592,134 @@ as $$
 $$;
 
 grant execute on function dashboard_class_results(uuid) to authenticated;
+
+-- ---------- Personnel : statut, salaires, avances ----------
+-- Jusqu'ici "staff" n'avait ni statut ni salaire : un départ se traduisait
+-- par une suppression pure (delete), qui aurait aussi supprimé — via le
+-- on delete cascade de salary_advances.staff_id — tout l'historique de ses
+-- avances sur salaire. On remplace la suppression par un statut actif/
+-- inactif (jamais de perte d'historique financier) et on protège la
+-- référence côté avances (cascade → restrict, comme déjà fait pour
+-- subjects→grades et classes→enrollments).
+alter table staff add column if not exists statut text not null default 'actif';
+alter table staff add column if not exists date_entree date;
+alter table staff add column if not exists salaire_mensuel numeric;
+
+-- staff_salaries : le journal des salaires réellement versés, sur le même
+-- principe que "payments" pour l'écolage (jamais un solde recalculé à la
+-- main : chaque versement est une ligne, le total se somme). Écriture
+-- réservée à fondateur/directeur/secrétaire — même périmètre que les
+-- policies "payments: insert/delete" déjà en place, jamais l'enseignant
+-- pour un mouvement d'argent réel (à la différence d'une simple DEMANDE
+-- d'avance ci-dessous, elle laissée ouverte à tous comme aujourd'hui).
+create table if not exists staff_salaries (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  staff_id uuid not null references staff(id) on delete restrict,
+  school_year_id uuid references school_years(id),
+  montant numeric not null,
+  mois text not null,
+  date date not null default current_date,
+  mode text not null default 'especes',
+  note text,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists staff_salaries_staff_idx on staff_salaries(staff_id);
+create index if not exists staff_salaries_year_idx on staff_salaries(school_year_id);
+alter table staff_salaries enable row level security;
+
+drop policy if exists "staff_salaries: select" on staff_salaries;
+create policy "staff_salaries: select" on staff_salaries
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "staff_salaries: insert" on staff_salaries;
+create policy "staff_salaries: insert" on staff_salaries
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    and created_by = auth.uid()
+    and exists (select 1 from staff st where st.id = staff_salaries.staff_id and st.school_id = staff_salaries.school_id)
+    and (staff_salaries.school_year_id is null or exists (
+      select 1 from school_years sy where sy.id = staff_salaries.school_year_id and sy.school_id = staff_salaries.school_id
+    ))
+  );
+drop policy if exists "staff_salaries: delete" on staff_salaries;
+create policy "staff_salaries: delete" on staff_salaries
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+-- Pas de policy update : ledger append-only, comme "payments" (une
+-- correction passe par un nouvel insert et/ou une suppression, jamais une
+-- modification silencieuse d'une ligne déjà versée).
+
+-- salary_advances : rattachement à une année scolaire (pour les rapports
+-- annuels), motif facultatif, et remboursement — jusqu'ici "solde" était
+-- figé au montant de la demande dès la création, jamais redécrémenté nulle
+-- part dans le code : un remboursement partiel n'avait aucun moyen d'être
+-- enregistré.
+alter table salary_advances add column if not exists school_year_id uuid references school_years(id);
+alter table salary_advances add column if not exists motif text;
+alter table salary_advances add column if not exists montant_rembourse numeric not null default 0;
+
+create or replace function recompute_advance_solde()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.solde := new.montant - coalesce(new.montant_rembourse, 0);
+  return new;
+end;
+$$;
+drop trigger if exists trg_recompute_advance_solde on salary_advances;
+create trigger trg_recompute_advance_solde
+before insert or update on salary_advances
+for each row execute function recompute_advance_solde();
+
+-- expenses : même rattachement à une année scolaire, pour pouvoir les
+-- inclure dans les rapports annuels (masse salariale + dépenses) sans
+-- mélanger les années entre elles.
+alter table expenses add column if not exists school_year_id uuid references school_years(id);
+
+create index if not exists salary_advances_year_idx on salary_advances(school_year_id);
+create index if not exists expenses_year_idx on expenses(school_year_id);
+
+-- Bascule des données existantes : comme pour payments/grades/attendance_records
+-- (Migration "Année scolaire"), on rattache les avances et dépenses déjà
+-- enregistrées à l'année scolaire actuellement en cours de chaque école —
+-- ces deux tables n'ont jamais eu de notion d'année avant aujourd'hui, donc
+-- l'année en cours est la meilleure estimation possible sans historique.
+update salary_advances a set school_year_id = sy.id
+from school_years sy
+where sy.school_id = a.school_id and sy.is_current and a.school_year_id is null;
+
+update expenses e set school_year_id = sy.id
+from school_years sy
+where sy.school_id = e.school_id and sy.is_current and e.school_year_id is null;
+
+-- staff_id sur salary_advances : cascade → restrict, pour qu'un archivage
+-- (nouveau statut ci-dessus) ou malgré tout une suppression d'un membre du
+-- personnel ne puisse plus jamais emporter silencieusement son historique
+-- d'avances (même correctif déjà appliqué à subjects→grades et
+-- classes→enrollments — voir Migration "audit sécurité/intégrité").
+do $$
+declare
+  v_conname text;
+begin
+  select conname into v_conname
+  from pg_constraint
+  where conrelid = 'salary_advances'::regclass
+    and confrelid = 'staff'::regclass
+    and contype = 'f'
+  limit 1;
+
+  if v_conname is not null then
+    execute format('alter table salary_advances drop constraint %I', v_conname);
+  end if;
+
+  alter table salary_advances add constraint salary_advances_staff_id_fkey
+    foreign key (staff_id) references staff(id) on delete restrict;
+end $$;

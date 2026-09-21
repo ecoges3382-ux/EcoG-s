@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import NameInput from './NameInput.jsx';
+import MoneyInput from './MoneyInput.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -20,6 +21,8 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [classNames, setClassNames] = useState(editing?.classes || []);
   const [phone, setPhone] = useState(editing?.phone || '');
   const [email, setEmail] = useState(editing?.email || '');
+  const [dateEntree, setDateEntree] = useState(editing?.date_entree || '');
+  const [salaireMensuel, setSalaireMensuel] = useState(editing?.salaire_mensuel ?? '');
   const [photoUrl, setPhotoUrl] = useState(editing?.photo_url || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -45,6 +48,8 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       classes: classNames,
       phone: phone.trim(),
       email: email.trim(),
+      date_entree: dateEntree || null,
+      salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
       photo_url: photoUrl || null,
     };
     // Le matricule identifie durablement la personne — on ne le recalcule
@@ -123,6 +128,15 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </Field>
           <Field label="E-mail" last>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+          </Field>
+        </div>
+
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Field label="Date d'entrée">
+            <input type="date" value={dateEntree} onChange={(e) => setDateEntree(e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label="Salaire mensuel">
+            <MoneyInput value={salaireMensuel} onChange={setSalaireMensuel} suffix="F CFA" style={inputStyle} />
           </Field>
         </div>
 

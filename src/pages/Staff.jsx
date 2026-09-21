@@ -9,6 +9,26 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
+function ArchiveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 4m0 1a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z" />
+      <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+      <path d="M10 12l4 0" />
+    </svg>
+  );
+}
+
+function RestoreIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4.05 11a8 8 0 1 1 .5 4m-.5 5v-5h5" />
+    </svg>
+  );
+}
+
+// Réservé à la vue "Archivés" : une suppression définitive, seulement
+// possible si plus rien n'y fait référence (contrainte restrict côté SQL).
 function TrashIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -40,6 +60,7 @@ export default function Staff() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
+  const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
   const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.8fr 1fr' : '1fr 1.4fr 1fr 1.8fr 1fr 76px';
 
@@ -48,6 +69,12 @@ export default function Staff() {
     if (fetchError) setError(fetchError.message);
     else setStaff(data);
   }
+
+  // Un départ ne supprime plus jamais la ligne (voir handleArchiveOne) —
+  // seul le statut change. La liste affichée reste donc filtrée par statut,
+  // "Archivés" n'étant qu'une autre vue de la même table, jamais une
+  // suppression réelle.
+  const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
 
   useEffect(() => {
     reload();
@@ -64,9 +91,9 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    const rows = [['Matricule', 'Nom', 'Rôle', "Niveau d'études", 'Classe(s)', 'Téléphone', 'E-mail']];
-    staff.forEach((p) => {
-      rows.push([p.matricule || '', p.full_name, p.role, p.niveau_etudes || '', (p.classes || []).join(' / '), p.phone || '', p.email || '']);
+    const rows = [['Matricule', 'Nom', 'Statut', 'Rôle', "Niveau d'études", 'Classe(s)', 'Téléphone', 'E-mail']];
+    visibleStaff.forEach((p) => {
+      rows.push([p.matricule || '', p.full_name, p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '', (p.classes || []).join(' / '), p.phone || '', p.email || '']);
     });
     downloadCsv('personnel.csv', rows);
   }
@@ -77,7 +104,7 @@ export default function Staff() {
 
   function toggleAllVisible() {
     setSelectedIds((prev) => {
-      const ids = staff.map((p) => p.id);
+      const ids = visibleStaff.map((p) => p.id);
       return ids.every((id) => prev.includes(id)) ? [] : ids;
     });
   }
@@ -87,21 +114,36 @@ export default function Staff() {
     setSelectedIds([]);
   }
 
-  async function handleDeleteOne(id, name) {
-    if (!window.confirm(`Supprimer définitivement ${name} de l'équipe ? Cette action est irréversible.`)) return;
+  // Un membre du personnel n'est plus jamais supprimé en un clic depuis la
+  // liste active — la suppression détruirait aussi, via la contrainte
+  // (désormais restrict et non plus cascade), toute référence encore en
+  // place (avances sur salaire, classe principale, matière enseignée…).
+  // "Archiver" ne fait que changer le statut, jamais irréversible.
+  async function handleArchiveOne(id, name, restore) {
+    if (!restore && !window.confirm(`Archiver ${name} ? Cette personne n'apparaîtra plus dans la liste active, mais son historique (avances, salaires versés) est conservé.`)) return;
     setDeleting(true);
-    const { error: deleteError } = await supabase.from('staff').delete().eq('id', id);
+    const { error: updateError } = await supabase.from('staff').update({ statut: restore ? 'actif' : 'inactif' }).eq('id', id);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (updateError) { setError(updateError.message); return; }
     reload();
   }
 
-  async function handleDeleteSelected() {
-    if (!window.confirm(`Supprimer définitivement ${selectedIds.length} membre${selectedIds.length > 1 ? 's' : ''} du personnel ? Cette action est irréversible.`)) return;
+  async function handleDeleteOne(id, name) {
+    if (!window.confirm(`Supprimer définitivement ${name} de l'équipe ? Cette action est irréversible et impossible si cette personne a un historique (avances, salaires, classe ou matière encore rattachée).`)) return;
     setDeleting(true);
-    const { error: deleteError } = await supabase.from('staff').delete().in('id', selectedIds);
+    const { error: deleteError } = await supabase.from('staff').delete().eq('id', id);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (deleteError) { setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : cette personne a encore un historique lié (avances, salaires, classe ou matière). Utilise l'archivage à la place." : deleteError.message); return; }
+    reload();
+  }
+
+  async function handleArchiveSelected() {
+    const label = showArchives ? 'réactiver' : 'archiver';
+    if (!window.confirm(`${showArchives ? 'Réactiver' : 'Archiver'} ${selectedIds.length} membre${selectedIds.length > 1 ? 's' : ''} du personnel ?`)) return;
+    setDeleting(true);
+    const { error: updateError } = await supabase.from('staff').update({ statut: showArchives ? 'actif' : 'inactif' }).in('id', selectedIds);
+    setDeleting(false);
+    if (updateError) { setError(updateError.message); return; }
     exitSelectMode();
     reload();
   }
@@ -131,12 +173,27 @@ export default function Staff() {
         )}
       </div>
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+        <button
+          onClick={() => setShowArchives(false)}
+          style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${!showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: !showArchives ? 'var(--forest)' : 'var(--paper)', color: !showArchives ? '#fff' : 'var(--ink)' }}
+        >
+          Actifs
+        </button>
+        <button
+          onClick={() => setShowArchives(true)}
+          style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: showArchives ? 'var(--forest)' : 'var(--paper)', color: showArchives ? '#fff' : 'var(--ink)' }}
+        >
+          Archivés{staff ? ` (${staff.filter((p) => p.statut === 'inactif').length})` : ''}
+        </button>
+      </div>
+
       {error && <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>}
       {!error && !staff && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {staff && (
         <>
-          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{staff.length} membre{staff.length > 1 ? 's' : ''}</p>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
           <div className="card-bold" style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: selectMode ? 748 : 720 }}>
               <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '13px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
@@ -144,8 +201,8 @@ export default function Staff() {
                 <span>Matricule</span><span>Nom</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span>
                 {!selectMode && <span></span>}
               </div>
-              {staff.map((p, i) => (
-                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '14px 20px', alignItems: 'center', borderBottom: i < staff.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              {visibleStaff.map((p, i) => (
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '14px 20px', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   {selectMode && (
                     <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
                   )}
@@ -167,14 +224,24 @@ export default function Staff() {
                   </Link>
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                      {canDelete && (
+                      {canDelete && showArchives && (
                         <button
                           type="button"
                           onClick={() => handleDeleteOne(p.id, p.full_name)}
-                          title="Supprimer"
+                          title="Supprimer définitivement"
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
                         >
                           <TrashIcon />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)}
+                          title={showArchives ? 'Réactiver' : 'Archiver'}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                        >
+                          {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
                         </button>
                       )}
                       <button
@@ -189,7 +256,11 @@ export default function Staff() {
                   )}
                 </div>
               ))}
-              {staff.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre du personnel.</p>}
+              {visibleStaff.length === 0 && (
+                <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>
+                  {showArchives ? 'Aucun membre archivé.' : 'Aucun membre du personnel actif.'}
+                </p>
+              )}
             </div>
           </div>
         </>
@@ -198,11 +269,14 @@ export default function Staff() {
       {selectMode && (
         <SelectionBar
           count={selectedIds.length}
-          allSelected={!!staff && staff.length > 0 && staff.every((p) => selectedIds.includes(p.id))}
+          allSelected={visibleStaff.length > 0 && visibleStaff.every((p) => selectedIds.includes(p.id))}
           onCancel={exitSelectMode}
           onToggleAll={toggleAllVisible}
-          onDelete={handleDeleteSelected}
+          onDelete={handleArchiveSelected}
           deleting={deleting}
+          actionLabel={showArchives ? 'Réactiver' : 'Archiver'}
+          actionColor="var(--forest)"
+          actionIcon={showArchives ? <RestoreIcon /> : <ArchiveIcon />}
         />
       )}
 

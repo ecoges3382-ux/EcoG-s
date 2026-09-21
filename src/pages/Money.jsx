@@ -498,6 +498,7 @@ const modalLabelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color
 
 function Expenses() {
   const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [expenses, setExpenses] = useState(null);
   const [error, setError] = useState('');
   const [libelle, setLibelle] = useState('');
@@ -505,18 +506,20 @@ function Expenses() {
   const [montant, setMontant] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  async function reload() {
-    const { data, error: e } = await supabase.from('expenses').select('*').order('created_at', { ascending: false });
-    if (e) setError(e.message); else setExpenses(data);
+  function reload() {
+    if (!schoolYear) return;
+    setExpenses(null);
+    supabase.from('expenses').select('*').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false })
+      .then(({ data, error: e }) => { if (e) setError(e.message); else setExpenses(data); });
   }
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); }, [schoolYear?.id]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!libelle.trim() || !montant) return;
     setSubmitting(true);
     const { error: insertError } = await supabase.from('expenses').insert({
-      school_id: profile.school_id, libelle: libelle.trim(), categorie: categorie.trim() || 'Autre', montant: Number(montant),
+      school_id: profile.school_id, school_year_id: schoolYear.id, libelle: libelle.trim(), categorie: categorie.trim() || 'Autre', montant: Number(montant),
     });
     setSubmitting(false);
     if (insertError) { setError(insertError.message); return; }
@@ -525,14 +528,14 @@ function Expenses() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!expenses) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!expenses || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
   const total = expenses.reduce((a, d) => a + Number(d.montant), 0);
 
   return (
     <div>
       <div className="card-bold" style={{ padding: '18px 20px', marginBottom: 24, maxWidth: 320 }}>
-        <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>Total des dépenses</p>
+        <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>Total des dépenses — {schoolYear.label}</p>
         <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(total)}</p>
       </div>
 
@@ -564,23 +567,29 @@ function Expenses() {
 
 function Advances() {
   const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [advances, setAdvances] = useState(null);
   const [staff, setStaff] = useState([]);
   const [error, setError] = useState('');
   const [staffId, setStaffId] = useState('');
   const [montant, setMontant] = useState('');
+  const [motif, setMotif] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   async function reload() {
+    if (!schoolYear) return;
     const [{ data: adv, error: e }, { data: st }] = await Promise.all([
-      supabase.from('salary_advances').select('*, staff ( full_name, role )').order('created_at', { ascending: false }),
-      supabase.from('staff').select('id, full_name, role').order('full_name'),
+      supabase.from('salary_advances').select('*, staff ( full_name, role )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false }),
+      // Une demande ne peut concerner qu'un membre actif — un archivé n'est
+      // plus proposé à la saisie, mais reste visible dans son propre
+      // historique (StaffDetail) et dans la liste ci-dessus.
+      supabase.from('staff').select('id, full_name, role').eq('statut', 'actif').order('full_name'),
     ]);
     if (e) setError(e.message); else setAdvances(adv);
     setStaff(st || []);
     if (st?.length && !staffId) setStaffId(st[0].id);
   }
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { reload(); }, [schoolYear?.id]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -588,11 +597,11 @@ function Advances() {
     setSubmitting(true);
     const amount = Number(montant);
     const { error: insertError } = await supabase.from('salary_advances').insert({
-      school_id: profile.school_id, staff_id: staffId, montant: amount, solde: amount, statut: 'attente_fondateur',
+      school_id: profile.school_id, school_year_id: schoolYear.id, staff_id: staffId, montant: amount, solde: amount, statut: 'attente_fondateur', motif: motif.trim() || null,
     });
     setSubmitting(false);
     if (insertError) { setError(insertError.message); return; }
-    setMontant('');
+    setMontant(''); setMotif('');
     reload();
   }
 
@@ -603,7 +612,7 @@ function Advances() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!advances) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!advances || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
   const canDecide = profile.role === 'fondateur' || profile.role === 'directeur';
 
@@ -611,7 +620,7 @@ function Advances() {
     <div>
       <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
         Le fondateur et le directeur peuvent approuver ou refuser une demande. Les autres rôles peuvent
-        seulement en soumettre une nouvelle.
+        seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.
       </p>
 
       <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 20 }}>
@@ -622,8 +631,9 @@ function Advances() {
                 <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
                 <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}{a.statut === 'approuvee' && Number(a.solde) > 0 ? ` (reste ${fmtF(a.solde)})` : ''}</span>
             </div>
+            {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)' }}>{a.motif}</p>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <StatusBadge statut={a.statut} />
               {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
@@ -644,6 +654,7 @@ function Advances() {
             {staff.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
           </select>
           <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ ...smallInput, flex: '1 1 120px' }} />
+          <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif (facultatif)" style={{ ...smallInput, flex: '2 1 160px' }} />
           <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
             {submitting ? 'Envoi…' : 'Nouvelle demande'}
           </button>

@@ -38,6 +38,7 @@ export default function Reports() {
   const [attendance, setAttendance] = useState(null);
   const [classResults, setClassResults] = useState(null);
   const [effectifsMouvement, setEffectifsMouvement] = useState(null);
+  const [personnel, setPersonnel] = useState(null);
 
   // Présences de toute l'année, une seule requête groupée — les rapports
   // par période (jour/semaine/mois) filtrent ensuite ce même jeu de
@@ -84,10 +85,32 @@ export default function Reports() {
     return () => { cancelled = true; };
   }, [schoolYear?.id, students]);
 
+  // Masse salariale + avances + dépenses de l'année — mêmes tables/colonnes
+  // que Dashboard.jsx (PersonnelSection) et StaffDetail.jsx, jamais une
+  // deuxième formule, juste réagrégées ici pour les rapports financiers.
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    setPersonnel(null);
+    Promise.all([
+      supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
+      supabase.from('salary_advances').select('solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
+      supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id),
+    ]).then(([{ data: salaries }, { data: advances }, { data: expenses }]) => {
+      if (cancelled) return;
+      setPersonnel({
+        masseSalariale: (salaries || []).reduce((a, s) => a + Number(s.montant), 0),
+        avancesEnCours: (advances || []).reduce((a, s) => a + Number(s.solde), 0),
+        depenses: (expenses || []).reduce((a, s) => a + Number(s.montant), 0),
+      });
+    });
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
+
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
-  const commonProps = { school: profile.schools, schoolYear, students, attendance, classResults, effectifsMouvement };
+  const commonProps = { school: profile.schools, schoolYear, students, attendance, classResults, effectifsMouvement, personnel };
 
   return (
     <div>
@@ -170,7 +193,7 @@ function EffectifsReport({ school, schoolYear, students, effectifsMouvement }) {
   );
 }
 
-function FinancierReport({ school, schoolYear, students }) {
+function FinancierReport({ school, schoolYear, students, personnel }) {
   const parClasse = groupByClasse(students);
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
@@ -191,6 +214,10 @@ function FinancierReport({ school, schoolYear, students }) {
           const paye = c.items.reduce((a, s) => a + Number(s.montant_paye), 0);
           return [c.nom, du, paye, du - paye, du > 0 ? `${Math.round((paye / du) * 100)}%` : '0%'];
         }),
+        [],
+        ['Masse salariale versée', personnel ? personnel.masseSalariale : ''],
+        ['Avances sur salaire en cours', personnel ? personnel.avancesEnCours : ''],
+        ['Dépenses', personnel ? personnel.depenses : ''],
       ])}
     >
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 10 }}>
@@ -201,6 +228,15 @@ function FinancierReport({ school, schoolYear, students }) {
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
         <MiniStat label="Taux de recouvrement" value={`${tauxRecouv}%`} color="var(--success)" />
       </div>
+
+      <SectionTitle>Personnel</SectionTitle>
+      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 20 }}>
+        <MiniStat label="Masse salariale versée" value={personnel ? fmtF(personnel.masseSalariale) : '…'} color="var(--success)" />
+        <MiniStat label="Avances en cours" value={personnel ? fmtF(personnel.avancesEnCours) : '…'} color={personnel && personnel.avancesEnCours > 0 ? 'var(--amber)' : undefined} />
+        <MiniStat label="Dépenses" value={personnel ? fmtF(personnel.depenses) : '…'} color="var(--danger)" />
+      </div>
+
+      <SectionTitle>Recouvrement par classe</SectionTitle>
       <SimpleTable
         columns={['Classe', 'Dû', 'Payé', 'Reste', 'Taux']}
         rows={parClasse.map((c) => {
@@ -357,7 +393,7 @@ function ResultatsReport({ school, schoolYear, classResults }) {
   );
 }
 
-function SyntheseReport({ school, schoolYear, students, attendance, classResults, effectifsMouvement }) {
+function SyntheseReport({ school, schoolYear, students, attendance, classResults, effectifsMouvement, personnel }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
   const tauxRecouv = totalDu > 0 ? Math.round((totalPaye / totalDu) * 100) : 0;
@@ -403,9 +439,16 @@ function SyntheseReport({ school, schoolYear, students, attendance, classResults
       </div>
 
       <SectionTitle>Résultats scolaires</SectionTitle>
-      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 18 }}>
         <MiniStat label="Moyenne générale" value={moyenneEcole != null ? `${moyenneEcole.toFixed(2)}/20` : '—'} />
         <MiniStat label="Élèves avec des notes" value={(classResults || []).reduce((a, c) => a + Number(c.nb_avec_notes || 0), 0)} />
+      </div>
+
+      <SectionTitle>Personnel</SectionTitle>
+      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+        <MiniStat label="Masse salariale versée" value={personnel ? fmtF(personnel.masseSalariale) : '…'} color="var(--success)" />
+        <MiniStat label="Avances en cours" value={personnel ? fmtF(personnel.avancesEnCours) : '…'} color={personnel && personnel.avancesEnCours > 0 ? 'var(--amber)' : undefined} />
+        <MiniStat label="Dépenses" value={personnel ? fmtF(personnel.depenses) : '…'} color="var(--danger)" />
       </div>
     </ReportShell>
   );

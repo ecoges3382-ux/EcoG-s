@@ -2,7 +2,11 @@
 // sélection est actif (case à cocher sur chaque ligne à la place de
 // l'icône supprimer) — cohérente sur toutes les listes qui proposent une
 // sélection multiple (Élèves, Parents, Personnel).
-export default function SelectionBar({ count, allSelected, onCancel, onToggleAll, onDelete, deleting }) {
+//
+// actionLabel/actionColor : "Supprimer" en rouge par défaut (Élèves,
+// Parents, inchangé) — Personnel (Staff.jsx) passe "Archiver"/"Réactiver"
+// en neutre, l'action derrière onDelete n'y étant plus une suppression.
+export default function SelectionBar({ count, allSelected, onCancel, onToggleAll, onDelete, deleting, actionLabel = 'Supprimer', actionColor = 'var(--danger)', actionIcon }) {
   return (
     <div
       style={{
@@ -19,10 +23,10 @@ export default function SelectionBar({ count, allSelected, onCancel, onToggleAll
         type="button"
         onClick={onDelete}
         disabled={count === 0 || deleting}
-        style={{ ...pillStyle(), display: 'flex', alignItems: 'center', gap: 6, color: '#fff', background: count === 0 ? 'rgba(255,255,255,0.08)' : 'var(--danger)', opacity: deleting ? 0.7 : 1 }}
+        style={{ ...pillStyle(), display: 'flex', alignItems: 'center', gap: 6, color: '#fff', background: count === 0 ? 'rgba(255,255,255,0.08)' : actionColor, opacity: deleting ? 0.7 : 1 }}
       >
-        <TrashIcon />
-        Supprimer
+        {actionIcon || <TrashIcon />}
+        {actionLabel}
       </button>
     </div>
   );
