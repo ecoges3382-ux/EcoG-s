@@ -1553,3 +1553,99 @@ create policy "documents-bucket: lecture par école" on storage.objects
     bucket_id = 'documents' and (storage.foldername(name))[1] = current_school_id()::text
   );
 update storage.buckets set public = false where id = 'documents';
+
+-- ---------- Migration : cohérence multi-école sur payments/grades/attendance_records ----------
+-- Audit ciblé demandé après le lot précédent : mêmes principe que le
+-- correctif school_year_id/classe_id sur create_student_with_enrollment,
+-- mais au niveau RLS pour ces trois tables, en INSERT et en UPDATE quand la
+-- policy existe. Jusqu'ici seul school_id (le tenant de la ligne elle-même)
+-- était vérifié — rien ne garantissait que student_id/subject_id/
+-- school_year_id référencés appartiennent à CE MÊME school_id. Une policy
+-- UPDATE sans "with check" explicite reprend automatiquement son "using"
+-- pour la nouvelle valeur (comportement Postgres standard) — donc sans ce
+-- correctif, un update pouvait réassigner ces colonnes vers une ressource
+-- d'une autre école sans qu'aucune vérification ne s'y oppose.
+--
+-- ⚠️ Cette policy ne revalide PAS les lignes déjà existantes (une policy
+-- RLS insert/update n'agit que sur les futures écritures, jamais
+-- rétroactivement) : elle n'a donc aucun effet destructeur sur les données
+-- actuelles. Avant de l'exécuter, vérifie si des lignes existantes sont
+-- déjà incohérentes avec cette requête (elle ne modifie rien, juste un
+-- diagnostic) :
+--
+-- select 'payments' as table_name, p.id from payments p
+--   left join students s on s.id = p.student_id and s.school_id = p.school_id
+--   left join school_years sy on sy.id = p.school_year_id and sy.school_id = p.school_id
+--   where s.id is null or sy.id is null
+-- union all
+-- select 'grades', g.id from grades g
+--   left join students s on s.id = g.student_id and s.school_id = g.school_id
+--   left join subjects sub on sub.id = g.subject_id and sub.school_id = g.school_id
+--   left join school_years sy on sy.id = g.school_year_id and sy.school_id = g.school_id
+--   where s.id is null or sub.id is null or sy.id is null
+-- union all
+-- select 'attendance_records', a.id from attendance_records a
+--   left join students s on s.id = a.student_id and s.school_id = a.school_id
+--   left join school_years sy on sy.id = a.school_year_id and sy.school_id = a.school_id
+--   where s.id is null or sy.id is null;
+--
+-- Si cette requête renvoie des lignes, ne les modifie/supprime pas
+-- automatiquement — signale-les, elles demandent un arbitrage au cas par
+-- cas (donnée corrompue à corriger à la main, ou raison légitime oubliée).
+
+drop policy if exists "payments: insert" on payments;
+create policy "payments: insert" on payments
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    and created_by = auth.uid()
+    and exists (select 1 from students s where s.id = payments.student_id and s.school_id = payments.school_id)
+    and exists (select 1 from school_years sy where sy.id = payments.school_year_id and sy.school_id = payments.school_id)
+  );
+-- Pas de policy "payments: update" dans ce schéma (voir Migration 6 :
+-- ledger append-only, une correction passe par insert/delete, jamais par
+-- update) — rien à durcir ici, conforme à l'intégrité financière voulue.
+
+drop policy if exists "grades: insert" on grades;
+create policy "grades: insert" on grades
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+    and exists (select 1 from students s where s.id = grades.student_id and s.school_id = grades.school_id)
+    and exists (select 1 from subjects sub where sub.id = grades.subject_id and sub.school_id = grades.school_id)
+    and exists (select 1 from school_years sy where sy.id = grades.school_year_id and sy.school_id = grades.school_id)
+  );
+drop policy if exists "grades: update" on grades;
+create policy "grades: update" on grades
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+    and exists (select 1 from students s where s.id = grades.student_id and s.school_id = grades.school_id)
+    and exists (select 1 from subjects sub where sub.id = grades.subject_id and sub.school_id = grades.school_id)
+    and exists (select 1 from school_years sy where sy.id = grades.school_year_id and sy.school_id = grades.school_id)
+  );
+
+drop policy if exists "attendance_records: insert" on attendance_records;
+create policy "attendance_records: insert" on attendance_records
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+    and exists (select 1 from students s where s.id = attendance_records.student_id and s.school_id = attendance_records.school_id)
+    and exists (select 1 from school_years sy where sy.id = attendance_records.school_year_id and sy.school_id = attendance_records.school_id)
+  );
+drop policy if exists "attendance_records: update" on attendance_records;
+create policy "attendance_records: update" on attendance_records
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+    and exists (select 1 from students s where s.id = attendance_records.student_id and s.school_id = attendance_records.school_id)
+    and exists (select 1 from school_years sy where sy.id = attendance_records.school_year_id and sy.school_id = attendance_records.school_id)
+  );
