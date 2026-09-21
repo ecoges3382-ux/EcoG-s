@@ -2292,3 +2292,22 @@ end;
 $$;
 
 grant execute on function start_school_year_preparation(text, date, date) to authenticated;
+
+-- Frais de scolarité paramétrables par tranche (1ère/2ème/3ème) dans la
+-- grille tarifaire, plutôt qu'un seul montant global. montant_scolarite
+-- reste la somme des 3 tranches (recalculée côté frontend à chaque
+-- enregistrement) : tout le code existant qui lit montant_scolarite pour
+-- pré-remplir enrollments.montant_du (NewStudentModal, PrepareSchoolYear,
+-- start_school_year_preparation) continue de fonctionner sans changement.
+alter table fee_schedules add column if not exists montant_tranche1 numeric not null default 0;
+alter table fee_schedules add column if not exists montant_tranche2 numeric not null default 0;
+alter table fee_schedules add column if not exists montant_tranche3 numeric not null default 0;
+
+-- Backfill : les lignes déjà configurées avant l'ajout des tranches avaient
+-- seulement montant_scolarite. On verse tout dans la 1ère tranche pour ne
+-- pas perdre le montant total déjà saisi — l'école redistribue ensuite si
+-- besoin. Condition sur les 3 tranches à 0 : ne touche jamais une ligne
+-- déjà répartie par l'école, donc ce bloc reste sûr à ré-exécuter.
+update fee_schedules
+  set montant_tranche1 = montant_scolarite
+  where montant_tranche1 = 0 and montant_tranche2 = 0 and montant_tranche3 = 0 and montant_scolarite > 0;
