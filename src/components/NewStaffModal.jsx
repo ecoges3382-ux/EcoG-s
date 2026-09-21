@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
+import NameInput from './NameInput.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -65,10 +66,10 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Nom">
-            <input value={nom} onChange={(e) => setNom(e.target.value)} style={inputStyle} />
+            <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
           </Field>
           <Field label="Prénom">
-            <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={inputStyle} />
+            <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
           </Field>
         </div>
 

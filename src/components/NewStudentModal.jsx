@@ -5,6 +5,7 @@ import { generateAccessCode, displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
+import NameInput from './NameInput.jsx';
 
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, onClose, onCreated }) {
   const [studentNom, setStudentNom] = useState('');
@@ -242,11 +243,11 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Nom</label>
-            <input value={studentNom} onChange={(e) => setStudentNom(e.target.value)} style={inputStyle} />
+            <NameInput mode="upper" value={studentNom} onChange={setStudentNom} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Prénom</label>
-            <input value={studentPrenom} onChange={(e) => setStudentPrenom(e.target.value)} style={inputStyle} />
+            <NameInput mode="title" value={studentPrenom} onChange={setStudentPrenom} style={inputStyle} />
           </div>
         </div>
 
@@ -311,11 +312,11 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={labelStyle}>Nom du parent</label>
-                    <input value={parentNom} onChange={(e) => setParentNom(e.target.value)} style={inputStyle} />
+                    <NameInput mode="upper" value={parentNom} onChange={setParentNom} style={inputStyle} />
                   </div>
                   <div>
                     <label style={labelStyle}>Prénom du parent</label>
-                    <input value={parentPrenom} onChange={(e) => setParentPrenom(e.target.value)} style={inputStyle} />
+                    <NameInput mode="title" value={parentPrenom} onChange={setParentPrenom} style={inputStyle} />
                   </div>
                 </div>
                 <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>Laisser vide pour ne pas créer d'accès maintenant.</p>

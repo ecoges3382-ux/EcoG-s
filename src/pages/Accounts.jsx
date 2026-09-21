@@ -5,6 +5,7 @@ import { initials, ROLES, generateAccessCode, displayName, sortByRole } from '..
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
+import NameInput from '../components/NameInput.jsx';
 
 // La classe d'un élève est propre à l'année scolaire en cours
 // (enrollments) — students ne garde que son identité. Utilisé par les deux
@@ -400,11 +401,11 @@ function NewParentAccessModal({ onClose, onCreated }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Nom</label>
-            <input value={nom} onChange={(e) => setNom(e.target.value)} style={inputStyle} />
+            <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Prénom</label>
-            <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={inputStyle} />
+            <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
           </div>
         </div>
 
