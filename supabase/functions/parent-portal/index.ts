@@ -9,15 +9,58 @@
 // autorisations (jamais un student_id ou school_year_id fourni par le
 // navigateur pris comme preuve d'accès sans vérification serveur).
 //
-// Toute la logique de moyenne/classement de bulletin est importée de
-// src/lib/bulletin.js (même source que Grades.jsx côté admin) — jamais une
-// deuxième implémentation du calcul. Le classement a besoin des notes des
-// camarades de classe pour se calculer ; ce calcul reste donc côté serveur
-// (ici) et ne renvoie au parent que le rang final, jamais l'identité ou les
-// notes des autres élèves.
-
+// Le classement a besoin des notes de TOUTE la classe pour se calculer ;
+// ce calcul reste donc côté serveur (ici) et ne renvoie au parent que le
+// rang final, jamais l'identité ou les notes des autres élèves.
+//
+// Le déploiement de cette fonction se fait par copier-coller dans le
+// dashboard Supabase (pas la CLI) : un import relatif vers src/lib/bulletin.js
+// ne se résoudrait pas dans ce mode. PERIODES_BULLETIN et computeRang
+// ci-dessous sont donc une COPIE FIDÈLE de src/lib/bulletin.js — toute
+// modification de la formule de classement là-bas doit être répercutée ici
+// à la main, sous peine de faire diverger le rang vu par le parent de celui
+// du bulletin admin (Grades.jsx).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
-import { PERIODES_BULLETIN, computeRang } from '../../../src/lib/bulletin.js';
+
+const PERIODES_BULLETIN = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3'];
+
+type Grade = { student_id: string; subject_id: string; note: number; sur: number; periode: string };
+type Subject = { id: string; coefficient: number; niveau?: string | null };
+
+function subjectPeriodeMoyenne(grades: Grade[], studentId: string, subjectId: string, periode: string): number | null {
+  const notes = grades.filter((g) => g.student_id === studentId && g.subject_id === subjectId && g.periode === periode);
+  if (notes.length === 0) return null;
+  return notes.reduce((a, g) => a + (Number(g.note) / Number(g.sur)) * 20, 0) / notes.length;
+}
+
+function periodeMoyenneGenerale(subjects: Subject[], grades: Grade[], studentId: string, periode: string): number | null {
+  const avecNotes = subjects
+    .map((su) => ({ coefficient: Number(su.coefficient) || 0, moyenne: subjectPeriodeMoyenne(grades, studentId, su.id, periode) }))
+    .filter((l) => l.moyenne != null) as { coefficient: number; moyenne: number }[];
+  const sommeCoef = avecNotes.reduce((a, l) => a + l.coefficient, 0);
+  if (sommeCoef <= 0) return null;
+  return avecNotes.reduce((a, l) => a + l.moyenne * l.coefficient, 0) / sommeCoef;
+}
+
+function annualMoyenneGenerale(subjects: Subject[], grades: Grade[], studentId: string): number | null {
+  const valeurs = PERIODES_BULLETIN
+    .map((p) => periodeMoyenneGenerale(subjects, grades, studentId, p))
+    .filter((v): v is number => v != null);
+  if (valeurs.length === 0) return null;
+  return valeurs.reduce((a, v) => a + v, 0) / valeurs.length;
+}
+
+function computeRang(subjects: Subject[], grades: Grade[], classmateIds: string[], studentId: string, periode: string): { rang: number; total: number } | null {
+  const moyenneOf = (id: string) => (periode === 'annuel' ? annualMoyenneGenerale(subjects, grades, id) : periodeMoyenneGenerale(subjects, grades, id, periode));
+  const classes = classmateIds
+    .map((id) => ({ id, moyenne: moyenneOf(id) }))
+    .filter((c): c is { id: string; moyenne: number } => c.moyenne != null)
+    .sort((a, b) => b.moyenne - a.moyenne);
+  if (classes.length === 0) return null;
+  const index = classes.findIndex((c) => c.id === studentId);
+  if (index === -1) return null;
+  return { rang: index + 1, total: classes.length };
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
