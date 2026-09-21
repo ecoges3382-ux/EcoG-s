@@ -144,6 +144,17 @@ Deno.serve(async (req) => {
         .eq('school_id', schoolId);
       if (staffError) throw new Error(staffError.message);
 
+      // Filet de sécurité : platform_admins.user_id référence auth.users(id)
+      // ON DELETE CASCADE — supprimer le compte Auth d'un administrateur de
+      // la plateforme (parce qu'il est aussi personnel de cette école, ex.
+      // un compte créé via "Créer une école" avant d'être promu admin)
+      // supprimerait donc AUSSI sa ligne platform_admins, l'excluant
+      // possiblement lui-même (ou un collègue) de la plateforme sans
+      // confirmation explicite de ce risque précis.
+      if ((staffProfiles || []).some((p) => p.id === user.id)) {
+        throw new Error("Ton propre compte fait partie du personnel de cette école — la supprimer supprimerait aussi ton compte (et ton statut d'administrateur de la plateforme, qui en dépend). Retire d'abord ton profil de cette école (delete from profiles where id = '...'), ou demande à un autre administrateur de supprimer cette école.");
+      }
+
       for (const p of staffProfiles || []) {
         await adminClient.auth.admin.deleteUser(p.id);
       }
