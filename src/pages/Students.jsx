@@ -105,7 +105,6 @@ export default function Students() {
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
-  const classesPresentes = [...new Set(students.map((s) => s.niveau))];
   const filtered = classFilter === 'toutes' ? students : students.filter((s) => s.niveau === classFilter);
 
   function exportCsv() {
@@ -276,15 +275,23 @@ export default function Students() {
         >
           Toutes <span style={{ opacity: 0.7 }}>{students.length}</span>
         </button>
-        {classesPresentes.map((c) => (
-          <button
-            key={c}
-            onClick={() => setClassFilter(c)}
-            style={{ padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600, border: `1px solid ${classFilter === c ? 'var(--forest)' : 'var(--line-strong)'}`, background: classFilter === c ? 'var(--forest)' : 'var(--paper)', color: classFilter === c ? '#fff' : 'var(--ink)' }}
-          >
-            {c} <span style={{ opacity: 0.7 }}>{students.filter((s) => s.niveau === c).length}</span>
-          </button>
-        ))}
+        {/* Menu déroulant plutôt qu'un bouton par classe : une école avec
+            10+ classes ne peut pas toutes les lister une à une côte à côte. */}
+        <select
+          value={classFilter === 'toutes' ? '' : classFilter}
+          onChange={(e) => setClassFilter(e.target.value || 'toutes')}
+          style={{
+            padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
+            border: `1px solid ${classFilter !== 'toutes' ? 'var(--forest)' : 'var(--line-strong)'}`,
+            background: classFilter !== 'toutes' ? 'var(--forest)' : 'var(--paper)',
+            color: classFilter !== 'toutes' ? '#fff' : 'var(--ink)',
+          }}
+        >
+          <option value="">Filtrer par classe…</option>
+          {(classes || []).map((c) => (
+            <option key={c.id} value={c.nom}>{c.nom} ({students.filter((s) => s.niveau === c.nom).length})</option>
+          ))}
+        </select>
       </div>
 
       <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
