@@ -88,7 +88,7 @@ export default function ParentDetail() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640, marginBottom: 20 }}>
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640, marginBottom: 20 }}>
         <div className="card-bold" style={{ padding: '18px 20px' }}>
           <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Enfants dans l'école</p>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 700 }}>{children.length}</p>

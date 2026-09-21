@@ -149,7 +149,7 @@ function SubjectModal({ schoolId, teachers, classes, editing, onClose, onSaved }
         <label style={labelStyle}>Nom de la matière</label>
         <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Mathématiques" style={inputStyle} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Coefficient</label>
             <input type="number" min="1" step="1" value={coefficient} onChange={(e) => setCoefficient(e.target.value)} style={inputStyle} />

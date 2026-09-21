@@ -226,7 +226,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Nom</label>
             <NameInput mode="upper" value={studentNom} onChange={setStudentNom} style={inputStyle} />
@@ -237,7 +237,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
             <select value={classeId} onChange={(e) => setClasseId(e.target.value)} style={inputStyle}>
@@ -295,7 +295,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
             {parentMode === 'new' ? (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={labelStyle}>Nom du parent</label>
                     <NameInput mode="upper" value={parentNom} onChange={setParentNom} style={inputStyle} />

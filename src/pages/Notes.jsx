@@ -180,7 +180,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
             <select value={niveau} onChange={(e) => handleNiveauChange(e.target.value)} style={inputStyle}>
@@ -195,7 +195,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Matière</label>
             <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={inputStyle}>
@@ -210,7 +210,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Note</label>
             <input type="number" step="0.1" value={note} onChange={(e) => setNote(e.target.value)} style={inputStyle} />

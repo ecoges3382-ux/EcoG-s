@@ -387,7 +387,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Classe</label>
             <select value={classeFilter} onChange={(e) => handleClasseChange(e.target.value)} style={modalInputStyle}>
@@ -402,7 +402,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Type de frais</label>
             <select value={typeFrais} onChange={(e) => setTypeFrais(e.target.value)} style={modalInputStyle}>
@@ -415,7 +415,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Mode</label>
             <select value={mode} onChange={(e) => setMode(e.target.value)} style={modalInputStyle}>

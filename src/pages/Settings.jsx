@@ -96,17 +96,22 @@ export default function Settings() {
         )}
       </form>
 
-      {/* Grille tarifaire et calendrier de paiement : réglages à mettre en
+      {/* Calendrier de paiement et grille tarifaire : réglages à mettre en
           place avant de commencer à utiliser l'appli au quotidien — pas
           quelque chose qu'on va chercher dans Argent, directement visible
-          en entrant dans Paramètres. */}
+          en entrant dans Paramètres. Deux paramètres distincts, deux cartes. */}
+      {schoolYear && (
+        <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
+          <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
+        </div>
+      )}
+
       {schoolYear && (
         <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
           <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
           <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-            Calendrier de paiement et montants attendus par niveau pour {schoolYear.label}.
+            Montants attendus par niveau pour {schoolYear.label}.
           </p>
-          <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
           <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
         </div>
       )}
@@ -185,8 +190,8 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
   }
 
   return (
-    <div style={{ marginBottom: 22 }}>
-      <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Calendrier de paiement</p>
+    <div>
+      <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Calendrier de paiement</p>
       <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
         Une fois un délai dépassé, les élèves qui n'ont pas payé ce qu'il fallait à ce stade
         apparaissent automatiquement « à relancer » dans Élèves et Argent.
@@ -243,7 +248,7 @@ function CalDateDisplay({ label, value }) {
 }
 
 const calLabelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
-const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)', textAlign: 'center' };
+const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)' };
 
 // Seuil de moyenne annuelle (sur 20) à partir duquel un élève est classé
 // automatiquement "Passe" plutôt que "Redouble" lors de la préparation

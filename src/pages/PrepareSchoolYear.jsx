@@ -148,7 +148,7 @@ function CreateYearForm({ oldYear, onCreated }) {
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={labelStyle}>Date de début (facultatif)</label>
           <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={inputStyle} />

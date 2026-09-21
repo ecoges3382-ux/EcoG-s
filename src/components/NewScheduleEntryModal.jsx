@@ -74,7 +74,7 @@ export default function NewScheduleEntryModal({ schoolId, niveaux, enseignants, 
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Jour</label>
             <select value={jour} onChange={(e) => setJour(e.target.value)} style={inputStyle}>
@@ -89,7 +89,7 @@ export default function NewScheduleEntryModal({ schoolId, niveaux, enseignants, 
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
             <select value={classe} onChange={(e) => setClasse(e.target.value)} style={inputStyle}>

@@ -71,7 +71,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Nom">
             <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
           </Field>
@@ -80,7 +80,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </Field>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Rôle">
             <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -117,7 +117,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </div>
         </Field>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Téléphone">
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
           </Field>

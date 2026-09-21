@@ -86,7 +86,7 @@ export default function Dashboard() {
         Tableau de bord
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 22 }}>
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 22 }}>
         <div className="card-bold" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff' }}>
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement — scolarité</p>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>

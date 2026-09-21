@@ -398,7 +398,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
   return (
     <ModalShell title="Nouvel accès parent" onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Nom</label>
             <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />

@@ -151,7 +151,7 @@ function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Niveau</label>
             <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={inputStyle}>
@@ -167,7 +167,7 @@ function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
           Nom de la classe : <strong>{section.trim() ? `${niveau} ${section.trim()}` : niveau}</strong>
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Salle</label>
             <input value={salle} onChange={(e) => setSalle(e.target.value)} style={inputStyle} />
