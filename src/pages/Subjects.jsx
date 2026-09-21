@@ -34,8 +34,18 @@ export default function Subjects() {
   async function handleDelete(s) {
     if (!window.confirm(`Supprimer la matière ${s.nom} ?`)) return;
     const { error: deleteError } = await supabase.from('subjects').delete().eq('id', s.id);
-    if (deleteError) setError(deleteError.message);
-    else reload();
+    if (deleteError) {
+      // 23503 = violation de clé étrangère (RESTRICT) : la base bloque la
+      // suppression tant que des notes existent pour cette matière, plutôt
+      // que de les supprimer en cascade — voir schema.sql.
+      setError(
+        deleteError.code === '23503'
+          ? `Impossible de supprimer « ${s.nom} » : des notes existantes utilisent encore cette matière.`
+          : deleteError.message,
+      );
+      return;
+    }
+    reload();
   }
 
   return (

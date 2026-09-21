@@ -49,14 +49,19 @@ export default function Attendance() {
   const studentsInNiveau = (students || []).filter((s) => s.niveau === niveau);
 
   useEffect(() => {
-    if (!niveau || studentsInNiveau.length === 0) { setStatuts({}); return; }
+    if (!schoolYear || !niveau || studentsInNiveau.length === 0) { setStatuts({}); return; }
     setLoadingRecords(true);
     setSaved(false);
     const ids = studentsInNiveau.map((s) => s.id);
+    // school_year_id est nécessaire ici (pas seulement school_id/date) : la
+    // contrainte d'unicité porte sur (student_id, school_year_id, date) —
+    // un redoublant ou un élève réinscrit une autre année pourrait sinon
+    // faire remonter le statut d'une année différente pour la même date.
     supabase
       .from('attendance_records')
       .select('student_id, statut')
       .eq('date', date)
+      .eq('school_year_id', schoolYear.id)
       .in('student_id', ids)
       .then(({ data }) => {
         const map = {};
@@ -65,7 +70,7 @@ export default function Attendance() {
         setStatuts(map);
         setLoadingRecords(false);
       });
-  }, [niveau, date, students]);
+  }, [schoolYear?.id, niveau, date, students]);
 
   async function handleSave() {
     setSaving(true);
@@ -73,7 +78,7 @@ export default function Attendance() {
     const rows = studentsInNiveau.map((s) => ({
       school_id: profile.school_id, school_year_id: schoolYear.id, student_id: s.id, date, statut: statuts[s.id] || 'present',
     }));
-    const { error: upsertError } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'student_id,date' });
+    const { error: upsertError } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'student_id,school_year_id,date' });
     setSaving(false);
     if (upsertError) setError(upsertError.message);
     else setSaved(true);

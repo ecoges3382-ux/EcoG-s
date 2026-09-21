@@ -1705,3 +1705,128 @@ $$;
 insert into school_years (school_id, label, is_current)
 select id, '2026-2027', true from schools
 where not exists (select 1 from school_years sy where sy.school_id = schools.id and sy.is_current);
+
+-- ---------- Migration : audit architectural — pertes de données par cascade/orphelinage ----------
+-- Suite à l'audit "Années scolaires & modèle de données" (P0-2, P1-4, P1-5,
+-- P1-6). Ne touche ni à school_years, ni au changement d'année, ni à la RLS
+-- déjà validée — uniquement les deux relations FK identifiées comme
+-- destructrices et la contrainte d'unicité des présences.
+--
+-- Les deux blocs ci-dessous localisent le nom réel de la contrainte FK
+-- existante via le catalogue système (pg_constraint) plutôt que de deviner
+-- le nom auto-généré par Postgres — plus robuste, et surtout rejouable :
+-- exécuté une seconde fois, le bloc retrouve la contrainte qu'il vient de
+-- créer (elle référence toujours la même table/colonne) et la remplace par
+-- une identique, sans erreur ni double contrainte.
+
+-- 1) subjects → grades : ON DELETE CASCADE remplacé par RESTRICT.
+-- Avant ce correctif, supprimer une matière supprimait silencieusement
+-- toutes les notes jamais saisies pour elle, sur toutes les années — aucune
+-- ligne existante n'est touchée par ce changement, seul le comportement
+-- d'une FUTURE suppression change (RESTRICT ne s'applique qu'au moment du
+-- DELETE, jamais rétroactivement).
+do $$
+declare
+  v_conname text;
+begin
+  select con.conname into v_conname
+  from pg_constraint con
+  join pg_attribute att on att.attrelid = con.conrelid and att.attnum = any(con.conkey)
+  where con.contype = 'f'
+    and con.conrelid = 'grades'::regclass
+    and con.confrelid = 'subjects'::regclass
+    and att.attname = 'subject_id'
+  limit 1;
+
+  if v_conname is not null then
+    execute format('alter table grades drop constraint %I', v_conname);
+  end if;
+
+  alter table grades add constraint grades_subject_id_fkey
+    foreign key (subject_id) references subjects(id) on delete restrict;
+end $$;
+
+-- 2) classes → enrollments : ON DELETE SET NULL remplacé par RESTRICT.
+-- Avant ce correctif, supprimer une classe mettait classe_id = null sur
+-- toute inscription (même passée) qui la référençait, faisant perdre
+-- silencieusement l'information "quelle classe" pour cet historique. Même
+-- principe : aucune ligne existante modifiée, seul le comportement d'une
+-- future suppression change.
+do $$
+declare
+  v_conname text;
+begin
+  select con.conname into v_conname
+  from pg_constraint con
+  join pg_attribute att on att.attrelid = con.conrelid and att.attnum = any(con.conkey)
+  where con.contype = 'f'
+    and con.conrelid = 'enrollments'::regclass
+    and con.confrelid = 'classes'::regclass
+    and att.attname = 'classe_id'
+  limit 1;
+
+  if v_conname is not null then
+    execute format('alter table enrollments drop constraint %I', v_conname);
+  end if;
+
+  alter table enrollments add constraint enrollments_classe_id_fkey
+    foreign key (classe_id) references classes(id) on delete restrict;
+end $$;
+
+-- Vérifié : ce sont les DEUX SEULES références à subjects(id)/classes(id)
+-- dans tout le schéma (grep sur "references subjects" / "references
+-- classes(") — aucune autre cascade ou set null ne présente le même risque
+-- pour ces deux tables.
+
+-- 3) attendance_records : unique(student_id, date) remplacé par
+-- unique(student_id, school_year_id, date), cohérent avec le reste du
+-- modèle multi-année (enrollments/payments/grades le sont déjà).
+--
+-- Diagnostic AVANT modification (lecture seule, à exécuter séparément si tu
+-- veux vérifier par toi-même) — par construction, ne peut renvoyer aucune
+-- ligne : l'ancienne contrainte unique(student_id, date) est STRICTEMENT
+-- plus restrictive que la nouvelle (elle porte sur moins de colonnes), donc
+-- aucun doublon incompatible ne peut exister pour la nouvelle contrainte :
+--
+-- select student_id, school_year_id, date, count(*)
+-- from attendance_records
+-- group by student_id, school_year_id, date
+-- having count(*) > 1;
+-- -- Attendu : 0 ligne.
+do $$
+declare
+  v_conname text;
+begin
+  select con.conname into v_conname
+  from pg_constraint con
+  where con.contype = 'u'
+    and con.conrelid = 'attendance_records'::regclass
+    and (
+      select array_agg(att.attname order by att.attname)
+      from unnest(con.conkey) k(attnum)
+      join pg_attribute att on att.attrelid = con.conrelid and att.attnum = k.attnum
+    ) = array['date', 'student_id']::name[]
+  limit 1;
+
+  if v_conname is not null then
+    execute format('alter table attendance_records drop constraint %I', v_conname);
+  end if;
+end $$;
+
+create unique index if not exists attendance_records_student_year_date_uidx
+  on attendance_records(student_id, school_year_id, date);
+
+-- 4) Index manquants sur school_id : chaque policy RLS de ces tables filtre
+-- "school_id = current_school_id()" sur CHAQUE lecture — sans index, c'est
+-- un scan complet de la table à l'échelle de plusieurs dizaines/centaines
+-- d'écoles. Additif, sans risque, aucune donnée modifiée.
+create index if not exists students_school_id_idx on students(school_id);
+create index if not exists classes_school_id_idx on classes(school_id);
+create index if not exists subjects_school_id_idx on subjects(school_id);
+create index if not exists staff_school_id_idx on staff(school_id);
+create index if not exists documents_school_id_idx on documents(school_id);
+create index if not exists announcements_school_id_idx on announcements(school_id);
+create index if not exists expenses_school_id_idx on expenses(school_id);
+create index if not exists salary_advances_school_id_idx on salary_advances(school_id);
+create index if not exists schedule_entries_school_id_idx on schedule_entries(school_id);
+create index if not exists parent_access_school_id_idx on parent_access(school_id);
