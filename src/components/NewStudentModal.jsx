@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { generateAccessCode, displayName } from '../lib/utils.js';
+import { generateAccessCode, displayName, fmtF, TRANCHES, MODES } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
@@ -18,14 +18,22 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const selectedClasse = classes.find((c) => c.id === classeId);
+  // Paiement encaissé sur place au moment de l'inscription (le parent paie
+  // souvent immédiatement) : facultatif, montant libre — un parent peut
+  // payer moins ou plus que le montant officiel de la tranche choisie.
+  const [paiementTranche, setPaiementTranche] = useState(TRANCHES[0].id);
+  const [paiementMontant, setPaiementMontant] = useState(0);
+  const [paiementMode, setPaiementMode] = useState(MODES[0].id);
 
-  // Grille tarifaire (Argent → Grille tarifaire) : pré-remplit le montant dû
-  // selon le niveau choisi, tant que l'utilisateur ne l'a pas modifié à la
-  // main (bourse, réduction…).
+  const selectedClasse = classes.find((c) => c.id === classeId);
+  const fraisInscription = selectedClasse ? Number(feeSchedules[selectedClasse.niveau]?.montant_inscription) || 0 : 0;
+
+  // Grille tarifaire (Paramètres → Grille tarifaire) : pré-remplit le
+  // montant dû selon le niveau choisi, tant que l'utilisateur ne l'a pas
+  // modifié à la main (bourse, réduction…).
   useEffect(() => {
     if (!schoolYearId) return;
-    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe').eq('school_year_id', schoolYearId).then(({ data }) => {
+    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe, montant_inscription').eq('school_year_id', schoolYearId).then(({ data }) => {
       const map = {};
       (data || []).forEach((f) => { map[f.niveau] = f; });
       setFeeSchedules(map);
@@ -106,6 +114,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       p_montant_du: Number(montantDu) || 0,
       p_frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
       p_existing_parent_access_id: isExistingParent ? existingParentId : null,
+      p_paiement_montant: Number(paiementMontant) || 0,
+      p_paiement_tranche: paiementTranche,
+      p_paiement_mode: paiementMode,
+      p_frais_inscription_montant: fraisInscription,
     });
     if (rpcError) {
       setSubmitting(false);
@@ -256,9 +268,51 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         {selectedClasse && !feeSchedules[selectedClasse.niveau] && (
           <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>
             Aucun tarif configuré pour {selectedClasse.niveau} — configure la grille tarifaire dans
-            Argent pour un pré-remplissage automatique la prochaine fois.
+            Paramètres pour un pré-remplissage automatique la prochaine fois.
           </p>
         )}
+
+        {/* Le parent paie souvent sur place au moment de l'inscription : on
+            évite de rouvrir Argent juste après pour ressaisir le même
+            paiement séparément. */}
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 18 }}>
+          <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Paiement à l'inscription</p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
+            Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui.
+          </p>
+
+          {fraisInscription > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--forest-light)', marginBottom: 14 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--forest-dark)' }}>Frais d'inscription</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>Montant fixe, encaissé avec l'inscription</p>
+              </div>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--forest-dark)' }}>{fmtF(fraisInscription)}</p>
+            </div>
+          )}
+
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: paiementMontant > 0 ? 12 : 0 }}>
+            <div>
+              <label style={labelStyle}>Pour</label>
+              <select value={paiementTranche} onChange={(e) => setPaiementTranche(e.target.value)} style={inputStyle}>
+                {TRANCHES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Montant versé</label>
+              <MoneyInput value={paiementMontant} onChange={setPaiementMontant} style={inputStyle} suffix="F CFA" />
+            </div>
+          </div>
+
+          {paiementMontant > 0 && (
+            <div>
+              <label style={labelStyle}>Mode de paiement</label>
+              <select value={paiementMode} onChange={(e) => setPaiementMode(e.target.value)} style={inputStyle}>
+                {MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
 
         <label style={labelStyle}>Photo (facultatif)</label>
         <div style={{ marginBottom: 18 }}>

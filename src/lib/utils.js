@@ -123,6 +123,29 @@ export function sortClasses(list) {
   });
 }
 
+// Certaines écoles fonctionnent en 2 tranches, d'autres en 3 — la liste
+// reste la même pour toutes, une école à 2 tranches n'utilise juste pas la
+// 3ème. "partiel" reste géré en affichage pour d'anciens paiements
+// enregistrés avant ce champ (voir trancheLabel), mais n'est plus proposé
+// à la saisie.
+export const TRANCHES = [
+  { id: 'tranche1', label: '1ère tranche' },
+  { id: 'tranche2', label: '2ème tranche' },
+  { id: 'tranche3', label: '3ème tranche' },
+  { id: 'moitie', label: 'Moitié' },
+  { id: 'complet', label: 'Complet' },
+];
+export function trancheLabel(id) {
+  return TRANCHES.find((t) => t.id === id)?.label || (id === 'partiel' ? 'Partiel' : id);
+}
+
+export const MODES = [
+  { id: 'especes', label: 'Espèces' },
+  { id: 'mobile_money', label: 'Mobile Money' },
+  { id: 'virement', label: 'Virement' },
+  { id: 'cheque', label: 'Chèque' },
+];
+
 export const ROLES = {
   fondateur: { label: 'Fondateur' },
   directeur: { label: 'Directeur' },

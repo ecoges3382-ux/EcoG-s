@@ -2311,3 +2311,87 @@ alter table fee_schedules add column if not exists montant_tranche3 numeric not 
 update fee_schedules
   set montant_tranche1 = montant_scolarite
   where montant_tranche1 = 0 and montant_tranche2 = 0 and montant_tranche3 = 0 and montant_scolarite > 0;
+
+-- Frais d'inscription (montant fixe, non négociable, par niveau) dans la
+-- grille tarifaire — payé en entier à l'inscription ou la réinscription,
+-- pas suivi comme un "dû" qui s'étale dans le temps (contrairement à la
+-- scolarité) : pas de colonne _du/_paye associée sur enrollments, juste un
+-- montant à encaisser en une fois au moment de l'inscription.
+alter table fee_schedules add column if not exists montant_inscription numeric not null default 0;
+
+-- Inscription d'un élève : le parent paie souvent sur place au même
+-- moment (tout ou partie de la 1ère tranche, plus les frais d'inscription
+-- non négociables) — jusqu'ici il fallait rouvrir Argent juste après pour
+-- ressaisir ce même paiement séparément. La fonction accepte maintenant ces
+-- paiements en paramètres optionnels et les enregistre dans la même
+-- transaction que l'élève et son inscription ("security invoker", donc
+-- toujours soumis à la RLS de "payments" — aucune élévation de privilège).
+--
+-- CREATE OR REPLACE FUNCTION ne remplace une fonction en place que si sa
+-- liste de types d'arguments est identique à l'ancienne ; avec 4
+-- paramètres en plus ici, ce serait sinon une simple surcharge qui laisse
+-- l'ancienne version à 12 arguments orpheline en base. D'où le drop
+-- explicite de l'ancienne signature avant de recréer — sûr à ré-exécuter
+-- (le "if exists" ne trouve plus rien à supprimer dès la 2e fois).
+drop function if exists create_student_with_enrollment(uuid, text, text, text, text, text, text, uuid, uuid, numeric, numeric, uuid);
+
+create or replace function create_student_with_enrollment(
+  p_school_id uuid,
+  p_nom text,
+  p_prenom text,
+  p_full_name text,
+  p_parent_phone text,
+  p_photo_url text,
+  p_matricule text,
+  p_school_year_id uuid,
+  p_classe_id uuid,
+  p_montant_du numeric,
+  p_frais_connexe_du numeric,
+  p_existing_parent_access_id uuid default null,
+  p_paiement_montant numeric default null,
+  p_paiement_tranche text default null,
+  p_paiement_mode text default null,
+  p_frais_inscription_montant numeric default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_student_id uuid;
+begin
+  if not exists (select 1 from school_years sy where sy.id = p_school_year_id and sy.school_id = p_school_id) then
+    raise exception 'Année scolaire invalide pour cette école.';
+  end if;
+  if p_classe_id is not null and not exists (select 1 from classes c where c.id = p_classe_id and c.school_id = p_school_id) then
+    raise exception 'Classe invalide pour cette école.';
+  end if;
+
+  insert into students (school_id, full_name, nom, prenom, parent_phone, photo_url, matricule)
+  values (p_school_id, p_full_name, p_nom, p_prenom, p_parent_phone, p_photo_url, p_matricule)
+  returning id into v_student_id;
+
+  insert into enrollments (school_id, school_year_id, student_id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye)
+  values (p_school_id, p_school_year_id, v_student_id, p_classe_id, coalesce(p_montant_du, 0), 0, coalesce(p_frais_connexe_du, 0), 0);
+
+  if p_existing_parent_access_id is not null then
+    insert into parent_access_students (parent_access_id, student_id)
+    values (p_existing_parent_access_id, v_student_id);
+  end if;
+
+  if p_paiement_montant is not null and p_paiement_montant > 0 then
+    insert into payments (school_id, school_year_id, student_id, type_frais, montant, mode, tranche, date)
+    values (p_school_id, p_school_year_id, v_student_id, 'scolarite', p_paiement_montant, coalesce(p_paiement_mode, 'especes'), coalesce(p_paiement_tranche, 'complet'), current_date);
+  end if;
+
+  if p_frais_inscription_montant is not null and p_frais_inscription_montant > 0 then
+    insert into payments (school_id, school_year_id, student_id, type_frais, montant, mode, tranche, date)
+    values (p_school_id, p_school_year_id, v_student_id, 'inscription', p_frais_inscription_montant, coalesce(p_paiement_mode, 'especes'), 'complet', current_date);
+  end if;
+
+  return v_student_id;
+end;
+$$;
+
+grant execute on function create_student_with_enrollment(uuid, text, text, text, text, text, text, uuid, uuid, numeric, numeric, uuid, numeric, text, text, numeric) to authenticated;

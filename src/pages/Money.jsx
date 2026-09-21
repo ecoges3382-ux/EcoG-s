@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials } from '../lib/utils.js';
+import { fmtF, initials, TRANCHES, MODES, trancheLabel } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import { computeRelance } from '../lib/retard.js';
 import MoneyInput from '../components/MoneyInput.jsx';
@@ -22,27 +22,6 @@ const TYPES_FRAIS = [
   { id: 'inscription', label: 'Inscription' },
   { id: 'autre', label: 'Autre' },
 ];
-const MODES = [
-  { id: 'especes', label: 'Espèces' },
-  { id: 'mobile_money', label: 'Mobile Money' },
-  { id: 'virement', label: 'Virement' },
-  { id: 'cheque', label: 'Chèque' },
-];
-// Certaines écoles fonctionnent en 2 tranches, d'autres en 3 — la liste
-// reste la même pour toutes, une école à 2 tranches n'utilise juste pas la
-// 3ème. "partiel" reste géré en affichage pour d'anciens paiements
-// enregistrés avant ce champ (voir tranceLabel), mais n'est plus proposé
-// à la saisie.
-const TRANCHES = [
-  { id: 'tranche1', label: '1ère tranche' },
-  { id: 'tranche2', label: '2ème tranche' },
-  { id: 'tranche3', label: '3ème tranche' },
-  { id: 'moitie', label: 'Moitié' },
-  { id: 'complet', label: 'Complet' },
-];
-function trancheLabel(id) {
-  return TRANCHES.find((t) => t.id === id)?.label || (id === 'partiel' ? 'Partiel' : id);
-}
 
 export default function Money() {
   const [tab, setTab] = useState('vue');
