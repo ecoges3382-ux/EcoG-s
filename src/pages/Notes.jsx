@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation' },
@@ -14,7 +15,7 @@ const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Se
 
 export default function Notes() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState(null);
@@ -69,6 +70,7 @@ export default function Notes() {
   return (
     <div>
       <SchoolTabs />
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Notes</p>
         <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>

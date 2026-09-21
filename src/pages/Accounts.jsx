@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials, ROLES, generateAccessCode, displayName, sortByRole } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
 import NameInput from '../components/NameInput.jsx';

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 function appreciation(moyenne) {
   if (moyenne >= 16) return 'Excellent';
@@ -14,7 +15,7 @@ function appreciation(moyenne) {
 
 export default function Grades() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState(null);
@@ -71,6 +72,7 @@ export default function Grades() {
   return (
     <div>
       <SchoolTabs />
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Bulletins scolaires</p>
 
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}

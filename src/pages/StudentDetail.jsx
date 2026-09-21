@@ -3,9 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -13,7 +14,7 @@ export default function StudentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [student, setStudent] = useState(null);
   // undefined = pas encore chargé, null = chargé mais aucune inscription
   // cette année (élève sans classe pour l'année en cours).
@@ -87,6 +88,7 @@ export default function StudentDetail() {
       <Link to="/eleves" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux élèves
       </Link>
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
         <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden' }}>
           {student.photo_url ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(student.full_name)}
@@ -122,7 +124,7 @@ export default function StudentDetail() {
         </div>
       ) : (
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>
-          Pas d'inscription pour l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.
+          Pas d'inscription pour {isHistorical ? 'cette année scolaire' : "l'année scolaire en cours"}{schoolYear ? ` (${schoolYear.label})` : ''}.
         </p>
       )}
 
@@ -151,14 +153,20 @@ export default function StudentDetail() {
       </div>
 
       {CAN_DELETE_ROLES.includes(profile.role) && (
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          style={{ marginTop: 24, padding: '10px 18px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
-        >
-          {deleting ? 'Suppression…' : "Supprimer l'élève"}
-        </button>
+        isHistorical ? (
+          <p style={{ marginTop: 24, fontSize: 12, color: 'var(--muted)' }}>
+            Suppression désactivée en consultation d'un historique — reviens à l'année en cours pour supprimer cet élève.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ marginTop: 24, padding: '10px 18px', borderRadius: 9, border: '1px solid var(--danger)', background: 'none', color: 'var(--danger)', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer', opacity: deleting ? 0.7 : 1 }}
+          >
+            {deleting ? 'Suppression…' : "Supprimer l'élève"}
+          </button>
+        )
       )}
     </div>
   );

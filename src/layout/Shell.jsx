@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
+import { SchoolYearProvider } from '../lib/schoolYear.jsx';
+import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
@@ -67,6 +69,7 @@ export default function Shell() {
   }, []);
 
   return (
+    <SchoolYearProvider schoolId={profile?.school_id}>
     <div id="app">
       <div className="topbar-row" style={{ background: 'var(--forest)', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
@@ -80,6 +83,7 @@ export default function Shell() {
           </p>
         </div>
         <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+          <SchoolYearSelector />
           {isPlatformAdmin && (
             <NavLink
               to="/admin"
@@ -131,5 +135,6 @@ export default function Shell() {
         })}
       </div>
     </div>
+    </SchoolYearProvider>
   );
 }

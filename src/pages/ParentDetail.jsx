@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 

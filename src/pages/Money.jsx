@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, TRANCHES, MODES, trancheLabel } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import MoneyInput from '../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -25,10 +26,12 @@ const TYPES_FRAIS = [
 
 export default function Money() {
   const [tab, setTab] = useState('vue');
+  const { schoolYear, isHistorical } = useSelectedSchoolYear();
 
   return (
     <div>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Argent</p>
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>
         {TABS.map((t) => (
           <button
@@ -54,7 +57,7 @@ export default function Money() {
 // cours (table enrollments) — students ne garde que son identité.
 function useEnrollments() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -166,7 +169,7 @@ function FraisConnexes() {
 
 function Payments() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
   const [students, setStudents] = useState([]);

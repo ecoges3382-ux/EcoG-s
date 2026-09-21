@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 export default function Reports() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [staff, setStaff] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -45,6 +46,7 @@ export default function Reports() {
   return (
     <div>
       <SchoolTabs />
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Rapports & statistiques</p>
         <button onClick={() => window.print()} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>

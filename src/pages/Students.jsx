@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 // Une fois un calendrier de paiement configuré (Argent → Grille tarifaire),
 // le statut se base sur les délais dépassés plutôt que sur un pourcentage
@@ -47,7 +48,7 @@ function TrashIcon() {
 
 export default function Students() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [classes, setClasses] = useState(null);
   const [error, setError] = useState('');
@@ -58,7 +59,10 @@ export default function Students() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
-  const canDelete = CAN_DELETE_ROLES.includes(profile.role);
+  // Suppression désactivée en consultation d'un historique : c'est une
+  // action globale et irréversible sur l'identité de l'élève (students),
+  // pas une correction propre à l'année consultée.
+  const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
 
   // La liste des élèves vient des inscriptions de l'année scolaire en
   // cours (enrollments), pas directement de "students" — c'est elle qui
@@ -233,24 +237,29 @@ export default function Students() {
   return (
     <div>
       <SchoolTabs />
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Élèves</p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
             <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter
           </button>
-          <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
-            <i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
-            {importing ? 'Import…' : 'Importer'}
-            <input type="file" accept=".csv,text/csv" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
-          </label>
-          <button
-            onClick={() => setModalOpen(true)}
-            disabled={classes === null || !schoolYear}
-            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !schoolYear ? 0.7 : 1 }}
-          >
-            <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
-          </button>
+          {!isHistorical && (
+            <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
+              <i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
+              {importing ? 'Import…' : 'Importer'}
+              <input type="file" accept=".csv,text/csv" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
+            </label>
+          )}
+          {!isHistorical && (
+            <button
+              onClick={() => setModalOpen(true)}
+              disabled={classes === null || !schoolYear}
+              style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !schoolYear ? 0.7 : 1 }}
+            >
+              <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
+            </button>
+          )}
           {canDelete && !selectMode && (
             <button
               onClick={() => setSelectMode(true)}

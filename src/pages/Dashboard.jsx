@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -12,7 +13,7 @@ function todayIso() {
 
 export default function Dashboard() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [absentsAujourdhui, setAbsentsAujourdhui] = useState(0);
   const [paiementsDuJour, setPaiementsDuJour] = useState({ montant: 0, count: 0 });
@@ -85,6 +86,7 @@ export default function Dashboard() {
       <p className="page-title" style={{ margin: '0 0 22px', fontFamily: 'var(--serif)', fontSize: 26, fontWeight: 600, color: 'var(--ink)' }}>
         Tableau de bord
       </p>
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 22 }}>
         <div className="card-bold" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff' }}>

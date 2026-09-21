@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 
 const STATUTS = [
   { id: 'present', label: 'Présent', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -17,7 +18,7 @@ function todayIso() {
 
 export default function Attendance() {
   const { profile } = useAuth();
-  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
   const [niveau, setNiveau] = useState('');
@@ -93,6 +94,7 @@ export default function Attendance() {
   return (
     <div>
       <SchoolTabs />
+      {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Présences</p>
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>

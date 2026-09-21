@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import { NIVEAUX } from '../lib/utils.js';
 import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
