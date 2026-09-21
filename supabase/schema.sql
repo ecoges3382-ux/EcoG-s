@@ -1311,6 +1311,19 @@ as $$
 declare
   v_student_id uuid;
 begin
+  -- school_year_id/classe_id sont des uuid non énumérables (le client ne
+  -- peut pas les lire pour une autre école via la RLS), mais rien ne
+  -- garantit qu'ils appartiennent bien à p_school_id si jamais l'un d'eux
+  -- fuit par un autre canal — la RLS de "enrollments" ne le vérifiait pas
+  -- non plus. Vérifié explicitement ici plutôt que de se reposer sur la
+  -- seule inaccessibilité pratique des identifiants d'une autre école.
+  if not exists (select 1 from school_years sy where sy.id = p_school_year_id and sy.school_id = p_school_id) then
+    raise exception 'Année scolaire invalide pour cette école.';
+  end if;
+  if p_classe_id is not null and not exists (select 1 from classes c where c.id = p_classe_id and c.school_id = p_school_id) then
+    raise exception 'Classe invalide pour cette école.';
+  end if;
+
   insert into students (school_id, full_name, nom, prenom, parent_phone, photo_url, matricule)
   values (p_school_id, p_full_name, p_nom, p_prenom, p_parent_phone, p_photo_url, p_matricule)
   returning id into v_student_id;
@@ -1491,3 +1504,52 @@ create table if not exists parent_access_attempts (
 );
 create index if not exists parent_access_attempts_ip_time_idx on parent_access_attempts (ip, created_at);
 alter table parent_access_attempts enable row level security;
+
+-- ---------- Migration : correctifs suite à vérification du lot sécurité ----------
+-- Trois trous confirmés par relecture ligne à ligne après le lot précédent
+-- (voir le rapport de vérification) : aucun n'a été détecté par du code qui
+-- tournait déjà — ils concernent des cas qui n'arrivent jamais via l'appli
+-- normale, seulement via un appel direct à l'API construit à la main.
+
+-- 1) payments.created_by falsifiable : DEFAULT auth.uid() ne s'applique que
+-- si le client OMET la colonne. Rien n'empêchait un insert direct à l'API
+-- d'envoyer explicitement created_by = l'UUID de quelqu'un d'autre, ce qui
+-- aurait permis de faire porter une transaction litigieuse sur un tiers —
+-- annulant exactement l'objectif de la colonne. Ajout de la vérification
+-- dans la policy elle-même : la valeur doit obligatoirement correspondre à
+-- l'utilisateur réellement authentifié, qu'elle soit fournie explicitement
+-- ou laissée au DEFAULT (les deux aboutissent à la même valeur au moment où
+-- la policy est évaluée, donc aucun changement de comportement pour l'appli
+-- normale, qui ne renseigne jamais ce champ).
+drop policy if exists "payments: insert" on payments;
+create policy "payments: insert" on payments
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    and created_by = auth.uid()
+  );
+
+-- 2) Cohérence school_year_id/classe_id : voir la nouvelle version de
+-- create_student_with_enrollment ci-dessus (modifiée en place, pas encore
+-- exécutée sur une vraie base au moment de ce correctif — cf. rapport).
+
+-- 3) Bucket "documents" : l'ordre des instructions du bloc précédent
+-- posait un risque en cas d'exécution interrompue en plein milieu (déjà
+-- arrivé sur ce projet par le passé) — le bucket pouvait se retrouver
+-- marqué "privé" alors que l'ancienne policy "lecture publique" existait
+-- encore, qui reste active tant qu'elle n'est pas supprimée (les policies
+-- RLS permissives se combinent en OR, le drapeau "public" du bucket ne
+-- court-circuite que la voie d'URL publique anonyme, pas la RLS elle-même
+-- sur la voie authentifiée/signée). Rejoué ici dans le bon ordre : la
+-- nouvelle policy restrictive doit exister et l'ancienne doit être retirée
+-- AVANT de couper la voie publique — ainsi, à chaque étape intermédiaire,
+-- l'accès n'est jamais plus large qu'avant ce correctif, seulement égal ou
+-- plus restreint. Idempotent (rejouable même si la version précédente du
+-- bloc a déjà tourné).
+drop policy if exists "documents-bucket: lecture publique" on storage.objects;
+drop policy if exists "documents-bucket: lecture par école" on storage.objects;
+create policy "documents-bucket: lecture par école" on storage.objects
+  for select using (
+    bucket_id = 'documents' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+update storage.buckets set public = false where id = 'documents';

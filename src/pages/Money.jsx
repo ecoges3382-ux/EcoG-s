@@ -288,9 +288,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
   // frappe ni à chaque tentative d'envoi) : si la même soumission part deux
   // fois (double-clic qui passe outre le bouton désactivé, retry réseau),
   // les deux requêtes portent la même clé. La contrainte unique côté base
-  // (voir supabase/schema.sql) rejette la 2e avec l'erreur 23505, qu'on
-  // traite ci-dessous comme "déjà enregistré" plutôt que comme un échec —
-  // une vraie protection serveur, pas seulement le bouton désactivé.
+  // (voir supabase/schema.sql) rejette la 2e avec l'erreur 23505.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   async function handleSubmit(e) {
@@ -301,17 +299,47 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     }
     setSubmitting(true);
     setError('');
-    const { error: insertError } = await supabase.from('payments').insert({
+    const payload = {
       school_id: schoolId, school_year_id: schoolYearId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, tranche, date, note: note.trim() || null,
       idempotency_key: idempotencyKey,
-    });
+    };
+    const { error: insertError } = await supabase.from('payments').insert(payload);
+
     if (insertError && insertError.code === '23505') {
-      // Cette clé a déjà été enregistrée avec succès par une requête
-      // précédente (retry réseau ou double envoi) : rien à refaire.
+      // Cette clé existe déjà en base : une tentative précédente (retry
+      // réseau, double envoi) a réussi côté serveur sans que ce client le
+      // sache. On ne traite jamais ça comme un succès silencieux — on
+      // relit la ligne déjà enregistrée pour confirmer qu'elle correspond
+      // bien à cette soumission avant de fermer le formulaire.
+      const { data: existing, error: fetchError } = await supabase
+        .from('payments')
+        .select('student_id, type_frais, montant, mode, tranche, date')
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle();
       setSubmitting(false);
-      onCreated();
+      if (fetchError || !existing) {
+        setError("Ce paiement semble déjà avoir été enregistré, mais impossible de le confirmer. Vérifie la liste des paiements avant de réessayer.");
+        return;
+      }
+      const matches = existing.student_id === payload.student_id
+        && existing.type_frais === payload.type_frais
+        && Number(existing.montant) === payload.montant
+        && existing.mode === payload.mode
+        && existing.tranche === payload.tranche
+        && existing.date === payload.date;
+      if (matches) {
+        // Même paiement, déjà enregistré par la tentative précédente : rien à refaire.
+        onCreated();
+        return;
+      }
+      // La ligne déjà enregistrée ne correspond pas à ce qui vient d'être
+      // soumis (ex. montant modifié entre deux essais) : on ne referme pas
+      // silencieusement, pour ne pas laisser croire que CETTE saisie a été
+      // prise en compte alors que c'est l'ancienne qui reste en base.
+      setError(`Un paiement a déjà été enregistré pour cette même saisie, mais avec des données différentes (${fmtF(existing.montant)} au lieu de ${fmtF(payload.montant)}). Vérifie la liste des paiements plutôt que de réessayer.`);
       return;
     }
+
     setSubmitting(false);
     if (insertError) {
       setError(insertError.message);
