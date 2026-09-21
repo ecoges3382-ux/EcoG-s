@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { supabaseConfigured } from './lib/supabase.js';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import ParentAccess from './pages/ParentAccess.jsx';
 import PlatformAdmin from './pages/PlatformAdmin.jsx';
 import Shell from './layout/Shell.jsx';
@@ -143,6 +145,12 @@ export default function App() {
       <Routes>
         <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
+        <Route path="/mot-de-passe-oublie" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
+        {/* Pas de RedirectIfAuthed ici : Supabase pose une session "recovery"
+            dès l'arrivée sur ce lien, RedirectIfAuthed la prendrait pour une
+            connexion normale et renverrait vers "/" avant que la personne
+            ait pu choisir son nouveau mot de passe. */}
+        <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
         <Route path="/parent-access" element={<ParentAccess />} />
         <Route
           path="/admin"

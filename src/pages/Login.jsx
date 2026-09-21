@@ -78,7 +78,10 @@ export default function Login() {
               style={{ marginBottom: 16 }}
             />
           )}
-          <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
+            <Link to="/mot-de-passe-oublie" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', textDecoration: 'none' }}>Mot de passe oublié ?</Link>
+          </div>
           <PasswordInput
             required
             value={password}
