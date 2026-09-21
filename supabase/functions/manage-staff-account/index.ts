@@ -1,5 +1,5 @@
 // Edge Function : création / suppression d'un compte de connexion pour un
-// membre de l'équipe (directeur, secrétaire, enseignant), par le fondateur.
+// membre de l'équipe (directeur, censeur, secrétaire, enseignant), par le fondateur.
 //
 // Pourquoi une fonction serveur : créer un compte Supabase Auth avec un
 // mot de passe choisi par quelqu'un d'autre, ou supprimer le compte d'un
@@ -11,7 +11,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
-const ALLOWED_ROLES = ['directeur', 'secretaire', 'enseignant'];
+const ALLOWED_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 
 // Même logique que composePhone côté frontend (src/components/PhoneInput.jsx)
 // — dupliquée ici car les Edge Functions tournent dans un runtime Deno

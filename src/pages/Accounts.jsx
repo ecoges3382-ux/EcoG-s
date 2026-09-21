@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, ROLES, generateAccessCode, displayName } from '../lib/utils.js';
+import { initials, ROLES, generateAccessCode, displayName, sortByRole } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
@@ -26,7 +26,7 @@ function useStudentsForLinking(schoolYearId) {
   return students;
 }
 
-const CREATABLE_STAFF_ROLES = ['directeur', 'secretaire', 'enseignant'];
+const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 // supabase-js ne remplit pas `data` quand la fonction répond en erreur (code
@@ -82,7 +82,7 @@ function StaffAccounts() {
   async function reload() {
     const { data, error: fetchError } = await supabase.from('profiles').select('*').order('full_name');
     if (fetchError) setError(fetchError.message);
-    else setAccounts(data);
+    else setAccounts(sortByRole(data));
   }
 
   useEffect(() => { reload(); }, []);

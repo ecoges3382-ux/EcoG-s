@@ -1265,3 +1265,14 @@ alter table school_years add column if not exists date_connexe date;
 -- arrangement (ex. payer par mensualités plutôt que par tranches) reste
 -- ainsi exclue des relances automatiques tant que la note existe.
 alter table enrollments add column if not exists note_arrangement text;
+
+-- ---------- Migration : rôle "censeur" ----------
+-- Nouveau rôle de compte utilisateur, pour les écoles qui en ont un.
+-- Affiché entre directeur et secrétaire dans "Comptes" (voir sortByRole
+-- dans src/lib/utils.js) ; ne porte pour l'instant aucune permission
+-- particulière au-delà de celles déjà accordées par les policies
+-- existantes (comme "enseignant", il n'apparaît dans aucune liste de
+-- rôles autorisés tant que ce n'est pas explicitement demandé).
+alter table profiles drop constraint if exists profiles_role_check;
+alter table profiles add constraint profiles_role_check
+  check (role in ('fondateur', 'directeur', 'censeur', 'secretaire', 'enseignant', 'parent'));

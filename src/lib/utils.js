@@ -112,7 +112,21 @@ export function sortClasses(list) {
 export const ROLES = {
   fondateur: { label: 'Fondateur' },
   directeur: { label: 'Directeur' },
+  censeur: { label: 'Censeur' },
   secretaire: { label: 'Secrétaire' },
   enseignant: { label: 'Enseignant' },
   parent: { label: 'Parent' },
 };
+
+// Ordre hiérarchique d'affichage des comptes utilisateurs, valable pour
+// toutes les écoles : fondateur, puis directeur, puis censeur (s'il y en a
+// un), puis secrétaire, puis tout le reste (dans l'ordre où ils arrivaient
+// déjà, généralement alphabétique).
+const ROLE_ORDER = ['fondateur', 'directeur', 'censeur', 'secretaire'];
+export function sortByRole(list) {
+  return [...list].sort((a, b) => {
+    const ra = ROLE_ORDER.indexOf(a.role);
+    const rb = ROLE_ORDER.indexOf(b.role);
+    return (ra === -1 ? ROLE_ORDER.length : ra) - (rb === -1 ? ROLE_ORDER.length : rb);
+  });
+}
