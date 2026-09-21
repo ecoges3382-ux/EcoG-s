@@ -188,6 +188,7 @@ export default function ParentAccess() {
                     {detail.announcements.map((a, i) => (
                       <div key={a.id} style={{ padding: '12px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
                         <p style={{ margin: '0 0 3px', fontSize: 13.5, fontWeight: 600 }}>{a.titre}</p>
+                        {a.contenu && <p style={{ margin: '0 0 5px', fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{a.contenu}</p>}
                         <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{a.auteur} · {a.role}</p>
                       </div>
                     ))}

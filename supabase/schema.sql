@@ -2401,3 +2401,68 @@ grant execute on function create_student_with_enrollment(uuid, text, text, text,
 -- que montant_inscription : montant fixe par niveau, encaissé en une fois,
 -- pas de colonne _du/_paye dédiée sur enrollments.
 alter table fee_schedules add column if not exists montant_reinscription numeric not null default 0;
+
+-- ---------- Migration : annonces — contenu, statut, ciblage fiable par année ----------
+-- Le modèle d'annonce ne portait jusqu'ici qu'un titre, jamais de contenu ;
+-- aucun statut (tout était publié immédiatement, pas de brouillon ni
+-- d'archivage) ; aucune policy update/delete (aucune modification n'était
+-- possible côté base, même si l'écran l'avait permis) ; et le ciblage par
+-- classe stockait un nom de classe en texte libre, sans lien avec une
+-- année scolaire précise — une classe "CP A" ne contient pas les mêmes
+-- élèves d'une année à l'autre, donc une annonce ciblée doit être
+-- rattachée à l'année dans laquelle ce ciblage a un sens.
+alter table announcements add column if not exists contenu text not null default '';
+alter table announcements add column if not exists statut text not null default 'publiee' check (statut in ('brouillon', 'publiee', 'archivee'));
+alter table announcements add column if not exists date_expiration date;
+alter table announcements add column if not exists school_year_id uuid references school_years(id) on delete set null;
+alter table announcements add column if not exists classe_cible_id uuid references classes(id) on delete set null;
+alter table announcements add column if not exists created_by uuid references profiles(id);
+alter table announcements alter column created_by set default auth.uid();
+alter table announcements add column if not exists published_at timestamptz;
+
+-- Les annonces déjà existantes étaient toutes immédiatement visibles :
+-- published_at = created_at pour elles (jamais réécrit ensuite, donc sûr à
+-- ré-exécuter). classe_cible (texte) reste en base pour l'affichage des
+-- anciennes lignes, jamais réalimentée après cette migration.
+update announcements set published_at = created_at where statut = 'publiee' and published_at is null;
+
+create index if not exists announcements_school_year_idx on announcements(school_year_id);
+
+-- Publication réservée à fondateur/directeur/secrétaire (même périmètre
+-- que les autres actions administratives de l'appli, ex. Comptes/Argent)
+-- — un enseignant pouvait jusqu'ici publier librement à toute l'école,
+-- ce n'est plus le cas. La lecture (policy "select" existante,
+-- non modifiée) reste ouverte à l'enseignant.
+drop policy if exists "announcements: insert" on announcements;
+create policy "announcements: insert" on announcements
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    and (classe_cible_id is null or exists (select 1 from classes c where c.id = announcements.classe_cible_id and c.school_id = announcements.school_id))
+    and (school_year_id is null or exists (select 1 from school_years sy where sy.id = announcements.school_year_id and sy.school_id = announcements.school_id))
+  );
+
+drop policy if exists "announcements: update" on announcements;
+create policy "announcements: update" on announcements
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    and (classe_cible_id is null or exists (select 1 from classes c where c.id = announcements.classe_cible_id and c.school_id = announcements.school_id))
+    and (school_year_id is null or exists (select 1 from school_years sy where sy.id = announcements.school_year_id and sy.school_id = announcements.school_id))
+  );
+
+-- Suppression réservée aux brouillons jamais publiés (rien à perdre pour
+-- personne) — une annonce déjà publiée ou archivée se retire seulement en
+-- l'archivant, pour garder l'historique consultable (voir Argent/Bulletins
+-- : même principe déjà établi ailleurs dans l'appli).
+drop policy if exists "announcements: delete" on announcements;
+create policy "announcements: delete" on announcements
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+    and statut = 'brouillon'
+  );

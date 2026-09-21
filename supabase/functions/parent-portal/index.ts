@@ -96,11 +96,11 @@ Deno.serve(async (req) => {
       .map((row: { students: unknown }) => row.students)
       .filter(Boolean) as { id: string }[];
 
-    const enrollmentByStudent = new Map<string, { montant_du: number; montant_paye: number; frais_connexe_du: number; frais_connexe_paye: number; classes: { nom: string } | null }>();
+    const enrollmentByStudent = new Map<string, { montant_du: number; montant_paye: number; frais_connexe_du: number; frais_connexe_paye: number; classe_id: string | null; classes: { id: string; nom: string } | null }>();
     if (schoolYear && rawStudents.length > 0) {
       const { data: enr } = await adminClient
         .from('enrollments')
-        .select('student_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom )')
+        .select('student_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classe_id, classes ( id, nom )')
         .eq('school_year_id', schoolYear.id)
         .in('student_id', rawStudents.map((s) => s.id));
       (enr || []).forEach((e: { student_id: string } & Record<string, unknown>) => enrollmentByStudent.set(e.student_id, e as never));
@@ -111,6 +111,7 @@ Deno.serve(async (req) => {
       return {
         ...s,
         niveau: en?.classes?.nom || null,
+        classe_id: en?.classe_id || null,
         montant_du: en?.montant_du ?? 0,
         montant_paye: en?.montant_paye ?? 0,
         frais_connexe_du: en?.frais_connexe_du ?? 0,
@@ -128,13 +129,23 @@ Deno.serve(async (req) => {
         adminClient.from('attendance_records').select('*').eq('student_id', student.id).eq('school_year_id', yearId).order('date', { ascending: false }).limit(30),
         adminClient.from('grades').select('*').eq('student_id', student.id).eq('school_year_id', yearId).order('created_at', { ascending: false }),
         adminClient.from('subjects').select('id, nom, coefficient').eq('school_id', access.school_id),
-        adminClient.from('announcements').select('*').eq('school_id', access.school_id).order('created_at', { ascending: false }).limit(10),
+        (yearId
+          ? adminClient.from('announcements').select('*').eq('school_id', access.school_id).eq('statut', 'publiee').or(`school_year_id.is.null,school_year_id.eq.${yearId}`)
+          : adminClient.from('announcements').select('*').eq('school_id', access.school_id).eq('statut', 'publiee').is('school_year_id', null)
+        ).order('created_at', { ascending: false }).limit(10),
       ]);
 
       const subjectsById = new Map((subjects || []).map((s: { id: string }) => [s.id, s]));
       const gradesWithSubject = (grades || []).map((g: { subject_id: string }) => ({ ...g, subject: subjectsById.get(g.subject_id) || null }));
+      // Une annonce publiée est visible au parent si elle vise toute
+      // l'école, ou la classe de CET élève pour l'année en cours
+      // (classe_cible_id, jamais la classe texte historique, non fiable
+      // d'une année à l'autre) — et si elle n'est pas expirée.
+      const today = new Date().toISOString().slice(0, 10);
       const relevantAnnouncements = (announcements || []).filter(
-        (a: { portee: string; classe_cible: string | null }) => a.portee === 'École entière' || a.classe_cible === student.niveau,
+        (a: { portee: string; classe_cible_id: string | null; date_expiration: string | null }) =>
+          (a.portee === 'École entière' || a.classe_cible_id === student.classe_id)
+          && (!a.date_expiration || a.date_expiration >= today),
       );
 
       return jsonResponse({
