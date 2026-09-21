@@ -163,15 +163,15 @@ function FeeEditor({ niveau, row, canManage, saving, onSave }) {
           <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
             <div>
               <label style={feeLabelStyle}>1ère tranche</label>
-              <MoneyInput value={t1} onChange={setT1} style={feeInputStyle} />
+              <MoneyInput value={t1} onChange={setT1} style={feeInputStyle} suffix="F CFA" />
             </div>
             <div>
               <label style={feeLabelStyle}>2ème tranche</label>
-              <MoneyInput value={t2} onChange={setT2} style={feeInputStyle} />
+              <MoneyInput value={t2} onChange={setT2} style={feeInputStyle} suffix="F CFA" />
             </div>
             <div>
               <label style={feeLabelStyle}>3ème tranche</label>
-              <MoneyInput value={t3} onChange={setT3} style={feeInputStyle} />
+              <MoneyInput value={t3} onChange={setT3} style={feeInputStyle} suffix="F CFA" />
             </div>
           </div>
           <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--muted)' }}>
@@ -188,7 +188,7 @@ function FeeEditor({ niveau, row, canManage, saving, onSave }) {
 
       <p style={{ margin: '18px 0 8px', fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Frais connexes</p>
       {canManage ? (
-        <MoneyInput value={connexe} onChange={setConnexe} style={{ ...feeInputStyle, maxWidth: 200 }} />
+        <MoneyInput value={connexe} onChange={setConnexe} style={{ ...feeInputStyle, maxWidth: 240 }} suffix="F CFA" />
       ) : (
         <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{fmtF(row?.montant_connexe || 0)}</p>
       )}

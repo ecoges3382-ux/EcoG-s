@@ -28,7 +28,26 @@ function caretAfterDigits(str, n) {
   return str.length;
 }
 
-export default function MoneyInput({ value, onChange, style, placeholder, disabled }) {
+// suffix : unité fixe affichée après le montant (ex. "F CFA"), jamais
+// éditable. À 0/vide, le champ n'affiche que le suffixe (pas de "0"
+// devant) ; cliquer n'importe où dans le champ replace le curseur juste
+// avant le suffixe (avec l'espace qui les sépare), pour qu'on ne puisse ni
+// taper dedans ni coller un montant contre "F CFA".
+function formatValue(value, suffix) {
+  const isEmpty = value === '' || value == null || (suffix && Number(value) === 0);
+  const numPart = isEmpty ? '' : fmt(Number(value));
+  if (!suffix) return numPart;
+  return numPart === '' ? suffix : `${numPart} ${suffix}`;
+}
+
+function placeCaretBeforeSuffix(el, suffix) {
+  if (!suffix) return;
+  const totalDigits = digitsOnly(el.value).length;
+  const pos = caretAfterDigits(el.value, totalDigits);
+  el.setSelectionRange(pos, pos);
+}
+
+export default function MoneyInput({ value, onChange, style, placeholder, disabled, suffix }) {
   const ref = useRef(null);
   const lastValueRef = useRef(value);
 
@@ -38,8 +57,8 @@ export default function MoneyInput({ value, onChange, style, placeholder, disabl
   useEffect(() => {
     if (value === lastValueRef.current) return;
     lastValueRef.current = value;
-    if (ref.current) ref.current.value = value === '' || value == null ? '' : fmt(Number(value));
-  }, [value]);
+    if (ref.current) ref.current.value = formatValue(value, suffix);
+  }, [value, suffix]);
 
   function handleInput(e) {
     const el = e.target;
@@ -47,7 +66,7 @@ export default function MoneyInput({ value, onChange, style, placeholder, disabl
     const nBefore = digitsBeforeCaret(el.value, caret);
     const digits = digitsOnly(el.value);
     const num = digits === '' ? '' : Number(digits);
-    const formatted = digits === '' ? '' : fmt(num);
+    const formatted = formatValue(num, suffix);
 
     el.value = formatted;
     const newCaret = caretAfterDigits(formatted, nBefore);
@@ -62,8 +81,10 @@ export default function MoneyInput({ value, onChange, style, placeholder, disabl
       ref={ref}
       type="text"
       inputMode="numeric"
-      defaultValue={value === '' || value == null ? '' : fmt(Number(value))}
+      defaultValue={formatValue(value, suffix)}
       onInput={handleInput}
+      onClick={(e) => placeCaretBeforeSuffix(e.target, suffix)}
+      onFocus={(e) => { const el = e.target; setTimeout(() => placeCaretBeforeSuffix(el, suffix), 0); }}
       placeholder={placeholder}
       disabled={disabled}
       style={style}
