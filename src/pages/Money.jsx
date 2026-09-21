@@ -714,7 +714,7 @@ function CalDateDisplay({ label, value }) {
 }
 
 const calLabelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
-const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)' };
+const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)', textAlign: 'center' };
 
 function FeeRow({ niveau, row, canManage, saving, onSave, isLast }) {
   const [scolarite, setScolarite] = useState(row?.montant_scolarite ?? 0);

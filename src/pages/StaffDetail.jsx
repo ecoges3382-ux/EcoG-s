@@ -56,7 +56,7 @@ export default function StaffDetail() {
         </div>
       </div>
 
-      <div className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, marginBottom: 20 }}>
+      <div className="card-bold" style={{ padding: '18px 20px', maxWidth: 640, marginBottom: 20 }}>
         <Row label="Niveau d'études" value={person.niveau_etudes || '—'} />
         <Row label="Classe(s)" value={(person.classes || []).length ? person.classes.join(', ') : '—'} />
         <Row label="Téléphone" value={person.phone || '—'} />

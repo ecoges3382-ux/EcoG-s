@@ -98,11 +98,12 @@ export default function SignUp() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div className="card-bold" style={{ padding: '26px 24px', maxWidth: 400, textAlign: 'center' }}>
           <p style={{ fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, margin: '0 0 10px' }}>Vérifiez votre boîte mail</p>
-          <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+          <p style={{ color: 'var(--muted)', fontSize: 14, lineHeight: 1.6, margin: '0 0 20px' }}>
             Un e-mail de confirmation a été envoyé à <strong>{email}</strong>.
             Cliquez sur le lien qu'il contient pour activer votre compte et
             créer votre école.
           </p>
+          <ConfirmationFooterLinks onNewSchool={() => setSent(false)} />
         </div>
       </div>
     );
@@ -142,6 +143,9 @@ export default function SignUp() {
           >
             {resending ? 'Envoi…' : 'Renvoyer le code'}
           </button>
+          <div style={{ marginTop: 18, textAlign: 'center' }}>
+            <ConfirmationFooterLinks onNewSchool={() => setSent(false)} />
+          </div>
         </div>
       </div>
     );
@@ -219,6 +223,26 @@ const inputStyle = {
   width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)',
   fontSize: 16, marginBottom: 16, boxSizing: 'border-box', color: 'var(--ink)',
 };
+
+// Sans ça, un utilisateur bloqué sur cet écran (mauvaise adresse saisie,
+// e-mail déjà utilisé pour une autre école, envie de se connecter plutôt
+// que de créer un compte) n'a aucun moyen de repartir sans recharger la
+// page à la main.
+function ConfirmationFooterLinks({ onNewSchool }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', fontSize: '12.5px' }}>
+      <Link to="/connexion" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
+      <span style={{ color: 'var(--muted)' }}>·</span>
+      <button
+        type="button"
+        onClick={onNewSchool}
+        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}
+      >
+        Créer une nouvelle école
+      </button>
+    </div>
+  );
+}
 
 function Field({ label, children, last }) {
   return (

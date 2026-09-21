@@ -12,17 +12,21 @@ function nextMatricule(existingStaff, role) {
   return `${PREFIXES[role] || 'PER'}-${String(count).padStart(4, '0')}`;
 }
 
-export default function NewStaffModal({ schoolId, existingStaff, onClose, onCreated }) {
-  const [nom, setNom] = useState('');
-  const [prenom, setPrenom] = useState('');
-  const [role, setRole] = useState(ROLES[0]);
-  const [niveauEtudes, setNiveauEtudes] = useState('');
-  const [classes, setClasses] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('');
+export default function NewStaffModal({ schoolId, existingStaff, availableClasses, editing, onClose, onSaved }) {
+  const [nom, setNom] = useState(editing?.nom || '');
+  const [prenom, setPrenom] = useState(editing?.prenom || '');
+  const [role, setRole] = useState(editing?.role || ROLES[0]);
+  const [niveauEtudes, setNiveauEtudes] = useState(editing?.niveau_etudes || '');
+  const [classNames, setClassNames] = useState(editing?.classes || []);
+  const [phone, setPhone] = useState(editing?.phone || '');
+  const [email, setEmail] = useState(editing?.email || '');
+  const [photoUrl, setPhotoUrl] = useState(editing?.photo_url || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  function toggleClass(nomClasse) {
+    setClassNames((prev) => (prev.includes(nomClasse) ? prev.filter((c) => c !== nomClasse) : [...prev, nomClasse]));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -32,25 +36,28 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
     }
     setSubmitting(true);
     setError('');
-    const { error: insertError } = await supabase.from('staff').insert({
-      school_id: schoolId,
-      matricule: nextMatricule(existingStaff, role),
+    const payload = {
       full_name: displayName(nom.trim(), prenom.trim()),
       nom: nom.trim(),
       prenom: prenom.trim(),
       role,
       niveau_etudes: niveauEtudes.trim(),
-      classes: classes.split(',').map((c) => c.trim()).filter(Boolean),
+      classes: classNames,
       phone: phone.trim(),
       email: email.trim(),
       photo_url: photoUrl || null,
-    });
+    };
+    // Le matricule identifie durablement la personne — on ne le recalcule
+    // jamais après coup, seulement à la création.
+    const { error: saveError } = editing
+      ? await supabase.from('staff').update(payload).eq('id', editing.id)
+      : await supabase.from('staff').insert({ school_id: schoolId, matricule: nextMatricule(existingStaff, role), ...payload });
     setSubmitting(false);
-    if (insertError) {
-      setError(insertError.message);
+    if (saveError) {
+      setError(saveError.message);
       return;
     }
-    onCreated();
+    onSaved();
   }
 
   return (
@@ -60,7 +67,7 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
     >
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Nouveau membre du personnel</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier le membre du personnel' : 'Nouveau membre du personnel'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
@@ -85,7 +92,29 @@ export default function NewStaffModal({ schoolId, existingStaff, onClose, onCrea
         </div>
 
         <Field label="Classe(s) attribuée(s)">
-          <input value={classes} onChange={(e) => setClasses(e.target.value)} placeholder="ex. CM1, 3e (séparées par une virgule)" style={inputStyle} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
+            {availableClasses.length === 0 && (
+              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucune classe créée pour l'instant.</p>
+            )}
+            {availableClasses.map((c) => {
+              const active = classNames.includes(c.nom);
+              return (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => toggleClass(c.nom)}
+                  style={{
+                    padding: '6px 13px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                    border: `1px solid ${active ? 'var(--forest)' : 'var(--line-strong)'}`,
+                    background: active ? 'var(--forest)' : 'var(--paper)',
+                    color: active ? '#fff' : 'var(--ink)',
+                  }}
+                >
+                  {c.nom}
+                </button>
+              );
+            })}
+          </div>
         </Field>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

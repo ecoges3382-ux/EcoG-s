@@ -1,25 +1,32 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { NIVEAUX } from '../lib/utils.js';
+import { sortClasses } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 
 export default function Subjects() {
   const { profile } = useAuth();
   const [subjects, setSubjects] = useState(null);
   const [teachers, setTeachers] = useState([]);
+  const [classes, setClasses] = useState([]);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
   async function reload() {
-    const [{ data: su, error: suError }, { data: te }] = await Promise.all([
+    // Le niveau proposé pour une matière est celui des classes réellement
+    // créées par l'école (page Classes), pas une liste générique
+    // maternelle→terminale qui n'aurait aucun sens pour un établissement
+    // qui ne couvre pas tous ces niveaux.
+    const [{ data: su, error: suError }, { data: te }, { data: cl }] = await Promise.all([
       supabase.from('subjects').select('*, staff ( full_name )').order('nom'),
       supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
+      supabase.from('classes').select('id, nom, niveau, section'),
     ]);
     if (suError) setError(suError.message);
     else setSubjects(su);
     setTeachers(te || []);
+    setClasses(sortClasses(cl || []));
   }
 
   useEffect(() => { reload(); }, []);
@@ -75,6 +82,7 @@ export default function Subjects() {
         <SubjectModal
           schoolId={profile.school_id}
           teachers={teachers}
+          classes={classes}
           editing={editing}
           onClose={() => setModalOpen(false)}
           onSaved={() => { setModalOpen(false); reload(); }}
@@ -84,7 +92,7 @@ export default function Subjects() {
   );
 }
 
-function SubjectModal({ schoolId, teachers, editing, onClose, onSaved }) {
+function SubjectModal({ schoolId, teachers, classes, editing, onClose, onSaved }) {
   const [nom, setNom] = useState(editing?.nom || '');
   const [coefficient, setCoefficient] = useState(editing?.coefficient ?? 1);
   const [niveau, setNiveau] = useState(editing?.niveau || '');
@@ -140,7 +148,7 @@ function SubjectModal({ schoolId, teachers, editing, onClose, onSaved }) {
             <label style={labelStyle}>Niveau concerné</label>
             <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={inputStyle}>
               <option value="">Tous niveaux</option>
-              {NIVEAUX.map((n) => <option key={n} value={n}>{n}</option>)}
+              {classes.map((c) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
             </select>
           </div>
         </div>

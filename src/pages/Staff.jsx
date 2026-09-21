@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, downloadCsv } from '../lib/utils.js';
+import { initials, downloadCsv, sortClasses } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -21,16 +21,27 @@ function TrashIcon() {
   );
 }
 
+function GearIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" />
+      <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+    </svg>
+  );
+}
+
 export default function Staff() {
   const { profile } = useAuth();
   const [staff, setStaff] = useState(null);
+  const [classes, setClasses] = useState([]);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
-  const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.8fr 1fr' : '1fr 1.4fr 1fr 1.8fr 1fr 40px';
+  const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.8fr 1fr' : '1fr 1.4fr 1fr 1.8fr 1fr 76px';
 
   async function reload() {
     const { data, error: fetchError } = await supabase.from('staff').select('*').order('full_name');
@@ -38,7 +49,19 @@ export default function Staff() {
     else setStaff(data);
   }
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => {
+    reload();
+    // Les classes attribuables à un enseignant sont celles réellement
+    // créées par l'école (page Classes), pas une liste générique.
+    supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
+      setClasses(sortClasses(data || []));
+    });
+  }, []);
+
+  function openEdit(p) {
+    setEditingStaff(p);
+    setModalOpen(true);
+  }
 
   function exportCsv() {
     const rows = [['Matricule', 'Nom', 'Rôle', "Niveau d'études", 'Classe(s)', 'Téléphone', 'E-mail']];
@@ -93,7 +116,7 @@ export default function Staff() {
             <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
               <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter
             </button>
-            <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+            <button onClick={() => { setEditingStaff(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
               <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
             </button>
             {canDelete && !selectMode && (
@@ -142,15 +165,27 @@ export default function Staff() {
                     <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
                   </Link>
-                  {!selectMode && canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteOne(p.id, p.full_name)}
-                      title="Supprimer"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                    >
-                      <TrashIcon />
-                    </button>
+                  {!selectMode && (
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOne(p.id, p.full_name)}
+                          title="Supprimer"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openEdit(p)}
+                        title="Modifier"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                      >
+                        <GearIcon />
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -175,8 +210,10 @@ export default function Staff() {
         <NewStaffModal
           schoolId={profile.school_id}
           existingStaff={staff || []}
-          onClose={() => setModalOpen(false)}
-          onCreated={() => { setModalOpen(false); reload(); }}
+          availableClasses={classes}
+          editing={editingStaff}
+          onClose={() => { setModalOpen(false); setEditingStaff(null); }}
+          onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); }}
         />
       )}
     </div>
