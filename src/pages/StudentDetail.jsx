@@ -21,6 +21,7 @@ export default function StudentDetail() {
   const [enrollment, setEnrollment] = useState(undefined);
   const [feeSchedule, setFeeSchedule] = useState(null);
   const [payments, setPayments] = useState(undefined);
+  const [attendance, setAttendance] = useState(undefined);
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -84,6 +85,16 @@ export default function StudentDetail() {
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .then(({ data }) => { if (!cancelled) setPayments(data || []); });
+    // Présences de l'élève pour l'année consultée uniquement — la
+    // contrainte (student_id, school_year_id, date) garantit qu'un élève
+    // réinscrit une autre année n'a jamais ses présences mélangées ici.
+    supabase
+      .from('attendance_records')
+      .select('date, statut')
+      .eq('student_id', id)
+      .eq('school_year_id', schoolYear.id)
+      .order('date', { ascending: false })
+      .then(({ data }) => { if (!cancelled) setAttendance(data || []); });
     return () => { cancelled = true; };
   }, [id, schoolYear?.id]);
 
@@ -101,6 +112,15 @@ export default function StudentDetail() {
   const resteFrais = Number(enrollment?.frais_connexe_du || 0) - Number(enrollment?.frais_connexe_paye || 0);
   const relance = enrollment ? computeRelance(enrollment, schoolYear, feeSchedule) : null;
   const echeances = enrollment ? computeEcheances(enrollment, schoolYear, feeSchedule) : [];
+
+  const nbAbsences = (attendance || []).filter((a) => a.statut === 'absent').length;
+  const nbRetards = (attendance || []).filter((a) => a.statut === 'retard').length;
+  const nbPresent = (attendance || []).filter((a) => a.statut === 'present').length;
+  const totalAppels = (attendance || []).length;
+  // "Retard" reste une présence physique — même définition que dans les
+  // statistiques de classe (Attendance.jsx).
+  const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
+  const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 10);
 
   async function handleDelete() {
     if (!window.confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
@@ -209,6 +229,39 @@ export default function StudentDetail() {
         </div>
       )}
 
+      {schoolYear && (
+        <div style={{ marginBottom: 20 }}>
+          <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+            Assiduité — {schoolYear.label}
+          </p>
+          {attendance === undefined ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>
+          ) : totalAppels === 0 ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun appel enregistré pour cet élève cette année.</p>
+          ) : (
+            <>
+              <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14, maxWidth: 640 }}>
+                <MiniStat label="Absences" value={nbAbsences} color="var(--danger)" />
+                <MiniStat label="Retards" value={nbRetards} color="var(--amber)" />
+                <MiniStat label="Taux de présence" value={`${tauxPresence}%`} color="var(--success)" />
+              </div>
+              {absencesEtRetards.length > 0 && (
+                <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
+                  {absencesEtRetards.map((a, i) => (
+                    <div key={`${a.date}-${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: i < absencesEtRetards.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                      <span style={{ fontSize: 13 }}>{new Date(a.date).toLocaleDateString('fr-FR')}</span>
+                      <span style={{ fontSize: '11.5px', fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: a.statut === 'absent' ? 'var(--danger-light)' : 'var(--amber-light)', color: a.statut === 'absent' ? 'var(--danger)' : 'var(--amber)' }}>
+                        {a.statut === 'absent' ? 'Absent' : 'Retard'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
       <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
         {parents === null && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
@@ -256,6 +309,15 @@ function Row({ label, value, color, bold, topBorder }) {
 
 // Le statut d'une échéance ne dépend que des paiements réellement
 // enregistrés (jamais de la date) — voir computeEcheances dans lib/retard.js.
+function MiniStat({ label, value, color }) {
+  return (
+    <div className="card-bold" style={{ padding: '14px 16px' }}>
+      <p style={{ margin: '0 0 3px', fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 700, color }}>{value}</p>
+    </div>
+  );
+}
+
 function EcheanceBadge({ statut, montantPaye, montantRestant }) {
   const map = {
     payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
