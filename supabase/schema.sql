@@ -2766,3 +2766,57 @@ as $$
   join schools s on s.id = p.school_id
   where p.id = auth.uid() and s.statut not in ('suspendu', 'resilie')
 $$;
+
+-- ---------- Administration plateforme : journal d'activité, comptes admin ----------
+-- Un administrateur de la plateforme peut désormais suspendre/réactiver/
+-- supprimer une école, se connecter à la place d'un compte, ou générer un
+-- lien de réinitialisation de mot de passe (voir Edge Function
+-- platform-admin) — aucune de ces actions n'était tracée nulle part. On
+-- journalise systématiquement qui a fait quoi, quand, sur quelle école.
+--
+-- school_name/target_label sont des COPIES figées au moment de l'action
+-- (pas juste des FK) : si l'école ou le compte visé est supprimé plus tard,
+-- la ligne de journal reste lisible au lieu de pointer dans le vide.
+create table if not exists platform_admin_actions (
+  id uuid primary key default gen_random_uuid(),
+  admin_user_id uuid not null references auth.users(id) on delete cascade,
+  action text not null,
+  school_id uuid references schools(id) on delete set null,
+  school_name text,
+  target_profile_id uuid references profiles(id) on delete set null,
+  target_label text,
+  details text,
+  created_at timestamptz not null default now()
+);
+create index if not exists platform_admin_actions_created_idx on platform_admin_actions(created_at desc);
+alter table platform_admin_actions enable row level security;
+
+-- Lecture ouverte à TOUT administrateur de la plateforme (pas seulement
+-- l'auteur de chaque ligne) — c'est un journal d'oversight mutuel, pas un
+-- historique personnel. Écriture : uniquement l'Edge Function (service_role),
+-- jamais authenticated — même un platform_admin ne doit jamais pouvoir
+-- écrire directement une ligne de journal depuis le navigateur, ce qui
+-- viderait son utilité de preuve.
+create policy "platform_admin_actions: lecture par un admin plateforme" on platform_admin_actions
+  for select using (exists (select 1 from platform_admins pa where pa.user_id = auth.uid()));
+
+-- Résolution e-mail → uuid pour ajouter un administrateur de plateforme par
+-- e-mail (la personne doit déjà avoir un compte EcoGès) — auth.users n'est
+-- lisible directement par aucun rôle, donc en passant par une fonction
+-- security definer, comme le reste des accès à auth.users dans ce fichier
+-- (provision_school, etc.). Exécution volontairement PAS ouverte à
+-- "authenticated" : seule l'Edge Function platform-admin (via service_role,
+-- qui n'est pas soumis à ces grants) doit pouvoir l'appeler — sinon
+-- n'importe quel compte pourrait vérifier si un e-mail donné est inscrit et
+-- récupérer son uuid.
+create or replace function find_user_id_by_email(p_email text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select id from auth.users where lower(email) = lower(trim(p_email)) limit 1
+$$;
+revoke execute on function find_user_id_by_email(text) from public;
+grant execute on function find_user_id_by_email(text) to service_role;
