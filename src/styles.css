@@ -60,7 +60,18 @@ body.app-mode .page-title { color: #fff !important; }
 @media (max-width: 780px) {
   #layout { flex-direction: column; }
   #sidebar { display: none; }
-  #screen { padding: 16px 14px 90px; max-width: 100%; }
+  /* margin:0 auto (règle desktop, plus haut) sert à centrer #screen sous
+     le plafond de 1200px quand #layout est en ligne (barre latérale à
+     gauche, contenu à droite) : ces marges automatiques absorbent l'espace
+     sur l'axe principal du flex. Mais sur mobile, #layout passe en colonne
+     (ligne ci-dessus) — le même axe horizontal devient alors l'axe
+     transverse, où une marge auto empêche l'étirement par défaut
+     (align-items: stretch) et fait rétrécir #screen à la largeur de son
+     contenu au lieu de remplir l'écran. D'où des cartes à contenu compact
+     (ex. fiche personnel) qui semblaient minuscules et centrées au milieu
+     d'un grand vide, alors que tout le CSS de la carte elle-même était
+     correct. */
+  #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--paper); border-top: 1px solid var(--line);
