@@ -1830,3 +1830,247 @@ create index if not exists expenses_school_id_idx on expenses(school_id);
 create index if not exists salary_advances_school_id_idx on salary_advances(school_id);
 create index if not exists schedule_entries_school_id_idx on schedule_entries(school_id);
 create index if not exists parent_access_school_id_idx on parent_access(school_id);
+
+-- ---------- Migration : cycle de vie des années scolaires (rollover P0-1) ----------
+-- Suite de la conception validée. Ne touche pas à classes/subjects (restent
+-- permanentes, Option B), ni au portail parent, ni aux paiements/RLS déjà
+-- en place au-delà de ce qui est strictement nécessaire ici.
+
+-- 1) school_years : cycle de vie explicite.
+-- Toutes les lignes existantes ont aujourd'hui is_current soit true (une
+-- par école), soit... en fait jamais false avant ce chantier (aucune école
+-- n'a jamais pu avoir plus d'une ligne) — le défaut 'active' est donc
+-- correct à 100% pour les données déjà en place, sans backfill à écrire.
+alter table school_years add column if not exists statut text not null default 'active'
+  check (statut in ('preparation', 'active', 'cloturee'));
+alter table school_years add column if not exists date_debut date;
+alter table school_years add column if not exists date_fin date;
+
+-- Empêche deux préparations simultanées pour la même école, au niveau base
+-- (pas seulement applicatif) — même principe que school_years_one_current_per_school.
+create unique index if not exists school_years_one_preparation_per_school
+  on school_years(school_id) where statut = 'preparation';
+
+-- 2) Décisions de réinscription, prises pendant la préparation — persistées
+-- en base (pas en mémoire navigateur) pour qu'une préparation quittée en
+-- cours de route soit reprenable telle quelle. Ce n'est PAS une inscription
+-- définitive : "enrollments" n'est créée qu'à l'activation, à partir de ces
+-- décisions — jamais un recopiage de l'ancienne inscription.
+create table if not exists enrollment_decisions (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  school_year_id uuid not null references school_years(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  decision text not null default 'a_traiter' check (decision in ('a_traiter', 'passe', 'redouble', 'part')),
+  classe_id uuid references classes(id) on delete set null,
+  montant_du numeric not null default 0,
+  frais_connexe_du numeric not null default 0,
+  note text,
+  created_at timestamptz not null default now(),
+  unique (school_year_id, student_id)
+);
+create index if not exists enrollment_decisions_year_idx on enrollment_decisions(school_year_id);
+alter table enrollment_decisions enable row level security;
+
+-- Réservé fondateur/directeur (décision validée), et uniquement pour une
+-- année encore en préparation — écrire ici sur une année déjà activée ou
+-- clôturée n'a plus de sens.
+drop policy if exists "enrollment_decisions: select" on enrollment_decisions;
+create policy "enrollment_decisions: select" on enrollment_decisions
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "enrollment_decisions: insert" on enrollment_decisions;
+create policy "enrollment_decisions: insert" on enrollment_decisions
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+    and exists (select 1 from school_years sy where sy.id = enrollment_decisions.school_year_id and sy.school_id = enrollment_decisions.school_id and sy.statut = 'preparation')
+    and exists (select 1 from students s where s.id = enrollment_decisions.student_id and s.school_id = enrollment_decisions.school_id)
+    and (enrollment_decisions.classe_id is null or exists (select 1 from classes c where c.id = enrollment_decisions.classe_id and c.school_id = enrollment_decisions.school_id))
+  );
+drop policy if exists "enrollment_decisions: update" on enrollment_decisions;
+create policy "enrollment_decisions: update" on enrollment_decisions
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+    and exists (select 1 from school_years sy where sy.id = enrollment_decisions.school_year_id and sy.school_id = enrollment_decisions.school_id and sy.statut = 'preparation')
+    and exists (select 1 from students s where s.id = enrollment_decisions.student_id and s.school_id = enrollment_decisions.school_id)
+    and (enrollment_decisions.classe_id is null or exists (select 1 from classes c where c.id = enrollment_decisions.classe_id and c.school_id = enrollment_decisions.school_id))
+  );
+drop policy if exists "enrollment_decisions: delete" on enrollment_decisions;
+create policy "enrollment_decisions: delete" on enrollment_decisions
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+
+-- 3) Démarrer une préparation. security invoker : soumise à la même RLS
+-- qu'un insert direct (aucune élévation de privilège) — le rôle est revérifié
+-- ici en plus, seulement pour donner un message clair plutôt qu'une erreur
+-- RLS brute. school_id toujours pris de current_school_id(), jamais reçu du
+-- client.
+create or replace function start_school_year_preparation(
+  p_label text,
+  p_date_debut date default null,
+  p_date_fin date default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_school_id uuid := current_school_id();
+  v_new_year_id uuid;
+  v_old_year_id uuid;
+begin
+  if current_role_name() not in ('fondateur', 'directeur') then
+    raise exception 'Réservé au fondateur ou au directeur.';
+  end if;
+  if v_school_id is null then
+    raise exception 'Non authentifié.';
+  end if;
+  if p_label is null or trim(p_label) = '' then
+    raise exception 'Le nom de l''année est obligatoire.';
+  end if;
+
+  if exists (select 1 from school_years where school_id = v_school_id and statut = 'preparation') then
+    raise exception 'Une préparation est déjà en cours pour cette école.';
+  end if;
+
+  begin
+    insert into school_years (school_id, label, is_current, statut, date_debut, date_fin)
+    values (v_school_id, trim(p_label), false, 'preparation', p_date_debut, p_date_fin)
+    returning id into v_new_year_id;
+  exception when unique_violation then
+    -- Deux préparations lancées en même temps (double clic, deux onglets) :
+    -- school_years_one_preparation_per_school tranche, le perdant reçoit ce
+    -- message plutôt qu'une erreur Postgres brute.
+    raise exception 'Une préparation est déjà en cours pour cette école.';
+  end;
+
+  -- Pré-remplit une ligne "à traiter" par élève actuellement inscrit (hors
+  -- élèves déjà "parti"), pour que l'écran de traitement liste directement
+  -- tout le monde sans étape de synchronisation séparée. Ne préjuge d'aucune
+  -- décision : classe/montant restent à zéro tant que le personnel ne les a
+  -- pas choisis explicitement — jamais un recopiage de l'ancienne inscription.
+  select id into v_old_year_id from school_years where school_id = v_school_id and is_current = true;
+  if v_old_year_id is not null then
+    insert into enrollment_decisions (school_id, school_year_id, student_id, decision)
+    select v_school_id, v_new_year_id, e.student_id, 'a_traiter'
+    from enrollments e
+    where e.school_year_id = v_old_year_id and e.statut <> 'parti'
+    on conflict (school_year_id, student_id) do nothing;
+  end if;
+
+  return v_new_year_id;
+end;
+$$;
+
+grant execute on function start_school_year_preparation(text, date, date) to authenticated;
+
+-- 4) Activer une préparation : crée les inscriptions définitives à partir
+-- des décisions validées, clôture l'ancienne année, active la nouvelle —
+-- tout dans une seule transaction implicite (fonction plpgsql). Un échec à
+-- n'importe quelle étape annule tout (aucune activation partielle possible).
+create or replace function activate_school_year(p_school_year_id uuid)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_school_id uuid := current_school_id();
+  v_year school_years%rowtype;
+  v_old_year_id uuid;
+  v_pending_count integer;
+  v_incoherent_count integer;
+  r record;
+begin
+  if current_role_name() not in ('fondateur', 'directeur') then
+    raise exception 'Réservé au fondateur ou au directeur.';
+  end if;
+  if v_school_id is null then
+    raise exception 'Non authentifié.';
+  end if;
+
+  -- Verrou de ligne : sérialise deux tentatives d'activation concurrentes
+  -- sur la MÊME année (double clic, deux onglets) — la seconde attend que
+  -- la première commite, relit alors statut='active' et échoue proprement
+  -- sur la vérification suivante plutôt que de rejouer l'activation.
+  select * into v_year from school_years where id = p_school_year_id for update;
+  if v_year.id is null or v_year.school_id <> v_school_id then
+    raise exception 'Année scolaire introuvable pour cette école.';
+  end if;
+  if v_year.statut <> 'preparation' then
+    raise exception 'Cette année n''est plus en préparation (déjà activée ou clôturée).';
+  end if;
+
+  select id into v_old_year_id from school_years where school_id = v_school_id and is_current = true;
+
+  -- Élève de l'ancienne année (encore actif, pas déjà "parti") sans décision
+  -- explicite (absente, ou encore 'a_traiter') pour la nouvelle année :
+  -- bloque l'activation. Vérifié en base, pas seulement côté frontend.
+  if v_old_year_id is not null then
+    select count(*) into v_pending_count
+    from enrollments old_e
+    where old_e.school_year_id = v_old_year_id
+      and old_e.statut <> 'parti'
+      and coalesce((
+        select ed.decision from enrollment_decisions ed
+        where ed.school_year_id = p_school_year_id and ed.student_id = old_e.student_id
+      ), 'a_traiter') = 'a_traiter';
+    if v_pending_count > 0 then
+      raise exception 'Il reste % élève(s) à traiter avant l''activation.', v_pending_count;
+    end if;
+  end if;
+
+  -- Cohérence : un passage ou un redoublement sans classe choisie ne peut
+  -- pas devenir une inscription valide (enrollments.classe_id est optionnel
+  -- au niveau colonne, mais pas pour ces deux décisions-ci).
+  select count(*) into v_incoherent_count
+  from enrollment_decisions
+  where school_year_id = p_school_year_id
+    and decision in ('passe', 'redouble')
+    and classe_id is null;
+  if v_incoherent_count > 0 then
+    raise exception '% décision(s) de passage/redoublement sans classe choisie.', v_incoherent_count;
+  end if;
+
+  for r in
+    select * from enrollment_decisions
+    where school_year_id = p_school_year_id and decision in ('passe', 'redouble')
+  loop
+    insert into enrollments (
+      school_id, school_year_id, student_id, classe_id,
+      montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, statut
+    ) values (
+      v_school_id, p_school_year_id, r.student_id, r.classe_id,
+      coalesce(r.montant_du, 0), 0, coalesce(r.frais_connexe_du, 0), 0,
+      case when r.decision = 'redouble' then 'redouble' else 'inscrit' end
+    )
+    on conflict (school_year_id, student_id) do nothing;
+    -- on conflict do nothing : permet de rejouer l'activation sans erreur si
+    -- elle avait déjà partiellement écrit avant un échec précédent — dans
+    -- les faits jamais nécessaire (une seule transaction), gardé par prudence.
+  end loop;
+
+  -- L'ancienne année d'abord (is_current=false), la nouvelle ensuite
+  -- (is_current=true) : dans cet ordre, l'index partiel unique
+  -- school_years_one_current_per_school n'est jamais violé, même
+  -- momentanément — c'est lui, pas cette fonction, la protection finale
+  -- contre deux années courantes.
+  if v_old_year_id is not null then
+    update school_years set is_current = false, statut = 'cloturee' where id = v_old_year_id;
+  end if;
+  update school_years set is_current = true, statut = 'active' where id = p_school_year_id;
+end;
+$$;
+
+grant execute on function activate_school_year(uuid) to authenticated;

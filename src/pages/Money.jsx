@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials, NIVEAUX } from '../lib/utils.js';
+import { fmtF, initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import { computeRelance } from '../lib/retard.js';
 import MoneyInput from '../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
+import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -528,92 +529,20 @@ function Expenses() {
 
 // Le montant de scolarité par niveau, pour l'année en cours — se
 // pré-remplit automatiquement à l'inscription (voir NewStudentModal), au
-// lieu d'être retapé à la main élève par élève.
+// lieu d'être retapé à la main élève par élève. La grille elle-même
+// (FeeScheduleGrid) est partagée avec l'assistant de préparation d'une
+// nouvelle année scolaire — voir src/components/FeeScheduleGrid.jsx.
 function FeeSchedules() {
   const { profile } = useAuth();
   const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur'].includes(profile.role);
-  const [rows, setRows] = useState(null);
-  // Seuls les niveaux qui ont au moins une classe créée (page Classes) sont
-  // proposés ici — pas la liste générique Maternelle→Terminale, comme pour
-  // le sélecteur de classe à l'inscription.
-  const [niveauxPresents, setNiveauxPresents] = useState(null);
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState('');
 
-  async function reload() {
-    if (!schoolYear) return;
-    const [{ data, error: e }, { data: cl }] = await Promise.all([
-      supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
-      supabase.from('classes').select('niveau'),
-    ]);
-    if (e) { setError(e.message); return; }
-    const map = {};
-    (data || []).forEach((f) => { map[f.niveau] = f; });
-    setRows(map);
-    const present = new Set((cl || []).map((c) => c.niveau));
-    setNiveauxPresents(NIVEAUX.filter((n) => present.has(n)));
-  }
-  useEffect(() => { reload(); }, [schoolYear?.id]);
-
-  async function saveRow(niveau, montantScolarite, montantConnexe) {
-    if (!schoolYear) return;
-    setSaving(niveau);
-    const existing = rows?.[niveau];
-    const payload = {
-      school_id: profile.school_id,
-      school_year_id: schoolYear.id,
-      niveau,
-      montant_scolarite: Number(montantScolarite) || 0,
-      montant_connexe: Number(montantConnexe) || 0,
-    };
-    const { error: saveError } = existing
-      ? await supabase.from('fee_schedules').update(payload).eq('id', existing.id)
-      : await supabase.from('fee_schedules').insert(payload);
-    setSaving('');
-    if (saveError) { setError(saveError.message); return; }
-    reload();
-  }
-
-  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!rows || !niveauxPresents || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
-
-  if (niveauxPresents.length === 0) {
-    return (
-      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-        Aucune classe créée pour l'instant. Crée d'abord tes classes dans l'onglet{' '}
-        <Link to="/classes" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Classes</Link>{' '}
-        pour pouvoir configurer leur tarif ici.
-      </p>
-    );
-  }
+  if (!schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
   return (
     <div>
       <PaymentCalendar schoolYear={schoolYear} canManage={canManage} onSaved={refreshSchoolYear} />
-
-      <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-        Montant attendu par niveau pour {schoolYear.label} — se pré-remplit automatiquement à
-        l'inscription d'un élève.{!canManage && ' Seuls le fondateur et le directeur peuvent modifier ces montants.'}
-      </p>
-      <div className="card-bold" style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: 560 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span>Niveau</span><span>Scolarité (F CFA)</span><span>Frais connexes (F CFA)</span>
-          </div>
-          {niveauxPresents.map((niveau, i) => (
-            <FeeRow
-              key={niveau}
-              niveau={niveau}
-              row={rows[niveau]}
-              canManage={canManage}
-              saving={saving === niveau}
-              onSave={saveRow}
-              isLast={i === niveauxPresents.length - 1}
-            />
-          ))}
-        </div>
-      </div>
+      <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManage} />
     </div>
   );
 }
@@ -715,41 +644,6 @@ function CalDateDisplay({ label, value }) {
 
 const calLabelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
 const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)', textAlign: 'center' };
-
-function FeeRow({ niveau, row, canManage, saving, onSave, isLast }) {
-  const [scolarite, setScolarite] = useState(row?.montant_scolarite ?? 0);
-  const [connexe, setConnexe] = useState(row?.montant_connexe ?? 0);
-  const dirty = Number(scolarite) !== Number(row?.montant_scolarite ?? 0) || Number(connexe) !== Number(row?.montant_connexe ?? 0);
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', padding: '10px 20px', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
-      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{niveau}</span>
-      {canManage ? (
-        <>
-          <MoneyInput value={scolarite} onChange={setScolarite} style={feeInputStyle} />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <MoneyInput value={connexe} onChange={setConnexe} style={feeInputStyle} />
-            <button
-              type="button"
-              disabled={!dirty || saving}
-              onClick={() => onSave(niveau, scolarite, connexe)}
-              style={{ fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default', flexShrink: 0 }}
-            >
-              {saving ? '…' : 'OK'}
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <span style={{ fontSize: 13 }}>{fmtF(row?.montant_scolarite || 0)}</span>
-          <span style={{ fontSize: 13 }}>{fmtF(row?.montant_connexe || 0)}</span>
-        </>
-      )}
-    </div>
-  );
-}
-
-const feeInputStyle = { width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)' };
 
 function Advances() {
   const { profile } = useAuth();
