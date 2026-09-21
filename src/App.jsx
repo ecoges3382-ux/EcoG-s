@@ -54,10 +54,14 @@ function RequireAuth({ children }) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>Chargement…</div>;
   }
   if (!user) return <Navigate to="/connexion" replace />;
+  // Un administrateur de la plateforme n'a rien à faire dans l'interface
+  // d'une école, MÊME s'il a par ailleurs un profil d'école (ex. compte créé
+  // via "Créer une école" avant d'être ajouté aux administrateurs de la
+  // plateforme — voir PlatformAdmin.jsx → onglet Administrateurs) :
+  // priorité vérifiée avant même de regarder le profil, pour ne jamais
+  // laisser passer un administrateur dans Élèves/Argent/etc.
+  if (isPlatformAdmin) return <Navigate to="/admin" replace />;
   if (!profile) {
-    // Un administrateur de la plateforme n'a pas forcément de profil
-    // d'école : direction son propre espace plutôt qu'un mur bloquant.
-    if (isPlatformAdmin) return <Navigate to="/admin" replace />;
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
         <p style={{ color: 'var(--danger)', maxWidth: 420 }}>
