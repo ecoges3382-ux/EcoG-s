@@ -1649,3 +1649,59 @@ create policy "attendance_records: update" on attendance_records
     and exists (select 1 from students s where s.id = attendance_records.student_id and s.school_id = attendance_records.school_id)
     and exists (select 1 from school_years sy where sy.id = attendance_records.school_year_id and sy.school_id = attendance_records.school_id)
   );
+
+-- ---------- Correctif : provision_school ne créait jamais d'année scolaire ----------
+-- Toute l'appli (Tableau de bord, Élèves, Argent, ...) attend qu'une ligne
+-- school_years avec is_current=true existe pour l'école avant de charger
+-- quoi que ce soit (voir useCurrentSchoolYear). Les écoles créées avant la
+-- migration "Année scolaire, grille tarifaire, inscriptions" avaient reçu
+-- cette ligne via une bascule ponctuelle (script one-off, voir plus haut
+-- dans ce fichier) — mais provision_school, utilisée à chaque inscription
+-- depuis, n'avait jamais été mise à jour pour la créer elle aussi. Résultat :
+-- toute nouvelle école reste bloquée sur "Chargement..." indéfiniment, sans
+-- aucune erreur visible. On calcule un libellé par défaut ("2026-2027" style,
+-- rentrée en septembre) — modifiable ensuite par le fondateur si besoin.
+create or replace function provision_school(p_school_name text, p_full_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_school_id uuid;
+  v_email text;
+  v_phone text;
+  v_year int;
+  v_label text;
+begin
+  if auth.uid() is null then
+    raise exception 'Non authentifié';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Un profil existe déjà pour cet utilisateur';
+  end if;
+
+  select email, phone into v_email, v_phone from auth.users where id = auth.uid();
+
+  insert into schools (name) values (p_school_name) returning id into v_school_id;
+
+  insert into profiles (id, school_id, full_name, role, email, phone)
+  values (auth.uid(), v_school_id, p_full_name, 'fondateur', v_email, v_phone);
+
+  v_year := extract(year from now())::int;
+  v_label := case
+    when extract(month from now())::int >= 9 then v_year::text || '-' || (v_year + 1)::text
+    else (v_year - 1)::text || '-' || v_year::text
+  end;
+  insert into school_years (school_id, label, is_current) values (v_school_id, v_label, true);
+
+  return v_school_id;
+end;
+$$;
+
+-- Écoles déjà créées entre l'apparition de la table school_years et ce
+-- correctif (bloquées sur "Chargement..." faute d'année scolaire) : on leur
+-- donne la même année par défaut, sans toucher aux écoles qui en ont déjà une.
+insert into school_years (school_id, label, is_current)
+select id, '2026-2027', true from schools
+where not exists (select 1 from school_years sy where sy.school_id = schools.id and sy.is_current);
