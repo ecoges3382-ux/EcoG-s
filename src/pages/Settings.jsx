@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { useCurrentSchoolYear } from '../lib/schoolYear.js';
+import { NIVEAUX } from '../lib/utils.js';
 import PhotoPicker from '../components/PhotoPicker.jsx';
+import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
+
+const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
 
 export default function Settings() {
   const { profile, refreshProfile } = useAuth();
+  const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
   const school = profile.schools;
   const isFondateur = profile.role === 'fondateur';
+  const canManageYear = CAN_MANAGE_YEAR_ROLES.includes(profile.role);
 
   const [name, setName] = useState(school?.name || '');
   const [color, setColor] = useState(school?.color || '#0F4C3A');
@@ -89,6 +96,23 @@ export default function Settings() {
         )}
       </form>
 
+      {/* Grille tarifaire et calendrier de paiement : réglages à mettre en
+          place avant de commencer à utiliser l'appli au quotidien — pas
+          quelque chose qu'on va chercher dans Argent, directement visible
+          en entrant dans Paramètres. */}
+      {schoolYear && (
+        <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
+          <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
+          <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+            Calendrier de paiement et montants attendus par niveau pour {schoolYear.label}.
+          </p>
+          <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
+          <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
+        </div>
+      )}
+
+      {canManageYear && <PassageThresholds schoolId={profile.school_id} />}
+
       {isFondateur && (
         <Link
           to="/comptes"
@@ -122,3 +146,219 @@ export default function Settings() {
 
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)' };
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
+
+// Un seul calendrier par année scolaire, identique pour toute l'école (pas
+// par niveau) : une fois un délai dépassé, les élèves qui n'ont pas payé
+// ce qu'il fallait à ce stade apparaissent "à relancer" dans Élèves et
+// Argent (voir src/lib/retard.js). La 3ème tranche reste facultative pour
+// une école qui ne fonctionne qu'en 2 tranches.
+function PaymentCalendar({ schoolYear, canManage, onSaved }) {
+  const [d1, setD1] = useState(schoolYear.date_tranche1 || '');
+  const [d2, setD2] = useState(schoolYear.date_tranche2 || '');
+  const [d3, setD3] = useState(schoolYear.date_tranche3 || '');
+  const [dc, setDc] = useState(schoolYear.date_connexe || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setD1(schoolYear.date_tranche1 || '');
+    setD2(schoolYear.date_tranche2 || '');
+    setD3(schoolYear.date_tranche3 || '');
+    setDc(schoolYear.date_connexe || '');
+  }, [schoolYear.date_tranche1, schoolYear.date_tranche2, schoolYear.date_tranche3, schoolYear.date_connexe]);
+
+  const dirty = d1 !== (schoolYear.date_tranche1 || '') || d2 !== (schoolYear.date_tranche2 || '')
+    || d3 !== (schoolYear.date_tranche3 || '') || dc !== (schoolYear.date_connexe || '');
+
+  async function handleSave() {
+    setSaving(true);
+    setError('');
+    const { error: saveError } = await supabase.from('school_years').update({
+      date_tranche1: d1 || null,
+      date_tranche2: d2 || null,
+      date_tranche3: d3 || null,
+      date_connexe: dc || null,
+    }).eq('id', schoolYear.id);
+    setSaving(false);
+    if (saveError) { setError(saveError.message); return; }
+    onSaved();
+  }
+
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Calendrier de paiement</p>
+      <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+        Une fois un délai dépassé, les élèves qui n'ont pas payé ce qu'il fallait à ce stade
+        apparaissent automatiquement « à relancer » dans Élèves et Argent.
+      </p>
+      {canManage ? (
+        <>
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+            <div>
+              <label style={calLabelStyle}>1ère tranche</label>
+              <input type="date" value={d1} onChange={(e) => setD1(e.target.value)} style={calInputStyle} />
+            </div>
+            <div>
+              <label style={calLabelStyle}>2ème tranche</label>
+              <input type="date" value={d2} onChange={(e) => setD2(e.target.value)} style={calInputStyle} />
+            </div>
+            <div>
+              <label style={calLabelStyle}>3ème tranche</label>
+              <input type="date" value={d3} onChange={(e) => setD3(e.target.value)} style={calInputStyle} />
+            </div>
+            <div>
+              <label style={calLabelStyle}>Frais connexes</label>
+              <input type="date" value={dc} onChange={(e) => setDc(e.target.value)} style={calInputStyle} />
+            </div>
+          </div>
+          {error && <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+          <button
+            type="button"
+            disabled={!dirty || saving}
+            onClick={handleSave}
+            style={{ marginTop: 14, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
+          >
+            {saving ? 'Enregistrement…' : 'Enregistrer le calendrier'}
+          </button>
+        </>
+      ) : (
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <CalDateDisplay label="1ère tranche" value={schoolYear.date_tranche1} />
+          <CalDateDisplay label="2ème tranche" value={schoolYear.date_tranche2} />
+          <CalDateDisplay label="3ème tranche" value={schoolYear.date_tranche3} />
+          <CalDateDisplay label="Frais connexes" value={schoolYear.date_connexe} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CalDateDisplay({ label, value }) {
+  return (
+    <div>
+      <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
+      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{value ? new Date(value).toLocaleDateString('fr-FR') : '—'}</p>
+    </div>
+  );
+}
+
+const calLabelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
+const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)', textAlign: 'center' };
+
+// Seuil de moyenne annuelle (sur 20) à partir duquel un élève est classé
+// automatiquement "Passe" plutôt que "Redouble" lors de la préparation
+// d'une nouvelle année (voir start_school_year_preparation). Réglage
+// permanent de l'école (pas par année) : niveau=null est le seuil par
+// défaut, une ligne par niveau le surcharge si besoin — les deux modes
+// ("même seuil partout" / "seuil différent par niveau") ne sont pas deux
+// écrans séparés, juste la même mécanique : ne rien remplir par niveau = le
+// défaut s'applique partout.
+function PassageThresholds({ schoolId }) {
+  const [rows, setRows] = useState(null);
+  const [niveauxPresents, setNiveauxPresents] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState('');
+
+  async function reload() {
+    const [{ data: th, error: e }, { data: cl }] = await Promise.all([
+      supabase.from('passage_thresholds').select('*'),
+      supabase.from('classes').select('niveau'),
+    ]);
+    if (e) { setError(e.message); return; }
+    const byNiveau = {};
+    let def = null;
+    (th || []).forEach((t) => { if (t.niveau === null) def = t; else byNiveau[t.niveau] = t; });
+    setRows({ default: def, byNiveau });
+    const present = new Set((cl || []).map((c) => c.niveau));
+    setNiveauxPresents(NIVEAUX.filter((n) => present.has(n)));
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function saveDefault(value) {
+    setSaving('__default__');
+    setError('');
+    const payload = { school_id: schoolId, niveau: null, seuil: Number(value) || 0 };
+    const { error: saveError } = rows.default
+      ? await supabase.from('passage_thresholds').update(payload).eq('id', rows.default.id)
+      : await supabase.from('passage_thresholds').insert(payload);
+    setSaving('');
+    if (saveError) { setError(saveError.message); return; }
+    reload();
+  }
+
+  async function saveNiveau(niveau, value) {
+    setSaving(niveau);
+    setError('');
+    const existing = rows.byNiveau[niveau];
+    let saveError = null;
+    if (value === '') {
+      // Champ vidé : retombe sur le seuil par défaut, pas de ligne à zéro.
+      if (existing) ({ error: saveError } = await supabase.from('passage_thresholds').delete().eq('id', existing.id));
+    } else {
+      const payload = { school_id: schoolId, niveau, seuil: Number(value) || 0 };
+      ({ error: saveError } = existing
+        ? await supabase.from('passage_thresholds').update(payload).eq('id', existing.id)
+        : await supabase.from('passage_thresholds').insert(payload));
+    }
+    setSaving('');
+    if (saveError) { setError(saveError.message); return; }
+    reload();
+  }
+
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!rows || !niveauxPresents) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+
+  return (
+    <div className="card-bold" style={{ padding: '18px 20px', marginTop: 16, maxWidth: 520 }}>
+      <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600 }}>Seuil de passage automatique</p>
+      <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+        Moyenne annuelle minimale (sur 20) pour qu'un élève soit classé automatiquement « Passe »
+        plutôt que « Redouble » lors de la préparation d'une nouvelle année. Laisse un niveau vide
+        pour qu'il utilise le seuil par défaut.
+      </p>
+      <ThresholdRow
+        label="Seuil par défaut (toute l'école)"
+        value={rows.default?.seuil}
+        placeholder="10"
+        saving={saving === '__default__'}
+        onSave={saveDefault}
+        isLast={niveauxPresents.length === 0}
+      />
+      {niveauxPresents.map((n, i) => (
+        <ThresholdRow
+          key={n}
+          label={n}
+          value={rows.byNiveau[n]?.seuil}
+          placeholder={rows.default?.seuil != null ? String(rows.default.seuil) : '10'}
+          saving={saving === n}
+          onSave={(v) => saveNiveau(n, v)}
+          isLast={i === niveauxPresents.length - 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ThresholdRow({ label, value, placeholder, saving, onSave, isLast }) {
+  const [v, setV] = useState(value ?? '');
+  const dirty = String(v) !== String(value ?? '');
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 10 }}>
+      <span style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+        <input
+          type="number" min="0" max="20" step="0.5" value={v} placeholder={placeholder}
+          onChange={(e) => setV(e.target.value)}
+          style={{ width: 76, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, textAlign: 'center', boxSizing: 'border-box', color: 'var(--ink)' }}
+        />
+        <button
+          type="button" disabled={!dirty || saving} onClick={() => onSave(v)}
+          style={{ fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
+        >
+          {saving ? '…' : 'OK'}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -7,7 +7,6 @@ import { useCurrentSchoolYear } from '../lib/schoolYear.js';
 import { computeRelance } from '../lib/retard.js';
 import MoneyInput from '../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
-import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -15,7 +14,6 @@ const TABS = [
   { id: 'paiements', label: 'Paiements' },
   { id: 'depenses', label: 'Dépenses' },
   { id: 'avances', label: 'Avances sur salaire' },
-  { id: 'grille', label: 'Grille tarifaire' },
 ];
 
 const TYPES_FRAIS = [
@@ -69,7 +67,6 @@ export default function Money() {
       {tab === 'paiements' && <Payments />}
       {tab === 'depenses' && <Expenses />}
       {tab === 'avances' && <Advances />}
-      {tab === 'grille' && <FeeSchedules />}
     </div>
   );
 }
@@ -526,124 +523,6 @@ function Expenses() {
     </div>
   );
 }
-
-// Le montant de scolarité par niveau, pour l'année en cours — se
-// pré-remplit automatiquement à l'inscription (voir NewStudentModal), au
-// lieu d'être retapé à la main élève par élève. La grille elle-même
-// (FeeScheduleGrid) est partagée avec l'assistant de préparation d'une
-// nouvelle année scolaire — voir src/components/FeeScheduleGrid.jsx.
-function FeeSchedules() {
-  const { profile } = useAuth();
-  const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
-  const canManage = ['fondateur', 'directeur'].includes(profile.role);
-
-  if (!schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
-
-  return (
-    <div>
-      <PaymentCalendar schoolYear={schoolYear} canManage={canManage} onSaved={refreshSchoolYear} />
-      <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManage} />
-    </div>
-  );
-}
-
-// Un seul calendrier par année scolaire, identique pour toute l'école (pas
-// par niveau) : une fois un délai dépassé, les élèves qui n'ont pas payé
-// ce qu'il fallait à ce stade apparaissent "à relancer" dans Élèves et
-// Argent (voir src/lib/retard.js). La 3ème tranche reste facultative pour
-// une école qui ne fonctionne qu'en 2 tranches.
-function PaymentCalendar({ schoolYear, canManage, onSaved }) {
-  const [d1, setD1] = useState(schoolYear.date_tranche1 || '');
-  const [d2, setD2] = useState(schoolYear.date_tranche2 || '');
-  const [d3, setD3] = useState(schoolYear.date_tranche3 || '');
-  const [dc, setDc] = useState(schoolYear.date_connexe || '');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    setD1(schoolYear.date_tranche1 || '');
-    setD2(schoolYear.date_tranche2 || '');
-    setD3(schoolYear.date_tranche3 || '');
-    setDc(schoolYear.date_connexe || '');
-  }, [schoolYear.date_tranche1, schoolYear.date_tranche2, schoolYear.date_tranche3, schoolYear.date_connexe]);
-
-  const dirty = d1 !== (schoolYear.date_tranche1 || '') || d2 !== (schoolYear.date_tranche2 || '')
-    || d3 !== (schoolYear.date_tranche3 || '') || dc !== (schoolYear.date_connexe || '');
-
-  async function handleSave() {
-    setSaving(true);
-    setError('');
-    const { error: saveError } = await supabase.from('school_years').update({
-      date_tranche1: d1 || null,
-      date_tranche2: d2 || null,
-      date_tranche3: d3 || null,
-      date_connexe: dc || null,
-    }).eq('id', schoolYear.id);
-    setSaving(false);
-    if (saveError) { setError(saveError.message); return; }
-    onSaved();
-  }
-
-  return (
-    <div className="card-bold" style={{ padding: '18px 20px', marginBottom: 22 }}>
-      <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Calendrier de paiement</p>
-      <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-        Une fois un délai dépassé, les élèves qui n'ont pas payé ce qu'il fallait à ce stade
-        apparaissent automatiquement « à relancer » dans Élèves et Argent.
-      </p>
-      {canManage ? (
-        <>
-          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            <div>
-              <label style={calLabelStyle}>1ère tranche</label>
-              <input type="date" value={d1} onChange={(e) => setD1(e.target.value)} style={calInputStyle} />
-            </div>
-            <div>
-              <label style={calLabelStyle}>2ème tranche</label>
-              <input type="date" value={d2} onChange={(e) => setD2(e.target.value)} style={calInputStyle} />
-            </div>
-            <div>
-              <label style={calLabelStyle}>3ème tranche</label>
-              <input type="date" value={d3} onChange={(e) => setD3(e.target.value)} style={calInputStyle} />
-            </div>
-            <div>
-              <label style={calLabelStyle}>Frais connexes</label>
-              <input type="date" value={dc} onChange={(e) => setDc(e.target.value)} style={calInputStyle} />
-            </div>
-          </div>
-          {error && <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-          <button
-            type="button"
-            disabled={!dirty || saving}
-            onClick={handleSave}
-            style={{ marginTop: 14, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
-          >
-            {saving ? 'Enregistrement…' : 'Enregistrer le calendrier'}
-          </button>
-        </>
-      ) : (
-        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-          <CalDateDisplay label="1ère tranche" value={schoolYear.date_tranche1} />
-          <CalDateDisplay label="2ème tranche" value={schoolYear.date_tranche2} />
-          <CalDateDisplay label="3ème tranche" value={schoolYear.date_tranche3} />
-          <CalDateDisplay label="Frais connexes" value={schoolYear.date_connexe} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CalDateDisplay({ label, value }) {
-  return (
-    <div>
-      <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
-      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{value ? new Date(value).toLocaleDateString('fr-FR') : '—'}</p>
-    </div>
-  );
-}
-
-const calLabelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
-const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)', textAlign: 'center' };
 
 function Advances() {
   const { profile } = useAuth();
