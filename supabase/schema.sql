@@ -2723,3 +2723,46 @@ begin
   alter table salary_advances add constraint salary_advances_staff_id_fkey
     foreign key (staff_id) references staff(id) on delete restrict;
 end $$;
+
+-- ---------- Administration plateforme : statut des écoles ----------
+-- Jusqu'ici une école n'avait aucun statut : le seul levier de
+-- l'administrateur de la plateforme (PlatformAdmin.jsx) était une
+-- suppression complète et immédiate, irréversible, sans étape intermédiaire
+-- — le même problème que "staff" avant son propre statut actif/inactif
+-- (voir migration "Personnel" ci-dessus), en pire (ça supprime aussi tous
+-- les comptes Supabase Auth du personnel). On ajoute un statut de cycle de
+-- vie, et la suppression définitive n'est plus possible que sur une école
+-- déjà suspendue.
+--
+-- 'essai'/'actif' se comportent IDENTIQUEMENT aujourd'hui (aucune logique
+-- de facturation ni d'expiration d'essai n'existe encore) — la distinction
+-- n'est là que pour que l'administrateur puisse déjà classer ses écoles.
+-- 'note_administrative' est un champ libre pour l'admin plateforme (plan
+-- convenu, contact, motif de suspension...), jamais visible ni modifiable
+-- par l'école elle-même.
+alter table schools add column if not exists statut text not null default 'actif';
+alter table schools drop constraint if exists schools_statut_check;
+alter table schools add constraint schools_statut_check
+  check (statut in ('essai', 'actif', 'suspendu', 'resilie'));
+alter table schools add column if not exists note_administrative text;
+
+-- current_school_id() est la fonction "security definer" que TOUTES les
+-- policies RLS de l'application appellent (school_id = current_school_id()),
+-- directement ou via current_role_name()/les fonctions qui en dépendent —
+-- la faire renvoyer NULL pour un utilisateur dont l'école est suspendue ou
+-- résiliée coupe donc IMMÉDIATEMENT tout accès à TOUTES les tables de
+-- l'application pour cette école, sans modifier une seule autre policy.
+-- Un school_id ne peut jamais valoir NULL (comparaison toujours fausse),
+-- donc "= current_school_id()" échoue partout pour ce compte.
+create or replace function current_school_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.school_id
+  from profiles p
+  join schools s on s.id = p.school_id
+  where p.id = auth.uid() and s.statut not in ('suspendu', 'resilie')
+$$;

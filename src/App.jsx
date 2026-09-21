@@ -65,6 +65,23 @@ function RequireAuth({ children }) {
       </div>
     );
   }
+  // Une école suspendue/résiliée (statut posé par l'administrateur de la
+  // plateforme, voir PlatformAdmin.jsx) rend current_school_id() NULL côté
+  // base pour tous ses comptes : la policy RLS "schools: lecture de sa
+  // propre école" ne renvoie alors plus rien pour l'objet "schools" imbriqué
+  // ici, alors que "profiles" lui-même reste lisible (policy indépendante).
+  // C'est le signal fiable — jamais un champ statut lu côté client, qui
+  // serait de toute façon déjà bloqué par la même RLS.
+  if (profile.school_id && !profile.schools) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
+        <p style={{ color: 'var(--danger)', maxWidth: 420 }}>
+          L'accès de cette école a été suspendu. Contactez l'administrateur de la
+          plateforme pour plus d'informations.
+        </p>
+      </div>
+    );
+  }
   return children;
 }
 

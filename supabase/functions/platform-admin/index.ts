@@ -1,7 +1,7 @@
 // Edge Function : administration de la plateforme (liste des écoles,
-// suppression complète d'une école), réservée aux comptes listés dans la
-// table "platform_admins" — indépendant du rôle "fondateur", qui lui ne
-// donne accès qu'à une seule école.
+// changement de statut, suppression complète d'une école), réservée aux
+// comptes listés dans la table "platform_admins" — indépendant du rôle
+// "fondateur", qui lui ne donne accès qu'à une seule école.
 //
 // Pourquoi une fonction serveur : lister toutes les écoles et calculer
 // leurs effectifs exige de contourner les règles RLS (normalement chaque
@@ -10,6 +10,13 @@
 // en cascade au niveau base ne touche que les lignes "profiles", pas les
 // comptes "auth.users" sous-jacents). Tout ça nécessite la clé
 // "service_role", qui ne doit jamais atteindre le navigateur.
+//
+// Le statut ('essai'/'actif'/'suspendu'/'resilie', voir supabase/schema.sql)
+// n'est pas qu'une étiquette d'affichage : current_school_id() refuse tout
+// accès applicatif dès qu'une école est suspendue/résiliée, donc "set_statut"
+// coupe réellement l'école, immédiatement, pas seulement dans cette UI. La
+// suppression définitive ("delete") est donc réservée à une école déjà
+// suspendue/résiliée — revérifié ici, jamais seulement côté frontend.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
@@ -52,9 +59,47 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
 
+    const STATUTS = ['essai', 'actif', 'suspendu', 'resilie'];
+
+    if (body.action === 'set_statut') {
+      const { schoolId, statut } = body;
+      if (!schoolId) throw new Error('schoolId manquant.');
+      if (!STATUTS.includes(statut)) throw new Error('Statut invalide.');
+
+      const { error: updateError } = await adminClient.from('schools').update({ statut }).eq('id', schoolId);
+      if (updateError) throw new Error(updateError.message);
+      return jsonResponse({ ok: true });
+    }
+
+    if (body.action === 'set_note') {
+      const { schoolId, note } = body;
+      if (!schoolId) throw new Error('schoolId manquant.');
+
+      const { error: updateError } = await adminClient
+        .from('schools')
+        .update({ note_administrative: typeof note === 'string' ? note.trim() || null : null })
+        .eq('id', schoolId);
+      if (updateError) throw new Error(updateError.message);
+      return jsonResponse({ ok: true });
+    }
+
     if (body.action === 'delete') {
       const { schoolId } = body;
       if (!schoolId) throw new Error('schoolId manquant.');
+
+      // Suppression définitive réservée à une école déjà suspendue/résiliée
+      // — jamais un raccourci direct depuis "actif"/"essai". Revérifié ici
+      // côté serveur, jamais seulement côté interface (voir PlatformAdmin.jsx).
+      const { data: school, error: schoolError } = await adminClient
+        .from('schools')
+        .select('statut')
+        .eq('id', schoolId)
+        .maybeSingle();
+      if (schoolError) throw new Error(schoolError.message);
+      if (!school) throw new Error('École introuvable.');
+      if (school.statut !== 'suspendu' && school.statut !== 'resilie') {
+        throw new Error("Cette école doit d'abord être suspendue avant de pouvoir être supprimée définitivement.");
+      }
 
       // Comptes du personnel de cette école : on les supprime un par un via
       // l'API Auth (ça supprime aussi leur ligne "profiles" en cascade),
@@ -79,7 +124,7 @@ Deno.serve(async (req) => {
     // action par défaut : "list"
     const { data: schools, error: schoolsError } = await adminClient
       .from('schools')
-      .select('id, name, color, logo_url, created_at')
+      .select('id, name, color, logo_url, created_at, statut, note_administrative')
       .order('created_at', { ascending: false });
     if (schoolsError) throw new Error(schoolsError.message);
 
