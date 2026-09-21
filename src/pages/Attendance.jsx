@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials } from '../lib/utils.js';
+import { initials, todayIso, startOfWeekIso, endOfWeekIso, startOfMonthIso, endOfMonthIso } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
@@ -11,30 +11,6 @@ const STATUTS = [
   { id: 'absent', label: 'Absent', bg: 'var(--danger-light)', fg: 'var(--danger)' },
   { id: 'retard', label: 'Retard', bg: 'var(--amber-light)', fg: 'var(--amber)' },
 ];
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-// Lundi comme premier jour de semaine.
-function startOfWeekIso(iso) {
-  const d = new Date(`${iso}T00:00:00`);
-  const day = d.getDay();
-  d.setDate(d.getDate() + ((day === 0 ? -6 : 1) - day));
-  return d.toISOString().slice(0, 10);
-}
-function endOfWeekIso(iso) {
-  const d = new Date(`${startOfWeekIso(iso)}T00:00:00`);
-  d.setDate(d.getDate() + 6);
-  return d.toISOString().slice(0, 10);
-}
-function startOfMonthIso(iso) {
-  return `${iso.slice(0, 7)}-01`;
-}
-function endOfMonthIso(iso) {
-  const [y, m] = iso.slice(0, 7).split('-').map(Number);
-  return `${iso.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
-}
 
 export default function Attendance() {
   const { profile } = useAuth();

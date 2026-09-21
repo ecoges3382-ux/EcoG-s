@@ -2551,3 +2551,44 @@ create policy "whatsapp_messages: select" on whatsapp_messages
 alter table schools add column if not exists adresse text;
 alter table schools add column if not exists telephone text;
 alter table schools add column if not exists email text;
+
+-- ---------- Dashboard de direction : moyenne par classe, agrégée serveur ----------
+-- Le dashboard a besoin de la moyenne générale par classe pour une année
+-- scolaire — la calculer élève par élève côté navigateur obligerait à
+-- rapatrier toutes les notes de l'école. Cette fonction reste security
+-- invoker : elle ne fait qu'appeler student_annual_average (déjà la seule
+-- source de vérité pour une moyenne annuelle, utilisée aussi par le
+-- rollover) à l'intérieur d'une requête groupée par classe, sans jamais
+-- dupliquer sa logique. Étant security invoker, les policies RLS
+-- (enrollments/classes/grades/subjects, déjà limitées à current_school_id())
+-- s'appliquent normalement selon le rôle de l'appelant — un enseignant qui
+-- peut déjà lire les notes de son école ailleurs dans l'appli obtient le
+-- même résultat ici, jamais plus. Les filtres school_id explicites
+-- ci-dessous sont une redondance volontaire avec RLS, pas un contournement.
+create or replace function dashboard_class_results(p_school_year_id uuid)
+returns table(classe_id uuid, classe_nom text, effectif bigint, nb_avec_notes bigint, moyenne_generale numeric)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select
+    c.id as classe_id,
+    c.nom as classe_nom,
+    count(e.id) as effectif,
+    count(m.moyenne) as nb_avec_notes,
+    avg(m.moyenne) as moyenne_generale
+  from enrollments e
+  join classes c on c.id = e.classe_id
+  join school_years sy on sy.id = e.school_year_id
+  left join lateral (
+    select student_annual_average(e.student_id, e.school_year_id, c.niveau) as moyenne
+  ) m on true
+  where e.school_year_id = p_school_year_id
+    and sy.school_id = current_school_id()
+    and c.school_id = current_school_id()
+  group by c.id, c.nom
+  order by c.nom
+$$;
+
+grant execute on function dashboard_class_results(uuid) to authenticated;

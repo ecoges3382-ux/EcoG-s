@@ -4,6 +4,33 @@ export function fmt(n) {
   return Number(n ?? 0).toLocaleString('de-DE');
 }
 
+export function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Bornes de périodes usuelles (jour/semaine/mois), utilisées à la fois par
+// les statistiques de présence (Attendance.jsx) et le dashboard/rapports de
+// direction — une seule définition de "semaine"/"mois" dans toute l'appli.
+// Lundi comme premier jour de semaine.
+export function startOfWeekIso(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  const day = d.getDay();
+  d.setDate(d.getDate() + ((day === 0 ? -6 : 1) - day));
+  return d.toISOString().slice(0, 10);
+}
+export function endOfWeekIso(iso) {
+  const d = new Date(`${startOfWeekIso(iso)}T00:00:00`);
+  d.setDate(d.getDate() + 6);
+  return d.toISOString().slice(0, 10);
+}
+export function startOfMonthIso(iso) {
+  return `${iso.slice(0, 7)}-01`;
+}
+export function endOfMonthIso(iso) {
+  const [y, m] = iso.slice(0, 7).split('-').map(Number);
+  return `${iso.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+}
+
 // Pour tout montant affiché à l'écran (pas les exports CSV, qui gardent
 // des nombres bruts) : "F" tout court ne précise pas de quel franc il
 // s'agit, ici c'est toujours le franc CFA.

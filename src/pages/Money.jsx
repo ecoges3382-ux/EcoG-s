@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
+import { useEnrollmentsForYear } from '../lib/enrollments.js';
 import MoneyInput from '../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
@@ -48,41 +49,14 @@ export default function Money() {
   );
 }
 
-// Le dû/payé et la classe d'un élève sont propres à l'année scolaire en
-// cours (table enrollments) — students ne garde que son identité. La
-// grille tarifaire de l'année (fee_schedules) est chargée en une seule
-// requête pour toute l'école, jamais une par élève — voir lib/retard.js
-// pour comment elle sert à répartir les échéances proportionnellement.
+// Thin wrapper autour du hook partagé (src/lib/enrollments.js, aussi
+// utilisé par Dashboard.jsx et Reports.jsx) — garde la même interface
+// qu'avant (students/error/schoolYear) pour ne rien changer aux composants
+// qui l'appellent ci-dessous.
 function useEnrollments() {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
-  const [students, setStudents] = useState(null);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    if (!schoolYear) return;
-    Promise.all([
-      supabase
-        .from('enrollments')
-        .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name )')
-        .eq('school_year_id', schoolYear.id),
-      supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
-    ]).then(([{ data, error: e }, { data: fees }]) => {
-      if (e) { setError(e.message); return; }
-      const feeByNiveau = {};
-      (fees || []).forEach((f) => { feeByNiveau[f.niveau] = f; });
-      setStudents((data || []).map((en) => ({
-        id: en.students.id,
-        full_name: en.students.full_name,
-        niveau: en.classes?.nom || '—',
-        feeSchedule: en.classes?.niveau ? feeByNiveau[en.classes.niveau] : undefined,
-        montant_du: en.montant_du,
-        montant_paye: en.montant_paye,
-        frais_connexe_du: en.frais_connexe_du,
-        frais_connexe_paye: en.frais_connexe_paye,
-        note_arrangement: en.note_arrangement,
-      })));
-    });
-  }, [schoolYear?.id]);
+  const { students, error } = useEnrollmentsForYear(schoolYear);
   return { students, error, schoolYear };
 }
 
