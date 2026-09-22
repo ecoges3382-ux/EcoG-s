@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { generateAccessCode } from '../lib/utils.js';
 
 // Même logique que dans Accounts.jsx : supabase-js ne remplit pas `data`
 // quand la fonction répond en erreur, il faut relire fnError.context.
@@ -534,11 +535,17 @@ function TrashIcon() {
 }
 
 function AdminsTab() {
+  const { profile } = useAuth();
   const [admins, setAdmins] = useState(null);
+  const [invites, setInvites] = useState(null);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [newInvite, setNewInvite] = useState(null);
+  const [revokingId, setRevokingId] = useState(null);
 
   async function reload() {
     setError('');
@@ -547,7 +554,17 @@ function AdminsTab() {
     setAdmins(data.admins);
   }
 
-  useEffect(() => { reload(); }, []);
+  async function reloadInvites() {
+    const { data, error: err } = await supabase
+      .from('platform_admin_invites')
+      .select('id, email, code, used_at, expires_at, created_at')
+      .is('used_at', null)
+      .order('created_at', { ascending: false });
+    if (err) { setError(err.message); return; }
+    setInvites(data || []);
+  }
+
+  useEffect(() => { reload(); reloadInvites(); }, []);
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -571,17 +588,47 @@ function AdminsTab() {
     reload();
   }
 
+  // Insert direct (RLS), même principe que les codes d'accès parent
+  // (parent_access) : un administrateur en place génère un code, le
+  // communique hors système à la personne à inviter, qui l'utilise sur
+  // /inscription-administrateur — jamais besoin que cette personne ait déjà
+  // un compte, contrairement à "Promouvoir un compte existant" ci-dessous.
+  async function handleCreateInvite(e) {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    setCreatingInvite(true);
+    setError('');
+    setNewInvite(null);
+    const code = generateAccessCode();
+    const cleanEmail = inviteEmail.trim().toLowerCase();
+    const { error: insertError } = await supabase.from('platform_admin_invites').insert({
+      email: cleanEmail, code, created_by: profile?.id,
+    });
+    setCreatingInvite(false);
+    if (insertError) { setError(insertError.message); return; }
+    setNewInvite({ email: cleanEmail, code });
+    setInviteEmail('');
+    reloadInvites();
+  }
+
+  async function handleRevoke(invite) {
+    if (!window.confirm(`Révoquer l'invitation pour ${invite.email} ?`)) return;
+    setRevokingId(invite.id);
+    setError('');
+    const { error: deleteError } = await supabase.from('platform_admin_invites').delete().eq('id', invite.id);
+    setRevokingId(null);
+    if (deleteError) { setError(deleteError.message); return; }
+    reloadInvites();
+  }
+
   return (
     <div>
-      <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
-        La personne doit déjà avoir un compte EcoGès (ex. fondateur d'une école) pour pouvoir être ajoutée ici.
-      </p>
-
       {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
-      {!admins && <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>}
 
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Administrateurs actuels</p>
+      {!admins && <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>}
       {admins && (
-        <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)', marginBottom: 18 }}>
+        <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)', marginBottom: 24 }}>
           {admins.map((a, i) => (
             <div key={a.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i === admins.length - 1 ? 'none' : '1px solid var(--line)' }}>
               <div>
@@ -603,6 +650,76 @@ function AdminsTab() {
         </div>
       )}
 
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Inviter un nouvel administrateur</p>
+      <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+        Génère un code à usage unique, à communiquer toi-même (téléphone, WhatsApp…) à la personne. Elle crée son compte
+        sur l'écran "Créer un compte administrateur" (au bas de la page de connexion) avec ce code — son compte
+        n'est lié à aucune école.
+      </p>
+
+      {newInvite && (
+        <div className="card-bold" style={{ padding: '14px 16px', background: 'var(--gold-light)', borderColor: 'var(--gold)', marginBottom: 14 }}>
+          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>
+            Code pour {newInvite.email} — à communiquer, ne le laisse pas affiché à l'écran.
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink)' }}>{newInvite.code}</p>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(newInvite.code)}
+              style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '6px 11px' }}
+            >
+              Copier
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleCreateInvite} className="card-bold" style={{ padding: '16px 18px', background: 'var(--paper)', display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+        <input
+          type="email"
+          required
+          value={inviteEmail}
+          onChange={(e) => setInviteEmail(e.target.value)}
+          placeholder="E-mail de la personne à inviter"
+          style={{ flex: '1 1 220px', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, color: 'var(--ink)' }}
+        />
+        <button type="submit" disabled={creatingInvite} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', opacity: creatingInvite ? 0.7 : 1 }}>
+          {creatingInvite ? 'Génération…' : 'Générer un code'}
+        </button>
+      </form>
+
+      {invites && invites.length > 0 && (
+        <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)', marginBottom: 24 }}>
+          {invites.map((inv, i) => {
+            const expired = new Date(inv.expires_at) < new Date();
+            return (
+              <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i === invites.length - 1 ? 'none' : '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{inv.email} <span style={{ fontWeight: 400, color: 'var(--muted)', fontFamily: 'var(--serif)', letterSpacing: '0.06em' }}>· {inv.code}</span></p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11.5, color: expired ? 'var(--danger)' : 'var(--muted)' }}>
+                    {expired ? 'Expirée' : `Expire le ${new Date(inv.expires_at).toLocaleDateString('fr-FR')}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRevoke(inv)}
+                  disabled={revokingId === inv.id}
+                  style={{ ...btnStyle('var(--danger)'), fontSize: 12 }}
+                >
+                  Révoquer
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Promouvoir un compte existant</p>
+      <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+        Pour donner le statut d'administrateur à un compte qui a déjà un profil d'école (ex. un fondateur) — sans passer
+        par une invitation.
+      </p>
       <form onSubmit={handleAdd} className="card-bold" style={{ padding: '16px 18px', background: 'var(--paper)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <input
           type="email"

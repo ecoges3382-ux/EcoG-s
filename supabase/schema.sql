@@ -2820,3 +2820,42 @@ as $$
 $$;
 revoke execute on function find_user_id_by_email(text) from public;
 grant execute on function find_user_id_by_email(text) to service_role;
+
+-- ---------- Création d'un compte administrateur, indépendante d'une école ----------
+-- Jusqu'ici le seul moyen de créer un compte avec mot de passe était
+-- "Créer une école" (SignUp.jsx) — un administrateur de la plateforme
+-- n'avait donc pas d'autre choix que d'être aussi fondateur d'une école
+-- fantôme (voir la migration précédente qui masque ces écoles-artefacts).
+-- On sépare complètement les deux : un compte administrateur se crée sur
+-- un écran dédié (/inscription-administrateur), protégé par un code à usage
+-- unique — même principe que les codes d'accès parent (parent_access),
+-- même alphabet (voir generateAccessCode dans src/lib/utils.js), généré
+-- côté client par un administrateur déjà en place puis communiqué hors
+-- système (téléphone, WhatsApp...) à la personne à inviter.
+create table if not exists platform_admin_invites (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  code text not null unique,
+  created_by uuid not null references auth.users(id) on delete cascade,
+  used_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '7 days'),
+  created_at timestamptz not null default now()
+);
+alter table platform_admin_invites enable row level security;
+
+-- Lecture/création/révocation : réservées aux administrateurs de la
+-- plateforme déjà en place — même garde que partout ailleurs dans
+-- PlatformAdmin.jsx. Pas de policy "update" pour authenticated : seule
+-- l'Edge Function platform-admin-signup (service_role) marque une
+-- invitation "used_at" au moment de la création du compte, jamais le
+-- client — une invitation consommée doit rester la preuve fiable qu'un
+-- compte a bien été créé par ce chemin, pas une simple déclaration.
+create policy "platform_admin_invites: lecture par un admin plateforme" on platform_admin_invites
+  for select using (exists (select 1 from platform_admins pa where pa.user_id = auth.uid()));
+create policy "platform_admin_invites: création par un admin plateforme" on platform_admin_invites
+  for insert with check (
+    exists (select 1 from platform_admins pa where pa.user_id = auth.uid())
+    and created_by = auth.uid()
+  );
+create policy "platform_admin_invites: révocation par un admin plateforme" on platform_admin_invites
+  for delete using (exists (select 1 from platform_admins pa where pa.user_id = auth.uid()));
