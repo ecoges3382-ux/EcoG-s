@@ -148,6 +148,36 @@ function EcolesTab({ schools, reload }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('recent');
   const [detailId, setDetailId] = useState(null);
+  const [busyRowId, setBusyRowId] = useState(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const [rowError, setRowError] = useState('');
+
+  // Bascule rapide directement depuis la liste, sans ouvrir la fiche — même
+  // action que le bouton Suspendre/Réactiver de SchoolDetailModal, juste un
+  // raccourci. "actif" est délibérément le seul état de réactivation (une
+  // école en 'essai' réactivée depuis ici redevient 'actif', jamais
+  // 'essai' — les deux se comportent identiquement aujourd'hui, voir
+  // schema.sql) : cohérent avec la même simplification déjà faite dans
+  // SchoolDetailModal (son bouton ne teste que statut !== 'suspendu').
+  async function handleQuickToggle(school) {
+    setRowError('');
+    setBusyRowId(school.id);
+    const nextStatut = school.statut === 'suspendu' ? 'actif' : 'suspendu';
+    const { error: err } = await callPlatformAdmin({ action: 'set_statut', schoolId: school.id, statut: nextStatut });
+    setBusyRowId(null);
+    if (err) { setRowError(err); return; }
+    reload();
+  }
+
+  async function handleQuickDelete(school) {
+    setRowError('');
+    setBusyRowId(school.id);
+    const { error: err } = await callPlatformAdmin({ action: 'delete', schoolId: school.id });
+    setBusyRowId(null);
+    setConfirmingDeleteId(null);
+    if (err) { setRowError(err); return; }
+    reload();
+  }
 
   const filtered = useMemo(() => {
     if (!schools) return [];
@@ -182,24 +212,29 @@ function EcolesTab({ schools, reload }) {
         </select>
       </div>
 
+      {rowError && <p style={{ color: '#ffb4a8', marginBottom: 10, fontWeight: 600, fontSize: 12.5 }}>{rowError}</p>}
+
       {filtered.length === 0 && <p style={{ color: 'rgba(255,255,255,0.65)' }}>Aucune école ne correspond.</p>}
 
       {filtered.length > 0 && (
         <div className="card-bold" style={{ overflowX: 'hidden', background: 'var(--paper)' }}>
           {filtered.map((s, i) => {
             const st = STATUT_LABELS[s.statut] || STATUT_LABELS.actif;
+            const canDelete = s.statut === 'suspendu' || s.statut === 'resilie';
+            const isActive = s.statut !== 'suspendu';
+            const busy = busyRowId === s.id;
             return (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                onClick={() => setDetailId(s.id)}
                 style={{
-                  display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-                  padding: '14px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--line)',
-                  border: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', background: 'none', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  padding: '12px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--line)',
                 }}
               >
-                <div style={{ minWidth: 0 }}>
+                <div
+                  onClick={() => setDetailId(s.id)}
+                  style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{s.name}</p>
                     <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
@@ -208,8 +243,43 @@ function EcolesTab({ schools, reload }) {
                     {s.staffCount} compte{s.staffCount !== 1 ? 's' : ''} · {s.studentCount} élève{s.studentCount !== 1 ? 's' : ''} · créée le {new Date(s.created_at).toLocaleDateString('fr-FR')}
                   </p>
                 </div>
-                <i className="ti ti-chevron-right" style={{ color: 'var(--muted)', flexShrink: 0 }} aria-hidden="true"></i>
-              </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                  <StatutSwitch active={isActive} disabled={busy} onChange={() => handleQuickToggle(s)} />
+
+                  {confirmingDeleteId === s.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(null)}
+                        title="Annuler"
+                        style={iconBtnStyle('var(--muted)')}
+                      >
+                        <i className="ti ti-x" aria-hidden="true"></i>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickDelete(s)}
+                        disabled={busy}
+                        title="Confirmer la suppression définitive"
+                        style={iconBtnStyle('var(--danger)')}
+                      >
+                        <i className="ti ti-check" aria-hidden="true"></i>
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => (canDelete ? setConfirmingDeleteId(s.id) : null)}
+                      disabled={!canDelete || busy}
+                      title={canDelete ? 'Supprimer définitivement' : "Suspends d'abord cette école pour pouvoir la supprimer."}
+                      style={{ ...iconBtnStyle(canDelete ? 'var(--danger)' : 'var(--line-strong)'), cursor: canDelete ? 'pointer' : 'not-allowed', opacity: canDelete ? 1 : 0.5 }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
@@ -414,6 +484,53 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
 
 function btnStyle(borderColor) {
   return { padding: '8px 12px', borderRadius: 8, border: `1px solid ${borderColor}`, background: 'none', color: borderColor, fontWeight: 600, fontSize: 12.5, cursor: 'pointer' };
+}
+
+function iconBtnStyle(color) {
+  return { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, borderRadius: 8, border: 'none', background: 'none', color, fontSize: 16, cursor: 'pointer' };
+}
+
+// Interrupteur à glissière (actif = vert à droite / suspendu = gris à
+// gauche) — raccourci direct depuis la liste des écoles, sans ouvrir la
+// fiche détail, pour l'action la plus fréquente (suspendre/réactiver).
+function StatutSwitch({ active, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label={active ? 'Suspendre cette école' : 'Réactiver cette école'}
+      title={active ? 'Suspendre' : 'Réactiver'}
+      onClick={onChange}
+      disabled={disabled}
+      style={{
+        width: 42, height: 24, borderRadius: 20, border: 'none', padding: 2, flexShrink: 0,
+        background: active ? 'var(--success)' : 'var(--line-strong)',
+        cursor: disabled ? 'not-allowed' : 'pointer', position: 'relative', opacity: disabled ? 0.6 : 1,
+        transition: 'background 0.15s',
+      }}
+    >
+      <span
+        style={{
+          display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff',
+          transform: active ? 'translateX(18px)' : 'translateX(0)', transition: 'transform 0.15s',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.35)',
+        }}
+      />
+    </button>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" />
+      <path d="M10 11l0 6" />
+      <path d="M14 11l0 6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+      <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
 }
 
 function AdminsTab() {
