@@ -298,21 +298,41 @@ Deno.serve(async (req) => {
     if (schoolsError) throw new Error(schoolsError.message);
 
     const schoolIds = (schools || []).map((s) => s.id);
-    const [{ data: profiles }, { data: students }] = await Promise.all([
-      adminClient.from('profiles').select('school_id').in('school_id', schoolIds),
+    const [{ data: profiles }, { data: students }, { data: allAdmins }] = await Promise.all([
+      adminClient.from('profiles').select('id, school_id').in('school_id', schoolIds),
       adminClient.from('students').select('school_id').in('school_id', schoolIds),
+      adminClient.from('platform_admins').select('user_id'),
     ]);
+    const adminIds = new Set((allAdmins || []).map((a: { user_id: string }) => a.user_id));
 
     const staffCounts: Record<string, number> = {};
-    for (const p of profiles || []) staffCounts[p.school_id] = (staffCounts[p.school_id] || 0) + 1;
+    const staffIdsBySchool: Record<string, string[]> = {};
+    for (const p of (profiles || []) as { id: string; school_id: string }[]) {
+      staffCounts[p.school_id] = (staffCounts[p.school_id] || 0) + 1;
+      if (!staffIdsBySchool[p.school_id]) staffIdsBySchool[p.school_id] = [];
+      staffIdsBySchool[p.school_id].push(p.id);
+    }
     const studentCounts: Record<string, number> = {};
     for (const s of students || []) studentCounts[s.school_id] = (studentCounts[s.school_id] || 0) + 1;
 
-    const result = (schools || []).map((s) => ({
-      ...s,
-      staffCount: staffCounts[s.id] || 0,
-      studentCount: studentCounts[s.id] || 0,
-    }));
+    // Une "école" dont TOUT le personnel est administrateur de la
+    // plateforme n'est pas une vraie école cliente — c'est l'artefact d'un
+    // compte admin créé via "Créer une école" (seul moyen de créer un
+    // compte avec mot de passe dans l'appli). Elle n'apparaît plus ici : ni
+    // interrupteur suspendre/réactiver, ni corbeille, pour ne jamais
+    // exposer par erreur une action qui toucherait au compte admin
+    // lui-même. Une vraie école reste affichée normalement même si l'un de
+    // ses membres est par ailleurs administrateur de la plateforme.
+    const result = (schools || [])
+      .filter((s) => {
+        const staffIds = staffIdsBySchool[s.id] || [];
+        return !(staffIds.length > 0 && staffIds.every((id) => adminIds.has(id)));
+      })
+      .map((s) => ({
+        ...s,
+        staffCount: staffCounts[s.id] || 0,
+        studentCount: studentCounts[s.id] || 0,
+      }));
 
     return jsonResponse({ schools: result });
   } catch (err) {
