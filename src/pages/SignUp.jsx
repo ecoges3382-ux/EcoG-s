@@ -12,6 +12,7 @@ export default function SignUp() {
   const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
   const [phoneLocal, setPhoneLocal] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -37,21 +38,39 @@ export default function SignUp() {
       return;
     }
 
+    if (!inviteCode.trim()) {
+      setError('Le code fourni par l’administrateur est obligatoire.');
+      return;
+    }
+
     setSubmitting(true);
-    const { error: signUpError } = await supabase.auth.signUp({
-      ...(method === 'email' ? { email: email.trim() } : { phone: phoneValue }),
-      password,
-      options: {
-        data: { school_name: schoolName.trim(), full_name: fullName.trim() },
+    const { data: signupData, error: signUpError } = await supabase.functions.invoke('school-signup', {
+      body: {
+        method,
+        email: method === 'email' ? email.trim() : undefined,
+        phone: method === 'phone' ? phoneValue : undefined,
+        password,
+        school_name: schoolName.trim(),
+        full_name: fullName.trim(),
+        code: inviteCode.trim().toUpperCase(),
       },
     });
+    if (signUpError || signupData?.error) {
+      setSubmitting(false);
+      setError(signupData?.error || signUpError.message);
+      return;
+    }
+
+    // Le compte est créé par la fonction serveur, sans session ouverte.
+    // On déclenche ici l'envoi du lien de confirmation ou du code SMS.
+    const { error: resendError } = await supabase.auth.resend(
+      method === 'email'
+        ? { type: 'signup', email: email.trim() }
+        : { type: 'sms', phone: phoneValue },
+    );
     setSubmitting(false);
-    if (signUpError) {
-      setError(
-        signUpError.message === 'User already registered'
-          ? `Un compte existe déjà avec cet ${method === 'email' ? 'e-mail' : 'numéro'}.`
-          : signUpError.message,
-      );
+    if (resendError) {
+      setError(`Compte créé, mais l’envoi du message de confirmation a échoué : ${resendError.message}. Réessaie ou contacte l’administrateur.`);
       return;
     }
     // E-mail : aucune session n'est ouverte ici — l'école et le profil
@@ -196,8 +215,19 @@ export default function SignUp() {
             </Field>
           )}
 
-          <Field label="Mot de passe" last>
-            <PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
+          <Field label="Mot de passe">
+            <PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label="Code d’inscription fourni par l’administrateur" last>
+            <input
+              required
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
+              autoComplete="off"
+              placeholder="Ex. 8 caractères"
+              style={{ ...inputStyle, letterSpacing: '0.08em', marginBottom: 8 }}
+            />
           </Field>
 
           {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
