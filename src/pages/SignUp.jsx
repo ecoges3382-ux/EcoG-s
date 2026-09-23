@@ -22,6 +22,7 @@ export default function SignUp() {
   const [verifying, setVerifying] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [resending, setResending] = useState(false);
+  const [confirmationError, setConfirmationError] = useState('');
 
   const phoneValue = composePhone(phoneDial, phoneLocal);
 
@@ -70,8 +71,9 @@ export default function SignUp() {
     );
     setSubmitting(false);
     if (resendError) {
-      setError(`Compte créé, mais l’envoi du message de confirmation a échoué : ${resendError.message}. Réessaie ou contacte l’administrateur.`);
-      return;
+      const message = `L’envoi du message de confirmation a échoué : ${resendError.message}. Tu peux réessayer depuis cet écran.`;
+      if (method === 'email') setConfirmationError(message);
+      else setOtpError(message);
     }
     // E-mail : aucune session n'est ouverte ici — l'école et le profil
     // "fondateur" ne sont créés qu'après le clic sur le lien de
@@ -79,6 +81,14 @@ export default function SignUp() {
     // vérifier le code reçu par SMS (écran suivant) avant que la session
     // ne s'ouvre et ne déclenche la même création automatique.
     setSent(true);
+  }
+
+  async function handleResendConfirmation() {
+    setResending(true);
+    setConfirmationError('');
+    const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+    setResending(false);
+    if (resendError) setConfirmationError(resendError.message);
   }
 
   async function handleVerifyOtp(e) {
@@ -122,6 +132,10 @@ export default function SignUp() {
             Cliquez sur le lien qu'il contient pour activer votre compte et
             créer votre école.
           </p>
+          {confirmationError && <p style={{ color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>{confirmationError}</p>}
+          <button type="button" onClick={handleResendConfirmation} disabled={resending} style={{ background: 'none', border: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', marginBottom: 14 }}>
+            {resending ? 'Envoi…' : 'Renvoyer l’e-mail de confirmation'}
+          </button>
           <ConfirmationFooterLinks onNewSchool={() => setSent(false)} />
         </div>
       </div>
