@@ -33,6 +33,7 @@ function statusOf(s, schoolYear, feeSchedule) {
 }
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
+const CAN_EDIT_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 function TrashIcon() {
   return (
@@ -58,6 +59,7 @@ export default function Students() {
   const [error, setError] = useState('');
   const [classFilter, setClassFilter] = useState('toutes');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -67,6 +69,7 @@ export default function Students() {
   // action globale et irréversible sur l'identité de l'élève (students),
   // pas une correction propre à l'année consultée.
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
+  const canEdit = CAN_EDIT_ROLES.includes(profile.role) && !isHistorical;
 
   // La liste des élèves vient des inscriptions de l'année scolaire en
   // cours (enrollments), pas directement de "students" — c'est elle qui
@@ -267,7 +270,7 @@ export default function Students() {
           )}
           {!isHistorical && (
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={() => { setEditingStudent(null); setModalOpen(true); }}
               disabled={classes === null || !activeYear}
               style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !activeYear ? 0.7 : 1 }}
             >
@@ -329,6 +332,17 @@ export default function Students() {
               key={s.id}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
             >
+              {canEdit && !selectMode && (
+                <button
+                  type="button"
+                  onClick={() => { setEditingStudent(s); setModalOpen(true); }}
+                  title={`Modifier l'inscription de ${s.full_name}`}
+                  aria-label={`Modifier l'inscription de ${s.full_name}`}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: '1px solid var(--line)', background: 'var(--paper)', color: 'var(--forest)', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <i className="ti ti-settings" style={{ fontSize: 17 }} aria-hidden="true"></i>
+                </button>
+              )}
               {canDelete && selectMode && (
                 <input
                   type="checkbox"
@@ -386,8 +400,9 @@ export default function Students() {
           schoolYearId={activeYear.id}
           classes={classes || []}
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
-          onClose={() => setModalOpen(false)}
-          onCreated={() => { setModalOpen(false); reload(); }}
+          student={editingStudent}
+          onClose={() => { setModalOpen(false); setEditingStudent(null); }}
+          onCreated={() => { setModalOpen(false); setEditingStudent(null); reload(); }}
         />
       )}
     </div>
