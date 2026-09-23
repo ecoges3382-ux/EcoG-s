@@ -4,6 +4,17 @@ import { supabase } from '../lib/supabase.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from '../components/PhoneInput.jsx';
 
+async function describeSignupError(fnError) {
+  if (!fnError) return null;
+  try {
+    const body = await fnError.context.json();
+    if (body?.error) return body.error;
+  } catch {
+    // Utilise le message standard si la réponse n'est pas du JSON.
+  }
+  return fnError.message;
+}
+
 export default function SignUp() {
   const [method, setMethod] = useState('email');
   const [schoolName, setSchoolName] = useState('');
@@ -12,6 +23,7 @@ export default function SignUp() {
   const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
   const [phoneLocal, setPhoneLocal] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -21,6 +33,7 @@ export default function SignUp() {
   const [verifying, setVerifying] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [resending, setResending] = useState(false);
+  const [confirmationError, setConfirmationError] = useState('');
 
   const phoneValue = composePhone(phoneDial, phoneLocal);
 
@@ -37,22 +50,41 @@ export default function SignUp() {
       return;
     }
 
+    if (!inviteCode.trim()) {
+      setError('Le code fourni par l’administrateur est obligatoire.');
+      return;
+    }
+
     setSubmitting(true);
-    const { error: signUpError } = await supabase.auth.signUp({
-      ...(method === 'email' ? { email: email.trim() } : { phone: phoneValue }),
-      password,
-      options: {
-        data: { school_name: schoolName.trim(), full_name: fullName.trim() },
+    const { data: signupData, error: signUpError } = await supabase.functions.invoke('school-signup', {
+      body: {
+        method,
+        email: method === 'email' ? email.trim() : undefined,
+        phone: method === 'phone' ? phoneValue : undefined,
+        password,
+        school_name: schoolName.trim(),
+        full_name: fullName.trim(),
+        code: inviteCode.trim().toUpperCase(),
       },
     });
-    setSubmitting(false);
-    if (signUpError) {
-      setError(
-        signUpError.message === 'User already registered'
-          ? `Un compte existe déjà avec cet ${method === 'email' ? 'e-mail' : 'numéro'}.`
-          : signUpError.message,
-      );
+    if (signUpError || signupData?.error) {
+      setSubmitting(false);
+      setError(signupData?.error || (await describeSignupError(signUpError)));
       return;
+    }
+
+    // Le compte est créé par la fonction serveur, sans session ouverte.
+    // On déclenche ici l'envoi du lien de confirmation ou du code SMS.
+    const { error: resendError } = await supabase.auth.resend(
+      method === 'email'
+        ? { type: 'signup', email: email.trim() }
+        : { type: 'sms', phone: phoneValue },
+    );
+    setSubmitting(false);
+    if (resendError) {
+      const message = `L’envoi du message de confirmation a échoué : ${resendError.message}. Tu peux réessayer depuis cet écran.`;
+      if (method === 'email') setConfirmationError(message);
+      else setOtpError(message);
     }
     // E-mail : aucune session n'est ouverte ici — l'école et le profil
     // "fondateur" ne sont créés qu'après le clic sur le lien de
@@ -60,6 +92,14 @@ export default function SignUp() {
     // vérifier le code reçu par SMS (écran suivant) avant que la session
     // ne s'ouvre et ne déclenche la même création automatique.
     setSent(true);
+  }
+
+  async function handleResendConfirmation() {
+    setResending(true);
+    setConfirmationError('');
+    const { error: resendError } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+    setResending(false);
+    if (resendError) setConfirmationError(resendError.message);
   }
 
   async function handleVerifyOtp(e) {
@@ -103,6 +143,10 @@ export default function SignUp() {
             Cliquez sur le lien qu'il contient pour activer votre compte et
             créer votre école.
           </p>
+          {confirmationError && <p style={{ color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>{confirmationError}</p>}
+          <button type="button" onClick={handleResendConfirmation} disabled={resending} style={{ background: 'none', border: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', marginBottom: 14 }}>
+            {resending ? 'Envoi…' : 'Renvoyer l’e-mail de confirmation'}
+          </button>
           <ConfirmationFooterLinks onNewSchool={() => setSent(false)} />
         </div>
       </div>
@@ -196,8 +240,19 @@ export default function SignUp() {
             </Field>
           )}
 
-          <Field label="Mot de passe" last>
-            <PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} />
+          <Field label="Mot de passe">
+            <PasswordInput required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
+          </Field>
+          <Field label="Code d’inscription fourni par l’administrateur" last>
+            <input
+              required
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
+              autoComplete="off"
+              placeholder="Ex. 8 caractères"
+              style={{ ...inputStyle, letterSpacing: '0.08em', marginBottom: 8 }}
+            />
           </Field>
 
           {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}

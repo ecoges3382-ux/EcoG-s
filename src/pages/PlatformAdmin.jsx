@@ -41,11 +41,14 @@ const ACTION_LABELS = {
   reset_password: 'Lien de réinitialisation généré',
   add_admin: 'Administrateur ajouté',
   remove_admin: 'Administrateur retiré',
+  create_school_invite: 'Code d’inscription créé',
+  revoke_school_invite: 'Code d’inscription révoqué',
 };
 
 const TABS = [
   { id: 'ecoles', label: 'Écoles' },
   { id: 'admins', label: 'Administrateurs' },
+  { id: 'school-invites', label: 'Codes écoles' },
   { id: 'journal', label: "Journal d'activité" },
 ];
 
@@ -103,8 +106,101 @@ export default function PlatformAdmin() {
 
         {tab === 'ecoles' && <EcolesTab schools={schools} reload={reloadSchools} />}
         {tab === 'admins' && <AdminsTab />}
+        {tab === 'school-invites' && <SchoolInvitesTab />}
         {tab === 'journal' && <JournalTab />}
       </div>
+    </div>
+  );
+}
+
+function SchoolInvitesTab() {
+  const { profile } = useAuth();
+  const [invites, setInvites] = useState(null);
+  const [error, setError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newInvite, setNewInvite] = useState(null);
+  const [revokingId, setRevokingId] = useState(null);
+
+  async function reload() {
+    setError('');
+    const { data, error: loadError } = await supabase
+      .from('school_signup_invites')
+      .select('id, code, created_at, expires_at, used_at, used_by')
+      .order('created_at', { ascending: false });
+    if (loadError) { setError(loadError.message); return; }
+    setInvites(data || []);
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    setCreating(true);
+    setError('');
+    setNewInvite(null);
+    const code = generateAccessCode(12);
+    const { error: insertError } = await supabase.from('school_signup_invites').insert({
+      code,
+      created_by: profile?.id,
+    });
+    setCreating(false);
+    if (insertError) { setError(insertError.message); return; }
+    setNewInvite({ code });
+    await reload();
+  }
+
+  async function handleRevoke(invite) {
+    if (!window.confirm('Révoquer ce code ? Il ne pourra plus créer de compte.')) return;
+    setRevokingId(invite.id);
+    setError('');
+    const { error: deleteError } = await supabase.from('school_signup_invites').delete().eq('id', invite.id).is('used_at', null);
+    setRevokingId(null);
+    if (deleteError) { setError(deleteError.message); return; }
+    await reload();
+  }
+
+  return (
+    <div>
+      {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Invitations pour créer une école</p>
+      <p style={{ margin: '0 0 12px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+        Chaque code est individuel, utilisable une seule fois et valable 7 jours. Communique-le directement à la personne invitée.
+      </p>
+      {newInvite && (
+        <div className="card-bold" style={{ padding: '14px 16px', background: 'var(--gold-light)', borderColor: 'var(--gold)', marginBottom: 14 }}>
+          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>Code à transmettre à la personne invitée</p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink)' }}>{newInvite.code}</p>
+            <button type="button" onClick={() => navigator.clipboard?.writeText(newInvite.code)} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '6px 11px' }}>Copier</button>
+          </div>
+        </div>
+      )}
+      <form onSubmit={handleCreate} className="card-bold" style={{ padding: '16px 18px', background: 'var(--paper)', marginBottom: 18 }}>
+        <button type="submit" disabled={creating} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', opacity: creating ? 0.7 : 1 }}>
+          {creating ? 'Génération…' : 'Générer un code individuel'}
+        </button>
+      </form>
+      {!invites && <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>}
+      {invites?.length === 0 && <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }}>Aucun code créé.</p>}
+      {invites && invites.length > 0 && (
+        <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)' }}>
+          {invites.map((inv, i) => {
+            const expired = new Date(inv.expires_at) < new Date();
+            const status = inv.used_at ? 'Utilisé' : expired ? 'Expiré' : 'Disponible';
+            return (
+              <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i === invites.length - 1 ? 'none' : '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--serif)', letterSpacing: '0.06em' }}>{inv.code} <span style={{ fontFamily: 'inherit', letterSpacing: 0, fontWeight: 400, color: 'var(--muted)' }}>· {status}</span></p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>Créé le {new Date(inv.created_at).toLocaleDateString('fr-FR')} · expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}</p>
+                </div>
+                {!inv.used_at && !expired && (
+                  <button type="button" onClick={() => handleRevoke(inv)} disabled={revokingId === inv.id} style={{ ...btnStyle('var(--danger)'), fontSize: 12 }}>Révoquer</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
