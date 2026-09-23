@@ -143,7 +143,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         .update({
           classe_id: classeId || null,
           montant_du: Number(montantDu) || 0,
-          frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
         })
         .eq('id', student.enrollment_id)
         .eq('school_year_id', schoolYearId);
