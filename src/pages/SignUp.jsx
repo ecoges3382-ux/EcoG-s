@@ -4,6 +4,17 @@ import { supabase } from '../lib/supabase.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from '../components/PhoneInput.jsx';
 
+async function describeSignupError(fnError) {
+  if (!fnError) return null;
+  try {
+    const body = await fnError.context.json();
+    if (body?.error) return body.error;
+  } catch {
+    // Utilise le message standard si la réponse n'est pas du JSON.
+  }
+  return fnError.message;
+}
+
 export default function SignUp() {
   const [method, setMethod] = useState('email');
   const [schoolName, setSchoolName] = useState('');
@@ -58,7 +69,7 @@ export default function SignUp() {
     });
     if (signUpError || signupData?.error) {
       setSubmitting(false);
-      setError(signupData?.error || signUpError.message);
+      setError(signupData?.error || (await describeSignupError(signUpError)));
       return;
     }
 
