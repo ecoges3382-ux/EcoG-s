@@ -86,13 +86,13 @@ function Logo({ size = 40, radius = 11, fontSize = 15 }) {
   );
 }
 
-function PrimaryButton({ href, children, style = {} }) {
+function PrimaryButton({ href, children, style = {}, className = '' }) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="landing-btn"
+      className={`landing-btn ${className}`}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--forest-dark)', color: '#fff',
         border: 'none', fontWeight: 600, fontSize: 14.5, padding: '13px 22px', borderRadius: 'var(--radius)',
@@ -199,16 +199,23 @@ export default function Landing() {
               seul outil, pensé pour le terrain.
             </p>
             <div className="landing-fade-up" style={{ animationDelay: '0.24s', display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              <PrimaryButton href={whatsappLink('Bonjour, je souhaite en savoir plus sur EcoGès pour mon école.')}>
+              <PrimaryButton
+                href={whatsappLink('Bonjour, je souhaite en savoir plus sur EcoGès pour mon école.')}
+                className="landing-pulse-cta"
+              >
                 <i className="ti ti-brand-whatsapp" style={{ fontSize: 18 }} aria-hidden="true" />
                 Demander un accès
               </PrimaryButton>
               <SecondaryButton to="/inscription">J’ai déjà un code d’invitation</SecondaryButton>
             </div>
           </div>
-          <Reveal delay={200}>
+          {/* Au-dessus de la ligne de flottaison : entrée en fondu synchronisée
+              avec le texte du hero (même mécanisme .landing-fade-up), pas
+              d'attente de défilement comme le reste de la page — c'est la
+              toute première chose que la visiteuse doit voir bouger. */}
+          <div className="landing-fade-up" style={{ animationDelay: '0.32s' }}>
             <ProductPreview />
-          </Reveal>
+          </div>
         </div>
       </section>
 

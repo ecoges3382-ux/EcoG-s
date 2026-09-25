@@ -142,24 +142,36 @@ body.app-mode .page-title { color: #fff !important; }
 }
 .landing-reveal.landing-reveal-line.is-visible .landing-line-fill { transform: scaleX(1); }
 
+/* Entrée du hero : décalage et échelle assez marqués pour être vus même
+   en un coup d'œil rapide (contrairement à un fondu de quelques pixels,
+   trop discret pour se remarquer sur un premier chargement). */
 @keyframes landingFadeUp {
-  from { opacity: 0; transform: translateY(22px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(38px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.landing-fade-up { animation: landingFadeUp 0.8s cubic-bezier(.16,.8,.3,1) both; }
+.landing-fade-up { animation: landingFadeUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes landingFloat {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(18px, -26px) scale(1.06); }
+  50% { transform: translate(34px, -44px) scale(1.12); }
 }
 .landing-blob {
   position: absolute;
   border-radius: 50%;
   filter: blur(60px);
-  opacity: 0.35;
-  animation: landingFloat 12s ease-in-out infinite;
+  opacity: 0.5;
+  animation: landingFloat 8s ease-in-out infinite;
   pointer-events: none;
 }
+
+/* Halo pulsant sur l'appel à l'action principal du hero — la seule chose
+   de la page en mouvement continu dès l'arrivée, pour que la page se
+   sente "vivante" même une fois l'entrée en fondu terminée. */
+@keyframes landingPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(15,76,58,0.4); }
+  70% { box-shadow: 0 0 0 14px rgba(15,76,58,0); }
+}
+.landing-pulse-cta { animation: landingPulse 2.4s ease-out 1.3s infinite; }
 
 @keyframes landingShimmer {
   0% { background-position: -200px 0; }
@@ -182,7 +194,7 @@ body.app-mode .page-title { color: #fff !important; }
 
 /* Personne ne devrait avoir le mal des transports pour lire une vitrine. */
 @media (prefers-reduced-motion: reduce) {
-  .landing-reveal, .landing-fade-up, .landing-blob, .landing-skeleton {
+  .landing-reveal, .landing-fade-up, .landing-blob, .landing-skeleton, .landing-pulse-cta {
     animation: none !important;
     transition: none !important;
     opacity: 1 !important;
