@@ -9,8 +9,8 @@ import { Link } from 'react-router-dom';
 // visiteur ne peut donc pas s'inscrire seul, d'où l'appel à l'action
 // principal qui pointe vers un contact (WhatsApp/e-mail) plutôt que vers
 // /inscription directement.
-const WHATSAPP_NUMBER = '2290195056424';
-const WHATSAPP_DISPLAY = '+229 01 95 05 64 24';
+const WHATSAPP_NUMBER = '22995056424';
+const WHATSAPP_DISPLAY = '+229 95 05 64 24';
 const CONTACT_EMAIL = 'ecoges3382@gmail.com';
 
 function whatsappLink(message) {
