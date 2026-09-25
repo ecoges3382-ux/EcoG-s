@@ -83,7 +83,7 @@ export default function AdminSignUp() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="Reçu d'un administrateur"
-            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 14, boxSizing: 'border-box', color: 'var(--ink)', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 14, boxSizing: 'border-box', color: 'var(--ink)', letterSpacing: '0.08em' }}
           />
 
           <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
