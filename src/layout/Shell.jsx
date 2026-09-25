@@ -47,6 +47,19 @@ function ShieldIcon() {
   );
 }
 
+// Même raison que ShieldIcon ci-dessus : "ti-lifebuoy" ne s'affichait pas
+// (bouton vide) — icône de police non fiable, alors qu'un tracé SVG
+// s'affiche toujours.
+function HelpIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.75.35-1.25 1.1-1.25 2.2" />
+      <path d="M12 17.5v.01" />
+    </svg>
+  );
+}
+
 function sidebarLinkStyle(isActive) {
   return {
     display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
@@ -104,7 +117,7 @@ export default function Shell() {
             title="Besoin d'aide ? Discuter sur WhatsApp"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}
           >
-            <i className="ti ti-lifebuoy" style={{ fontSize: 17 }} aria-hidden="true"></i>
+            <HelpIcon />
           </a>
           <button
             onClick={() => signOut()}
