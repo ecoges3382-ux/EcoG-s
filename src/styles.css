@@ -124,6 +124,78 @@ body.app-mode .page-title { color: #fff !important; }
    période d'un rapport, à côté des données qu'il filtre) se marque
    .no-print — display:none l'enlève complètement, contrairement à
    visibility, donc aucun espace vide ne reste à sa place à l'impression. */
+/* ---- Page d'accueil publique (landing) ---- */
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.landing-reveal.is-visible { opacity: 1; transform: translateY(0); }
+/* Variante "ligne qui se trace" (connecteur entre les étapes) : l'élément
+   révélé lui-même reste visible, seul son enfant .landing-line-fill se
+   déploie horizontalement. */
+.landing-reveal.landing-reveal-line { opacity: 1; transform: none; }
+.landing-reveal.landing-reveal-line .landing-line-fill {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1s ease;
+}
+.landing-reveal.landing-reveal-line.is-visible .landing-line-fill { transform: scaleX(1); }
+
+@keyframes landingFadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.landing-fade-up { animation: landingFadeUp 0.8s cubic-bezier(.16,.8,.3,1) both; }
+
+@keyframes landingFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(18px, -26px) scale(1.06); }
+}
+.landing-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.35;
+  animation: landingFloat 12s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes landingShimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.landing-skeleton {
+  background: linear-gradient(90deg, var(--line) 25%, var(--line-strong) 37%, var(--line) 63%);
+  background-size: 400px 100%;
+  animation: landingShimmer 2.2s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.landing-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.landing-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15,76,58,0.18); }
+
+.landing-feature-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.landing-feature-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(15,76,58,0.12); }
+
+.landing-nav-links { display: flex; }
+
+/* Personne ne devrait avoir le mal des transports pour lire une vitrine. */
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal, .landing-fade-up, .landing-blob, .landing-skeleton {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 780px) {
+  .landing-nav-links { display: none; }
+  .landing-hero-title { font-size: 30px !important; }
+  .landing-hero-sub { font-size: 15px !important; }
+}
+
 @media print {
   @page { size: A4; margin: 14mm; }
   body { background: #fff !important; }

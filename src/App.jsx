@@ -1,6 +1,7 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { supabaseConfigured } from './lib/supabase.js';
+import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
 import AdminSignUp from './pages/AdminSignUp.jsx';
@@ -51,10 +52,17 @@ function SetupNeeded() {
 
 function RequireAuth({ children }) {
   const { user, profile, loading, isPlatformAdmin, adminLoading } = useAuth();
+  const location = useLocation();
   if (loading || adminLoading) {
     return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>Chargement…</div>;
   }
-  if (!user) return <Navigate to="/connexion" replace />;
+  if (!user) {
+    // Racine du domaine, personne connectée : vitrine publique plutôt que
+    // la redirection vers /connexion appliquée à toute autre page protégée
+    // (ex. un lien direct vers /eleves, partagé puis ouvert déconnecté).
+    if (location.pathname === '/') return <Landing />;
+    return <Navigate to="/connexion" replace />;
+  }
   // Un administrateur de la plateforme n'a rien à faire dans l'interface
   // d'une école, MÊME s'il a par ailleurs un profil d'école (ex. compte créé
   // via "Créer une école" avant d'être ajouté aux administrateurs de la
