@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL, supportWhatsappLink, supportMailLink } from '../lib/utils.js';
 
 // Page d'accueil publique — affichée à la racine du domaine pour tout
 // visiteur non connecté (voir App.jsx → RequireAuth). Avant cette page,
@@ -9,16 +10,10 @@ import { Link } from 'react-router-dom';
 // visiteur ne peut donc pas s'inscrire seul, d'où l'appel à l'action
 // principal qui pointe vers un contact (WhatsApp/e-mail) plutôt que vers
 // /inscription directement.
-const WHATSAPP_NUMBER = '22995056424';
-const WHATSAPP_DISPLAY = '+229 95 05 64 24';
-const CONTACT_EMAIL = 'ecoges3382@gmail.com';
-
-function whatsappLink(message) {
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
-}
-function mailLink(subject) {
-  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
-}
+const WHATSAPP_DISPLAY = SUPPORT_WHATSAPP_DISPLAY;
+const CONTACT_EMAIL = SUPPORT_EMAIL;
+const whatsappLink = supportWhatsappLink;
+const mailLink = supportMailLink;
 
 // Anime l'entrée en vue (fade + léger déplacement vers le haut) une seule
 // fois par élément, via IntersectionObserver — pas de dépendance externe

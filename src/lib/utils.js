@@ -208,3 +208,18 @@ export function sortByRole(list) {
     return (ra === -1 ? ROLE_ORDER.length : ra) - (rb === -1 ? ROLE_ORDER.length : rb);
   });
 }
+
+// Canal de support unique, réutilisé à la fois par la page d'accueil
+// publique (Landing.jsx) et le lien d'aide accessible depuis l'application
+// une fois connecté (Shell.jsx, Settings.jsx) — une seule source pour ces
+// coordonnées plutôt qu'un numéro/e-mail recopié à chaque endroit.
+export const SUPPORT_WHATSAPP_NUMBER = '22995056424';
+export const SUPPORT_WHATSAPP_DISPLAY = '+229 95 05 64 24';
+export const SUPPORT_EMAIL = 'ecoges3382@gmail.com';
+
+export function supportWhatsappLink(message) {
+  return `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+}
+export function supportMailLink(subject) {
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+}

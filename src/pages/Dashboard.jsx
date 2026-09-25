@@ -7,6 +7,7 @@ import { useSelectedSchoolYear, useSchoolYearSelector } from '../lib/schoolYear.
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import OnboardingBanner from '../components/OnboardingBanner.jsx';
 
 // Tous les indicateurs annuels (effectifs, finances, présences, résultats)
 // suivent l'année SÉLECTIONNÉE — jamais is_current directement — pour
@@ -72,6 +73,7 @@ export default function Dashboard() {
         Tous les indicateurs ci-dessous concernent l'année {schoolYear.label} — change d'année depuis le sélecteur en haut de page.
       </p>
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {!isHistorical && <OnboardingBanner />}
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
-import { NIVEAUX } from '../lib/utils.js';
+import { NIVEAUX, SUPPORT_WHATSAPP_DISPLAY, supportWhatsappLink, supportMailLink } from '../lib/utils.js';
 import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 
@@ -183,6 +183,46 @@ export default function Settings() {
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
         </Link>
       )}
+
+      {canManageYear && (
+        <Link
+          to="/premiers-pas"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 12, maxWidth: 520 }}
+          className="card-bold"
+        >
+          <div style={{ padding: '16px 20px' }}>
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Configuration initiale</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Assistant pour mettre en place classes, matières et tarifs</p>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+        </Link>
+      )}
+
+      {/* Un simple lien suffit : pas de billetterie, juste un canal direct
+          pour signaler un problème — la même adresse que celle affichée sur
+          la page d'accueil publique (voir src/lib/utils.js). */}
+      <div className="card-bold" style={{ padding: '16px 20px', marginTop: 12, maxWidth: 520 }}>
+        <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Besoin d'aide ?</p>
+        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>En cas de souci, contacte l'équipe EcoGès directement.</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <a
+            href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', textDecoration: 'none' }}
+          >
+            <i className="ti ti-brand-whatsapp" style={{ fontSize: 15 }} aria-hidden="true"></i>
+            {SUPPORT_WHATSAPP_DISPLAY}
+          </a>
+          <a
+            href={supportMailLink('Assistance EcoGès')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}
+          >
+            <i className="ti ti-mail" style={{ fontSize: 15 }} aria-hidden="true"></i>
+            E-mail
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

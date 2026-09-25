@@ -32,6 +32,7 @@ import SettingsWhatsApp from './pages/SettingsWhatsApp.jsx';
 import PrepareSchoolYear from './pages/PrepareSchoolYear.jsx';
 import Money from './pages/Money.jsx';
 import Accounts from './pages/Accounts.jsx';
+import FirstTimeSetup from './pages/FirstTimeSetup.jsx';
 
 function SetupNeeded() {
   return (
@@ -144,6 +145,7 @@ function RoleRouter() {
         <Route path="parametres/annee-scolaire" element={<SchoolYearSettings />} />
         <Route path="parametres/annee-scolaire/preparation" element={<PrepareSchoolYear />} />
         <Route path="parametres/whatsapp" element={<SettingsWhatsApp />} />
+        <Route path="premiers-pas" element={<FirstTimeSetup />} />
         <Route path="comptes" element={<Accounts />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { ROLES } from '../lib/utils.js';
+import { ROLES, supportWhatsappLink } from '../lib/utils.js';
 import { SchoolYearProvider } from '../lib/schoolYear.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 
@@ -97,6 +97,15 @@ export default function Shell() {
             <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
             <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
           </div>
+          <a
+            href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")}
+            target="_blank"
+            rel="noreferrer"
+            title="Besoin d'aide ? Discuter sur WhatsApp"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}
+          >
+            <i className="ti ti-lifebuoy" style={{ fontSize: 17 }} aria-hidden="true"></i>
+          </a>
           <button
             onClick={() => signOut()}
             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}
