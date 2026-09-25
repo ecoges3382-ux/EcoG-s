@@ -19,14 +19,15 @@ const PAIEMENT_TRANCHES = [
   { id: 'autre', label: 'Autre' },
 ];
 
-export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, onClose, onCreated }) {
-  const [studentNom, setStudentNom] = useState('');
-  const [studentPrenom, setStudentPrenom] = useState('');
-  const [classeId, setClasseId] = useState(classes[0]?.id || '');
-  const [montantDu, setMontantDu] = useState(0);
-  const [montantDuTouched, setMontantDuTouched] = useState(false);
+export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, onClose, onCreated }) {
+  const isEditing = !!student;
+  const [studentNom, setStudentNom] = useState(student?.nom || '');
+  const [studentPrenom, setStudentPrenom] = useState(student?.prenom || '');
+  const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
+  const [montantDu, setMontantDu] = useState(student?.montant_du ?? 0);
+  const [montantDuTouched, setMontantDuTouched] = useState(!!student);
   const [feeSchedules, setFeeSchedules] = useState({});
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoUrl, setPhotoUrl] = useState(student?.photo_url || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -119,6 +120,40 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     }
     setSubmitting(true);
     setError('');
+
+    if (isEditing) {
+      const { error: studentError } = await supabase
+        .from('students')
+        .update({
+          nom: studentNom.trim(),
+          prenom: studentPrenom.trim(),
+          full_name: displayName(studentNom.trim(), studentPrenom.trim()),
+          photo_url: photoUrl || null,
+        })
+        .eq('id', student.id)
+        .eq('school_id', schoolId);
+      if (studentError) {
+        setSubmitting(false);
+        setError(studentError.message);
+        return;
+      }
+
+      const { error: enrollmentError } = await supabase
+        .from('enrollments')
+        .update({
+          classe_id: classeId || null,
+          montant_du: Number(montantDu) || 0,
+        })
+        .eq('id', student.enrollment_id)
+        .eq('school_year_id', schoolYearId);
+      setSubmitting(false);
+      if (enrollmentError) {
+        setError(enrollmentError.message);
+        return;
+      }
+      onCreated();
+      return;
+    }
 
     // Le téléphone du parent (saisi une seule fois, dans la section Parent
     // ci-dessous) est repris sur la fiche élève — nouveau parent créé à
@@ -269,7 +304,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     >
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Inscription d'un élève</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? 'Modifier les informations de l’élève' : "Inscription d'un élève"}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
@@ -308,6 +343,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </p>
         )}
 
+        {!isEditing && <>
         {/* Le parent paie souvent sur place au moment de l'inscription : on
             évite de rouvrir Argent juste après pour ressaisir le même
             paiement séparément. */}
@@ -357,12 +393,14 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           )}
         </div>
 
+        </>}
+
         <label style={labelStyle}>Photo (facultatif)</label>
         <div style={{ marginBottom: 18 }}>
           <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
         </div>
 
-        {canManageParents && (
+        {!isEditing && canManageParents && (
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 4 }}>
             <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Parent</p>
             <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
@@ -456,7 +494,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
           <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
-            {submitting ? 'Inscription…' : 'Inscrire'}
+            {submitting ? (isEditing ? 'Enregistrement…' : 'Inscription…') : (isEditing ? 'Enregistrer les modifications' : 'Inscrire')}
           </button>
         </div>
       </form>

@@ -2892,3 +2892,38 @@ alter table platform_admin_signup_attempts enable row level security;
 -- Aucune policy : ni lecture ni écriture pour authenticated/anon — cette
 -- table n'est manipulée que par platform-admin-signup via service_role,
 -- exactement comme parent_access_attempts.
+
+-- ---------- Inscriptions d'écoles sur invitation individuelle ----------
+-- Ces codes sont créés par un administrateur de la plateforme, expirent
+-- après sept jours et ne peuvent créer qu'un seul compte. L'application
+-- cliente n'a aucun droit de mise à jour : seule l'Edge Function
+-- school-signup (service_role) consomme le code.
+create table if not exists school_signup_invites (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  created_by uuid not null references auth.users(id) on delete cascade,
+  used_by uuid references auth.users(id) on delete set null,
+  used_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '7 days'),
+  created_at timestamptz not null default now()
+);
+create index if not exists school_signup_invites_created_idx on school_signup_invites(created_at desc);
+alter table school_signup_invites enable row level security;
+
+drop policy if exists "school_signup_invites: lecture par un admin plateforme" on school_signup_invites;
+create policy "school_signup_invites: lecture par un admin plateforme" on school_signup_invites
+  for select using (exists (select 1 from platform_admins pa where pa.user_id = auth.uid()));
+drop policy if exists "school_signup_invites: création par un admin plateforme" on school_signup_invites;
+create policy "school_signup_invites: création par un admin plateforme" on school_signup_invites
+  for insert with check (
+    exists (select 1 from platform_admins pa where pa.user_id = auth.uid())
+    and created_by = auth.uid()
+    and used_at is null
+    and used_by is null
+  );
+drop policy if exists "school_signup_invites: révocation par un admin plateforme" on school_signup_invites;
+create policy "school_signup_invites: révocation par un admin plateforme" on school_signup_invites
+  for delete using (
+    exists (select 1 from platform_admins pa where pa.user_id = auth.uid())
+    and used_at is null
+  );

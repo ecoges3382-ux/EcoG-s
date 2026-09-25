@@ -33,6 +33,7 @@ function statusOf(s, schoolYear, feeSchedule) {
 }
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
+const CAN_EDIT_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 function TrashIcon() {
   return (
@@ -58,6 +59,7 @@ export default function Students() {
   const [error, setError] = useState('');
   const [classFilter, setClassFilter] = useState('toutes');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -67,6 +69,9 @@ export default function Students() {
   // action globale et irréversible sur l'identité de l'élève (students),
   // pas une correction propre à l'année consultée.
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
+  // La fiche élève peut être corrigée quelle que soit l'année consultée ;
+  // l'inscription modifiée reste celle de l'année sélectionnée.
+  const canEdit = CAN_EDIT_ROLES.includes(profile.role);
 
   // La liste des élèves vient des inscriptions de l'année scolaire en
   // cours (enrollments), pas directement de "students" — c'est elle qui
@@ -267,7 +272,7 @@ export default function Students() {
           )}
           {!isHistorical && (
             <button
-              onClick={() => setModalOpen(true)}
+              onClick={() => { setEditingStudent(null); setModalOpen(true); }}
               disabled={classes === null || !activeYear}
               style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !activeYear ? 0.7 : 1 }}
             >
@@ -329,6 +334,20 @@ export default function Students() {
               key={s.id}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
             >
+              {canEdit && !selectMode && (
+                <button
+                  type="button"
+                  onClick={() => { setEditingStudent(s); setModalOpen(true); }}
+                  title={`Modifier les informations de ${s.full_name}`}
+                  aria-label={`Modifier les informations de ${s.full_name}`}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 10, border: '1px solid var(--forest)', background: 'var(--forest-light)', color: 'var(--forest-dark)', cursor: 'pointer', flexShrink: 0 }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M10 2h4l.5 2.1 1.5.9 2-.7 2 3.4-1.5 1.5v1.8l1.5 1.5-2 3.4-2-.7-1.5.9L14 22h-4l-.5-2.1-1.5-.9-2 .7-2-3.4L6 14.8V13L4.5 11.5l2-3.4 2 .7L10 7.9 10 2z" />
+                    <circle cx="12" cy="12" r="3.1" />
+                  </svg>
+                </button>
+              )}
               {canDelete && selectMode && (
                 <input
                   type="checkbox"
@@ -380,14 +399,15 @@ export default function Students() {
         />
       )}
 
-      {modalOpen && activeYear && (
+      {modalOpen && schoolYear && (
         <NewStudentModal
           schoolId={profile.school_id}
-          schoolYearId={activeYear.id}
+          schoolYearId={schoolYear.id}
           classes={classes || []}
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
-          onClose={() => setModalOpen(false)}
-          onCreated={() => { setModalOpen(false); reload(); }}
+          student={editingStudent}
+          onClose={() => { setModalOpen(false); setEditingStudent(null); }}
+          onCreated={() => { setModalOpen(false); setEditingStudent(null); reload(); }}
         />
       )}
     </div>
