@@ -2949,3 +2949,137 @@ create index if not exists school_signup_attempts_ip_time_idx on school_signup_a
 alter table school_signup_attempts enable row level security;
 -- Aucune policy : écriture réservée à l'Edge Function school-signup via
 -- service_role, comme les deux tables d'anti-abus jumelles.
+
+-- ---------- Emploi du temps : contexte annuel, références fiables, anti-conflit ----------
+-- schedule_entries est le seul module qui n'avait jamais reçu le
+-- traitement "contexte annuel" appliqué à payments/grades/attendance_records
+-- (Migration 6) : sans school_year_id, les créneaux d'une année scolaire se
+-- mélangeaient avec ceux de l'année suivante. Il identifiait aussi la
+-- classe et l'enseignant par texte libre (classe/enseignant), jamais par
+-- référence — impossible de garantir qu'un même enseignant n'est pas casé
+-- sur deux classes au même créneau si la comparaison se fait sur du texte.
+-- Les anciennes colonnes texte restent en place (aucune perte de donnée)
+-- mais ne sont plus lues côté application, remplacées par
+-- classe_id/enseignant_id/slot_id.
+
+-- Créneaux horaires configurables par école (la grille était figée à 5
+-- créneaux fixes 8h-16h, jamais adaptable) — même patron que
+-- fee_schedules/passage_thresholds : une ligne par créneau, ordre
+-- explicite, gérée par l'école elle-même depuis Emploi du temps.
+create table if not exists schedule_slots (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  label text not null,
+  ordre integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists schedule_slots_school_id_idx on schedule_slots(school_id);
+alter table schedule_slots enable row level security;
+
+drop policy if exists "schedule_slots: select" on schedule_slots;
+create policy "schedule_slots: select" on schedule_slots
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "schedule_slots: insert" on schedule_slots;
+create policy "schedule_slots: insert" on schedule_slots
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "schedule_slots: update" on schedule_slots;
+create policy "schedule_slots: update" on schedule_slots
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "schedule_slots: delete" on schedule_slots;
+create policy "schedule_slots: delete" on schedule_slots
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+
+-- Bascule : une école qui a déjà des schedule_entries reçoit les 5 anciens
+-- créneaux fixes du code comme point de départ modifiable (sinon la
+-- bascule plus bas n'aurait aucun slot_id vers lequel pointer). Une école
+-- neuve, elle, configure ses créneaux depuis zéro.
+insert into schedule_slots (school_id, label, ordre)
+select s.id, lbl.label, lbl.ordre
+from schools s
+cross join (values ('8h-9h',0), ('9h-10h',1), ('10h-11h',2), ('11h-12h',3), ('15h-16h',4)) as lbl(label, ordre)
+where exists (select 1 from schedule_entries se where se.school_id = s.id)
+  and not exists (select 1 from schedule_slots sl where sl.school_id = s.id);
+
+alter table schedule_entries add column if not exists school_year_id uuid references school_years(id) on delete cascade;
+alter table schedule_entries add column if not exists classe_id uuid references classes(id) on delete cascade;
+alter table schedule_entries add column if not exists enseignant_id uuid references staff(id) on delete set null;
+alter table schedule_entries add column if not exists slot_id uuid references schedule_slots(id) on delete cascade;
+
+update schedule_entries se set school_year_id = sy.id
+from school_years sy
+where sy.school_id = se.school_id and sy.is_current and se.school_year_id is null;
+
+update schedule_entries se set classe_id = c.id
+from classes c
+where c.school_id = se.school_id and c.nom = se.classe and se.classe_id is null;
+
+update schedule_entries se set enseignant_id = st.id
+from staff st
+where st.school_id = se.school_id and st.full_name = se.enseignant and se.enseignant_id is null;
+
+update schedule_entries se set slot_id = sl.id
+from schedule_slots sl
+where sl.school_id = se.school_id and sl.label = se.creneau and se.slot_id is null;
+
+-- Une ligne dont la classe (ou l'année, ou le créneau) ne peut pas être
+-- rattachée avec certitude ne peut pas recevoir de référence fiable :
+-- plutôt que de deviner, elle est supprimée à la bascule — un créneau
+-- orphelin n'avait de toute façon aucun sens à garder affiché.
+delete from schedule_entries where school_year_id is null or classe_id is null or slot_id is null;
+
+alter table schedule_entries alter column school_year_id set not null;
+alter table schedule_entries alter column classe_id set not null;
+alter table schedule_entries alter column slot_id set not null;
+
+create index if not exists schedule_entries_year_idx on schedule_entries(school_year_id);
+create index if not exists schedule_entries_classe_idx on schedule_entries(classe_id);
+
+-- Avant de poser les contraintes d'unicité ci-dessous : une école qui a
+-- déjà, par le passé, casé un même enseignant sur deux classes au même
+-- créneau (exactement le bug que ces contraintes corrigent) ferait échouer
+-- leur création si les doublons existants ne sont pas nettoyés d'abord. Un
+-- doublon n'a pas de "bonne" version évidente entre les deux : seule la
+-- plus ancienne est gardée, les suivantes supprimées — un créneau en trop
+-- se recrée en quelques secondes depuis l'écran, contrairement à une
+-- donnée financière ou académique qu'on ne voudrait jamais perdre ainsi.
+delete from schedule_entries where id in (
+  select id from (
+    select id, row_number() over (
+      partition by school_year_id, jour, slot_id, enseignant_id order by created_at
+    ) as rn
+    from schedule_entries
+    where enseignant_id is not null
+  ) ranked
+  where rn > 1
+);
+delete from schedule_entries where id in (
+  select id from (
+    select id, row_number() over (
+      partition by school_year_id, jour, slot_id, classe_id order by created_at
+    ) as rn
+    from schedule_entries
+  ) ranked
+  where rn > 1
+);
+
+-- Anti-conflit posé en base (pas seulement vérifié côté client, qu'un appel
+-- concurrent pourrait contourner) : un même enseignant ne peut pas être sur
+-- deux classes au même créneau la même année, et une même classe ne peut
+-- pas avoir deux cours au même créneau la même année.
+create unique index if not exists schedule_entries_teacher_slot_uniq
+  on schedule_entries(school_year_id, jour, slot_id, enseignant_id)
+  where enseignant_id is not null;
+create unique index if not exists schedule_entries_classe_slot_uniq
+  on schedule_entries(school_year_id, jour, slot_id, classe_id);
