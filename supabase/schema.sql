@@ -2927,3 +2927,25 @@ create policy "school_signup_invites: révocation par un admin plateforme" on sc
     exists (select 1 from platform_admins pa where pa.user_id = auth.uid())
     and used_at is null
   );
+
+-- ---------- Correctifs sur les invitations (admin plateforme et écoles) ----------
+
+-- used_by manquait sur platform_admin_invites (déjà présent sur
+-- school_signup_invites, ajouté pour la même raison : tracer QUI un code a
+-- servi à créer, pas seulement QUAND).
+alter table platform_admin_invites add column if not exists used_by uuid references auth.users(id) on delete set null;
+
+-- Anti-brute-force sur school-signup : même trou que platform-admin-signup
+-- avant son propre correctif (voir migration "Préparation production"
+-- ci-dessus) — un endpoint public protégé par un code créait de vrais
+-- comptes sans aucune limite de tentatives. Même mécanisme exact que
+-- parent_access_attempts/platform_admin_signup_attempts.
+create table if not exists school_signup_attempts (
+  id bigint generated always as identity primary key,
+  ip text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists school_signup_attempts_ip_time_idx on school_signup_attempts (ip, created_at);
+alter table school_signup_attempts enable row level security;
+-- Aucune policy : écriture réservée à l'Edge Function school-signup via
+-- service_role, comme les deux tables d'anti-abus jumelles.

@@ -16,6 +16,20 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+// Anti-brute-force : même mécanisme, mêmes seuils que parent-portal et
+// platform-admin-signup — un endpoint public protégé par un code mérite la
+// même garde partout, ici pour un enjeu tout aussi élevé (un succès crée
+// un vrai compte fondateur + une école). Seules les tentatives à code
+// INVALIDE comptent.
+const RATE_LIMIT_MAX_ATTEMPTS = 30;
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || 'unknown';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'Méthode non autorisée.' }, 405);
@@ -29,6 +43,17 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceKey) throw new Error('Configuration serveur incomplète.');
     adminClient = createClient(supabaseUrl, serviceKey);
+
+    const ip = clientIp(req);
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+    const { count: recentFailures } = await adminClient
+      .from('school_signup_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .gte('created_at', windowStart);
+    if ((recentFailures || 0) >= RATE_LIMIT_MAX_ATTEMPTS) {
+      return jsonResponse({ error: 'Trop de tentatives. Réessaie dans quelques minutes.' }, 429);
+    }
 
     const body = await req.json();
     const method = body?.method;
@@ -61,6 +86,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (claimError) throw new Error('Impossible de vérifier le code pour le moment.');
     if (!invitation) {
+      // Journalise l'échec (purge au passage les entrées de plus d'une
+      // heure, tous IPs confondus — voir parent-portal pour le même choix).
+      await adminClient.from('school_signup_attempts').insert({ ip });
+      await adminClient.from('school_signup_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString());
       return jsonResponse({ error: 'Code invalide, expiré ou déjà utilisé. Demande un nouveau code à l’administrateur.' }, 400);
     }
     invitationId = invitation.id;

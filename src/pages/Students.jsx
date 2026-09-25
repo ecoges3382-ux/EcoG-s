@@ -406,6 +406,7 @@ export default function Students() {
           classes={classes || []}
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
           student={editingStudent}
+          isHistorical={isHistorical}
           onClose={() => { setModalOpen(false); setEditingStudent(null); }}
           onCreated={() => { setModalOpen(false); setEditingStudent(null); reload(); }}
         />

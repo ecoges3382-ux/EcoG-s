@@ -19,8 +19,16 @@ const PAIEMENT_TRANCHES = [
   { id: 'autre', label: 'Autre' },
 ];
 
-export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, onClose, onCreated }) {
+export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
   const isEditing = !!student;
+  // En consultation d'un historique, seule l'IDENTITÉ de l'élève (nom,
+  // prénom, photo) reste modifiable — jamais la classe ni l'écolage dû
+  // d'une inscription déjà close, pour la même raison que la création
+  // d'élève est déjà épinglée sur l'année active ailleurs dans l'appli
+  // (voir Students.jsx) : ce ne sont pas des champs "informatifs", ce sont
+  // des montants qui alimentent déjà des rapports et des reçus émis pour
+  // cette année-là.
+  const canEditEnrollment = !isEditing || !isHistorical;
   const [studentNom, setStudentNom] = useState(student?.nom || '');
   const [studentPrenom, setStudentPrenom] = useState(student?.prenom || '');
   const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
@@ -138,19 +146,22 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         return;
       }
 
-      const { error: enrollmentError } = await supabase
-        .from('enrollments')
-        .update({
-          classe_id: classeId || null,
-          montant_du: Number(montantDu) || 0,
-        })
-        .eq('id', student.enrollment_id)
-        .eq('school_year_id', schoolYearId);
-      setSubmitting(false);
-      if (enrollmentError) {
-        setError(enrollmentError.message);
-        return;
+      if (canEditEnrollment) {
+        const { error: enrollmentError } = await supabase
+          .from('enrollments')
+          .update({
+            classe_id: classeId || null,
+            montant_du: Number(montantDu) || 0,
+          })
+          .eq('id', student.enrollment_id)
+          .eq('school_year_id', schoolYearId);
+        if (enrollmentError) {
+          setSubmitting(false);
+          setError(enrollmentError.message);
+          return;
+        }
       }
+      setSubmitting(false);
       onCreated();
       return;
     }
@@ -322,7 +333,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
-            <select value={classeId} onChange={(e) => setClasseId(e.target.value)} style={inputStyle}>
+            <select value={classeId} onChange={(e) => setClasseId(e.target.value)} disabled={!canEditEnrollment} style={{ ...inputStyle, opacity: canEditEnrollment ? 1 : 0.6 }}>
               {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
             </select>
           </div>
@@ -331,12 +342,19 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             <MoneyInput
               value={montantDu}
               onChange={(v) => { setMontantDuTouched(true); setMontantDu(v); }}
-              style={inputStyle}
+              disabled={!canEditEnrollment}
+              style={{ ...inputStyle, opacity: canEditEnrollment ? 1 : 0.6 }}
               suffix="F CFA"
             />
           </div>
         </div>
-        {selectedClasse && !feeSchedules[selectedClasse.niveau] && (
+        {!canEditEnrollment && (
+          <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>
+            Classe et écolage dû ne sont modifiables que pour l'année scolaire en cours — cette
+            inscription appartient à une année historique déjà close.
+          </p>
+        )}
+        {canEditEnrollment && selectedClasse && !feeSchedules[selectedClasse.niveau] && (
           <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>
             Aucun tarif configuré pour {selectedClasse.niveau} — configure la grille tarifaire dans
             Paramètres pour un pré-remplissage automatique la prochaine fois.

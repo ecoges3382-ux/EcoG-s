@@ -45,10 +45,14 @@ function clientIp(req: Request): string {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  let invitationId: string | null = null;
+  let claimedAt: string | null = null;
+  let adminClient: ReturnType<typeof createClient> | null = null;
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const adminClient = createClient(supabaseUrl, serviceKey);
+    adminClient = createClient(supabaseUrl, serviceKey);
     const ip = clientIp(req);
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
 
@@ -69,26 +73,34 @@ Deno.serve(async (req) => {
     if (!email || !password || !code) throw new Error('E-mail, mot de passe et code sont obligatoires.');
     if (password.length < 8) throw new Error('Le mot de passe doit faire au moins 8 caractères.');
 
-    // Le code doit correspondre à une invitation non consommée, non
-    // expirée, et à CET e-mail précis — jamais un code valable pour
-    // n'importe quel e-mail (l'invitation est nominative dès sa création).
-    const { data: invite, error: inviteError } = await adminClient
+    // Réservation ATOMIQUE du code en une seule requête (UPDATE ... WHERE
+    // used_at IS NULL ... RETURNING) plutôt qu'un SELECT suivi d'un UPDATE
+    // séparé : deux requêtes concurrentes avec le même code valide
+    // pouvaient toutes les deux passer le SELECT avant que l'une des deux
+    // n'écrive used_at, créant deux comptes à partir d'un code à usage
+    // unique. Même principe que school-signup (école, pas administrateur).
+    claimedAt = new Date().toISOString();
+    const { data: invite, error: claimError } = await adminClient
       .from('platform_admin_invites')
-      .select('id, email, used_at, expires_at')
+      .update({ used_at: claimedAt })
       .eq('code', code)
+      .eq('email', email)
+      .is('used_at', null)
+      .gt('expires_at', claimedAt)
+      .select('id')
       .maybeSingle();
-    if (inviteError) throw new Error(inviteError.message);
-    if (!invite || invite.used_at || new Date(invite.expires_at) < new Date() || invite.email !== email) {
+    if (claimError) throw new Error(claimError.message);
+    if (!invite) {
       // Journalise l'échec (purge au passage les entrées de plus d'une
       // heure, tous IPs confondus — voir parent-portal pour le même choix).
+      // On ne distingue plus "invalide"/"expiré"/"déjà utilisé"/"mauvais
+      // e-mail" côté serveur : les quatre conditions sont vérifiées dans la
+      // même requête atomique, un message générique reste honnête ici.
       await adminClient.from('platform_admin_signup_attempts').insert({ ip });
       await adminClient.from('platform_admin_signup_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString());
-
-      if (!invite) throw new Error('Code invalide.');
-      if (invite.used_at) throw new Error('Ce code a déjà été utilisé.');
-      if (new Date(invite.expires_at) < new Date()) throw new Error('Ce code a expiré — demande une nouvelle invitation.');
-      throw new Error("Ce code ne correspond pas à cet e-mail.");
+      throw new Error('Code invalide, expiré ou déjà utilisé — vérifie aussi que l’e-mail correspond exactement à celui invité.');
     }
+    invitationId = invite.id;
 
     // email_confirm: true — le code lui-même est déjà la preuve d'invitation
     // (communiqué hors système par un administrateur existant), pas besoin
@@ -99,18 +111,29 @@ Deno.serve(async (req) => {
       password,
       email_confirm: true,
     });
-    if (createError) throw new Error(createError.message);
+    if (createError || !created.user) {
+      // Le code réservé plus haut est libéré s'il n'a pas déjà servi entre
+      // temps (eq('used_at', claimedAt) protège contre un double-relâchement).
+      await adminClient.from('platform_admin_invites')
+        .update({ used_at: null })
+        .eq('id', invitationId)
+        .eq('used_at', claimedAt);
+      invitationId = null;
+      throw new Error(createError?.message || 'La création du compte a échoué.');
+    }
 
     const { error: adminInsertError } = await adminClient.from('platform_admins').insert({ user_id: created.user.id });
     if (adminInsertError) {
       // Compte créé mais promotion échouée (cas très improbable) : on ne
       // laisse jamais un compte Auth orphelin sans le rôle qu'il était
       // censé recevoir — mieux vaut annuler complètement que la moitié.
+      // Le code reste consommé (used_at déjà posé) : un même code ne doit
+      // pas pouvoir retenter une création après un échec de ce genre.
       await adminClient.auth.admin.deleteUser(created.user.id);
       throw new Error(adminInsertError.message);
     }
 
-    await adminClient.from('platform_admin_invites').update({ used_at: new Date().toISOString() }).eq('id', invite.id);
+    await adminClient.from('platform_admin_invites').update({ used_by: created.user.id }).eq('id', invitationId);
 
     await adminClient.from('platform_admin_actions').insert({
       admin_user_id: created.user.id,
