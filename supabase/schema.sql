@@ -2859,3 +2859,36 @@ create policy "platform_admin_invites: création par un admin plateforme" on pla
   );
 create policy "platform_admin_invites: révocation par un admin plateforme" on platform_admin_invites
   for delete using (exists (select 1 from platform_admins pa where pa.user_id = auth.uid()));
+
+-- ---------- Préparation production : index manquants sur les FK les plus interrogées ----------
+-- payments/grades/enrollments n'avaient qu'un index sur school_year_id —
+-- suffisant pour les écrans annuels agrégés (Dashboard, Rapports), mais pas
+-- pour les lectures PAR ÉLÈVE (fiche élève, bulletin, portail parent),
+-- exécutées à chaque ouverture de ces écrans et qui filtrent d'abord par
+-- student_id. enrollments a bien un index unique, mais sur
+-- (school_year_id, student_id) : school_year_id en tête ne sert à rien à
+-- une requête qui ne filtre que par student_id (ex. Reports.jsx,
+-- effectifsMouvement ; parent-portal, liste des années d'un élève).
+create index if not exists payments_student_idx on payments(student_id);
+create index if not exists grades_student_idx on grades(student_id);
+create index if not exists enrollments_student_idx on enrollments(student_id);
+
+-- ---------- Préparation production : anti-abus sur la création de compte admin ----------
+-- platform-admin-signup est un endpoint public (aucune session requise,
+-- comme parent-portal) qui crée de vrais comptes Supabase Auth à partir
+-- d'un code à 8 caractères — sans protection, il était exposé au même
+-- risque de brute-force que parent-portal avant son propre rate-limiting,
+-- en pire (un succès crée un compte réel au lieu de juste révéler des
+-- données). Même mécanisme, même seuils, que parent_access_attempts :
+-- seules les tentatives à CODE INVALIDE comptent (un vrai code, même
+-- retenté par erreur, ne pénalise jamais son destinataire légitime).
+create table if not exists platform_admin_signup_attempts (
+  id bigint generated always as identity primary key,
+  ip text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists platform_admin_signup_attempts_ip_time_idx on platform_admin_signup_attempts (ip, created_at);
+alter table platform_admin_signup_attempts enable row level security;
+-- Aucune policy : ni lecture ni écriture pour authenticated/anon — cette
+-- table n'est manipulée que par platform-admin-signup via service_role,
+-- exactement comme parent_access_attempts.

@@ -28,6 +28,20 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+// Anti-brute-force : même mécanisme, mêmes seuils que parent-portal
+// (parent_access_attempts) — un endpoint public protégé par un code à 8
+// caractères mérite la même garde, ici pour un enjeu plus élevé (un succès
+// crée un vrai compte administrateur). Seules les tentatives à code
+// INVALIDE comptent.
+const RATE_LIMIT_MAX_ATTEMPTS = 30;
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || 'unknown';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -35,6 +49,17 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, serviceKey);
+    const ip = clientIp(req);
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60_000).toISOString();
+
+    const { count: recentFailures } = await adminClient
+      .from('platform_admin_signup_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip', ip)
+      .gte('created_at', windowStart);
+    if ((recentFailures || 0) >= RATE_LIMIT_MAX_ATTEMPTS) {
+      return jsonResponse({ error: 'Trop de tentatives. Réessaie dans quelques minutes.' }, 429);
+    }
 
     const body = await req.json();
     const email = String(body.email || '').trim().toLowerCase();
@@ -53,10 +78,17 @@ Deno.serve(async (req) => {
       .eq('code', code)
       .maybeSingle();
     if (inviteError) throw new Error(inviteError.message);
-    if (!invite) throw new Error('Code invalide.');
-    if (invite.used_at) throw new Error('Ce code a déjà été utilisé.');
-    if (new Date(invite.expires_at) < new Date()) throw new Error('Ce code a expiré — demande une nouvelle invitation.');
-    if (invite.email !== email) throw new Error("Ce code ne correspond pas à cet e-mail.");
+    if (!invite || invite.used_at || new Date(invite.expires_at) < new Date() || invite.email !== email) {
+      // Journalise l'échec (purge au passage les entrées de plus d'une
+      // heure, tous IPs confondus — voir parent-portal pour le même choix).
+      await adminClient.from('platform_admin_signup_attempts').insert({ ip });
+      await adminClient.from('platform_admin_signup_attempts').delete().lt('created_at', new Date(Date.now() - 3_600_000).toISOString());
+
+      if (!invite) throw new Error('Code invalide.');
+      if (invite.used_at) throw new Error('Ce code a déjà été utilisé.');
+      if (new Date(invite.expires_at) < new Date()) throw new Error('Ce code a expiré — demande une nouvelle invitation.');
+      throw new Error("Ce code ne correspond pas à cet e-mail.");
+    }
 
     // email_confirm: true — le code lui-même est déjà la preuve d'invitation
     // (communiqué hors système par un administrateur existant), pas besoin
