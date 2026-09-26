@@ -50,15 +50,105 @@ function Reveal({ children, className = '', delay = 0, style = {} }) {
   );
 }
 
+// Tracés SVG dessinés directement, comme ShieldIcon/HelpIcon dans
+// Shell.jsx — la police d'icônes Tabler (chargée depuis un CDN externe,
+// voir index.html) ne s'affiche pas de façon fiable en production (bouton
+// d'aide vide, badge "Fondateur" sans icône) : un tracé SVG s'affiche
+// toujours, sans dépendre d'un chargement externe qui peut échouer selon
+// le réseau ou le navigateur du visiteur.
+function iconProps(size, color) {
+  return { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', style: { flexShrink: 0 } };
+}
+function IconUsers({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <circle cx="8" cy="8" r="3.2" />
+      <path d="M2.5 19c0-3.3 2.9-5.7 5.5-5.7s5.5 2.4 5.5 5.7" />
+      <circle cx="16.5" cy="8.5" r="2.3" />
+      <path d="M15 13.3c2.3.2 4 2.3 4.2 4.5" />
+    </svg>
+  );
+}
+function IconCash({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <rect x="2.5" y="6" width="19" height="12" rx="1.8" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
+  );
+}
+function IconBriefcase({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <rect x="3" y="8" width="18" height="11" rx="1.6" />
+      <path d="M8.5 8V6.2c0-.9.7-1.6 1.6-1.6h3.8c.9 0 1.6.7 1.6 1.6V8" />
+      <path d="M3 13h18" />
+    </svg>
+  );
+}
+function IconCertificate({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <rect x="3.2" y="3" width="13" height="16" rx="1.6" />
+      <path d="M6.2 8h7M6.2 11.5h7M6.2 15h4" />
+      <circle cx="17" cy="17" r="3.4" />
+      <path d="M15.6 17l1 1 2-2" />
+    </svg>
+  );
+}
+function IconCalendarCheck({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <rect x="3" y="5" width="18" height="15" rx="1.8" />
+      <path d="M3 9.5h18" />
+      <path d="M8 3v3M16 3v3" />
+      <path d="M8.3 14.2l2 2 4.5-4.5" />
+    </svg>
+  );
+}
+function IconSpeakerphone({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <path d="M3 9v6h3l7 4V5L6 9H3z" />
+      <path d="M16 9.5c1 .8 1 3.2 0 4" />
+      <path d="M18.5 7.5c2 1.8 2 6.2 0 8" />
+    </svg>
+  );
+}
+function IconDeviceMobile({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2" />
+      <path d="M11 19h2" />
+    </svg>
+  );
+}
+function IconWhatsapp({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <path d="M12 3a9 9 0 0 0-7.8 13.4L3 21l4.7-1.2A9 9 0 1 0 12 3z" />
+      <path d="M8.5 8.3c.2-.5.5-.5.8-.5h.6c.2 0 .4 0 .6.5.2.5.7 1.7.7 1.9s0 .3-.2.5c-.1.2-.3.3-.4.5-.1.1-.3.3-.1.6.2.4.9 1.4 1.9 2.3 1.3 1.1 2.3 1.5 2.7 1.6.4.2.6.1.8-.1.2-.2.7-.8.9-1.1.2-.3.4-.2.7-.1.3.1 1.8.9 2.1 1 .3.1.5.2.6.3.1.2.1.9-.2 1.7-.3.8-1.7 1.5-2.4 1.6-.6.1-1.4.1-2.3-.1-.5-.2-1.2-.4-2.1-.8-3.6-1.6-5.9-5.2-6.1-5.5-.2-.3-1.5-2-1.5-3.8 0-1.8.9-2.6 1.3-3z" />
+    </svg>
+  );
+}
+function IconMail({ size = 19, color = 'currentColor' }) {
+  return (
+    <svg {...iconProps(size, color)}>
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2" />
+      <path d="M3 6.5l9 6.5 9-6.5" />
+    </svg>
+  );
+}
+
 const FEATURES = [
-  { icon: 'ti-users', title: 'Élèves & inscriptions', text: 'Fiches élèves, inscriptions par année scolaire, historique conservé, passage de classe automatisé.' },
-  { icon: 'ti-cash', title: 'Écolage & paiements', text: 'Grille tarifaire par tranche, suivi des paiements, relances automatiques et gestion des moratoires.' },
-  { icon: 'ti-briefcase', title: 'Personnel & salaires', text: 'Dossiers du personnel, salaires versés, avances sur salaire, tout au même endroit.' },
-  { icon: 'ti-certificate', title: 'Notes & bulletins', text: 'Saisie des notes, moyennes, rangs, bulletins prêts à imprimer.' },
-  { icon: 'ti-calendar-check', title: 'Présences', text: 'Présences, absences, retards — statistiques par élève et par période.' },
-  { icon: 'ti-speakerphone', title: 'Communication', text: 'Annonces aux parents : brouillon, publication, archivage.' },
-  { icon: 'ti-device-mobile', title: 'Portail parents', text: 'Chaque parent suit en ligne le bulletin, les présences et les finances de son enfant.' },
-  { icon: 'ti-brand-whatsapp', title: 'WhatsApp intégré', text: 'Codes d’accès parents et rappels de paiement envoyés directement sur WhatsApp.' },
+  { icon: IconUsers, title: 'Élèves & inscriptions', text: 'Fiches élèves, inscriptions par année scolaire, historique conservé, passage de classe automatisé.' },
+  { icon: IconCash, title: 'Écolage & paiements', text: 'Grille tarifaire par tranche, suivi des paiements, relances automatiques et gestion des moratoires.' },
+  { icon: IconBriefcase, title: 'Personnel & salaires', text: 'Dossiers du personnel, salaires versés, avances sur salaire, tout au même endroit.' },
+  { icon: IconCertificate, title: 'Notes & bulletins', text: 'Saisie des notes, moyennes, rangs, bulletins prêts à imprimer.' },
+  { icon: IconCalendarCheck, title: 'Présences', text: 'Présences, absences, retards — statistiques par élève et par période.' },
+  { icon: IconSpeakerphone, title: 'Communication', text: 'Annonces aux parents : brouillon, publication, archivage.' },
+  { icon: IconDeviceMobile, title: 'Portail parents', text: 'Chaque parent suit en ligne le bulletin, les présences et les finances de son enfant.' },
+  { icon: IconWhatsapp, title: 'WhatsApp intégré', text: 'Codes d’accès parents et rappels de paiement envoyés directement sur WhatsApp.' },
 ];
 
 const STEPS = [
@@ -121,10 +211,10 @@ function SecondaryButton({ to, children, style = {} }) {
 // n'est présentée comme réelle.
 function ProductPreview() {
   const stats = [
-    { icon: 'ti-users', label: 'Élèves' },
-    { icon: 'ti-cash', label: 'Écolage' },
-    { icon: 'ti-calendar-check', label: 'Présences' },
-    { icon: 'ti-briefcase', label: 'Personnel' },
+    { icon: IconUsers, label: 'Élèves' },
+    { icon: IconCash, label: 'Écolage' },
+    { icon: IconCalendarCheck, label: 'Présences' },
+    { icon: IconBriefcase, label: 'Personnel' },
   ];
   return (
     <div className="card-bold" style={{ padding: 0, overflow: 'hidden', boxShadow: '0 24px 60px rgba(15,76,58,0.16)' }}>
@@ -138,7 +228,7 @@ function ProductPreview() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }} className="desktop-grid-4">
           {stats.map((s) => (
             <div key={s.label} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '10px 8px' }}>
-              <i className={`ti ${s.icon}`} style={{ fontSize: 16, color: 'var(--forest)' }} aria-hidden="true" />
+              <s.icon size={16} color="var(--forest)" />
               <p style={{ margin: '6px 0 6px', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{s.label}</p>
               <div className="landing-skeleton" style={{ height: 8, width: '70%' }} />
             </div>
@@ -198,7 +288,7 @@ export default function Landing() {
                 href={whatsappLink('Bonjour, je souhaite en savoir plus sur EcoGès pour mon école.')}
                 className="landing-pulse-cta"
               >
-                <i className="ti ti-brand-whatsapp" style={{ fontSize: 18 }} aria-hidden="true" />
+                <IconWhatsapp size={18} />
                 Demander un accès
               </PrimaryButton>
               <SecondaryButton to="/inscription">J’ai déjà un code d’invitation</SecondaryButton>
@@ -227,7 +317,7 @@ export default function Landing() {
             <Reveal key={f.title} delay={(i % 4) * 80}>
               <div className="card landing-feature-card" style={{ padding: 20, height: '100%' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-                  <i className={`ti ${f.icon}`} style={{ fontSize: 19, color: 'var(--forest-dark)' }} aria-hidden="true" />
+                  <f.icon size={19} color="var(--forest-dark)" />
                 </div>
                 <p style={{ margin: '0 0 6px', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{f.title}</p>
                 <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.55, color: 'var(--muted)' }}>{f.text}</p>
@@ -282,7 +372,7 @@ export default function Landing() {
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
               <PrimaryButton href={whatsappLink('Bonjour, je souhaite recevoir un devis pour EcoGès.')}>
-                <i className="ti ti-brand-whatsapp" style={{ fontSize: 18 }} aria-hidden="true" />
+                <IconWhatsapp size={18} />
                 Demander un devis
               </PrimaryButton>
               <a
@@ -290,7 +380,7 @@ export default function Landing() {
                 className="landing-btn"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--paper)', color: 'var(--ink)', border: '2px solid var(--ink)', fontWeight: 600, fontSize: 14.5, padding: '11px 20px', borderRadius: 'var(--radius)', textDecoration: 'none' }}
               >
-                <i className="ti ti-mail" style={{ fontSize: 17 }} aria-hidden="true" />
+                <IconMail size={17} />
                 Nous écrire
               </a>
             </div>
@@ -312,7 +402,7 @@ export default function Landing() {
               href={whatsappLink('Bonjour, je souhaite en savoir plus sur EcoGès pour mon école.')}
               style={{ background: '#fff', color: 'var(--forest-dark)' }}
             >
-              <i className="ti ti-brand-whatsapp" style={{ fontSize: 18 }} aria-hidden="true" />
+              <IconWhatsapp size={18} />
               Discuter sur WhatsApp
             </PrimaryButton>
           </div>
