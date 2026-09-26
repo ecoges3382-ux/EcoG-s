@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { useToast } from './Toast.jsx';
 
 // Extrait de Subjects.jsx pour être réutilisable ailleurs (voir
 // src/pages/FirstTimeSetup.jsx, l'assistant de configuration initiale
 // d'une nouvelle école) sans dupliquer le formulaire de création/édition.
 export default function SubjectModal({ schoolId, teachers, classes, editing, onClose, onSaved }) {
+  const showToast = useToast();
   const [nom, setNom] = useState(editing?.nom || '');
   const [coefficient, setCoefficient] = useState(editing?.coefficient ?? 1);
   const [niveau, setNiveau] = useState(editing?.niveau || '');
@@ -34,6 +36,7 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
       setError(saveError.message);
       return;
     }
+    showToast('Enregistré');
     onSaved();
   }
 

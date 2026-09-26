@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { NIVEAUX } from '../lib/utils.js';
+import { useToast } from './Toast.jsx';
 
 // Extrait de Classes.jsx pour être réutilisable ailleurs (voir
 // src/pages/FirstTimeSetup.jsx, l'assistant de configuration initiale
 // d'une nouvelle école) sans dupliquer le formulaire de création/édition.
 export default function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
+  const showToast = useToast();
   const [niveau, setNiveau] = useState(editing?.niveau || NIVEAUX[0]);
   const [section, setSection] = useState(editing?.section || '');
   const [salle, setSalle] = useState(editing?.salle || '');
@@ -34,6 +36,7 @@ export default function ClassModal({ schoolId, teachers, editing, onClose, onSav
       setError(saveError.message);
       return;
     }
+    showToast('Enregistré');
     onSaved();
   }
 

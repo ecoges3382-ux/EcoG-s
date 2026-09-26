@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation' },
@@ -131,6 +132,7 @@ export default function Notes() {
 }
 
 function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, onClose, onCreated }) {
+  const showToast = useToast();
   const [niveau, setNiveau] = useState(defaultNiveau || '');
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
@@ -168,6 +170,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
       setError(insertError.message);
       return;
     }
+    showToast('Enregistré');
     onCreated();
   }
 

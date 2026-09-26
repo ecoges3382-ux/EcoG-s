@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { generateAccessCode } from '../lib/utils.js';
+import { useToast } from '../components/Toast.jsx';
 
 // Même logique que dans Accounts.jsx : supabase-js ne remplit pas `data`
 // quand la fonction répond en erreur, il faut relire fnError.context.
@@ -394,6 +395,7 @@ function EcolesTab({ schools, reload }) {
 }
 
 function SchoolDetailModal({ school, onClose, onChanged }) {
+  const showToast = useToast();
   const [staff, setStaff] = useState(null);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
@@ -442,6 +444,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
     setBusyId(null);
     if (err) { setError(err); return; }
     setEditingNote(false);
+    showToast('Enregistré');
     onChanged();
   }
 
@@ -631,6 +634,7 @@ function TrashIcon() {
 }
 
 function AdminsTab() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const [admins, setAdmins] = useState(null);
   const [invites, setInvites] = useState(null);
@@ -671,6 +675,7 @@ function AdminsTab() {
     setSubmitting(false);
     if (err) { setError(err); return; }
     setEmail('');
+    showToast('Enregistré');
     reload();
   }
 

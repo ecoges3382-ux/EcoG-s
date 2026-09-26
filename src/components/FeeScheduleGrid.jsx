@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { NIVEAUX, fmtF } from '../lib/utils.js';
 import MoneyInput from './MoneyInput.jsx';
+import { useToast } from './Toast.jsx';
 
 // Grille tarifaire (montant attendu par niveau) pour UNE année scolaire
 // donnée. Utilisée à la fois dans Paramètres → Grille tarifaire (toujours
@@ -23,6 +24,7 @@ import MoneyInput from './MoneyInput.jsx';
 // comme point de départ modifiable — jamais si la grille cible a déjà au
 // moins une ligne, pour ne jamais écraser une saisie existante.
 export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyFromSchoolYearId }) {
+  const showToast = useToast();
   const [rows, setRows] = useState(null);
   // Seuls les niveaux qui ont au moins une classe créée (page Classes) sont
   // proposés ici — pas la liste générique Maternelle→Terminale.
@@ -100,6 +102,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
       : await supabase.from('fee_schedules').insert(payload);
     setSaving(false);
     if (saveError) { setError(saveError.message); return; }
+    showToast('Enregistré');
     reload();
   }
 

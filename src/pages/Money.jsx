@@ -10,6 +10,7 @@ import MoneyInput from '../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -299,6 +300,7 @@ function Payments() {
 }
 
 function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated }) {
+  const showToast = useToast();
   // Filtre en deux temps (classe puis élève) plutôt qu'un seul menu avec
   // tous les élèves de l'école mélangés — plus rapide à trouver quand il y
   // en a beaucoup.
@@ -365,6 +367,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
         && existing.date === payload.date;
       if (matches) {
         // Même paiement, déjà enregistré par la tentative précédente : rien à refaire.
+        showToast('Enregistré');
         onCreated();
         return;
       }
@@ -381,6 +384,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
       setError(insertError.message);
       return;
     }
+    showToast('Enregistré');
     onCreated();
   }
 
@@ -497,6 +501,7 @@ const modalInputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, 
 const modalLabelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
 
 function Expenses() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [expenses, setExpenses] = useState(null);
@@ -524,6 +529,7 @@ function Expenses() {
     setSubmitting(false);
     if (insertError) { setError(insertError.message); return; }
     setLibelle(''); setCategorie(''); setMontant('');
+    showToast('Enregistré');
     reload();
   }
 
@@ -566,6 +572,7 @@ function Expenses() {
 }
 
 function Advances() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [advances, setAdvances] = useState(null);
@@ -602,13 +609,14 @@ function Advances() {
     setSubmitting(false);
     if (insertError) { setError(insertError.message); return; }
     setMontant(''); setMotif('');
+    showToast('Enregistré');
     reload();
   }
 
   async function decide(id, statut) {
     const { error: updateError } = await supabase.from('salary_advances').update({ statut }).eq('id', id);
     if (updateError) setError(updateError.message);
-    else reload();
+    else { showToast('Enregistré'); reload(); }
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;

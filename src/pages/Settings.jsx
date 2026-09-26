@@ -6,10 +6,12 @@ import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import { NIVEAUX, SUPPORT_WHATSAPP_DISPLAY, supportWhatsappLink, supportMailLink } from '../lib/utils.js';
 import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
 
 export default function Settings() {
+  const showToast = useToast();
   const { profile, refreshProfile } = useAuth();
   const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
   const school = profile.schools;
@@ -49,6 +51,7 @@ export default function Settings() {
     }
     await refreshProfile();
     setSaved(true);
+    showToast('Enregistré');
   }
 
   return (
@@ -236,6 +239,7 @@ const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'va
 // Argent (voir src/lib/retard.js). La 3ème tranche reste facultative pour
 // une école qui ne fonctionne qu'en 2 tranches.
 function PaymentCalendar({ schoolYear, canManage, onSaved }) {
+  const showToast = useToast();
   const [d1, setD1] = useState(schoolYear.date_tranche1 || '');
   const [d2, setD2] = useState(schoolYear.date_tranche2 || '');
   const [d3, setD3] = useState(schoolYear.date_tranche3 || '');
@@ -264,6 +268,7 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
     }).eq('id', schoolYear.id);
     setSaving(false);
     if (saveError) { setError(saveError.message); return; }
+    showToast('Enregistré');
     onSaved();
   }
 
@@ -337,6 +342,7 @@ const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, bor
 // écrans séparés, juste la même mécanique : ne rien remplir par niveau = le
 // défaut s'applique partout.
 function PassageThresholds({ schoolId }) {
+  const showToast = useToast();
   const [rows, setRows] = useState(null);
   const [niveauxPresents, setNiveauxPresents] = useState(null);
   const [selected, setSelected] = useState('');
@@ -370,6 +376,7 @@ function PassageThresholds({ schoolId }) {
       : await supabase.from('passage_thresholds').insert(payload);
     setSaving('');
     if (saveError) { setError(saveError.message); return; }
+    showToast('Enregistré');
     reload();
   }
 
@@ -389,6 +396,7 @@ function PassageThresholds({ schoolId }) {
     }
     setSaving('');
     if (saveError) { setError(saveError.message); return; }
+    showToast('Enregistré');
     reload();
   }
 

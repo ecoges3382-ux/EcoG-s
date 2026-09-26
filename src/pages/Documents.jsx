@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire', 'enseignant'];
 
 export default function Documents() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
   const [documents, setDocuments] = useState(null);
@@ -50,6 +52,7 @@ export default function Documents() {
     setUploading(false);
     if (insertError) { setError(insertError.message); return; }
     setTitre('');
+    showToast('Enregistré');
     reload();
   }
 

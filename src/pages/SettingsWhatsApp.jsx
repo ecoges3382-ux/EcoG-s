@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { getWhatsAppConfig, saveWhatsAppConfig, WHATSAPP_TYPE_LABELS, WHATSAPP_STATUT_LABELS } from '../lib/whatsapp.js';
+import { useToast } from '../components/Toast.jsx';
 
 const CAN_VIEW_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const MESSAGE_TYPES = Object.keys(WHATSAPP_TYPE_LABELS);
@@ -81,6 +82,7 @@ export default function SettingsWhatsApp() {
 }
 
 function ConfigCard({ config, onSaved }) {
+  const showToast = useToast();
   const [phoneNumberId, setPhoneNumberId] = useState(config.phone_number_id || '');
   const [wabaId, setWabaId] = useState(config.waba_id || '');
   const [displayPhone, setDisplayPhone] = useState(config.display_phone_number || '');
@@ -111,6 +113,7 @@ function ConfigCard({ config, onSaved }) {
       });
       setAccessToken('');
       setSaved(true);
+      showToast('Enregistré');
       onSaved();
     } catch (err) {
       setError(err.message);

@@ -4,6 +4,7 @@ import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import NameInput from './NameInput.jsx';
 import MoneyInput from './MoneyInput.jsx';
+import { useToast } from './Toast.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -14,6 +15,7 @@ function nextMatricule(existingStaff, role) {
 }
 
 export default function NewStaffModal({ schoolId, existingStaff, availableClasses, editing, onClose, onSaved }) {
+  const showToast = useToast();
   const [nom, setNom] = useState(editing?.nom || '');
   const [prenom, setPrenom] = useState(editing?.prenom || '');
   const [role, setRole] = useState(editing?.role || ROLES[0]);
@@ -62,6 +64,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       setError(saveError.message);
       return;
     }
+    showToast('Enregistré');
     onSaved();
   }
 

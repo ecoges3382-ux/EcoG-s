@@ -6,6 +6,7 @@ import { initials, sortClasses, NIVEAUX, fmtF } from '../lib/utils.js';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import NewStudentModal from '../components/NewStudentModal.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
 const STEPS = [
@@ -114,6 +115,7 @@ function computeYearOptions(oldLabel) {
 }
 
 function CreateYearForm({ oldYear, onCreated }) {
+  const showToast = useToast();
   const { options, defaultLabel } = computeYearOptions(oldYear?.label);
   const [label, setLabel] = useState(defaultLabel);
   const [dateDebut, setDateDebut] = useState('');
@@ -132,6 +134,7 @@ function CreateYearForm({ oldYear, onCreated }) {
     });
     setSubmitting(false);
     if (rpcError) { setError(rpcError.message); return; }
+    showToast('Enregistré');
     onCreated();
   }
 
@@ -175,6 +178,7 @@ function CreateYearForm({ oldYear, onCreated }) {
 // scolaire). Édition locale, un seul appel réseau pour tout enregistrer
 // (comme l'appel de présences) plutôt qu'un aller-retour par élève.
 function TraiterElevesStep({ schoolId, prep, oldYearId }) {
+  const showToast = useToast();
   const [rows, setRows] = useState(null);
   const [classes, setClasses] = useState([]);
   const [feeByNiveau, setFeeByNiveau] = useState({});
@@ -310,6 +314,7 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
     setSaving(false);
     if (saveError) { setError(saveError.message); return; }
     setSaved(true);
+    showToast('Enregistré');
     reload();
   }
 
@@ -539,6 +544,7 @@ function AddExistingStudentModal({ excludeIds, onClose, onAdd }) {
 }
 
 function ResumeStep({ prep, onActivated }) {
+  const showToast = useToast();
   const [decisions, setDecisions] = useState(null);
   const [directEnrollCount, setDirectEnrollCount] = useState(0);
   const [error, setError] = useState('');
@@ -563,6 +569,7 @@ function ResumeStep({ prep, onActivated }) {
     const { error: rpcError } = await supabase.rpc('activate_school_year', { p_school_year_id: prep.id });
     setActivating(false);
     if (rpcError) { setError(rpcError.message); return; }
+    showToast('Année activée');
     onActivated();
   }
 

@@ -6,6 +6,7 @@ import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 import NameInput from './NameInput.jsx';
+import { useToast } from './Toast.jsx';
 
 // Propre à ce formulaire : pas de "Moitié" (n'a pas de montant à
 // pré-remplir depuis la grille tarifaire), et "Autre" en plus — le parent
@@ -20,6 +21,7 @@ const PAIEMENT_TRANCHES = [
 ];
 
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
+  const showToast = useToast();
   const isEditing = !!student;
   // En consultation d'un historique, seule l'IDENTITÉ de l'élève (nom,
   // prénom, photo) reste modifiable — jamais la classe ni l'écolage dû
@@ -162,6 +164,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         }
       }
       setSubmitting(false);
+      showToast('Enregistré');
       onCreated();
       return;
     }
@@ -208,6 +211,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
     if (!canManageParents || isExistingParent) {
       setSubmitting(false);
+      showToast('Enregistré');
       onCreated();
       return;
     }
@@ -216,6 +220,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     // (l'accès parent pourra toujours être ajouté plus tard depuis Comptes).
     if (!parentNom.trim()) {
       setSubmitting(false);
+      showToast('Enregistré');
       onCreated();
       return;
     }

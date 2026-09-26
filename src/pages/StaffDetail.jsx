@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials, fmtF, MODES, modeLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -161,6 +162,7 @@ function Row({ label, value, topBorder }) {
 // modifié à la main. Filtré sur l'année scolaire sélectionnée, comme le
 // reste des indicateurs annuels de l'appli.
 function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onChanged, createdBy }) {
+  const showToast = useToast();
   const [mois, setMois] = useState('');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
@@ -184,6 +186,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
     setSubmitting(false);
     if (insertError) { setFormError(insertError.message); return; }
     setMois(''); setMontant(''); setNote('');
+    showToast('Enregistré');
     onChanged();
   }
 

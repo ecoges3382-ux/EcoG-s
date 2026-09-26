@@ -5,6 +5,7 @@ import { initials, todayIso, startOfWeekIso, endOfWeekIso, startOfMonthIso, endO
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const STATUTS = [
   { id: 'present', label: 'Présent', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -13,6 +14,7 @@ const STATUTS = [
 ];
 
 export default function Attendance() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
@@ -85,7 +87,7 @@ export default function Attendance() {
     const { error: upsertError } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'student_id,school_year_id,date' });
     setSaving(false);
     if (upsertError) setError(upsertError.message);
-    else setSaved(true);
+    else { setSaved(true); showToast('Enregistré'); }
   }
 
   function markAllPresent() {

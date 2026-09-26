@@ -6,6 +6,7 @@ import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 // Publication/modification/archivage réservés à fondateur/directeur/
 // secrétaire — même périmètre que les autres actions administratives de
@@ -170,6 +171,7 @@ export default function Announce() {
 }
 
 function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onSaved, onError }) {
+  const showToast = useToast();
   const [portee, setPortee] = useState(editing ? (editing.classe_cible_id ? 'Une classe' : 'École entière') : 'École entière');
   const [classeCibleId, setClasseCibleId] = useState(editing?.classe_cible_id || '');
   const [titre, setTitre] = useState(editing?.titre || '');
@@ -207,6 +209,7 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
         });
     setSubmitting('');
     if (error) { onError(error.message); return; }
+    showToast('Enregistré');
     onSaved();
   }
 

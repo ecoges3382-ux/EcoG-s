@@ -6,6 +6,7 @@ import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
 import NameInput from '../components/NameInput.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 // La classe d'un élève est propre à l'année scolaire en cours
 // (enrollments) — students ne garde que son identité. Utilisé par les deux
@@ -168,6 +169,7 @@ function StaffAccounts() {
 }
 
 function NewStaffAccountModal({ onClose, onCreated }) {
+  const showToast = useToast();
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState(CREATABLE_STAFF_ROLES[0]);
   const [email, setEmail] = useState('');
@@ -197,6 +199,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
       setError(data?.error || (await describeFunctionError(fnError)));
       return;
     }
+    showToast('Enregistré');
     onCreated();
   }
 
@@ -229,6 +232,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
 }
 
 function ParentAccessTab() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const canManage = PARENT_MANAGER_ROLES.includes(profile.role);
 
@@ -266,6 +270,7 @@ function ParentAccessTab() {
       if (updateError.code !== '23505') { setError(updateError.message); return; }
     }
     if (!done) { setError('Impossible de régénérer le code, réessaie.'); return; }
+    showToast('Enregistré');
     reload();
   }
 
@@ -339,6 +344,7 @@ function ParentAccessTab() {
 }
 
 function NewParentAccessModal({ onClose, onCreated }) {
+  const showToast = useToast();
   const { profile } = useAuth();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const students = useStudentsForLinking(schoolYear?.id);
@@ -392,6 +398,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
       setError(linkError.message);
       return;
     }
+    showToast('Enregistré');
     onCreated();
   }
 
@@ -433,6 +440,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
 }
 
 function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
+  const showToast = useToast();
   const { profile } = useAuth();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const students = useStudentsForLinking(schoolYear?.id);
@@ -461,6 +469,7 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
     );
     setSubmitting(false);
     if (insertError) { setError(insertError.message); return; }
+    showToast('Enregistré');
     onSaved();
   }
 
@@ -506,7 +515,7 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
           <TrashIcon />
         </button>
         <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Actions">
-          <GearIcon />
+          <PencilIcon />
         </button>
       </div>
 
@@ -572,7 +581,7 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen
           </button>
         )}
         <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
-          <GearIcon />
+          <PencilIcon />
         </button>
       </div>
 
@@ -615,6 +624,7 @@ function AccountActionsMenu({ onSelect, onClose }) {
 }
 
 function EditFieldModal({ account, field, functionName, onClose, onSaved }) {
+  const showToast = useToast();
   const [email, setEmail] = useState(account.email || '');
   const initialPhone = decomposePhone(account.phone);
   const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
@@ -655,6 +665,7 @@ function EditFieldModal({ account, field, functionName, onClose, onSaved }) {
       setError(data?.error || (await describeFunctionError(fnError)));
       return;
     }
+    showToast('Enregistré');
     onSaved();
   }
 
@@ -716,11 +727,11 @@ function ModalActions({ onCancel, submitting, submitLabel, submittingLabel }) {
   );
 }
 
-function GearIcon() {
+function PencilIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" />
-      <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
     </svg>
   );
 }

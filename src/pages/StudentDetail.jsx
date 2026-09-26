@@ -10,11 +10,13 @@ import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function StudentDetail() {
+  const showToast = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -111,6 +113,7 @@ export default function StudentDetail() {
     const { error: saveError } = await supabase.from('enrollments').update({ note_arrangement: note || null }).eq('id', enrollment.id);
     if (saveError) { setError(saveError.message); return; }
     setEnrollment((prev) => ({ ...prev, note_arrangement: note || null }));
+    showToast('Enregistré');
   }
 
   async function sendRelance() {

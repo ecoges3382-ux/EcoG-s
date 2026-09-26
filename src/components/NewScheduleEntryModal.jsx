@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { useToast } from './Toast.jsx';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -11,6 +12,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 // du texte). editing (optionnel) bascule le formulaire en modification,
 // même patron que ClassModal/SubjectModal.
 export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes, teachers, slots, editing, onClose, onSaved }) {
+  const showToast = useToast();
   const [jour, setJour] = useState(editing?.jour || JOURS[0]);
   const [slotId, setSlotId] = useState(editing?.slot_id || slots[0]?.id || '');
   const [classeId, setClasseId] = useState(editing?.classe_id || classes[0]?.id || '');
@@ -125,6 +127,7 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
       setError(saveError.code === '23505' ? 'Ce créneau est déjà pris (classe ou enseignant).' : saveError.message);
       return;
     }
+    showToast('Enregistré');
     onSaved();
   }
 

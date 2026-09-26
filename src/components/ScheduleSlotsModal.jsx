@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { useToast } from './Toast.jsx';
 
 // Gestion des créneaux horaires de l'école (schedule_slots) — la grille de
 // l'emploi du temps était figée à 5 créneaux fixes 8h-16h, jamais
@@ -9,6 +10,7 @@ import { supabase } from '../lib/supabase.js';
 // listes réordonnables du reste de l'app (aucune n'utilise le glisser-
 // déposer, toujours des boutons simples).
 export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged }) {
+  const showToast = useToast();
   const [newLabel, setNewLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
@@ -25,6 +27,7 @@ export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged
     setAdding(false);
     if (insertError) { setError(insertError.message); return; }
     setNewLabel('');
+    showToast('Enregistré');
     onChanged();
   }
 
@@ -39,6 +42,7 @@ export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged
     if (!label.trim() || label.trim() === slot.label) return;
     const { error: updateError } = await supabase.from('schedule_slots').update({ label: label.trim() }).eq('id', slot.id);
     if (updateError) { setError(updateError.message); return; }
+    showToast('Enregistré');
     onChanged();
   }
 
