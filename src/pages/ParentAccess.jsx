@@ -496,6 +496,8 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           classeNom={enrollment.classe?.nom}
           schoolYearLabel={schoolYear?.label}
           school={school}
+          montantDu={enrollment.montant_du}
+          montantPaye={enrollment.montant_paye}
           onClose={() => setReceiptPayment(null)}
         />
       )}

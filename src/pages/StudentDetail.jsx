@@ -369,6 +369,8 @@ export default function StudentDetail() {
           classeNom={enrollment?.classes?.nom}
           schoolYearLabel={schoolYear?.label}
           school={profile.schools}
+          montantDu={enrollment?.montant_du}
+          montantPaye={enrollment?.montant_paye}
           onClose={() => setReceiptPayment(null)}
         />
       )}

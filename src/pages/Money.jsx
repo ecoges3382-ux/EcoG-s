@@ -216,11 +216,11 @@ function Payments() {
     if (!schoolYear) return;
     const [{ data: pay, error: payError }, { data: enr }] = await Promise.all([
       supabase.from('payments').select('*, students ( full_name )').eq('school_year_id', schoolYear.id).order('date', { ascending: false }).order('created_at', { ascending: false }),
-      supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
+      supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
     ]);
     if (payError) setError(payError.message); else setPayments(pay);
     setStudents((enr || [])
-      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
+      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—', montant_du: e.montant_du, montant_paye: e.montant_paye }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name)));
   }
   useEffect(() => { reload(); }, [schoolYear?.id]);
@@ -292,6 +292,8 @@ function Payments() {
           classeNom={students.find((s) => s.id === receiptPayment.student_id)?.niveau}
           schoolYearLabel={schoolYear?.label}
           school={profile.schools}
+          montantDu={students.find((s) => s.id === receiptPayment.student_id)?.montant_du}
+          montantPaye={students.find((s) => s.id === receiptPayment.student_id)?.montant_paye}
           onClose={() => setReceiptPayment(null)}
         />
       )}

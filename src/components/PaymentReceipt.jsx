@@ -7,8 +7,14 @@ import DocumentHeader from './DocumentHeader.jsx';
 // (jamais un montant ou une identité reconstruite/modifiée côté écran).
 // Réutilisé à l'identique par l'admin (StudentDetail.jsx, Money.jsx) et le
 // portail parent (ParentAccess.jsx) : mêmes données, même présentation.
-export default function PaymentReceipt({ payment, studentName, classeNom, schoolYearLabel, school, onClose }) {
+export default function PaymentReceipt({ payment, studentName, classeNom, schoolYearLabel, school, montantDu, montantPaye, onClose }) {
   const reference = payment.id ? payment.id.slice(0, 8).toUpperCase() : '—';
+  // Les frais d'inscription sont un montant fixe et ponctuel, sans lien
+  // avec le solde de la scolarité — inutile d'y afficher un reste à payer.
+  // Pour tout autre motif, si la scolarité n'est pas intégralement payée,
+  // la famille doit le voir directement sur le reçu.
+  const resteScolarite = montantDu != null && montantPaye != null ? Number(montantDu) - Number(montantPaye) : null;
+  const showReste = payment.type_frais !== 'inscription' && resteScolarite > 0;
 
   return (
     <div
@@ -30,10 +36,17 @@ export default function PaymentReceipt({ payment, studentName, classeNom, school
             {payment.note && <ReceiptRow label="Note" value={payment.note} />}
           </div>
 
-          <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px', marginBottom: 18 }}>
+          <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px', marginBottom: showReste ? 10 : 18 }}>
             <p style={{ margin: '0 0 3px', fontSize: 11.5, fontWeight: 600, color: 'var(--forest-dark)' }}>Montant reçu</p>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--forest-dark)' }}>{fmtF(payment.montant)}</p>
           </div>
+
+          {showReste && (
+            <div style={{ background: 'var(--danger-light)', borderRadius: 10, padding: '12px 18px', marginBottom: 18 }}>
+              <p style={{ margin: '0 0 3px', fontSize: 11.5, fontWeight: 600, color: 'var(--danger)' }}>Reste à payer (scolarité)</p>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(resteScolarite)}</p>
+            </div>
+          )}
 
           <p style={{ margin: 0, fontSize: 10.5, color: 'var(--muted)' }}>
             Document généré le {new Date().toLocaleDateString('fr-FR')} — atteste d'un paiement enregistré dans EcoGès.
