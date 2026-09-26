@@ -124,10 +124,13 @@ function StaffAccounts() {
       {!accounts && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {accounts && (
-        // overflowX seul (pas overflow tout court) : coupe le débordement
-        // horizontal pour garder les coins arrondis propres, sans couper
-        // verticalement le petit menu déroulant qui s'ouvre sous chaque ligne.
-        <div className="card-bold" style={{ overflowX: 'hidden' }}>
+        // Pas d'overflow ici, ni X ni Y : dès qu'un seul axe est autre que
+        // "visible", le CSS force l'autre à "auto" (quirk du spec), ce qui
+        // recadrait le petit menu déroulant de chaque ligne à l'intérieur
+        // de cette carte au lieu de le laisser flotter par-dessus la suite
+        // de la page — border-radius suffit déjà à garder les coins
+        // propres, aucun enfant ici n'a de fond bord-à-bord à découper.
+        <div className="card-bold">
           {accounts.map((a, i) => (
             <AccountRow
               key={a.id}
@@ -306,7 +309,7 @@ function ParentAccessTab() {
       {!accesses && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {accesses && (
-        <div className="card-bold" style={{ overflowX: 'hidden' }}>
+        <div className="card-bold">
           {accesses.map((a, i) => (
             <ParentAccessRow
               key={a.id}
