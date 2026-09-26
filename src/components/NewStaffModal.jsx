@@ -14,13 +14,16 @@ function nextMatricule(existingStaff, role) {
   return `${PREFIXES[role] || 'PER'}-${String(count).padStart(4, '0')}`;
 }
 
-export default function NewStaffModal({ schoolId, existingStaff, availableClasses, editing, onClose, onSaved }) {
+export default function NewStaffModal({ schoolId, existingStaff, availableClasses, availableSubjects, editing, onClose, onSaved }) {
   const showToast = useToast();
   const [nom, setNom] = useState(editing?.nom || '');
   const [prenom, setPrenom] = useState(editing?.prenom || '');
   const [role, setRole] = useState(editing?.role || ROLES[0]);
   const [niveauEtudes, setNiveauEtudes] = useState(editing?.niveau_etudes || '');
   const [classNames, setClassNames] = useState(editing?.classes || []);
+  const [subjectIds, setSubjectIds] = useState(
+    editing ? availableSubjects.filter((s) => s.enseignant_id === editing.id).map((s) => s.id) : [],
+  );
   const [phone, setPhone] = useState(editing?.phone || '');
   const [email, setEmail] = useState(editing?.email || '');
   const [dateEntree, setDateEntree] = useState(editing?.date_entree || '');
@@ -31,6 +34,10 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
 
   function toggleClass(nomClasse) {
     setClassNames((prev) => (prev.includes(nomClasse) ? prev.filter((c) => c !== nomClasse) : [...prev, nomClasse]));
+  }
+
+  function toggleSubject(id) {
+    setSubjectIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
 
   async function handleSubmit(e) {
@@ -56,12 +63,28 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     };
     // Le matricule identifie durablement la personne — on ne le recalcule
     // jamais après coup, seulement à la création.
-    const { error: saveError } = editing
-      ? await supabase.from('staff').update(payload).eq('id', editing.id)
-      : await supabase.from('staff').insert({ school_id: schoolId, matricule: nextMatricule(existingStaff, role), ...payload });
-    setSubmitting(false);
+    const { data: savedRow, error: saveError } = editing
+      ? await supabase.from('staff').update(payload).eq('id', editing.id).select('id').single()
+      : await supabase.from('staff').insert({ school_id: schoolId, matricule: nextMatricule(existingStaff, role), ...payload }).select('id').single();
     if (saveError) {
+      setSubmitting(false);
       setError(saveError.message);
+      return;
+    }
+
+    // Un rôle non-enseignant ne peut porter aucune matière : si le rôle
+    // vient de changer, on relâche tout ce qui était encore attribué.
+    const selectedIds = role === 'Enseignant' ? subjectIds : [];
+    const staffId = savedRow.id;
+    const toAssign = selectedIds;
+    const toRelease = availableSubjects.filter((s) => s.enseignant_id === staffId && !selectedIds.includes(s.id)).map((s) => s.id);
+    const [{ error: assignError }, { error: releaseError }] = await Promise.all([
+      toAssign.length ? supabase.from('subjects').update({ enseignant_id: staffId }).in('id', toAssign) : Promise.resolve({}),
+      toRelease.length ? supabase.from('subjects').update({ enseignant_id: null }).in('id', toRelease) : Promise.resolve({}),
+    ]);
+    setSubmitting(false);
+    if (assignError || releaseError) {
+      setError((assignError || releaseError).message);
       return;
     }
     showToast('Enregistré');
@@ -124,6 +147,34 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
             })}
           </div>
         </Field>
+
+        {role === 'Enseignant' && (
+          <Field label="Matière(s) enseignée(s)">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
+              {availableSubjects.length === 0 && (
+                <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucune matière créée pour l'instant.</p>
+              )}
+              {availableSubjects.map((s) => {
+                const active = subjectIds.includes(s.id);
+                return (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => toggleSubject(s.id)}
+                    style={{
+                      padding: '6px 13px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                      border: `1px solid ${active ? 'var(--forest)' : 'var(--line-strong)'}`,
+                      background: active ? 'var(--forest)' : 'var(--paper)',
+                      color: active ? '#fff' : 'var(--ink)',
+                    }}
+                  >
+                    {s.nom}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Téléphone">

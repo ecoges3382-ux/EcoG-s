@@ -20,6 +20,7 @@ export default function StaffDetail() {
   const [archiving, setArchiving] = useState(false);
   const [salaries, setSalaries] = useState(null);
   const [advances, setAdvances] = useState(null);
+  const [subjects, setSubjects] = useState(null);
 
   function reloadPerson() {
     return supabase.from('staff').select('*').eq('id', id).single()
@@ -53,6 +54,13 @@ export default function StaffDetail() {
     let cancelled = false;
     supabase.from('salary_advances').select('*').eq('staff_id', id).order('created_at', { ascending: false })
       .then(({ data, error: e }) => { if (cancelled) return; if (e) setError(e.message); else setAdvances(data || []); });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('subjects').select('nom').eq('enseignant_id', id).order('nom')
+      .then(({ data, error: e }) => { if (cancelled) return; if (e) setError(e.message); else setSubjects(data || []); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -112,6 +120,9 @@ export default function StaffDetail() {
       <div className="card-bold" style={{ padding: '18px 20px', maxWidth: 640, marginBottom: 20 }}>
         <Row label="Niveau d'études" value={person.niveau_etudes || '—'} />
         <Row label="Classe(s)" value={(person.classes || []).length ? person.classes.join(', ') : '—'} />
+        {person.role === 'Enseignant' && (
+          <Row label="Matière(s)" value={subjects?.length ? subjects.map((s) => s.nom).join(', ') : '—'} />
+        )}
         <Row label="Téléphone" value={person.phone || '—'} />
         <Row label="E-mail" value={person.email || '—'} />
         <Row label="Date d'entrée" value={person.date_entree ? new Date(person.date_entree).toLocaleDateString('fr-FR') : '—'} />

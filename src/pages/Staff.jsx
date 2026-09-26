@@ -54,6 +54,7 @@ export default function Staff() {
   const { profile } = useAuth();
   const [staff, setStaff] = useState(null);
   const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
@@ -76,13 +77,21 @@ export default function Staff() {
   // suppression réelle.
   const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
 
+  function reloadSubjects() {
+    // Les matières attribuables à un enseignant sont celles réellement
+    // créées par l'école (page Matières), jamais saisies à la main ici —
+    // même logique que les classes juste au-dessus.
+    supabase.from('subjects').select('id, nom, enseignant_id').order('nom').then(({ data }) => {
+      setSubjects(data || []);
+    });
+  }
+
   useEffect(() => {
     reload();
-    // Les classes attribuables à un enseignant sont celles réellement
-    // créées par l'école (page Classes), pas une liste générique.
     supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
       setClasses(sortClasses(data || []));
     });
+    reloadSubjects();
   }, []);
 
   function openEdit(p) {
@@ -285,9 +294,10 @@ export default function Staff() {
           schoolId={profile.school_id}
           existingStaff={staff || []}
           availableClasses={classes}
+          availableSubjects={subjects}
           editing={editingStaff}
           onClose={() => { setModalOpen(false); setEditingStaff(null); }}
-          onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); }}
+          onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); reloadSubjects(); }}
         />
       )}
     </div>
