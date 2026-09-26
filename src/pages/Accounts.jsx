@@ -241,6 +241,7 @@ function ParentAccessTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [menuForId, setMenuForId] = useState(null);
   const [editingStudents, setEditingStudents] = useState(null); // access
+  const [editingInfo, setEditingInfo] = useState(null); // access
   const [copiedId, setCopiedId] = useState(null);
 
   async function reload() {
@@ -317,6 +318,7 @@ function ParentAccessTab() {
               onCopyLink={() => copyLink(a)}
               onRegenerate={() => handleRegenerate(a)}
               onEditStudents={() => setEditingStudents(a)}
+              onEditInfo={() => setEditingInfo(a)}
               onDelete={() => handleDelete(a)}
               copied={copiedId === a.id}
             />
@@ -339,6 +341,14 @@ function ParentAccessTab() {
           onSaved={() => { setEditingStudents(null); reload(); }}
         />
       )}
+
+      {editingInfo && (
+        <EditParentAccessInfoModal
+          access={editingInfo}
+          onClose={() => setEditingInfo(null)}
+          onSaved={() => { setEditingInfo(null); reload(); }}
+        />
+      )}
     </div>
   );
 }
@@ -353,6 +363,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
   const [prenom, setPrenom] = useState('');
   const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
   const [phoneLocal, setPhoneLocal] = useState('');
+  const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -381,6 +392,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
         nom: nom.trim(),
         prenom: prenom.trim(),
         phone: composePhone(phoneDial, phoneLocal) || null,
+        email: email.trim() || null,
         code: generateAccessCode(),
       }).select().single();
       if (!insertError) { created = data; break; }
@@ -418,6 +430,9 @@ function NewParentAccessModal({ onClose, onCreated }) {
 
         <label style={labelStyle}>Téléphone (facultatif, pour info seulement)</label>
         <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
+
+        <label style={labelStyle}>E-mail (facultatif, pour info seulement)</label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
 
         <label style={labelStyle}>Élève(s) rattaché(s)</label>
         <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
@@ -494,7 +509,70 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
   );
 }
 
-function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, onCopyLink, onRegenerate, onEditStudents, onDelete, copied }) {
+// Un parent peut changer de numéro ou d'adresse e-mail — contrairement aux
+// enfants rattachés (modale ci-dessus), ces informations n'ont jamais été
+// modifiables après la création de l'accès.
+function EditParentAccessInfoModal({ access, onClose, onSaved }) {
+  const showToast = useToast();
+  const [nom, setNom] = useState(access.nom || '');
+  const [prenom, setPrenom] = useState(access.prenom || '');
+  const initialPhone = decomposePhone(access.phone);
+  const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
+  const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
+  const [email, setEmail] = useState(access.email || '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!nom.trim()) {
+      setError('Le nom est obligatoire.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    const { error: updateError } = await supabase.from('parent_access').update({
+      full_name: displayName(nom.trim(), prenom.trim()),
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      phone: composePhone(phoneDial, phoneLocal) || null,
+      email: email.trim() || null,
+    }).eq('id', access.id);
+    setSubmitting(false);
+    if (updateError) { setError(updateError.message); return; }
+    showToast('Enregistré');
+    onSaved();
+  }
+
+  return (
+    <ModalShell title={`Informations — ${access.full_name}`} onClose={onClose}>
+      <form onSubmit={handleSubmit}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Nom</label>
+            <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Prénom</label>
+            <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
+          </div>
+        </div>
+
+        <label style={labelStyle}>Téléphone (facultatif, pour info seulement)</label>
+        <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
+
+        <label style={labelStyle}>E-mail (facultatif, pour info seulement)</label>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
+
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+
+        <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
+      </form>
+    </ModalShell>
+  );
+}
+
+function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, onCopyLink, onRegenerate, onEditStudents, onEditInfo, onDelete, copied }) {
   const children = (access.parent_access_students || []).map((row) => row.students?.full_name).filter(Boolean);
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
@@ -524,6 +602,7 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
           onCopyLink={onCopyLink}
           onRegenerate={onRegenerate}
           onEditStudents={onEditStudents}
+          onEditInfo={onEditInfo}
           onClose={onCloseMenu}
         />
       )}
@@ -531,8 +610,9 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
   );
 }
 
-function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onClose }) {
+function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onEditInfo, onClose }) {
   const items = [
+    { id: 'info', label: 'Modifier les informations (nom, téléphone, e-mail)', action: onEditInfo },
     { id: 'copy', label: 'Copier le lien', action: onCopyLink },
     { id: 'students', label: 'Modifier les enfants rattachés', action: onEditStudents },
     { id: 'regen', label: 'Régénérer le code', action: onRegenerate },

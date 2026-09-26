@@ -3083,3 +3083,11 @@ create unique index if not exists schedule_entries_teacher_slot_uniq
   where enseignant_id is not null;
 create unique index if not exists schedule_entries_classe_slot_uniq
   on schedule_entries(school_year_id, jour, slot_id, classe_id);
+
+-- ---------- Migration : e-mail sur les accès parents ----------
+-- Un parent peut changer de numéro ou d'adresse e-mail — jusqu'ici seul le
+-- téléphone existait sur parent_access, et rien n'était modifiable après
+-- la création (voir Accounts.jsx). Ajoute juste la colonne ; l'édition
+-- (nom, téléphone, e-mail) passe par un update direct sur parent_access,
+-- déjà couvert par les policies UPDATE existantes.
+alter table parent_access add column if not exists email text;
