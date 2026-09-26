@@ -7,6 +7,7 @@ import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
 import NameInput from '../components/NameInput.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 // La classe d'un élève est propre à l'année scolaire en cours
 // (enrollments) — students ne garde que son identité. Utilisé par les deux
@@ -213,9 +214,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
         <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
 
         <label style={labelStyle}>Rôle</label>
-        <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
-          {CREATABLE_STAFF_ROLES.map((r) => <option key={r} value={r}>{ROLES[r].label}</option>)}
-        </select>
+        <Dropdown value={role} onChange={setRole} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
 
         <label style={labelStyle}>E-mail</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />

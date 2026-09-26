@@ -11,6 +11,7 @@ import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -463,24 +464,18 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Classe</label>
-            <select value={classeFilter} onChange={(e) => handleClasseChange(e.target.value)} style={modalInputStyle}>
-              {classes.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <Dropdown value={classeFilter} onChange={handleClasseChange} options={classes} style={modalInputStyle} />
           </div>
           <div>
             <label style={modalLabelStyle}>Élève</label>
-            <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={modalInputStyle}>
-              {studentsInClasse.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
+            <Dropdown value={studentId} onChange={setStudentId} options={studentsInClasse.map((s) => ({ value: s.id, label: s.full_name }))} style={modalInputStyle} />
           </div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Type de frais</label>
-            <select value={typeFrais} onChange={(e) => setTypeFrais(e.target.value)} style={modalInputStyle}>
-              {TYPES_FRAIS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            <Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} />
           </div>
           <div>
             <label style={modalLabelStyle}>Montant</label>
@@ -491,15 +486,11 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Mode</label>
-            <select value={mode} onChange={(e) => setMode(e.target.value)} style={modalInputStyle}>
-              {MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
+            <Dropdown value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m.id, label: m.label }))} style={modalInputStyle} />
           </div>
           <div>
             <label style={modalLabelStyle}>Tranche</label>
-            <select value={tranche} onChange={(e) => setTranche(e.target.value)} style={modalInputStyle}>
-              {TRANCHES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            <Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} />
           </div>
         </div>
 
@@ -726,9 +717,13 @@ function Advances() {
 
       {staff.length > 0 ? (
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <select value={staffId} onChange={(e) => setStaffId(e.target.value)} style={{ ...smallInput, flex: '2 1 180px' }}>
-            {staff.map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
-          </select>
+          <Dropdown
+            value={staffId}
+            onChange={setStaffId}
+            options={staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }))}
+            style={smallInput}
+            wrapperStyle={{ flex: '2 1 180px', width: 'auto' }}
+          />
           <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ ...smallInput, flex: '1 1 120px' }} />
           <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif (facultatif)" style={{ ...smallInput, flex: '2 1 160px' }} />
           <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>

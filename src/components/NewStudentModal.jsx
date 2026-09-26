@@ -7,6 +7,7 @@ import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
+import Dropdown from './Dropdown.jsx';
 
 // Propre à ce formulaire : pas de "Moitié" (n'a pas de montant à
 // pré-remplir depuis la grille tarifaire), et "Autre" en plus — le parent
@@ -338,9 +339,13 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
-            <select value={classeId} onChange={(e) => setClasseId(e.target.value)} disabled={!canEditEnrollment} style={{ ...inputStyle, opacity: canEditEnrollment ? 1 : 0.6 }}>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-            </select>
+            <Dropdown
+              value={classeId}
+              onChange={setClasseId}
+              disabled={!canEditEnrollment}
+              options={classes.map((c) => ({ value: c.id, label: c.nom }))}
+              style={inputStyle}
+            />
           </div>
           <div>
             <label style={labelStyle}>Écolage dû</label>
@@ -391,9 +396,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: paiementMontant > 0 ? 12 : 0 }}>
             <div>
               <label style={labelStyle}>Pour</label>
-              <select value={paiementTranche} onChange={(e) => handleTrancheChange(e.target.value)} style={inputStyle}>
-                {PAIEMENT_TRANCHES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-              </select>
+              <Dropdown value={paiementTranche} onChange={handleTrancheChange} options={PAIEMENT_TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Montant versé</label>
@@ -409,9 +412,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           {paiementMontant > 0 && (
             <div>
               <label style={labelStyle}>Mode de paiement</label>
-              <select value={paiementMode} onChange={(e) => setPaiementMode(e.target.value)} style={inputStyle}>
-                {MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </select>
+              <Dropdown value={paiementMode} onChange={setPaiementMode} options={MODES.map((m) => ({ value: m.id, label: m.label }))} style={inputStyle} />
             </div>
           )}
         </div>

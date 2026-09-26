@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import Dropdown from './Dropdown.jsx';
 
 // Indicatifs les plus pertinents pour le contexte de déploiement de
 // l'appli (Bénin et pays voisins), plus quelques indicatifs courants.
@@ -145,21 +146,19 @@ export default function PhoneInput({ dial, local, onDialChange, onLocalChange, s
   return (
     <div style={style}>
       <div style={{ display: 'flex', gap: 8 }}>
-        <select
+        <Dropdown
           value={dial}
-          onChange={(e) => {
+          onChange={(v) => {
             // Le découpage en groupes diffère totalement d'un pays à
             // l'autre : garder les chiffres déjà tapés produirait un
             // numéro sans aucun sens, donc on repart d'un champ vide.
-            onDialChange(e.target.value);
+            onDialChange(v);
             onLocalChange('');
           }}
-          style={{ padding: '10px 6px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, color: 'var(--ink)', flexShrink: 0, width: 172 }}
-        >
-          {COUNTRIES.map((c) => (
-            <option key={c.dial} value={c.dial}>{c.flag} +{c.dial} {c.name}</option>
-          ))}
-        </select>
+          options={COUNTRIES.map((c) => ({ value: c.dial, label: `${c.flag} +${c.dial} ${c.name}` }))}
+          style={{ padding: '10px 6px' }}
+          wrapperStyle={{ flexShrink: 0, width: 172 }}
+        />
         <input
           ref={ref}
           type="tel"

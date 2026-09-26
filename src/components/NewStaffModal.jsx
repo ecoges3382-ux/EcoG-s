@@ -5,6 +5,7 @@ import PhotoPicker from './PhotoPicker.jsx';
 import NameInput from './NameInput.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
+import Dropdown from './Dropdown.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -113,9 +114,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Rôle">
-            <select value={role} onChange={(e) => setRole(e.target.value)} style={inputStyle}>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <Dropdown value={role} onChange={setRole} options={ROLES} style={inputStyle} />
           </Field>
           <Field label="Niveau d'études">
             <input value={niveauEtudes} onChange={(e) => setNiveauEtudes(e.target.value)} placeholder="ex. Licence en Lettres" style={inputStyle} />

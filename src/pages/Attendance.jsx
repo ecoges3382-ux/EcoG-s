@@ -6,6 +6,7 @@ import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const STATUTS = [
   { id: 'present', label: 'Présent', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -127,9 +128,7 @@ export default function Attendance() {
       {niveaux.length > 0 && tab === 'appel' && (
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-            <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={selectStyle}>
-              {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <Dropdown value={niveau} onChange={setNiveau} options={niveaux} style={selectStyle} wrapperStyle={{ width: 'auto', minWidth: 140 }} />
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={selectStyle} />
           </div>
 
@@ -242,15 +241,19 @@ function AttendanceStats({ schoolYear, niveaux, students }) {
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18, alignItems: 'center' }}>
-        <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={selectStyle}>
-          {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
-        <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={selectStyle}>
-          <option value="jour">Un jour</option>
-          <option value="semaine">Cette semaine</option>
-          <option value="mois">Ce mois</option>
-          <option value="personnalise">Période personnalisée</option>
-        </select>
+        <Dropdown value={niveau} onChange={setNiveau} options={niveaux} style={selectStyle} wrapperStyle={{ width: 'auto', minWidth: 140 }} />
+        <Dropdown
+          value={periode}
+          onChange={setPeriode}
+          options={[
+            { value: 'jour', label: 'Un jour' },
+            { value: 'semaine', label: 'Cette semaine' },
+            { value: 'mois', label: 'Ce mois' },
+            { value: 'personnalise', label: 'Période personnalisée' },
+          ]}
+          style={selectStyle}
+          wrapperStyle={{ width: 'auto', minWidth: 170 }}
+        />
         {periode === 'jour' && <input type="date" value={dateRef} onChange={(e) => setDateRef(e.target.value)} style={selectStyle} />}
         {(periode === 'semaine' || periode === 'mois') && (
           <input type="date" value={dateRef} onChange={(e) => setDateRef(e.target.value)} style={selectStyle} title="Une date dans la période souhaitée" />

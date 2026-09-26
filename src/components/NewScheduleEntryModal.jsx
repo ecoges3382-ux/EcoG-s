@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
+import Dropdown from './Dropdown.jsx';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -145,31 +146,27 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Jour</label>
-            <select value={jour} onChange={(e) => setJour(e.target.value)} style={inputStyle}>
-              {JOURS.map((j) => <option key={j} value={j}>{j}</option>)}
-            </select>
+            <Dropdown value={jour} onChange={setJour} options={JOURS} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Créneau</label>
-            <select value={slotId} onChange={(e) => setSlotId(e.target.value)} style={inputStyle}>
-              {slots.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
+            <Dropdown value={slotId} onChange={setSlotId} options={slots.map((s) => ({ value: s.id, label: s.label }))} style={inputStyle} />
           </div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
-            <select value={classeId} onChange={(e) => setClasseId(e.target.value)} style={inputStyle}>
-              {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-            </select>
+            <Dropdown value={classeId} onChange={setClasseId} options={classes.map((c) => ({ value: c.id, label: c.nom }))} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Enseignant</label>
-            <select value={enseignantId} onChange={(e) => setEnseignantId(e.target.value)} style={inputStyle}>
-              <option value="">—</option>
-              {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-            </select>
+            <Dropdown
+              value={enseignantId}
+              onChange={setEnseignantId}
+              options={[{ value: '', label: '—' }, ...teachers.map((t) => ({ value: t.id, label: t.full_name }))]}
+              style={inputStyle}
+            />
           </div>
         </div>
 

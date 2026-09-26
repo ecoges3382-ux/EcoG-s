@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
+import Dropdown from './Dropdown.jsx';
 
 // Extrait de Subjects.jsx pour être réutilisable ailleurs (voir
 // src/pages/FirstTimeSetup.jsx, l'assistant de configuration initiale
@@ -61,18 +62,22 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
           </div>
           <div>
             <label style={labelStyle}>Niveau concerné</label>
-            <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={inputStyle}>
-              <option value="">Tous niveaux</option>
-              {classes.map((c) => <option key={c.id} value={c.nom}>{c.nom}</option>)}
-            </select>
+            <Dropdown
+              value={niveau}
+              onChange={setNiveau}
+              options={[{ value: '', label: 'Tous niveaux' }, ...classes.map((c) => ({ value: c.nom, label: c.nom }))]}
+              style={inputStyle}
+            />
           </div>
         </div>
 
         <label style={labelStyle}>Enseignant responsable</label>
-        <select value={enseignantId} onChange={(e) => setEnseignantId(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }}>
-          <option value="">—</option>
-          {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-        </select>
+        <Dropdown
+          value={enseignantId}
+          onChange={setEnseignantId}
+          options={[{ value: '', label: '—' }, ...teachers.map((t) => ({ value: t.id, label: t.full_name }))]}
+          style={{ marginBottom: 18 }}
+        />
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 

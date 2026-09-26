@@ -7,6 +7,7 @@ import { printDocument, slug } from '../lib/print.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
@@ -96,21 +97,27 @@ export default function Grades() {
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 22, alignItems: 'flex-end' }}>
             <div>
               <label style={labelStyle}>Classe</label>
-              <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={selectStyle}>
-                {niveaux.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <Dropdown value={niveau} onChange={setNiveau} options={niveaux} style={selectStyle} wrapperStyle={{ width: 'auto', minWidth: 140 }} />
             </div>
             <div>
               <label style={labelStyle}>Élève</label>
-              <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={selectStyle}>
-                {studentsInNiveau.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-              </select>
+              <Dropdown
+                value={studentId}
+                onChange={setStudentId}
+                options={studentsInNiveau.map((s) => ({ value: s.id, label: s.full_name }))}
+                style={selectStyle}
+                wrapperStyle={{ width: 'auto', minWidth: 180 }}
+              />
             </div>
             <div>
               <label style={labelStyle}>Période</label>
-              <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={selectStyle}>
-                {PERIODE_OPTIONS.map((p) => <option key={p} value={p}>{periodeLabel(p)}</option>)}
-              </select>
+              <Dropdown
+                value={periode}
+                onChange={setPeriode}
+                options={PERIODE_OPTIONS.map((p) => ({ value: p, label: periodeLabel(p) }))}
+                style={selectStyle}
+                wrapperStyle={{ width: 'auto', minWidth: 160 }}
+              />
             </div>
             <button
               onClick={() => printDocument(`bulletin-${slug(student?.full_name)}-${slug(periodeLabel(periode))}`)}

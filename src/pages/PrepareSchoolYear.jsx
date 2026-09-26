@@ -7,6 +7,7 @@ import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
 const STEPS = [
@@ -147,9 +148,7 @@ function CreateYearForm({ oldYear, onCreated }) {
       </p>
 
       <label style={labelStyle}>Nom de l'année</label>
-      <select value={label} onChange={(e) => setLabel(e.target.value)} style={inputStyle}>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+      <Dropdown value={label} onChange={setLabel} options={options} style={inputStyle} />
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
@@ -479,10 +478,12 @@ function DecisionRow({ row, classes, gridCols, isLast, selectMode, selected, onT
         ))}
       </div>
       {showClasse ? (
-        <select value={row.classe_id || ''} onChange={(e) => onClasse(e.target.value)} style={smallInputStyle}>
-          <option value="">— choisir —</option>
-          {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-        </select>
+        <Dropdown
+          value={row.classe_id || ''}
+          onChange={onClasse}
+          options={[{ value: '', label: '— choisir —' }, ...classes.map((c) => ({ value: c.id, label: c.nom }))]}
+          style={smallInputStyle}
+        />
       ) : <span style={{ fontSize: 13, color: 'var(--muted)' }}>—</span>}
       {showClasse ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

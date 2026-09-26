@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { NIVEAUX } from '../lib/utils.js';
 import { useToast } from './Toast.jsx';
+import Dropdown from './Dropdown.jsx';
 
 // Extrait de Classes.jsx pour être réutilisable ailleurs (voir
 // src/pages/FirstTimeSetup.jsx, l'assistant de configuration initiale
@@ -54,9 +55,7 @@ export default function ClassModal({ schoolId, teachers, editing, onClose, onSav
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Niveau</label>
-            <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={inputStyle}>
-              {NIVEAUX.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <Dropdown value={niveau} onChange={setNiveau} options={NIVEAUX} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Section (optionnel)</label>
@@ -79,10 +78,12 @@ export default function ClassModal({ schoolId, teachers, editing, onClose, onSav
         </div>
 
         <label style={labelStyle}>Professeur principal</label>
-        <select value={profPrincipalId} onChange={(e) => setProfPrincipalId(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }}>
-          <option value="">—</option>
-          {teachers.map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-        </select>
+        <Dropdown
+          value={profPrincipalId}
+          onChange={setProfPrincipalId}
+          options={[{ value: '', label: '—' }, ...teachers.map((t) => ({ value: t.id, label: t.full_name }))]}
+          style={{ marginBottom: 18 }}
+        />
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 

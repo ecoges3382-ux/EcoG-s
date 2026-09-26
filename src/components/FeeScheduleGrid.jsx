@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { NIVEAUX, fmtF } from '../lib/utils.js';
 import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
+import Dropdown from './Dropdown.jsx';
 
 // Grille tarifaire (montant attendu par niveau) pour UNE année scolaire
 // donnée. Utilisée à la fois dans Paramètres → Grille tarifaire (toujours
@@ -128,9 +129,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
 
       <div style={{ marginBottom: 18 }}>
         <label style={labelStyle}>Niveau</label>
-        <select value={selected} onChange={(e) => setSelected(e.target.value)} style={selectStyle}>
-          {niveauxPresents.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+        <Dropdown value={selected} onChange={setSelected} options={niveauxPresents} style={selectStyle} wrapperStyle={{ maxWidth: 280 }} />
       </div>
 
       {selected && (

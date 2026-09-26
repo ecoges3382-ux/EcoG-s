@@ -7,6 +7,7 @@ import { NIVEAUX, SUPPORT_WHATSAPP_DISPLAY, supportWhatsappLink, supportMailLink
 import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
 
@@ -423,9 +424,13 @@ function PassageThresholds({ schoolId }) {
       {niveauxPresents.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>Personnaliser pour un niveau</label>
-          <select value={selected} onChange={(e) => setSelected(e.target.value)} style={{ width: '100%', maxWidth: 280, padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', background: 'var(--paper)', marginBottom: 12 }}>
-            {niveauxPresents.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <Dropdown
+            value={selected}
+            onChange={setSelected}
+            options={niveauxPresents}
+            style={{ marginBottom: 12 }}
+            wrapperStyle={{ maxWidth: 280 }}
+          />
 
           <NiveauThresholdEditor
             key={`${selected}-${rows.default?.seuil ?? ''}-${rows.byNiveau[selected]?.seuil ?? ''}`}

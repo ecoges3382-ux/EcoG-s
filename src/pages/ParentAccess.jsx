@@ -8,6 +8,7 @@ import { printDocument, slug } from '../lib/print.js';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
@@ -524,13 +525,13 @@ function YearSelector({ years, current, onChange }) {
   return (
     <div style={{ marginBottom: 18 }}>
       <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Année scolaire</label>
-      <select
+      <Dropdown
         value={current || ''}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, fontWeight: 600, color: 'var(--ink)', background: 'var(--paper)' }}
-      >
-        {years.map((y) => <option key={y.id} value={y.id}>{y.label}{y.is_current ? ' (en cours)' : ''}</option>)}
-      </select>
+        onChange={onChange}
+        options={years.map((y) => ({ value: y.id, label: `${y.label}${y.is_current ? ' (en cours)' : ''}` }))}
+        style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600 }}
+        wrapperStyle={{ width: 'auto', minWidth: 180 }}
+      />
     </div>
   );
 }

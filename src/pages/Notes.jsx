@@ -5,6 +5,7 @@ import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation' },
@@ -234,30 +235,22 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
-            <select value={niveau} onChange={(e) => handleNiveauChange(e.target.value)} style={inputStyle}>
-              {[...new Set(students.map((s) => s.niveau))].sort().map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <Dropdown value={niveau} onChange={handleNiveauChange} options={[...new Set(students.map((s) => s.niveau))].sort()} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Élève</label>
-            <select value={studentId} onChange={(e) => setStudentId(e.target.value)} style={inputStyle}>
-              {studentsInNiveau.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-            </select>
+            <Dropdown value={studentId} onChange={setStudentId} options={studentsInNiveau.map((s) => ({ value: s.id, label: s.full_name }))} style={inputStyle} />
           </div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Matière</label>
-            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={inputStyle}>
-              {subjectsForNiveau.map((s) => <option key={s.id} value={s.id}>{s.nom}</option>)}
-            </select>
+            <Dropdown value={subjectId} onChange={setSubjectId} options={subjectsForNiveau.map((s) => ({ value: s.id, label: s.nom }))} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Type</label>
-            <select value={type} onChange={(e) => setType(e.target.value)} style={inputStyle}>
-              {TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
+            <Dropdown value={type} onChange={setType} options={TYPES.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
           </div>
         </div>
 
@@ -273,9 +266,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
         </div>
 
         <label style={labelStyle}>Période</label>
-        <select value={periode} onChange={(e) => setPeriode(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }}>
-          {PERIODES.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <Dropdown value={periode} onChange={setPeriode} options={PERIODES} style={{ ...inputStyle, marginBottom: 18 }} />
 
         {studentsInNiveau.length === 0 && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)' }}>Aucun élève dans ce niveau.</p>}
         {subjectsForNiveau.length === 0 && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)' }}>Aucune matière pour ce niveau — ajoute-la d'abord dans « Matières ».</p>}

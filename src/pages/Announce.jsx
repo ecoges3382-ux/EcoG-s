@@ -7,6 +7,7 @@ import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 // Publication/modification/archivage réservés à fondateur/directeur/
 // secrétaire — même périmètre que les autres actions administratives de
@@ -228,10 +229,13 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
           </button>
         ))}
         {portee === 'Une classe' && (
-          <select value={classeCibleId} onChange={(e) => setClasseCibleId(e.target.value)} style={{ padding: '7px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>
-            {classes.length === 0 && <option value="">Aucune classe</option>}
-            {classes.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-          </select>
+          <Dropdown
+            value={classeCibleId}
+            onChange={setClasseCibleId}
+            options={classes.length === 0 ? [{ value: '', label: 'Aucune classe' }] : classes.map((c) => ({ value: c.id, label: c.nom }))}
+            style={{ padding: '7px 12px', fontSize: 12.5, fontWeight: 600 }}
+            wrapperStyle={{ width: 'auto', minWidth: 180 }}
+          />
         )}
       </div>
       <input
