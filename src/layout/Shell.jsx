@@ -126,7 +126,7 @@ export default function Shell() {
             <HelpIcon />
           </a>
           <button
-            onClick={() => signOut()}
+            onClick={() => { if (window.confirm('Voulez-vous vraiment vous déconnecter ?')) signOut(); }}
             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}
           >
             <span aria-hidden="true">⏻</span> <span className="logout-label">Se déconnecter</span>

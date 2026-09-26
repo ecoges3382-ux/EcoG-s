@@ -77,7 +77,7 @@ export default function PlatformAdmin() {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>Toutes les écoles de la plateforme, tous comptes confondus.</p>
           </div>
           <button
-            onClick={() => signOut()}
+            onClick={() => { if (window.confirm('Voulez-vous vraiment vous déconnecter ?')) signOut(); }}
             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', padding: '9px 14px', flexShrink: 0 }}
           >
             Se déconnecter
