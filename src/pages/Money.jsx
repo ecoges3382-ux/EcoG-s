@@ -204,6 +204,7 @@ function FraisConnexes() {
 
 function Payments() {
   const { profile } = useAuth();
+  const showToast = useToast();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
@@ -211,6 +212,23 @@ function Payments() {
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Un paiement ne se corrige jamais par édition — c'est un registre
+  // append-only voulu ainsi (voir supabase/schema.sql, pas de policy
+  // update sur "payments") : une erreur de montant se corrige en
+  // supprimant la ligne fautive puis en en enregistrant une bonne. Le
+  // trigger recompute_enrollment_paye recalcule automatiquement le payé
+  // de l'inscription dès la suppression, donc rien d'autre à faire ici.
+  async function handleDelete(p) {
+    if (!window.confirm(`Supprimer ce paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'cet élève'} ? Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('payments').delete().eq('id', p.id);
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    showToast('Supprimé');
+    reload();
+  }
 
   async function reload() {
     if (!schoolYear) return;
@@ -269,6 +287,17 @@ function Payments() {
               >
                 <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
               </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(p)}
+                  disabled={deleting}
+                  title="Supprimer ce paiement"
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                >
+                  <i className="ti ti-trash" style={{ fontSize: 17 }} aria-hidden="true"></i>
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -505,6 +534,7 @@ const modalLabelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color
 function Expenses() {
   const showToast = useToast();
   const { profile } = useAuth();
+  const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [expenses, setExpenses] = useState(null);
   const [error, setError] = useState('');
@@ -535,6 +565,16 @@ function Expenses() {
     reload();
   }
 
+  // Comme "payments"/"staff_salaries" : registre append-only, une erreur
+  // se corrige en supprimant la ligne fautive puis en en ajoutant une bonne.
+  async function handleDelete(d) {
+    if (!window.confirm(`Supprimer la dépense « ${d.libelle} » (${fmtF(d.montant)}) ? Cette action est irréversible.`)) return;
+    const { error: deleteError } = await supabase.from('expenses').delete().eq('id', d.id);
+    if (deleteError) { setError(deleteError.message); return; }
+    showToast('Supprimé');
+    reload();
+  }
+
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!expenses || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
@@ -555,7 +595,19 @@ function Expenses() {
               <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{d.libelle}</p>
               <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{d.categorie}</p>
             </div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmtF(d.montant)}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmtF(d.montant)}</p>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(d)}
+                  title="Supprimer"
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                >
+                  <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                </button>
+              )}
+            </div>
           </div>
         ))}
         {expenses.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune dépense enregistrée.</p>}
@@ -621,6 +673,17 @@ function Advances() {
     else { showToast('Enregistré'); reload(); }
   }
 
+  // Uniquement tant que la demande n'a pas encore été statuée — une fois
+  // approuvée ou refusée (potentiellement déjà partiellement remboursée),
+  // elle reste dans l'historique, comme les autres registres financiers.
+  async function handleDelete(a) {
+    if (!window.confirm(`Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ?`)) return;
+    const { error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id);
+    if (deleteError) { setError(deleteError.message); return; }
+    showToast('Supprimé');
+    reload();
+  }
+
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!advances || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
 
@@ -649,7 +712,10 @@ function Advances() {
               {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
                 <div>
                   <button onClick={() => decide(a.id, 'approuvee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', marginRight: 6 }}>Approuver</button>
-                  <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>Refuser</button>
+                  <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', marginRight: 6 }}>Refuser</button>
+                  <button onClick={() => handleDelete(a)} title="Supprimer cette demande" style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)' }}>
+                    <i className="ti ti-trash" style={{ fontSize: 14, verticalAlign: '-2px' }} aria-hidden="true"></i>
+                  </button>
                 </div>
               )}
             </div>

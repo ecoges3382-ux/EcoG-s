@@ -16,6 +16,7 @@ const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Se
 
 export default function Notes() {
   const { profile } = useAuth();
+  const showToast = useToast();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -23,6 +24,8 @@ export default function Notes() {
   const [error, setError] = useState('');
   const [niveau, setNiveau] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingGrade, setEditingGrade] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // La classe d'un élève est propre à l'année scolaire en cours
   // (enrollments) — students ne garde que son identité.
@@ -47,6 +50,16 @@ export default function Notes() {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear?.id]);
+
+  async function handleDelete(g) {
+    if (!window.confirm(`Supprimer la note de ${g.students?.full_name || 'cet élève'} en ${g.subjects?.nom} (${g.note}/${g.sur}) ? Cette action est irréversible.`)) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('grades').delete().eq('id', g.id);
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    showToast('Supprimé');
+    reload();
+  }
 
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
@@ -97,7 +110,26 @@ export default function Notes() {
                   <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{g.students?.full_name}</p>
                   <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{g.subjects?.nom} · {TYPES.find((t) => t.id === g.type)?.label} · {g.periode}</p>
                 </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingGrade(g)}
+                    title="Modifier"
+                    style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                  >
+                    <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(g)}
+                    disabled={deleting}
+                    title="Supprimer"
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                  >
+                    <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                  </button>
+                </div>
               </div>
             ))}
             {filteredGrades.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour l'instant.</p>}
@@ -127,22 +159,35 @@ export default function Notes() {
           onCreated={() => { setModalOpen(false); reload(); }}
         />
       )}
+
+      {editingGrade && (
+        <NewGradeModal
+          schoolId={profile.school_id}
+          schoolYearId={schoolYear.id}
+          students={students}
+          subjects={subjects}
+          defaultNiveau={niveauByStudent.get(editingGrade.student_id) || niveau}
+          editing={editingGrade}
+          onClose={() => setEditingGrade(null)}
+          onCreated={() => { setEditingGrade(null); reload(); }}
+        />
+      )}
     </div>
   );
 }
 
-function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, onClose, onCreated }) {
+function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, editing, onClose, onCreated }) {
   const showToast = useToast();
   const [niveau, setNiveau] = useState(defaultNiveau || '');
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
 
-  const [studentId, setStudentId] = useState(studentsInNiveau[0]?.id || '');
-  const [subjectId, setSubjectId] = useState(subjectsForNiveau[0]?.id || '');
-  const [type, setType] = useState('controle');
-  const [note, setNote] = useState('');
-  const [sur, setSur] = useState(20);
-  const [periode, setPeriode] = useState('Trimestre 1');
+  const [studentId, setStudentId] = useState(editing ? editing.student_id : (studentsInNiveau[0]?.id || ''));
+  const [subjectId, setSubjectId] = useState(editing ? editing.subject_id : (subjectsForNiveau[0]?.id || ''));
+  const [type, setType] = useState(editing?.type || 'controle');
+  const [note, setNote] = useState(editing ? String(editing.note) : '');
+  const [sur, setSur] = useState(editing ? editing.sur : 20);
+  const [periode, setPeriode] = useState(editing?.periode || 'Trimestre 1');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -162,12 +207,13 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
     }
     setSubmitting(true);
     setError('');
-    const { error: insertError } = await supabase.from('grades').insert({
-      school_id: schoolId, school_year_id: schoolYearId, student_id: studentId, subject_id: subjectId, type, note: Number(note), sur: Number(sur), periode,
-    });
+    const payload = { student_id: studentId, subject_id: subjectId, type, note: Number(note), sur: Number(sur), periode };
+    const { error: saveError } = editing
+      ? await supabase.from('grades').update(payload).eq('id', editing.id)
+      : await supabase.from('grades').insert({ school_id: schoolId, school_year_id: schoolYearId, ...payload });
     setSubmitting(false);
-    if (insertError) {
-      setError(insertError.message);
+    if (saveError) {
+      setError(saveError.message);
       return;
     }
     showToast('Enregistré');
@@ -181,7 +227,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
     >
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 460, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Saisir une note</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier la note' : 'Saisir une note'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 

@@ -3091,3 +3091,25 @@ create unique index if not exists schedule_entries_classe_slot_uniq
 -- (nom, téléphone, e-mail) passe par un update direct sur parent_access,
 -- déjà couvert par les policies UPDATE existantes.
 alter table parent_access add column if not exists email text;
+
+-- ---------- Migration : corriger une dépense ou une demande d'avance mal saisie ----------
+-- Même trou que pour "payments" : ces deux tables n'avaient qu'une policy
+-- insert, aucune delete — une dépense ou une demande d'avance saisie avec
+-- un mauvais montant ne pouvait jamais être retirée. On ajoute la
+-- suppression, réservée à fondateur/directeur/secrétaire pour les
+-- dépenses (mêmes rôles que payments), et à fondateur/directeur pour les
+-- avances — et seulement tant que la demande n'a pas encore été statuée,
+-- pour ne jamais faire disparaître une avance déjà approuvée/refusée
+-- (potentiellement déjà partiellement remboursée).
+create policy "expenses: delete" on expenses
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'secretaire')
+  );
+
+create policy "salary_advances: fondateur/directeur suppriment (en attente)" on salary_advances
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+    and statut in ('attente_fondateur', 'attente_directeur')
+  );

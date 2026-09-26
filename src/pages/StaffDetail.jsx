@@ -184,6 +184,17 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
 
   const total = (salaries || []).reduce((a, s) => a + Number(s.montant), 0);
 
+  // Comme "payments", staff_salaries est un registre append-only voulu
+  // (pas de policy update côté base) : une erreur se corrige en
+  // supprimant la ligne fautive puis en en enregistrant une bonne.
+  async function handleDelete(s) {
+    if (!window.confirm(`Supprimer ce versement de ${fmtF(s.montant)} (${s.mois}) ? Cette action est irréversible.`)) return;
+    const { error: deleteError } = await supabase.from('staff_salaries').delete().eq('id', s.id);
+    if (deleteError) { setFormError(deleteError.message); return; }
+    showToast('Supprimé');
+    onChanged();
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!mois.trim() || !montant) { setFormError('Le mois et le montant sont obligatoires.'); return; }
@@ -220,7 +231,19 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
                 <p style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600 }}>{s.mois}</p>
                 <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{new Date(s.date).toLocaleDateString('fr-FR')} · {modeLabel(s.mode)}{s.note ? ` · ${s.note}` : ''}</p>
               </div>
-              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{fmtF(s.montant)}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{fmtF(s.montant)}</p>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(s)}
+                    title="Supprimer"
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                  >
+                    <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
