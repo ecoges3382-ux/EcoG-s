@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { generateAccessCode } from '../lib/utils.js';
 import { useToast } from '../components/Toast.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 // Même logique que dans Accounts.jsx : supabase-js ne remplit pas `data`
 // quand la fonction répond en erreur, il faut relire fnError.context.
@@ -301,13 +302,15 @@ function EcolesTab({ schools, reload }) {
           placeholder="Rechercher une école…"
           style={{ flex: '2 1 220px', padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 13 }}
         />
-        <select
+        <Dropdown
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          style={{ flex: '1 1 160px', padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 13 }}
-        >
-          {SORTS.map((s) => <option key={s.id} value={s.id} style={{ color: '#000' }}>{s.label}</option>)}
-        </select>
+          onChange={setSort}
+          options={SORTS.map((s) => ({ value: s.id, label: s.label }))}
+          textColor="#fff"
+          chevronColor="rgba(255,255,255,0.75)"
+          style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', fontSize: 13 }}
+          wrapperStyle={{ flex: '1 1 160px', width: 'auto' }}
+        />
       </div>
 
       {rowError && <p style={{ color: '#ffb4a8', marginBottom: 10, fontWeight: 600, fontSize: 12.5 }}>{rowError}</p>}

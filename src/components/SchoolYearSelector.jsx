@@ -1,4 +1,5 @@
 import { useSchoolYearSelector } from '../lib/schoolYear.jsx';
+import Dropdown from './Dropdown.jsx';
 
 // Sélecteur global (barre du haut, voir Shell.jsx) : année active + années
 // clôturées, jamais l'année en préparation (accessible uniquement depuis
@@ -11,22 +12,19 @@ export default function SchoolYearSelector() {
   if (loading || !activeYear) return null;
 
   return (
-    <select
+    <Dropdown
       value={selectedYear?.id || ''}
-      onChange={(e) => selectYear(e.target.value)}
+      onChange={selectYear}
+      options={selectableYears.map((y) => ({ value: y.id, label: `${y.label}${y.is_current ? '' : ' · clôturée'}` }))}
       title={isHistorical ? `Consultation de ${selectedYear?.label} (clôturée)` : `Année en cours : ${selectedYear?.label}`}
+      textColor={isHistorical ? 'var(--clay-dark)' : '#fff'}
+      chevronColor={isHistorical ? 'var(--clay-dark)' : 'rgba(255,255,255,0.75)'}
       style={{
-        fontSize: '12.5px', fontWeight: 600, padding: '7px 10px', borderRadius: 20, cursor: 'pointer',
-        border: 'none', flexShrink: 1, minWidth: 0, maxWidth: 118, overflow: 'hidden', textOverflow: 'ellipsis',
+        fontSize: '12.5px', fontWeight: 600, padding: '7px 10px', borderRadius: 20,
+        border: 'none',
         background: isHistorical ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
-        color: isHistorical ? 'var(--clay-dark)' : '#fff',
       }}
-    >
-      {selectableYears.map((y) => (
-        <option key={y.id} value={y.id}>
-          {y.label}{y.is_current ? '' : ' · clôturée'}
-        </option>
-      ))}
-    </select>
+      wrapperStyle={{ flexShrink: 1, minWidth: 0, maxWidth: 118, width: 'auto' }}
+    />
   );
 }

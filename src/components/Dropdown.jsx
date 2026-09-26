@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 // le bug de recadrage déjà rencontré avec les menus position:absolute — voir
 // le correctif sur les menus contextuels de Comptes/Accès parents) : coche
 // verte sur l'option sélectionnée, liste déroulante scrollable si longue.
-export default function Dropdown({ value, onChange, options, placeholder = 'Choisir…', label, style, wrapperStyle, disabled, className }) {
+export default function Dropdown({ value, onChange, options, placeholder = 'Choisir…', label, style, wrapperStyle, disabled, className, title, textColor, chevronColor }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -26,14 +26,15 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
       {label && <label style={labelStyle}>{label}</label>}
       <button
         type="button"
+        title={title}
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
         style={{ ...triggerStyle, ...style, opacity: disabled ? 0.6 : 1, cursor: disabled ? 'default' : 'pointer' }}
       >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: selected ? 'var(--ink)' : 'var(--muted)' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: textColor || (selected ? 'var(--ink)' : 'var(--muted)') }}>
           {selected ? selected.label : placeholder}
         </span>
-        <i className={`ti ${open ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 15, flexShrink: 0, color: 'var(--muted)', marginLeft: 8 }} aria-hidden="true"></i>
+        <i className={`ti ${open ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 15, flexShrink: 0, color: chevronColor || 'var(--muted)', marginLeft: 8 }} aria-hidden="true"></i>
       </button>
 
       {open && (

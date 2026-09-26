@@ -9,6 +9,7 @@ import NewStudentModal from '../components/NewStudentModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import Dropdown from '../components/Dropdown.jsx';
 
 // Une fois un calendrier de paiement configuré (Argent → Grille tarifaire),
 // le statut se base sur les délais dépassés plutôt que sur un pourcentage
@@ -314,21 +315,22 @@ export default function Students() {
         </button>
         {/* Menu déroulant plutôt qu'un bouton par classe : une école avec
             10+ classes ne peut pas toutes les lister une à une côte à côte. */}
-        <select
+        <Dropdown
           value={classFilter === 'toutes' ? '' : classFilter}
-          onChange={(e) => setClassFilter(e.target.value || 'toutes')}
+          onChange={(v) => setClassFilter(v || 'toutes')}
+          options={[
+            { value: '', label: 'Filtrer par classe…' },
+            ...(classes || []).map((c) => ({ value: c.nom, label: `${c.nom} (${students.filter((s) => s.niveau === c.nom).length})` })),
+          ]}
+          textColor={classFilter !== 'toutes' ? '#fff' : 'var(--ink)'}
+          chevronColor={classFilter !== 'toutes' ? '#fff' : 'var(--muted)'}
           style={{
-            padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
+            padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600,
             border: `1px solid ${classFilter !== 'toutes' ? 'var(--forest)' : 'var(--line-strong)'}`,
             background: classFilter !== 'toutes' ? 'var(--forest)' : 'var(--paper)',
-            color: classFilter !== 'toutes' ? '#fff' : 'var(--ink)',
           }}
-        >
-          <option value="">Filtrer par classe…</option>
-          {(classes || []).map((c) => (
-            <option key={c.id} value={c.nom}>{c.nom} ({students.filter((s) => s.niveau === c.nom).length})</option>
-          ))}
-        </select>
+          wrapperStyle={{ width: 'auto' }}
+        />
       </div>
 
       <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
