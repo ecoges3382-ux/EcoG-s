@@ -63,7 +63,7 @@ export default function Staff() {
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
-  const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.8fr 1fr' : '1fr 1.4fr 1fr 1.8fr 1fr 76px';
+  const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.3fr 1.5fr 1.5fr' : '1fr 1.4fr 1fr 1.3fr 1.5fr 1.5fr 76px';
 
   async function reload() {
     const { data, error: fetchError } = await supabase.from('staff').select('*').order('full_name');
@@ -76,6 +76,10 @@ export default function Staff() {
   // "Archivés" n'étant qu'une autre vue de la même table, jamais une
   // suppression réelle.
   const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
+
+  function subjectsFor(staffId) {
+    return subjects.filter((s) => s.enseignant_id === staffId).map((s) => s.nom);
+  }
 
   function reloadSubjects() {
     // Les matières attribuables à un enseignant sont celles réellement
@@ -100,9 +104,9 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    const rows = [['Matricule', 'Nom', 'Statut', 'Rôle', "Niveau d'études", 'Classe(s)', 'Téléphone', 'E-mail']];
+    const rows = [['Matricule', 'Nom', 'Statut', 'Rôle', "Niveau d'études", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
     visibleStaff.forEach((p) => {
-      rows.push([p.matricule || '', p.full_name, p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '', (p.classes || []).join(' / '), p.phone || '', p.email || '']);
+      rows.push([p.matricule || '', p.full_name, p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '', (p.classes || []).join(' / '), subjectsFor(p.id).join(' / '), p.phone || '', p.email || '']);
     });
     downloadCsv('personnel.csv', rows);
   }
@@ -204,10 +208,10 @@ export default function Staff() {
         <>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
           <div className="card-bold" style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: selectMode ? 748 : 720 }}>
+            <div style={{ minWidth: selectMode ? 860 : 830 }}>
               <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '13px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
                 {selectMode && <span></span>}
-                <span>Matricule</span><span>Nom</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span>
+                <span>Matricule</span><span>Nom</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span><span>Matière(s)</span>
                 {!selectMode && <span></span>}
               </div>
               {visibleStaff.map((p, i) => (
@@ -230,6 +234,7 @@ export default function Staff() {
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role}</span>
                     <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
                   </Link>
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
