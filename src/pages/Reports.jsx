@@ -151,7 +151,7 @@ function ReportShell({ school, title, periode, donnees, children, onPrint, onExp
         </button>
         {onExportCsv && (
           <button onClick={onExportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}>
-            <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Export CSV
+            <i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Export CSV
           </button>
         )}
       </div>
