@@ -47,6 +47,15 @@ function TrashIcon() {
   );
 }
 
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
 export default function Students() {
   const { profile } = useAuth();
   const { schoolYear, activeYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
@@ -334,20 +343,6 @@ export default function Students() {
               key={s.id}
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
             >
-              {canEdit && !selectMode && (
-                <button
-                  type="button"
-                  onClick={() => { setEditingStudent(s); setModalOpen(true); }}
-                  title={`Modifier les informations de ${s.full_name}`}
-                  aria-label={`Modifier les informations de ${s.full_name}`}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 10, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z" />
-                    <path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
-                  </svg>
-                </button>
-              )}
               {canDelete && selectMode && (
                 <input
                   type="checkbox"
@@ -372,15 +367,30 @@ export default function Students() {
                 </div>
                 <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>{status.label}</span>
               </Link>
-              {canDelete && !selectMode && (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteOne(s.id, s.full_name)}
-                  title="Supprimer"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  <TrashIcon />
-                </button>
+              {!selectMode && (canEdit || canDelete) && (
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingStudent(s); setModalOpen(true); }}
+                      title={`Modifier les informations de ${s.full_name}`}
+                      aria-label={`Modifier les informations de ${s.full_name}`}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                    >
+                      <PencilIcon />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOne(s.id, s.full_name)}
+                      title="Supprimer"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           );
