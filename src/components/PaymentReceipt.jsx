@@ -30,10 +30,10 @@ export default function PaymentReceipt({ payment, studentName, classeNom, school
             <ReceiptRow label="Classe" value={classeNom || '—'} />
             <ReceiptRow label="Année scolaire" value={schoolYearLabel || '—'} />
             <ReceiptRow label="Date du paiement" value={new Date(payment.date).toLocaleDateString('fr-FR')} />
-            <ReceiptRow label="Motif" value={typeFraisLabel(payment.type_frais)} />
-            <ReceiptRow label="Mode de paiement" value={modeLabel(payment.mode)} />
             <ReceiptRow label="Tranche" value={trancheLabel(payment.tranche)} />
+            <ReceiptRow label="Motif" value={typeFraisLabel(payment.type_frais)} />
             {payment.note && <ReceiptRow label="Note" value={payment.note} />}
+            <ReceiptRow label="Mode de paiement" value={modeLabel(payment.mode)} />
           </div>
 
           <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px', marginBottom: showReste ? 10 : 18 }}>
