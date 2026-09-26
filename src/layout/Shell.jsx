@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES, supportWhatsappLink } from '../lib/utils.js';
+import { applySchoolColor, resetSchoolColor } from '../lib/theme.js';
 import { SchoolYearProvider } from '../lib/schoolYear.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 
@@ -80,6 +81,11 @@ export default function Shell() {
     document.body.classList.add('app-mode');
     return () => document.body.classList.remove('app-mode');
   }, []);
+
+  useEffect(() => {
+    applySchoolColor(profile?.schools?.color);
+    return () => resetSchoolColor();
+  }, [profile?.schools?.color]);
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
