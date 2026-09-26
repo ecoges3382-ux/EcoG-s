@@ -238,16 +238,14 @@ export default function Staff() {
                   </Link>
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                      {canDelete && showArchives && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteOne(p.id, p.full_name)}
-                          title="Supprimer définitivement"
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                        >
-                          <TrashIcon />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => openEdit(p)}
+                        title="Modifier"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                      >
+                        <PencilIcon />
+                      </button>
                       {canDelete && (
                         <button
                           type="button"
@@ -258,14 +256,16 @@ export default function Staff() {
                           {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => openEdit(p)}
-                        title="Modifier"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
-                      >
-                        <PencilIcon />
-                      </button>
+                      {canDelete && showArchives && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOne(p.id, p.full_name)}
+                          title="Supprimer définitivement"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

@@ -511,11 +511,11 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         {copied && <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>Copié !</span>}
-        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ ...iconButtonStyle, color: 'var(--danger)' }} title="Supprimer">
-          <TrashIcon />
-        </button>
         <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Actions">
           <PencilIcon />
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ ...iconButtonStyle, color: 'var(--danger)' }} title="Supprimer">
+          <TrashIcon />
         </button>
       </div>
 
@@ -575,14 +575,14 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         {badge}
+        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
+          <PencilIcon />
+        </button>
         {canDelete && (
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ ...iconButtonStyle, color: 'var(--danger)' }} title="Supprimer">
             <TrashIcon />
           </button>
         )}
-        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
-          <PencilIcon />
-        </button>
       </div>
 
       {menuOpen && (
