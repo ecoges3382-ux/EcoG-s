@@ -220,8 +220,8 @@ function ClassBreakdown({ students, attendance, classResults }) {
       </div>
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 680 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.9fr 1fr', padding: '11px 18px', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span>Classe</span><span>Effectif</span><span>Reste dû</span><span>Recouvrement</span><span>Absences/retards</span><span>Moyenne</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.9fr 1fr', gap: 10, padding: '11px 18px', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <span>Classe</span><span>Effectif</span><span>Reste dû</span><span>Recouvrement</span><span style={{ overflowWrap: 'break-word' }}>Absences/retards</span><span>Moyenne</span>
           </div>
           {rows.map((r, i) => {
             const reste = r.du - r.paye;
@@ -231,7 +231,7 @@ function ClassBreakdown({ students, attendance, classResults }) {
               <Link
                 key={r.nom}
                 to="/eleves"
-                style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.9fr 1fr', padding: '11px 18px', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13, textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.9fr 1fr', gap: 10, padding: '11px 18px', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13, textDecoration: 'none', color: 'inherit' }}
               >
                 <span style={{ fontWeight: 600 }}>{r.nom}</span>
                 <span>{r.effectif}</span>
