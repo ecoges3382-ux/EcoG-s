@@ -250,7 +250,7 @@ export default function SignUp() {
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               autoCapitalize="characters"
               autoComplete="off"
-              placeholder="Ex. 8 caractères"
+              placeholder="12 caractères"
               style={{ ...inputStyle, letterSpacing: '0.08em', marginBottom: 8 }}
             />
           </Field>

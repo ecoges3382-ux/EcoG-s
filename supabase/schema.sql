@@ -3113,3 +3113,54 @@ create policy "salary_advances: fondateur/directeur suppriment (en attente)" on 
     and current_role_name() in ('fondateur', 'directeur')
     and statut in ('attente_fondateur', 'attente_directeur')
   );
+
+-- ---------- Correctif : provision_school exige un code d'inscription utilisé ----------
+-- provision_school ne vérifiait que "connecté + pas encore de profil". Le
+-- code d'invitation n'était contrôlé que par l'Edge Function school-signup.
+-- Si l'inscription publique de Supabase Auth est active, un compte créé
+-- directement avec la clé anon (hors school-signup) pouvait donc appeler
+-- cette fonction et obtenir une école sans code. On exige désormais qu'un
+-- code school_signup_invites ait été consommé par CE compte (used_by est
+-- posé par school-signup juste après createUser, bien avant la première
+-- connexion, qui attend la confirmation de l'e-mail ou du téléphone).
+-- Les fondateurs existants ne sont pas concernés : ils ont déjà un profil.
+create or replace function provision_school(p_school_name text, p_full_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_school_id uuid;
+  v_email text;
+  v_phone text;
+  v_year int;
+  v_label text;
+begin
+  if auth.uid() is null then
+    raise exception 'Non authentifié';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Un profil existe déjà pour cet utilisateur';
+  end if;
+  if not exists (select 1 from school_signup_invites where used_by = auth.uid() and used_at is not null) then
+    raise exception 'Aucun code d''inscription valide pour ce compte';
+  end if;
+
+  select email, phone into v_email, v_phone from auth.users where id = auth.uid();
+
+  insert into schools (name) values (p_school_name) returning id into v_school_id;
+
+  insert into profiles (id, school_id, full_name, role, email, phone)
+  values (auth.uid(), v_school_id, p_full_name, 'fondateur', v_email, v_phone);
+
+  v_year := extract(year from now())::int;
+  v_label := case
+    when extract(month from now())::int >= 9 then v_year::text || '-' || (v_year + 1)::text
+    else (v_year - 1)::text || '-' || v_year::text
+  end;
+  insert into school_years (school_id, label, is_current) values (v_school_id, v_label, true);
+
+  return v_school_id;
+end;
+$$;

@@ -23,7 +23,20 @@ jobs:
         with:
           version: latest
 
+      # whatsapp-webhook est appelée par Meta, qui n'envoie aucun jeton
+      # Supabase : sans --no-verify-jwt, chaque déploiement réactive la
+      # vérification JWT et tous ses appels sont rejetés (401). Sa sécurité
+      # repose sur la signature HMAC x-hub-signature-256 vérifiée dans le code.
       - name: Déployer toutes les fonctions
-        run: supabase functions deploy --project-ref xdumihqihcffegjcfhyi
+        run: |
+          set -e
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            if [ "$name" = "whatsapp-webhook" ]; then
+              supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi --no-verify-jwt
+            else
+              supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi
+            fi
+          done
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
