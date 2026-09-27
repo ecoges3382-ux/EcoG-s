@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { generateAccessCode } from '../lib/utils.js';
+import { generateAccessCode, copyText } from '../lib/utils.js';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 
@@ -87,13 +87,13 @@ export default function PlatformAdmin() {
 
         {schools && <OverviewStats schools={schools} />}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
-                padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
                 border: `1px solid ${tab === t.id ? 'var(--gold)' : 'rgba(255,255,255,0.2)'}`,
                 background: tab === t.id ? 'var(--gold)' : 'rgba(255,255,255,0.08)',
                 color: tab === t.id ? 'var(--forest-dark)' : 'rgba(255,255,255,0.85)',
@@ -115,8 +115,14 @@ export default function PlatformAdmin() {
   );
 }
 
+async function copyWithToast(text, showToast) {
+  if (await copyText(text)) showToast('Copié');
+  else showToast('Copie impossible, sélectionne le texte à la main', 'error');
+}
+
 function SchoolInvitesTab() {
   const { profile } = useAuth();
+  const showToast = useToast();
   const [invites, setInvites] = useState(null);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -173,7 +179,7 @@ function SchoolInvitesTab() {
           <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>Code à transmettre à la personne invitée</p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink)' }}>{newInvite.code}</p>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(newInvite.code)} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '6px 11px' }}>Copier</button>
+            <button type="button" onClick={() => copyWithToast(newInvite.code, showToast)} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '6px 11px' }}>Copier</button>
           </div>
         </div>
       )}
@@ -572,7 +578,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
               <input readOnly value={link.url} onFocus={(e) => e.target.select()} style={{ flex: '1 1 220px', padding: '7px 9px', borderRadius: 7, border: '1px solid var(--line-strong)', fontSize: 11.5, color: 'var(--ink)' }} />
               <button
                 type="button"
-                onClick={() => navigator.clipboard?.writeText(link.url)}
+                onClick={() => copyWithToast(link.url, showToast)}
                 style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '7px 12px' }}
               >
                 Copier
@@ -770,7 +776,7 @@ function AdminsTab() {
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink)' }}>{newInvite.code}</p>
             <button
               type="button"
-              onClick={() => navigator.clipboard?.writeText(newInvite.code)}
+              onClick={() => copyWithToast(newInvite.code, showToast)}
               style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '6px 11px' }}
             >
               Copier

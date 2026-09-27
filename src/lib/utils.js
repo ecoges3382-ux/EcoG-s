@@ -223,3 +223,25 @@ export function supportWhatsappLink(message) {
 export function supportMailLink(subject) {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
+
+// navigator.clipboard est absent hors HTTPS et peut refuser l'écriture
+// (ancien Safari iOS, permissions) : on retombe alors sur execCommand.
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
