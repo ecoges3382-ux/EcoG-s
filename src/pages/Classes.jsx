@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { sortClasses } from '../lib/utils.js';
+import { sortClasses, stickyColStyle } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
@@ -77,14 +77,14 @@ export default function Classes() {
       {classes && (
         <div className="card-bold" style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 680 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1.4fr 0.8fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-              <span>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span><span></span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span><span></span>
             </div>
             {classes.map((c, i) => {
               const effectif = enrollments.filter((e) => e.classe_id === c.id).length;
               return (
-                <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1.4fr 0.8fr', padding: '13px 20px', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                  <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{c.nom}</span>
+                <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr', gap: 8, padding: '13px 20px 13px 0', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>{c.nom}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
                   <span style={{ fontSize: 13 }}>{effectif}{c.capacite ? ` / ${c.capacite}` : ''}</span>

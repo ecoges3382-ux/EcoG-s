@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { sortClasses } from '../lib/utils.js';
+import { sortClasses, stickyColStyle } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SubjectModal from '../components/SubjectModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
@@ -78,12 +78,12 @@ export default function Subjects() {
       {subjects && (
         <div className="card-bold" style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 560 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.8fr 1fr 1.4fr 0.8fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-              <span>Matière</span><span>Coef.</span><span>Niveau</span><span>Enseignant</span><span></span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.6fr 1fr 1.3fr 0.7fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Matière</span><span>Coef.</span><span>Niveau</span><span>Enseignant</span><span></span>
             </div>
             {subjects.map((s, i) => (
-              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.8fr 1fr 1.4fr 0.8fr', padding: '13px 20px', alignItems: 'center', borderBottom: i < subjects.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{s.nom}</span>
+              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.6fr 1fr 1.3fr 0.7fr', gap: 8, padding: '13px 20px 13px 0', alignItems: 'center', borderBottom: i < subjects.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>{s.nom}</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>×{s.coefficient}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau || 'Tous niveaux'}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.staff?.full_name || '—'}</span>

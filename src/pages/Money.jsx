@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel } from '../lib/utils.js';
+import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel, stickyColStyle } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
@@ -126,8 +126,8 @@ function Overview() {
       </div>
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 620 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span>Élève</span><span>Dû</span><span>Payé</span><span>Solde</span><span>Statut</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span><span>Dû</span><span>Payé</span><span>Solde</span><span>Statut</span>
           </div>
           {filtered.slice(0, 200).map((s, i) => {
             const st = statutOf(s);
@@ -135,9 +135,9 @@ function Overview() {
               <Link
                 key={s.id}
                 to={`/eleves/${s.id}`}
-                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', alignItems: 'center', borderBottom: i < Math.min(filtered.length, 200) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < Math.min(filtered.length, 200) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                <div>
+                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
@@ -180,8 +180,8 @@ function FraisConnexes() {
       </div>
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 560 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span>Élève</span><span>Classe</span><span>Dû</span><span>Payé</span><span>Statut</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.9fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span><span>Classe</span><span>Dû</span><span>Payé</span><span>Statut</span>
           </div>
           {students.map((s, i) => {
             const reste = Number(s.frais_connexe_du) - Number(s.frais_connexe_paye);
@@ -189,8 +189,8 @@ function FraisConnexes() {
             const label = reste <= 0 ? 'À jour' : relance.moratoire ? 'Moratoire' : relance.relanceConnexe ? 'À relancer' : 'Retard';
             const color = reste <= 0 ? 'success' : relance.moratoire ? null : relance.relanceConnexe ? 'danger' : 'amber';
             return (
-              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 20px', alignItems: 'center', borderBottom: i < students.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</span>
+              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.9fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < students.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>{s.full_name}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau}</span>
                 <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_du)}</span>
                 <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_paye)}</span>

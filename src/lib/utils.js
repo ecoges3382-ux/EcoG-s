@@ -245,3 +245,20 @@ export async function copyText(text) {
     return ok;
   }
 }
+
+// Première colonne d'un tableau qui défile horizontalement (repartition
+// par classe, listes élèves/personnel...) : reste visible pendant que le
+// reste de la ligne coulisse dessous, comme la colonne figée d'un tableur.
+// `bg` doit reprendre le fond réel de la ligne (l'en-tête et les lignes de
+// données n'ont pas le même fond), sinon le contenu qui défile transparaît
+// derrière la colonne figée. L'ombre légère à droite signale qu'il y a
+// autre chose qui continue sous cette colonne.
+export function stickyColStyle(bg) {
+  return {
+    position: 'sticky',
+    left: 0,
+    zIndex: 1,
+    background: bg,
+    borderRight: '1px solid var(--line)',
+  };
+}

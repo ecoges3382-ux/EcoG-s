@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, downloadCsv, sortClasses } from '../lib/utils.js';
+import { initials, downloadCsv, sortClasses, stickyColStyle } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -66,7 +66,7 @@ export default function Staff() {
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
-  const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.3fr 1.5fr 1.5fr' : '1fr 1.4fr 1fr 1.3fr 1.5fr 1.5fr 76px';
+  const gridCols = selectMode ? '28px 0.7fr 1.6fr 0.9fr 1.2fr 1.5fr 1.5fr' : '0.7fr 1.6fr 0.9fr 1.2fr 1.5fr 1.5fr 76px';
 
   async function reload() {
     await guardedFetch({
@@ -222,13 +222,13 @@ export default function Staff() {
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
           <div className="card-bold" style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: selectMode ? 860 : 830 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '13px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: '13px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
                 {selectMode && <span></span>}
-                <span>Matricule</span><span>Nom</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span><span>Matière(s)</span>
+                <span>Matricule</span><span style={stickyColStyle('var(--forest-light)')}>Nom</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span><span>Matière(s)</span>
                 {!selectMode && <span></span>}
               </div>
               {visibleStaff.map((p, i) => (
-                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '14px 20px', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: '14px 20px', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   {selectMode && (
                     <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
                   )}
@@ -238,7 +238,7 @@ export default function Staff() {
                     style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
                   >
                     <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--paper)') }}>
                       <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
                         {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
                       </div>
