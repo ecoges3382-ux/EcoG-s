@@ -6,6 +6,8 @@ import { initials, downloadCsv, sortClasses } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -56,6 +58,7 @@ export default function Staff() {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -66,9 +69,18 @@ export default function Staff() {
   const gridCols = selectMode ? '28px 1fr 1.4fr 1fr 1.3fr 1.5fr 1.5fr' : '1fr 1.4fr 1fr 1.3fr 1.5fr 1.5fr 76px';
 
   async function reload() {
-    const { data, error: fetchError } = await supabase.from('staff').select('*').order('full_name');
-    if (fetchError) setError(fetchError.message);
-    else setStaff(data);
+    await guardedFetch({
+      cacheKey: `staff_${profile.school_id}`,
+      hasData: staff !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase.from('staff').select('*').order('full_name');
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setStaff,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   // Un départ ne supprime plus jamais la ligne (voir handleArchiveOne) —
@@ -164,6 +176,7 @@ export default function Staff() {
   return (
     <div>
       <SchoolTabs />
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Personnel</p>
         {staff && (

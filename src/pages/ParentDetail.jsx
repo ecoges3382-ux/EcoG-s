@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -19,21 +21,28 @@ export default function ParentDetail() {
   // (enrollments) — students ne garde que son identité.
   const [niveauById, setNiveauById] = useState({});
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from('parent_access')
-      .select('*, parent_access_students ( students ( id, full_name ) )')
-      .eq('id', id)
-      .single()
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return;
-        if (fetchError) setError(fetchError.message);
-        else setAccess(data);
-      });
+    guardedFetch({
+      cacheKey: `parent_access_detail_${id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('parent_access')
+          .select('*, parent_access_students ( students ( id, full_name ) )')
+          .eq('id', id)
+          .single();
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setAccess,
+      setOffline,
+      onError: (err) => setError(err.message),
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -80,6 +89,7 @@ export default function ParentDetail() {
       <Link to="/parents" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux parents
       </Link>
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
         <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)' }}>
           {initials(access.full_name)}

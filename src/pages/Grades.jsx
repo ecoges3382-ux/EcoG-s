@@ -8,6 +8,8 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
@@ -21,6 +23,7 @@ export default function Grades() {
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [niveau, setNiveau] = useState('');
   const [studentId, setStudentId] = useState('');
   const [periode, setPeriode] = useState('Trimestre 1');
@@ -28,23 +31,37 @@ export default function Grades() {
   // La classe d'un élève est propre à l'année scolaire sélectionnée
   // (enrollments) — students ne garde que son identité. Les notes utilisées
   // pour ce bulletin sont filtrées sur cette même année (school_year_id) :
-  // jamais de notes d'une autre année mélangées à celles-ci.
+  // jamais de notes d'une autre année mélangées à celles-ci. Les 3
+  // requêtes sont mises en cache ensemble (notes + matières + élèves).
   useEffect(() => {
     if (!schoolYear) return;
-    Promise.all([
-      supabase.from('enrollments').select('classes ( nom ), students ( id, full_name, matricule ) ').eq('school_year_id', schoolYear.id),
-      supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-      supabase.from('grades').select('student_id, subject_id, note, sur, periode').eq('school_year_id', schoolYear.id),
-    ]).then(([{ data: enr, error: enrError }, { data: su }, { data: gr }]) => {
-      if (enrError) { setError(enrError.message); return; }
-      const st = (enr || [])
-        .map((e) => ({ id: e.students.id, full_name: e.students.full_name, matricule: e.students.matricule, niveau: e.classes?.nom || '—' }))
-        .sort((a, b) => a.full_name.localeCompare(b.full_name));
-      setStudents(st);
-      setSubjects(su || []);
-      setGrades(gr || []);
-      if (st.length) setNiveau(st[0].niveau);
+    let cancelled = false;
+    guardedFetch({
+      cacheKey: `bulletins_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const [{ data: enr, error: enrError }, { data: su }, { data: gr }] = await Promise.all([
+          supabase.from('enrollments').select('classes ( nom ), students ( id, full_name, matricule ) ').eq('school_year_id', schoolYear.id),
+          supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
+          supabase.from('grades').select('student_id, subject_id, note, sur, periode').eq('school_year_id', schoolYear.id),
+        ]);
+        if (enrError) return { error: enrError };
+        const st = (enr || [])
+          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, matricule: e.students.matricule, niveau: e.classes?.nom || '—' }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        return { data: { students: st, subjects: su || [], grades: gr || [] } };
+      },
+      setData: ({ students: st, subjects: su, grades: gr }) => {
+        setStudents(st);
+        setSubjects(su);
+        setGrades(gr);
+        if (st.length) setNiveau(st[0].niveau);
+      },
+      setOffline,
+      onError: (err) => setError(err.message),
+      isCancelled: () => cancelled,
     });
+    return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
   const niveaux = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
@@ -87,6 +104,7 @@ export default function Grades() {
     <div>
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {offline && <OfflineBanner />}
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Bulletins scolaires</p>
 
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}

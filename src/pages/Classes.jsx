@@ -5,6 +5,8 @@ import { sortClasses } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 export default function Classes() {
   const { profile } = useAuth();
@@ -13,18 +15,28 @@ export default function Classes() {
   const [enrollments, setEnrollments] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
   async function reload() {
     if (!schoolYear) return;
-    const [{ data: cl, error: clError }, { data: en }, { data: te }] = await Promise.all([
-      supabase.from('classes').select('*, staff ( full_name )'),
+    await guardedFetch({
+      cacheKey: `classes_${profile.school_id}`,
+      hasData: classes !== null,
+      load: async () => {
+        const { data: cl, error: clError } = await supabase.from('classes').select('*, staff ( full_name )');
+        return clError ? { error: clError } : { data: sortClasses(cl) };
+      },
+      setData: setClasses,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
+    const [{ data: en }, { data: te }] = await Promise.all([
       supabase.from('enrollments').select('classe_id').eq('school_year_id', schoolYear.id),
       supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
     ]);
-    if (clError) setError(clError.message);
-    else setClasses(sortClasses(cl));
     setEnrollments(en || []);
     setTeachers(te || []);
   }
@@ -51,6 +63,7 @@ export default function Classes() {
   return (
     <div>
       <SchoolTabs />
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Classes</p>
         <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>

@@ -8,6 +8,8 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 // Publication/modification/archivage réservés à fondateur/directeur/
 // secrétaire — même périmètre que les autres actions administratives de
@@ -39,6 +41,7 @@ export default function Announce() {
   const [items, setItems] = useState(null);
   const [classes, setClasses] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [filtre, setFiltre] = useState('actives');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // annonce en cours d'édition, ou null
@@ -61,13 +64,22 @@ export default function Announce() {
   // globales/permanentes (school_year_id nul), toujours visibles.
   async function reload() {
     if (!schoolYear) return;
-    const { data, error: fetchError } = await supabase
-      .from('announcements')
-      .select('*, classes ( nom )')
-      .or(`school_year_id.eq.${schoolYear.id},school_year_id.is.null`)
-      .order('created_at', { ascending: false });
-    if (fetchError) setError(fetchError.message);
-    else setItems(data);
+    await guardedFetch({
+      cacheKey: `announcements_${schoolYear.id}`,
+      hasData: items !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('announcements')
+          .select('*, classes ( nom )')
+          .or(`school_year_id.eq.${schoolYear.id},school_year_id.is.null`)
+          .order('created_at', { ascending: false });
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setItems,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => {
@@ -107,6 +119,7 @@ export default function Announce() {
     <div>
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {offline && <OfflineBanner />}
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Annonces</p>
 
       {canManage && !isHistorical && (

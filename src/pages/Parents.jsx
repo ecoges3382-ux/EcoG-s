@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -24,17 +26,27 @@ export default function Parents() {
   const { profile } = useAuth();
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
   async function reload() {
-    const { data, error: fetchError } = await supabase
-      .from('parent_access')
-      .select('id, full_name, phone, parent_access_students ( students ( id ) )')
-      .order('full_name');
-    if (fetchError) setError(fetchError.message);
-    else setParents(data);
+    await guardedFetch({
+      cacheKey: `parents_${profile.school_id}`,
+      hasData: parents !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('parent_access')
+          .select('id, full_name, phone, parent_access_students ( students ( id ) )')
+          .order('full_name');
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setParents,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => {
@@ -90,6 +102,7 @@ export default function Parents() {
   return (
     <div>
       <SchoolTabs />
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Parents</p>
         {!selectMode && (

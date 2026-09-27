@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { getWhatsAppConfig, saveWhatsAppConfig, WHATSAPP_TYPE_LABELS, WHATSAPP_STATUT_LABELS } from '../lib/whatsapp.js';
 import { useToast } from '../components/Toast.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_VIEW_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const MESSAGE_TYPES = Object.keys(WHATSAPP_TYPE_LABELS);
@@ -25,6 +27,7 @@ export default function SettingsWhatsApp() {
   const [config, setConfig] = useState(null);
   const [error, setError] = useState('');
   const [messages, setMessages] = useState(null);
+  const [offline, setOffline] = useState(false);
 
   async function reloadConfig() {
     try {
@@ -36,12 +39,20 @@ export default function SettingsWhatsApp() {
   }
 
   async function reloadMessages() {
-    const { data } = await supabase
-      .from('whatsapp_messages')
-      .select('id, type, destinataire_phone, statut, erreur, created_at, students ( full_name )')
-      .order('created_at', { ascending: false })
-      .limit(25);
-    setMessages(data || []);
+    await guardedFetch({
+      cacheKey: `whatsapp_messages_${profile.school_id}`,
+      hasData: messages !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('whatsapp_messages')
+          .select('id, type, destinataire_phone, statut, erreur, created_at, students ( full_name )')
+          .order('created_at', { ascending: false })
+          .limit(25);
+        return fetchError ? { error: fetchError } : { data: data || [] };
+      },
+      setData: setMessages,
+      setOffline,
+    });
   }
 
   useEffect(() => {
@@ -68,6 +79,7 @@ export default function SettingsWhatsApp() {
       </Link>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>WhatsApp</p>
 
+      {offline && <OfflineBanner />}
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {!error && !config && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 

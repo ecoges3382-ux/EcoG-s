@@ -8,6 +8,8 @@ import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
 
@@ -349,21 +351,32 @@ function PassageThresholds({ schoolId }) {
   const [selected, setSelected] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState('');
+  const [offline, setOffline] = useState(false);
 
   async function reload() {
-    const [{ data: th, error: e }, { data: cl }] = await Promise.all([
-      supabase.from('passage_thresholds').select('*'),
-      supabase.from('classes').select('niveau'),
-    ]);
-    if (e) { setError(e.message); return; }
-    const byNiveau = {};
-    let def = null;
-    (th || []).forEach((t) => { if (t.niveau === null) def = t; else byNiveau[t.niveau] = t; });
-    setRows({ default: def, byNiveau });
-    const present = new Set((cl || []).map((c) => c.niveau));
-    const list = NIVEAUX.filter((n) => present.has(n));
-    setNiveauxPresents(list);
-    setSelected((prev) => (prev && list.includes(prev) ? prev : (list[0] || '')));
+    await guardedFetch({
+      cacheKey: `passage_thresholds_${schoolId}`,
+      hasData: rows !== null,
+      load: async () => {
+        const [{ data: th, error: e }, { data: cl, error: e2 }] = await Promise.all([
+          supabase.from('passage_thresholds').select('*'),
+          supabase.from('classes').select('niveau'),
+        ]);
+        return (e || e2) ? { error: e || e2 } : { data: { th: th || [], cl: cl || [] } };
+      },
+      setData: ({ th, cl }) => {
+        const byNiveau = {};
+        let def = null;
+        th.forEach((t) => { if (t.niveau === null) def = t; else byNiveau[t.niveau] = t; });
+        setRows({ default: def, byNiveau });
+        const present = new Set(cl.map((c) => c.niveau));
+        const list = NIVEAUX.filter((n) => present.has(n));
+        setNiveauxPresents(list);
+        setSelected((prev) => (prev && list.includes(prev) ? prev : (list[0] || '')));
+      },
+      setOffline,
+      onError: (err) => setError(err.message),
+    });
   }
 
   useEffect(() => { reload(); }, []);
@@ -406,6 +419,7 @@ function PassageThresholds({ schoolId }) {
 
   return (
     <div className="card-bold" style={{ padding: '18px 20px', marginTop: 16, maxWidth: 520 }}>
+      {offline && <OfflineBanner />}
       <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600 }}>Seuil de passage automatique</p>
       <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
         Moyenne annuelle minimale (sur 20) pour qu'un élève soit classé automatiquement « Passe »

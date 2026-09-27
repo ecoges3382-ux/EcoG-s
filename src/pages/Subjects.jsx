@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { sortClasses } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SubjectModal from '../components/SubjectModal.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 export default function Subjects() {
   const { profile } = useAuth();
@@ -11,6 +13,7 @@ export default function Subjects() {
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -19,13 +22,22 @@ export default function Subjects() {
     // créées par l'école (page Classes), pas une liste générique
     // maternelle→terminale qui n'aurait aucun sens pour un établissement
     // qui ne couvre pas tous ces niveaux.
-    const [{ data: su, error: suError }, { data: te }, { data: cl }] = await Promise.all([
-      supabase.from('subjects').select('*, staff ( full_name )').order('nom'),
+    await guardedFetch({
+      cacheKey: `subjects_${profile.school_id}`,
+      hasData: subjects !== null,
+      load: async () => {
+        const { data: su, error: suError } = await supabase.from('subjects').select('*, staff ( full_name )').order('nom');
+        return suError ? { error: suError } : { data: su };
+      },
+      setData: setSubjects,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
+    const [{ data: te }, { data: cl }] = await Promise.all([
       supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
       supabase.from('classes').select('id, nom, niveau, section'),
     ]);
-    if (suError) setError(suError.message);
-    else setSubjects(su);
     setTeachers(te || []);
     setClasses(sortClasses(cl || []));
   }
@@ -52,6 +64,7 @@ export default function Subjects() {
   return (
     <div>
       <SchoolTabs />
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Matières</p>
         <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>

@@ -8,6 +8,8 @@ import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../componen
 import NameInput from '../components/NameInput.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 // La classe d'un élève est propre à l'année scolaire en cours
 // (enrollments) — students ne garde que son identité. Utilisé par les deux
@@ -78,14 +80,24 @@ function StaffAccounts() {
 
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuForId, setMenuForId] = useState(null);
   const [editing, setEditing] = useState(null); // { account, field }
 
   async function reload() {
-    const { data, error: fetchError } = await supabase.from('profiles').select('*').order('full_name');
-    if (fetchError) setError(fetchError.message);
-    else setAccounts(sortByRole(data));
+    await guardedFetch({
+      cacheKey: `staff_accounts_${profile.school_id}`,
+      hasData: accounts !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase.from('profiles').select('*').order('full_name');
+        return fetchError ? { error: fetchError } : { data: sortByRole(data) };
+      },
+      setData: setAccounts,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => { reload(); }, []);
@@ -122,6 +134,7 @@ function StaffAccounts() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
+      {offline && <OfflineBanner />}
       {!accounts && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {accounts && (
@@ -240,6 +253,7 @@ function ParentAccessTab() {
 
   const [accesses, setAccesses] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuForId, setMenuForId] = useState(null);
   const [editingStudents, setEditingStudents] = useState(null); // access
@@ -247,12 +261,21 @@ function ParentAccessTab() {
   const [copiedId, setCopiedId] = useState(null);
 
   async function reload() {
-    const { data, error: fetchError } = await supabase
-      .from('parent_access')
-      .select('*, parent_access_students ( students ( id, full_name ) )')
-      .order('full_name');
-    if (fetchError) setError(fetchError.message);
-    else setAccesses(data);
+    await guardedFetch({
+      cacheKey: `parent_access_${profile.school_id}`,
+      hasData: accesses !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('parent_access')
+          .select('*, parent_access_students ( students ( id, full_name ) )')
+          .order('full_name');
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setAccesses,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => { reload(); }, []);
@@ -305,6 +328,7 @@ function ParentAccessTab() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
+      {offline && <OfflineBanner />}
       {!accesses && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
       {accesses && (

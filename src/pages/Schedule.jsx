@@ -6,6 +6,8 @@ import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import NewScheduleEntryModal from '../components/NewScheduleEntryModal.jsx';
 import ScheduleSlotsModal from '../components/ScheduleSlotsModal.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -25,27 +27,44 @@ export default function Schedule() {
   const [classes, setClasses] = useState(null);
   const [slots, setSlots] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [view, setView] = useState('classe');
   const [filter, setFilter] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [slotsModalOpen, setSlotsModalOpen] = useState(false);
 
+  // Les 4 requêtes sont mises en cache ensemble : les créneaux (colonnes
+  // de la grille) et les cours (cellules) doivent toujours venir de la
+  // même version, sinon la grille pourrait afficher des cours dans des
+  // créneaux qui n'existent plus.
   async function reload() {
     if (!schoolYear) return;
-    const [{ data: sched, error: schedError }, { data: staff }, { data: cl }, { data: sl }] = await Promise.all([
-      supabase.from('schedule_entries')
-        .select('*, classes ( nom ), staff ( full_name )')
-        .eq('school_year_id', schoolYear.id),
-      supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
-      supabase.from('classes').select('id, nom, niveau, section'),
-      supabase.from('schedule_slots').select('*').eq('school_id', profile.school_id).order('ordre'),
-    ]);
-    if (schedError) { setError(schedError.message); return; }
-    setEntries(sched);
-    setTeachers(staff || []);
-    setClasses(sortClasses(cl || []));
-    setSlots(sl || []);
+    await guardedFetch({
+      cacheKey: `schedule_${schoolYear.id}`,
+      hasData: entries !== null,
+      load: async () => {
+        const [{ data: sched, error: schedError }, { data: staff }, { data: cl }, { data: sl }] = await Promise.all([
+          supabase.from('schedule_entries')
+            .select('*, classes ( nom ), staff ( full_name )')
+            .eq('school_year_id', schoolYear.id),
+          supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
+          supabase.from('classes').select('id, nom, niveau, section'),
+          supabase.from('schedule_slots').select('*').eq('school_id', profile.school_id).order('ordre'),
+        ]);
+        if (schedError) return { error: schedError };
+        return { data: { entries: sched, teachers: staff || [], classes: sortClasses(cl || []), slots: sl || [] } };
+      },
+      setData: ({ entries: e, teachers: t, classes: c, slots: s }) => {
+        setEntries(e);
+        setTeachers(t);
+        setClasses(c);
+        setSlots(s);
+      },
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => { reload(); }, [schoolYear?.id]);
@@ -73,6 +92,7 @@ export default function Schedule() {
   return (
     <div>
       <SchoolTabs />
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Emploi du temps</p>
         <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>

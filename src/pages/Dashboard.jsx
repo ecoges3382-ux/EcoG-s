@@ -6,8 +6,10 @@ import { fmtF, initials, todayIso, downloadCsv } from '../lib/utils.js';
 import { useSelectedSchoolYear, useSchoolYearSelector } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
+import { guardedFetch } from '../lib/offlineCache.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OnboardingBanner from '../components/OnboardingBanner.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
 
 // Tous les indicateurs annuels (effectifs, finances, présences, résultats)
 // suivent l'année SÉLECTIONNÉE — jamais is_current directement — pour
@@ -21,9 +23,10 @@ export default function Dashboard() {
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const { activeYear, selectableYears } = useSchoolYearSelector();
-  const { students, error } = useEnrollmentsForYear(schoolYear);
+  const { students, error, offline } = useEnrollmentsForYear(schoolYear);
   const [attendance, setAttendance] = useState(null);
   const [classResults, setClassResults] = useState(null);
+  const [offlineExtra, setOffline] = useState(false);
 
   // Présences agrégées pour toute l'année en une seule requête groupée
   // (jamais un appel par élève ni par classe) — la classe de chaque élève
@@ -33,9 +36,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
-    setAttendance(null);
-    supabase.from('attendance_records').select('student_id, statut').eq('school_year_id', schoolYear.id)
-      .then(({ data }) => { if (!cancelled) setAttendance(data || []); });
+    guardedFetch({
+      cacheKey: `dashboard_attendance_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: e } = await supabase.from('attendance_records').select('student_id, statut').eq('school_year_id', schoolYear.id);
+        return e ? { error: e } : { data: data || [] };
+      },
+      setData: setAttendance,
+      setOffline,
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
@@ -46,9 +57,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
-    setClassResults(null);
-    supabase.rpc('dashboard_class_results', { p_school_year_id: schoolYear.id })
-      .then(({ data }) => { if (!cancelled) setClassResults(data || []); });
+    guardedFetch({
+      cacheKey: `dashboard_class_results_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: e } = await supabase.rpc('dashboard_class_results', { p_school_year_id: schoolYear.id });
+        return e ? { error: e } : { data: data || [] };
+      },
+      setData: setClassResults,
+      setOffline,
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
@@ -73,6 +92,7 @@ export default function Dashboard() {
         Tous les indicateurs ci-dessous concernent l'année {schoolYear.label} — change d'année depuis le sélecteur en haut de page.
       </p>
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {(offline || offlineExtra) && <OfflineBanner />}
       {!isHistorical && <OnboardingBanner />}
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />

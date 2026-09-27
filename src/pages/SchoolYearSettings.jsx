@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
 
@@ -18,14 +20,23 @@ export default function SchoolYearSettings() {
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
   const [years, setYears] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
 
   async function reload() {
-    const { data, error: fetchError } = await supabase
-      .from('school_years')
-      .select('id, label, statut, is_current, date_debut, date_fin, created_at')
-      .order('created_at', { ascending: false });
-    if (fetchError) setError(fetchError.message);
-    else setYears(data);
+    await guardedFetch({
+      cacheKey: `school_years_${profile.school_id}`,
+      hasData: years !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('school_years')
+          .select('id, label, statut, is_current, date_debut, date_fin, created_at')
+          .order('created_at', { ascending: false });
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setYears,
+      setOffline,
+      onError: (err) => setError(err.message),
+    });
   }
 
   useEffect(() => { reload(); }, []);
@@ -44,6 +55,7 @@ export default function SchoolYearSettings() {
       </Link>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Année scolaire</p>
 
+      {offline && <OfflineBanner />}
       {active && (
         <div className="card-bold" style={{ padding: '18px 20px', marginBottom: 16, maxWidth: 520 }}>
           <p style={{ margin: '0 0 3px', fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Année active</p>

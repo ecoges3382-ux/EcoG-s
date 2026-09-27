@@ -6,6 +6,8 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation' },
@@ -23,28 +25,43 @@ export default function Notes() {
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [niveau, setNiveau] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   // La classe d'un élève est propre à l'année scolaire en cours
-  // (enrollments) — students ne garde que son identité.
+  // (enrollments) — students ne garde que son identité. Les 3 requêtes
+  // sont mises en cache ensemble : les notes référencent des matières et
+  // des élèves, jamais mélangés avec une autre version des deux.
   async function reload() {
     if (!schoolYear) return;
-    const [{ data: enr }, { data: su }, { data: gr, error: grError }] = await Promise.all([
-      supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
-      supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-      supabase.from('grades').select('*, students ( full_name ), subjects ( nom, coefficient )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false }),
-    ]);
-    if (grError) { setError(grError.message); return; }
-    const st = (enr || [])
-      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
-      .sort((a, b) => a.full_name.localeCompare(b.full_name));
-    setGrades(gr);
-    setStudents(st);
-    setSubjects(su || []);
-    if (!niveau && st.length) setNiveau(st[0].niveau);
+    await guardedFetch({
+      cacheKey: `notes_${schoolYear.id}`,
+      hasData: grades !== null,
+      load: async () => {
+        const [{ data: enr }, { data: su }, { data: gr, error: grError }] = await Promise.all([
+          supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
+          supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
+          supabase.from('grades').select('*, students ( full_name ), subjects ( nom, coefficient )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false }),
+        ]);
+        if (grError) return { error: grError };
+        const st = (enr || [])
+          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        return { data: { grades: gr, students: st, subjects: su || [] } };
+      },
+      setData: ({ grades: g, students: st, subjects: su }) => {
+        setGrades(g);
+        setStudents(st);
+        setSubjects(su);
+        if (!niveau && st.length) setNiveau(st[0].niveau);
+      },
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => {
@@ -86,6 +103,7 @@ export default function Notes() {
     <div>
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Notes</p>
         <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>

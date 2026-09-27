@@ -12,6 +12,8 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
@@ -58,12 +60,12 @@ export default function Money() {
 function useEnrollments() {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
-  const { students, error } = useEnrollmentsForYear(schoolYear);
-  return { students, error, schoolYear };
+  const { students, error, offline } = useEnrollmentsForYear(schoolYear);
+  return { students, error, offline, schoolYear };
 }
 
 function Overview() {
-  const { students, error, schoolYear } = useEnrollments();
+  const { students, error, offline, schoolYear } = useEnrollments();
   const [search, setSearch] = useState('');
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
@@ -101,6 +103,7 @@ function Overview() {
 
   return (
     <div>
+      {offline && <OfflineBanner />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
         <Stat label="Attendu" value={fmtF(totalDu)} />
         <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
@@ -211,6 +214,7 @@ function Payments() {
   const [payments, setPayments] = useState(null);
   const [students, setStudents] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -233,11 +237,22 @@ function Payments() {
 
   async function reload() {
     if (!schoolYear) return;
-    const [{ data: pay, error: payError }, { data: enr }] = await Promise.all([
-      supabase.from('payments').select('*, students ( full_name )').eq('school_year_id', schoolYear.id).order('date', { ascending: false }).order('created_at', { ascending: false }),
-      supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
-    ]);
-    if (payError) setError(payError.message); else setPayments(pay);
+    await guardedFetch({
+      cacheKey: `payments_${schoolYear.id}`,
+      hasData: payments !== null,
+      load: async () => {
+        const { data, error: payError } = await supabase.from('payments').select('*, students ( full_name )').eq('school_year_id', schoolYear.id).order('date', { ascending: false }).order('created_at', { ascending: false });
+        return payError ? { error: payError } : { data };
+      },
+      setData: setPayments,
+      setOffline,
+      onError: (e) => setError(e.message),
+      onSuccess: () => setError(''),
+    });
+    // Liste des élèves pour le formulaire "Enregistrer un paiement" —
+    // n'a de sens qu'en ligne (créer un paiement exige une connexion),
+    // donc pas de repli hors-ligne ici, juste un échec silencieux.
+    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
       .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—', montant_du: e.montant_du, montant_paye: e.montant_paye }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name)));
@@ -252,6 +267,7 @@ function Payments() {
 
   return (
     <div>
+      {offline && <OfflineBanner />}
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 22 }}>
         <Stat label="Total encaissé" value={fmtF(totalEncaisse)} color="var(--success)" />
         <Stat label="Nb paiements" value={payments.length} />
@@ -529,6 +545,7 @@ function Expenses() {
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [expenses, setExpenses] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [libelle, setLibelle] = useState('');
   const [categorie, setCategorie] = useState('');
   const [montant, setMontant] = useState('');
@@ -536,9 +553,18 @@ function Expenses() {
 
   function reload() {
     if (!schoolYear) return;
-    setExpenses(null);
-    supabase.from('expenses').select('*').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false })
-      .then(({ data, error: e }) => { if (e) setError(e.message); else setExpenses(data); });
+    guardedFetch({
+      cacheKey: `expenses_${schoolYear.id}`,
+      hasData: expenses !== null,
+      load: async () => {
+        const { data, error: e } = await supabase.from('expenses').select('*').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false });
+        return e ? { error: e } : { data };
+      },
+      setData: setExpenses,
+      setOffline,
+      onError: (e) => setError(e.message),
+      onSuccess: () => setError(''),
+    });
   }
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
@@ -573,6 +599,7 @@ function Expenses() {
 
   return (
     <div>
+      {offline && <OfflineBanner />}
       <div className="card-bold" style={{ padding: '18px 20px', marginBottom: 24, maxWidth: 320 }}>
         <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>Total des dépenses — {schoolYear.label}</p>
         <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(total)}</p>
@@ -623,6 +650,7 @@ function Advances() {
   const [advances, setAdvances] = useState(null);
   const [staff, setStaff] = useState([]);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [staffId, setStaffId] = useState('');
   const [montant, setMontant] = useState('');
   const [motif, setMotif] = useState('');
@@ -630,14 +658,22 @@ function Advances() {
 
   async function reload() {
     if (!schoolYear) return;
-    const [{ data: adv, error: e }, { data: st }] = await Promise.all([
-      supabase.from('salary_advances').select('*, staff ( full_name, role )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false }),
-      // Une demande ne peut concerner qu'un membre actif — un archivé n'est
-      // plus proposé à la saisie, mais reste visible dans son propre
-      // historique (StaffDetail) et dans la liste ci-dessus.
-      supabase.from('staff').select('id, full_name, role').eq('statut', 'actif').order('full_name'),
-    ]);
-    if (e) setError(e.message); else setAdvances(adv);
+    await guardedFetch({
+      cacheKey: `advances_${schoolYear.id}`,
+      hasData: advances !== null,
+      load: async () => {
+        const { data, error: e } = await supabase.from('salary_advances').select('*, staff ( full_name, role )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false });
+        return e ? { error: e } : { data };
+      },
+      setData: setAdvances,
+      setOffline,
+      onError: (e) => setError(e.message),
+      onSuccess: () => setError(''),
+    });
+    // Une demande ne peut concerner qu'un membre actif — n'a de sens
+    // qu'en ligne (soumettre une demande exige une connexion), donc pas
+    // de repli hors-ligne ici.
+    const { data: st } = await supabase.from('staff').select('id, full_name, role').eq('statut', 'actif').order('full_name');
     setStaff(st || []);
     if (st?.length && !staffId) setStaffId(st[0].id);
   }
@@ -682,6 +718,7 @@ function Advances() {
 
   return (
     <div>
+      {offline && <OfflineBanner />}
       <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
         Le fondateur et le directeur peuvent approuver ou refuser une demande. Les autres rôles peuvent
         seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.

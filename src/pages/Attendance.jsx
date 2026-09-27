@@ -7,6 +7,8 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const STATUTS = [
   { id: 'present', label: 'Présent', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -20,6 +22,7 @@ export default function Attendance() {
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [niveau, setNiveau] = useState('');
   const [date, setDate] = useState(todayIso());
   const [statuts, setStatuts] = useState({});
@@ -34,18 +37,28 @@ export default function Attendance() {
   // existe encore dans la table students.
   useEffect(() => {
     if (!schoolYear) return;
-    supabase
-      .from('enrollments')
-      .select('classes ( nom ), students ( id, full_name, photo_url )')
-      .eq('school_year_id', schoolYear.id)
-      .then(({ data, error: fetchError }) => {
-        if (fetchError) { setError(fetchError.message); return; }
-        const st = (data || [])
-          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, photo_url: e.students.photo_url, niveau: e.classes?.nom || '—' }))
-          .sort((a, b) => a.full_name.localeCompare(b.full_name));
-        setStudents(st);
-        if (st.length) setNiveau(st[0].niveau);
-      });
+    let cancelled = false;
+    guardedFetch({
+      cacheKey: `attendance_students_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('enrollments')
+          .select('classes ( nom ), students ( id, full_name, photo_url )')
+          .eq('school_year_id', schoolYear.id);
+        if (fetchError) return { error: fetchError };
+        return {
+          data: (data || [])
+            .map((e) => ({ id: e.students.id, full_name: e.students.full_name, photo_url: e.students.photo_url, niveau: e.classes?.nom || '—' }))
+            .sort((a, b) => a.full_name.localeCompare(b.full_name)),
+        };
+      },
+      setData: (st) => { setStudents(st); if (st.length) setNiveau(st[0].niveau); },
+      setOffline,
+      onError: (err) => setError(err.message),
+      isCancelled: () => cancelled,
+    });
+    return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
   const niveaux = useMemo(() => [...new Set((students || []).map((s) => s.niveau))].sort(), [students]);
@@ -108,6 +121,7 @@ export default function Attendance() {
     <div>
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Présences</p>
         <div style={{ display: 'flex', gap: 8 }}>

@@ -11,6 +11,8 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
 import { useToast } from '../components/Toast.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -30,6 +32,7 @@ export default function StudentDetail() {
   const [attendance, setAttendance] = useState(undefined);
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [whatsappSending, setWhatsappSending] = useState(false);
   const [whatsappResult, setWhatsappResult] = useState(null);
@@ -38,16 +41,18 @@ export default function StudentDetail() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from('students')
-      .select('*')
-      .eq('id', id)
-      .single()
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return;
-        if (fetchError) setError(fetchError.message);
-        else setStudent(data);
-      });
+    guardedFetch({
+      cacheKey: `student_${id}`,
+      hasData: false, // ré-hydrate à chaque changement d'élève (id différent)
+      load: async () => {
+        const { data, error: fetchError } = await supabase.from('students').select('*').eq('id', id).single();
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setStudent,
+      setOffline,
+      onError: (err) => setError(err.message),
+      isCancelled: () => cancelled,
+    });
     // Séparé de la fiche élève : un enseignant (RLS bloque parent_access
     // pour ce rôle) verra simplement une liste vide plutôt qu'une erreur.
     supabase
@@ -64,15 +69,22 @@ export default function StudentDetail() {
     if (!schoolYear) return;
     let cancelled = false;
     setPayments(undefined);
-    supabase
-      .from('enrollments')
-      .select('id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau )')
-      .eq('student_id', id)
-      .eq('school_year_id', schoolYear.id)
-      .maybeSingle()
-      .then(async ({ data }) => {
-        if (cancelled) return;
-        setEnrollment(data || null);
+    guardedFetch({
+      cacheKey: `enrollment_${id}_${schoolYear.id}`,
+      hasData: false, // ré-hydrate à chaque changement d'élève/année
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('enrollments')
+          .select('id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau )')
+          .eq('student_id', id)
+          .eq('school_year_id', schoolYear.id)
+          .maybeSingle();
+        return fetchError ? { error: fetchError } : { data: data || null };
+      },
+      setData: setEnrollment,
+      setOffline,
+      isCancelled: () => cancelled,
+      onSuccess: async (data) => {
         if (data?.classes?.niveau) {
           const { data: fee } = await supabase
             .from('fee_schedules')
@@ -84,7 +96,8 @@ export default function StudentDetail() {
         } else if (!cancelled) {
           setFeeSchedule(null);
         }
-      });
+      },
+    });
     // Historique des paiements de cet élève pour l'année consultée
     // uniquement — jamais mélangé avec ceux d'une autre année.
     supabase
@@ -165,6 +178,7 @@ export default function StudentDetail() {
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux élèves
       </Link>
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
         <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden' }}>
           {student.photo_url ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(student.full_name)}

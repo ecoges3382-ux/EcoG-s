@@ -9,6 +9,8 @@ import DocumentHeader from '../components/DocumentHeader.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { saveCache, loadCache } from '../lib/offlineCache.js';
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
@@ -46,24 +48,48 @@ export default function ParentAccess() {
   const [error, setError] = useState('');
   const [detailError, setDetailError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [offline, setOffline] = useState(false);
   // Un changement rapide d'enfant ou d'année ne doit jamais laisser une
   // réponse plus lente écraser un choix plus récent — seule la dernière
   // requête émise a le droit d'appliquer son résultat.
   const detailRequestId = useRef(0);
 
+  // La mise en cache reste par code : un code invalide ou révoqué n'a
+  // simplement jamais été mis en cache sous cette clé, donc il continue de
+  // montrer une vraie erreur — seule une vraie coupure réseau (fnError, le
+  // serveur n'a pas répondu) doit rebasculer sur la dernière donnée connue
+  // de ce même code, jamais une erreur applicative renvoyée par le serveur
+  // (code invalide/révoqué), qui doit toujours s'afficher telle quelle.
   async function loadSummary(theCode) {
     setLoading(true);
     setError('');
+    const cacheKey = `parent_portal_summary_${theCode}`;
     const { data, error: fnError } = await supabase.functions.invoke('parent-portal', { body: { code: theCode } });
     setLoading(false);
-    if (fnError || data?.error) {
-      setError(data?.error || 'Code invalide.');
+    if (data?.error) {
+      setError(data.error);
+      setSummary(null);
+      sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    if (fnError) {
+      const cached = loadCache(cacheKey);
+      if (cached) {
+        setCode(theCode);
+        setSummary(cached.data);
+        setOffline(true);
+        sessionStorage.setItem(STORAGE_KEY, theCode);
+        return;
+      }
+      setError('Impossible de vérifier ce code. Vérifie ta connexion.');
       setSummary(null);
       sessionStorage.removeItem(STORAGE_KEY);
       return;
     }
     setCode(theCode);
     setSummary(data);
+    setOffline(false);
+    saveCache(cacheKey, data);
     sessionStorage.setItem(STORAGE_KEY, theCode);
   }
 
@@ -94,18 +120,27 @@ export default function ParentAccess() {
   // chargement de la suivante.
   async function fetchDetail(studentId, schoolYearId) {
     const requestId = ++detailRequestId.current;
+    const cacheKey = `parent_portal_detail_${studentId}_${schoolYearId || 'current'}`;
     setDetail(null);
     setDetailError('');
+    setOffline(false);
     setPeriode('Trimestre 1');
     const { data, error: fnError } = await supabase.functions.invoke('parent-portal', {
       body: { code, action: 'detail', student_id: studentId, school_year_id: schoolYearId || undefined },
     });
     if (requestId !== detailRequestId.current) return; // une requête plus récente a déjà pris le relais
-    if (fnError || data?.error) {
-      setDetailError(data?.error || 'Erreur de chargement.');
+    if (data?.error) {
+      setDetailError(data.error);
+      return;
+    }
+    if (fnError) {
+      const cached = loadCache(cacheKey);
+      if (cached) { setDetail(cached.data); setOffline(true); return; }
+      setDetailError('Erreur de chargement.');
       return;
     }
     setDetail(data);
+    saveCache(cacheKey, data);
   }
 
   function openStudent(student) {
@@ -181,6 +216,7 @@ export default function ParentAccess() {
             </div>
           </div>
 
+          {offline && <OfflineBanner />}
           {detailError && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{detailError}</p>}
           {!detailError && !detail && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
@@ -196,6 +232,7 @@ export default function ParentAccess() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', padding: '20px 16px 60px' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        {offline && <OfflineBanner />}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 600 }}>Bonjour, {summary.full_name}</p>
           <button onClick={changeCode} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Changer de code</button>

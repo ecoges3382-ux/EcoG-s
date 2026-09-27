@@ -7,6 +7,8 @@ import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -18,22 +20,31 @@ export default function StaffDetail() {
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [person, setPerson] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [salaries, setSalaries] = useState(null);
   const [advances, setAdvances] = useState(null);
   const [subjects, setSubjects] = useState(null);
 
-  function reloadPerson() {
-    return supabase.from('staff').select('*').eq('id', id).single()
-      .then(({ data, error: fetchError }) => {
-        if (fetchError) setError(fetchError.message);
-        else setPerson(data);
-      });
+  function reloadPerson(isCancelled) {
+    return guardedFetch({
+      cacheKey: `staff_person_${id}`,
+      hasData: person !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase.from('staff').select('*').eq('id', id).single();
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setPerson,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+      isCancelled,
+    });
   }
 
   useEffect(() => {
     let cancelled = false;
-    reloadPerson().then(() => { if (cancelled) return; });
+    reloadPerson(() => cancelled);
     return () => { cancelled = true; };
   }, [id]);
 
@@ -103,6 +114,7 @@ export default function StaffDetail() {
       <Link to="/personnel" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour au personnel
       </Link>
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22, flexWrap: 'wrap' }}>
         <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--forest)', overflow: 'hidden' }}>
           {person.photo_url ? <img src={person.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(person.full_name)}

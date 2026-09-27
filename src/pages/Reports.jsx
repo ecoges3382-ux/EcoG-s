@@ -8,6 +8,8 @@ import { printDocument, slug } from '../lib/print.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 // Ordre = priorité demandée : effectifs, financier, impayés, présences,
 // résultats, puis la synthèse qui les résume tous.
@@ -33,12 +35,13 @@ function groupByClasse(students) {
 export default function Reports() {
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
-  const { students, error } = useEnrollmentsForYear(schoolYear);
+  const { students, error, offline: offlineStudents } = useEnrollmentsForYear(schoolYear);
   const [reportId, setReportId] = useState('synthese');
   const [attendance, setAttendance] = useState(null);
   const [classResults, setClassResults] = useState(null);
   const [effectifsMouvement, setEffectifsMouvement] = useState(null);
   const [personnel, setPersonnel] = useState(null);
+  const [offlineExtra, setOffline] = useState(false);
 
   // Présences de toute l'année, une seule requête groupée — les rapports
   // par période (jour/semaine/mois) filtrent ensuite ce même jeu de
@@ -46,9 +49,17 @@ export default function Reports() {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
-    setAttendance(null);
-    supabase.from('attendance_records').select('student_id, date, statut').eq('school_year_id', schoolYear.id)
-      .then(({ data }) => { if (!cancelled) setAttendance(data || []); });
+    guardedFetch({
+      cacheKey: `reports_attendance_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: e } = await supabase.from('attendance_records').select('student_id, date, statut').eq('school_year_id', schoolYear.id);
+        return e ? { error: e } : { data: data || [] };
+      },
+      setData: setAttendance,
+      setOffline,
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
@@ -58,9 +69,17 @@ export default function Reports() {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
-    setClassResults(null);
-    supabase.rpc('dashboard_class_results', { p_school_year_id: schoolYear.id })
-      .then(({ data }) => { if (!cancelled) setClassResults(data || []); });
+    guardedFetch({
+      cacheKey: `reports_class_results_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: e } = await supabase.rpc('dashboard_class_results', { p_school_year_id: schoolYear.id });
+        return e ? { error: e } : { data: data || [] };
+      },
+      setData: setClassResults,
+      setOffline,
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
@@ -91,18 +110,28 @@ export default function Reports() {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
-    setPersonnel(null);
-    Promise.all([
-      supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
-      supabase.from('salary_advances').select('solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
-      supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id),
-    ]).then(([{ data: salaries }, { data: advances }, { data: expenses }]) => {
-      if (cancelled) return;
-      setPersonnel({
-        masseSalariale: (salaries || []).reduce((a, s) => a + Number(s.montant), 0),
-        avancesEnCours: (advances || []).reduce((a, s) => a + Number(s.solde), 0),
-        depenses: (expenses || []).reduce((a, s) => a + Number(s.montant), 0),
-      });
+    guardedFetch({
+      cacheKey: `reports_personnel_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const [{ data: salaries, error: e1 }, { data: advances, error: e2 }, { data: expenses, error: e3 }] = await Promise.all([
+          supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
+          supabase.from('salary_advances').select('solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
+          supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id),
+        ]);
+        const e = e1 || e2 || e3;
+        if (e) return { error: e };
+        return {
+          data: {
+            masseSalariale: (salaries || []).reduce((a, s) => a + Number(s.montant), 0),
+            avancesEnCours: (advances || []).reduce((a, s) => a + Number(s.solde), 0),
+            depenses: (expenses || []).reduce((a, s) => a + Number(s.montant), 0),
+          },
+        };
+      },
+      setData: setPersonnel,
+      setOffline,
+      isCancelled: () => cancelled,
     });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
@@ -116,6 +145,7 @@ export default function Reports() {
     <div>
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {(offlineStudents || offlineExtra) && <OfflineBanner />}
       <p className="page-title" style={{ margin: '0 0 18px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Rapports de direction</p>
 
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>

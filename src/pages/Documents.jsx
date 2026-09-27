@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import { useToast } from '../components/Toast.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire', 'enseignant'];
 
@@ -12,14 +14,24 @@ export default function Documents() {
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
   const [documents, setDocuments] = useState(null);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [titre, setTitre] = useState('');
   const [uploading, setUploading] = useState(false);
   const [openingId, setOpeningId] = useState(null);
 
   async function reload() {
-    const { data, error: fetchError } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
-    if (fetchError) setError(fetchError.message);
-    else setDocuments(data);
+    await guardedFetch({
+      cacheKey: `documents_${profile.school_id}`,
+      hasData: documents !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase.from('documents').select('*').order('created_at', { ascending: false });
+        return fetchError ? { error: fetchError } : { data };
+      },
+      setData: setDocuments,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => { reload(); }, []);
@@ -96,6 +108,7 @@ export default function Documents() {
   return (
     <div>
       <SchoolTabs />
+      {offline && <OfflineBanner />}
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Documents</p>
 
       {canManage && (

@@ -10,6 +10,8 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import OfflineBanner from '../components/OfflineBanner.jsx';
+import { guardedFetch } from '../lib/offlineCache.js';
 
 // Une fois un calendrier de paiement configuré (Argent → Grille tarifaire),
 // le statut se base sur les délais dépassés plutôt que sur un pourcentage
@@ -67,6 +69,7 @@ export default function Students() {
   // aux vrais montants de tranche configurés (voir lib/retard.js).
   const [feeSchedulesByNiveau, setFeeSchedulesByNiveau] = useState({});
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [classFilter, setClassFilter] = useState('toutes');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
@@ -88,30 +91,42 @@ export default function Students() {
   // porte désormais la classe et le dû/payé, propres à chaque année.
   async function reload() {
     if (!schoolYear) return;
-    const { data, error: fetchError } = await supabase
-      .from('enrollments')
-      .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
-      .eq('school_year_id', schoolYear.id)
-      .order('full_name', { foreignTable: 'students' });
-    if (fetchError) { setError(fetchError.message); return; }
-    setStudents((data || []).map((e) => ({
-      id: e.students.id,
-      enrollment_id: e.id,
-      full_name: e.students.full_name,
-      nom: e.students.nom,
-      prenom: e.students.prenom,
-      matricule: e.students.matricule,
-      parent_phone: e.students.parent_phone,
-      photo_url: e.students.photo_url,
-      classe_id: e.classe_id,
-      niveau: e.classes?.nom || '—',
-      classeNiveau: e.classes?.niveau || null,
-      montant_du: e.montant_du,
-      montant_paye: e.montant_paye,
-      frais_connexe_du: e.frais_connexe_du,
-      frais_connexe_paye: e.frais_connexe_paye,
-      note_arrangement: e.note_arrangement,
-    })));
+    await guardedFetch({
+      cacheKey: `students_${profile.school_id}_${schoolYear.id}`,
+      hasData: students !== null,
+      load: async () => {
+        const { data, error: fetchError } = await supabase
+          .from('enrollments')
+          .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
+          .eq('school_year_id', schoolYear.id)
+          .order('full_name', { foreignTable: 'students' });
+        if (fetchError) return { error: fetchError };
+        return {
+          data: (data || []).map((e) => ({
+            id: e.students.id,
+            enrollment_id: e.id,
+            full_name: e.students.full_name,
+            nom: e.students.nom,
+            prenom: e.students.prenom,
+            matricule: e.students.matricule,
+            parent_phone: e.students.parent_phone,
+            photo_url: e.students.photo_url,
+            classe_id: e.classe_id,
+            niveau: e.classes?.nom || '—',
+            classeNiveau: e.classes?.niveau || null,
+            montant_du: e.montant_du,
+            montant_paye: e.montant_paye,
+            frais_connexe_du: e.frais_connexe_du,
+            frais_connexe_paye: e.frais_connexe_paye,
+            note_arrangement: e.note_arrangement,
+          })),
+        };
+      },
+      setData: setStudents,
+      setOffline,
+      onError: (err) => setError(err.message),
+      onSuccess: () => setError(''),
+    });
   }
 
   useEffect(() => {
@@ -267,6 +282,7 @@ export default function Students() {
     <div>
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+      {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Élèves</p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
