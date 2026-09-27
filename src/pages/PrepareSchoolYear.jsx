@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, sortClasses, NIVEAUX, fmtF } from '../lib/utils.js';
+import { initials, sortClasses, NIVEAUX, fmtF, stickyColStyle } from '../lib/utils.js';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import NewStudentModal from '../components/NewStudentModal.jsx';
@@ -332,7 +332,7 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
   const counts = { tous: rows.length, a_traiter: 0, passe: 0, redouble: 0, part: 0 };
   rows.forEach((r) => { counts[r.decision] += 1; });
   const filteredRows = filter === 'tous' ? rows : rows.filter((r) => r.decision === filter);
-  const gridCols = selectMode ? '24px 1.5fr 1fr 1.3fr 1fr 1fr' : '1.6fr 1fr 1.3fr 1fr 1fr';
+  const gridCols = selectMode ? '24px 1.4fr 0.8fr 1.6fr 1fr 1fr' : '1.4fr 0.8fr 1.6fr 1fr 1fr';
 
   return (
     <div style={{ paddingBottom: selectMode ? 70 : 0 }}>
@@ -364,9 +364,9 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
 
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: selectMode ? 740 : 720 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
-            <span>Élève</span><span>Classe actuelle</span><span>Décision</span><span>Nouvelle classe</span><span>Montant</span>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Élève</span><span>Classe actuelle</span><span>Décision</span><span>Nouvelle classe</span><span>Montant</span>
           </div>
           {filteredRows.map((r, i) => (
             <DecisionRow
@@ -451,9 +451,9 @@ function selectionPillStyle() {
 function DecisionRow({ row, classes, gridCols, isLast, selectMode, selected, onToggleSelected, onDecision, onClasse, onMontant }) {
   const showClasse = row.decision === 'passe' || row.decision === 'redouble';
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: '13px 20px', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
       {selectMode && <input type="checkbox" checked={selected} onChange={onToggleSelected} style={{ flexShrink: 0 }} />}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>
         <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
           {row.photo_url ? <img src={row.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(row.full_name)}
         </div>
