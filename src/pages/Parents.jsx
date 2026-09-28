@@ -185,7 +185,7 @@ export default function Parents() {
                     type="button"
                     onClick={() => handleDeleteOne(p.id, p.full_name)}
                     title="Supprimer"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}
                   >
                     <TrashIcon />
                   </button>

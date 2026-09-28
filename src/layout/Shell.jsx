@@ -123,7 +123,7 @@ export default function Shell() {
             target="_blank"
             rel="noreferrer"
             title="Besoin d'aide ? Discuter sur WhatsApp"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}
           >
             <HelpIcon />
           </a>

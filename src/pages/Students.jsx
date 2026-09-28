@@ -409,7 +409,7 @@ export default function Students() {
                       onClick={() => { setEditingStudent(s); setModalOpen(true); }}
                       title={`Modifier les informations de ${s.full_name}`}
                       aria-label={`Modifier les informations de ${s.full_name}`}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                     >
                       <PencilIcon />
                     </button>
@@ -419,7 +419,7 @@ export default function Students() {
                       type="button"
                       onClick={() => handleDeleteOne(s.id, s.full_name)}
                       title="Supprimer"
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
                     >
                       <TrashIcon />
                     </button>

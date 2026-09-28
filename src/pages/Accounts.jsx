@@ -863,4 +863,4 @@ const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'va
 // Zone de clic élargie (min. 36px) : les icônes seules (17px) sont trop
 // petites à toucher précisément sur mobile, d'où l'impression que le bouton
 // « ne répond pas » alors qu'il suffit de rater le clic de quelques pixels.
-const iconButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer' };
+const iconButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, background: 'none', border: 'none', cursor: 'pointer' };
