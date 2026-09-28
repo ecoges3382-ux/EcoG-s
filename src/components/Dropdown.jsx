@@ -1,30 +1,63 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
-// Remplace <select> partout dans l'app par un menu qui s'ouvre en accordéon
-// juste sous le champ (jamais en survol flottant, pour ne jamais reproduire
-// le bug de recadrage déjà rencontré avec les menus position:absolute — voir
-// le correctif sur les menus contextuels de Comptes/Accès parents) : coche
-// verte sur l'option sélectionnée, liste déroulante scrollable si longue.
+// Remplace <select> partout dans l'app. Le panneau s'ouvre par-dessus le
+// reste de la page (portail vers document.body, position:fixed ancrée sous
+// le bouton), jamais en poussant le contenu qui suit vers le bas — c'était
+// le comportement d'origine (accordéon en flux normal), changé après retour
+// terrain : sur un écran déjà chargé (bulletin, formulaire…), pousser tout
+// le contenu en dessous à chaque ouverture rendait la page instable et
+// donnait une impression peu soignée. Le portail règle par la même
+// occasion l'ancien bug de recadrage qui avait motivé le choix du flux
+// normal (menu position:absolute coupé par un ancêtre overflow:hidden,
+// voir Comptes/Accès parents) : un portail échappe entièrement à n'importe
+// quel ancêtre, plus de recadrage possible. Coche verte sur l'option
+// sélectionnée, liste déroulante scrollable si longue.
 export default function Dropdown({ value, onChange, options, placeholder = 'Choisir…', label, style, wrapperStyle, disabled, className, title, textColor, chevronColor }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [coords, setCoords] = useState(null);
+  const wrapperRef = useRef(null);
+  const triggerRef = useRef(null);
+  const listRef = useRef(null);
+
+  // Position calculée à l'ouverture (juste sous le bouton, même largeur
+  // mini que lui) — un portail n'hérite d'aucune position par le flux
+  // normal, il faut la lui donner explicitement.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setCoords({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (wrapperRef.current?.contains(e.target)) return;
+      if (listRef.current?.contains(e.target)) return;
+      setOpen(false);
     }
+    // Le panneau étant ancré (pas repositionné en continu), un défilement
+    // pendant qu'il est ouvert le décalerait de son bouton — plus simple et
+    // plus prévisible de le refermer, comme la plupart des menus flottants.
+    function handleScrollOrResize() { setOpen(false); }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
   }, [open]);
 
   const normalized = options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o));
   const selected = normalized.find((o) => o.value === value);
 
   return (
-    <div ref={ref} className={className} style={{ width: '100%', ...wrapperStyle }}>
+    <div ref={wrapperRef} className={className} style={{ width: '100%', ...wrapperStyle }}>
       {label && <label style={labelStyle}>{label}</label>}
       <button
+        ref={triggerRef}
         type="button"
         title={title}
         onClick={() => !disabled && setOpen((v) => !v)}
@@ -37,14 +70,20 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
         <i className={`ti ${open ? 'ti-chevron-up' : 'ti-chevron-down'}`} style={{ fontSize: 15, flexShrink: 0, color: chevronColor || 'var(--muted)', marginLeft: 8 }} aria-hidden="true"></i>
       </button>
 
-      {open && (
-        // width: max-content + minWidth: 100% : le panneau s'adapte à son
-        // propre contenu au lieu d'hériter bêtement de la largeur du bouton
-        // fermé — utile quand ce dernier est volontairement compact (ex.
-        // le sélecteur d'année scolaire dans la barre du haut, qui doit
-        // rester étroit une fois refermé mais afficher l'année en entier
-        // une fois ouvert).
-        <div style={{ ...listStyle, width: 'max-content', minWidth: '100%', maxWidth: 280 }}>
+      {open && coords && createPortal(
+        <div
+          ref={listRef}
+          style={{
+            ...listStyle,
+            position: 'fixed', top: coords.top, left: coords.left,
+            // width: max-content + minWidth : le panneau s'adapte à son
+            // propre contenu au lieu d'hériter bêtement de la largeur du
+            // bouton fermé — utile quand ce dernier est volontairement
+            // compact (ex. le sélecteur d'année scolaire dans la barre du
+            // haut, qui doit rester étroit une fois refermé).
+            width: 'max-content', minWidth: coords.width, maxWidth: 280,
+          }}
+        >
           {normalized.map((o, i) => {
             const active = o.value === value;
             return (
@@ -61,7 +100,8 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
             );
           })}
           {normalized.length === 0 && <p style={{ margin: 0, padding: '10px 14px', fontSize: 12.5, color: 'var(--muted)' }}>Aucune option.</p>}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -76,8 +116,8 @@ const triggerStyle = {
 };
 
 const listStyle = {
-  marginTop: 6, border: '1px solid var(--line-strong)', borderRadius: 10, background: 'var(--paper)',
-  boxShadow: '0 8px 24px rgba(0,0,0,0.1)', maxHeight: 260, overflowY: 'auto',
+  zIndex: 50, border: '1px solid var(--line-strong)', borderRadius: 10, background: 'var(--paper)',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 260, overflowY: 'auto',
 };
 
 const itemStyle = {
