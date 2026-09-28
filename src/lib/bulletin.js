@@ -18,13 +18,25 @@
 export const PERIODES_BULLETIN = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3'];
 
 // Moyenne d'une matière pour un élève sur une période donnée, sur 20.
-// Plusieurs notes de la même matière/période sont moyennées ensemble (pas
-// de pondération par type controle/devoir/examen — aucune n'existe dans le
-// projet). null si aucune note.
+// Règle de l'école (pas une simple moyenne de toutes les notes confondues) :
+// les interrogations ("controle") comptent ensemble comme UNE seule
+// composante (leur moyenne), et chaque devoir ("devoir") compte comme sa
+// propre composante — typiquement 1 (moyenne des interros) + 2 (devoirs) =
+// 3 composantes, d'où la division par 3 dans le cas courant. Les notes de
+// type "examen" ne rentrent pas dans ce calcul. Généralisé à un nombre
+// quelconque de devoirs (0, 1, 3…) plutôt que de figer "exactement 2" en
+// dur, pour ne pas casser un trimestre où le compte réel diffère.
 export function subjectPeriodeMoyenne(grades, studentId, subjectId, periode) {
   const notes = grades.filter((g) => g.student_id === studentId && g.subject_id === subjectId && g.periode === periode);
-  if (notes.length === 0) return null;
-  return notes.reduce((a, g) => a + (Number(g.note) / Number(g.sur)) * 20, 0) / notes.length;
+  const interros = notes.filter((g) => g.type === 'controle');
+  const devoirs = notes.filter((g) => g.type === 'devoir');
+  const composantes = [];
+  if (interros.length > 0) {
+    composantes.push(interros.reduce((a, g) => a + (Number(g.note) / Number(g.sur)) * 20, 0) / interros.length);
+  }
+  devoirs.forEach((g) => composantes.push((Number(g.note) / Number(g.sur)) * 20));
+  if (composantes.length === 0) return null;
+  return composantes.reduce((a, v) => a + v, 0) / composantes.length;
 }
 
 // Moyenne générale d'un élève pour une période, pondérée par le coefficient

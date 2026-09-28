@@ -3239,3 +3239,56 @@ end;
 $$;
 
 grant execute on function create_student_with_enrollment(uuid, text, text, text, text, text, text, uuid, uuid, numeric, numeric, uuid, numeric, text, text, numeric, date) to authenticated;
+
+-- Correction de la formule de moyenne trimestrielle par matière : ce
+-- n'était jusqu'ici qu'une moyenne plate de TOUTES les notes de la période
+-- confondues (interrogations, devoirs, examens à égalité). La vraie règle
+-- de l'école : les interrogations comptent ensemble comme UNE composante
+-- (leur moyenne), chaque devoir compte comme sa propre composante, et les
+-- notes de type "examen" ne rentrent pas dans ce calcul — d'où la division
+-- par 3 dans le cas courant (1 moyenne d'interros + 2 devoirs). Généralisé
+-- à un nombre quelconque de devoirs plutôt que de figer "exactement 2" en
+-- dur. Doit rester strictement équivalente à subjectPeriodeMoyenne côté
+-- app (src/lib/bulletin.js) — signature inchangée, donc un simple
+-- CREATE OR REPLACE suffit ici (pas de drop nécessaire).
+create or replace function student_annual_average(p_student_id uuid, p_school_year_id uuid, p_niveau text)
+returns numeric
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with per_subject as (
+    select
+      g.periode,
+      g.subject_id,
+      sub.coefficient,
+      avg(g.note / g.sur * 20) filter (where g.type = 'controle') as interro_moy,
+      sum(g.note / g.sur * 20) filter (where g.type = 'devoir') as devoir_somme,
+      count(*) filter (where g.type = 'devoir') as devoir_cnt
+    from grades g
+    join subjects sub on sub.id = g.subject_id
+    where g.student_id = p_student_id
+      and g.school_year_id = p_school_year_id
+      and g.periode in ('Trimestre 1', 'Trimestre 2', 'Trimestre 3')
+      and (sub.niveau is null or sub.niveau = p_niveau)
+    group by g.periode, g.subject_id, sub.coefficient
+  ),
+  per_subject_moy as (
+    select
+      periode,
+      coefficient,
+      (coalesce(interro_moy, 0) + coalesce(devoir_somme, 0))
+        / nullif((case when interro_moy is not null then 1 else 0 end) + devoir_cnt, 0) as subject_moyenne
+    from per_subject
+    where interro_moy is not null or devoir_cnt > 0
+  ),
+  per_trimestre as (
+    select
+      periode,
+      sum(subject_moyenne * coefficient) / nullif(sum(coefficient), 0) as trimestre_moyenne
+    from per_subject_moy
+    group by periode
+  )
+  select avg(trimestre_moyenne) from per_trimestre
+$$;
