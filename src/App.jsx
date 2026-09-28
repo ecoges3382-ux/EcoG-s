@@ -1,39 +1,49 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import { supabaseConfigured } from './lib/supabase.js';
 import Landing from './pages/Landing.jsx';
-import Login from './pages/Login.jsx';
-import SignUp from './pages/SignUp.jsx';
-import AdminSignUp from './pages/AdminSignUp.jsx';
-import ForgotPassword from './pages/ForgotPassword.jsx';
-import ResetPassword from './pages/ResetPassword.jsx';
-import ParentAccess from './pages/ParentAccess.jsx';
-import PlatformAdmin from './pages/PlatformAdmin.jsx';
 import Shell from './layout/Shell.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Students from './pages/Students.jsx';
-import StudentDetail from './pages/StudentDetail.jsx';
-import Parents from './pages/Parents.jsx';
-import ParentDetail from './pages/ParentDetail.jsx';
-import Staff from './pages/Staff.jsx';
-import StaffDetail from './pages/StaffDetail.jsx';
-import Classes from './pages/Classes.jsx';
-import Subjects from './pages/Subjects.jsx';
-import Notes from './pages/Notes.jsx';
-import Grades from './pages/Grades.jsx';
-import Attendance from './pages/Attendance.jsx';
-import Schedule from './pages/Schedule.jsx';
-import Announce from './pages/Announce.jsx';
-import Documents from './pages/Documents.jsx';
-import Reports from './pages/Reports.jsx';
-import Settings from './pages/Settings.jsx';
-import SchoolYearSettings from './pages/SchoolYearSettings.jsx';
-import SettingsWhatsApp from './pages/SettingsWhatsApp.jsx';
-import PrepareSchoolYear from './pages/PrepareSchoolYear.jsx';
-import Money from './pages/Money.jsx';
-import Accounts from './pages/Accounts.jsx';
-import FirstTimeSetup from './pages/FirstTimeSetup.jsx';
 import { SkeletonScreen } from './components/Skeleton.jsx';
+
+// Landing (vitrine publique) et Shell (ossature de l'app une fois connecté)
+// restent en import direct : ce sont les deux seuls écrans garantis de
+// s'afficher au tout premier chargement, quel que soit le profil de la
+// personne qui arrive. Chaque page derrière — accessible seulement après
+// authentification ou navigation explicite — est chargée à la demande
+// (un fichier JS par page) plutôt que rapatriée en un seul gros paquet dès
+// le départ, pour que le premier chargement de l'app ne paie jamais pour
+// des écrans que la session en cours ne visitera peut-être jamais.
+const Login = lazy(() => import('./pages/Login.jsx'));
+const SignUp = lazy(() => import('./pages/SignUp.jsx'));
+const AdminSignUp = lazy(() => import('./pages/AdminSignUp.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
+const ParentAccess = lazy(() => import('./pages/ParentAccess.jsx'));
+const PlatformAdmin = lazy(() => import('./pages/PlatformAdmin.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Students = lazy(() => import('./pages/Students.jsx'));
+const StudentDetail = lazy(() => import('./pages/StudentDetail.jsx'));
+const Parents = lazy(() => import('./pages/Parents.jsx'));
+const ParentDetail = lazy(() => import('./pages/ParentDetail.jsx'));
+const Staff = lazy(() => import('./pages/Staff.jsx'));
+const StaffDetail = lazy(() => import('./pages/StaffDetail.jsx'));
+const Classes = lazy(() => import('./pages/Classes.jsx'));
+const Subjects = lazy(() => import('./pages/Subjects.jsx'));
+const Notes = lazy(() => import('./pages/Notes.jsx'));
+const Grades = lazy(() => import('./pages/Grades.jsx'));
+const Attendance = lazy(() => import('./pages/Attendance.jsx'));
+const Schedule = lazy(() => import('./pages/Schedule.jsx'));
+const Announce = lazy(() => import('./pages/Announce.jsx'));
+const Documents = lazy(() => import('./pages/Documents.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const SchoolYearSettings = lazy(() => import('./pages/SchoolYearSettings.jsx'));
+const SettingsWhatsApp = lazy(() => import('./pages/SettingsWhatsApp.jsx'));
+const PrepareSchoolYear = lazy(() => import('./pages/PrepareSchoolYear.jsx'));
+const Money = lazy(() => import('./pages/Money.jsx'));
+const Accounts = lazy(() => import('./pages/Accounts.jsx'));
+const FirstTimeSetup = lazy(() => import('./pages/FirstTimeSetup.jsx'));
 
 function SetupNeeded() {
   return (
@@ -158,34 +168,36 @@ export default function App() {
   if (!supabaseConfigured) return <SetupNeeded />;
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
-        <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
-        <Route path="/inscription-administrateur" element={<RedirectIfAuthed><AdminSignUp /></RedirectIfAuthed>} />
-        <Route path="/mot-de-passe-oublie" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
-        {/* Pas de RedirectIfAuthed ici : Supabase pose une session "recovery"
-            dès l'arrivée sur ce lien, RedirectIfAuthed la prendrait pour une
-            connexion normale et renverrait vers "/" avant que la personne
-            ait pu choisir son nouveau mot de passe. */}
-        <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
-        <Route path="/parent-access" element={<ParentAccess />} />
-        <Route
-          path="/admin"
-          element={
-            <RequirePlatformAdmin>
-              <PlatformAdmin />
-            </RequirePlatformAdmin>
-          }
-        />
-        <Route
-          path="/*"
-          element={
-            <RequireAuth>
-              <RoleRouter />
-            </RequireAuth>
-          }
-        />
-      </Routes>
+      <Suspense fallback={<SkeletonScreen />}>
+        <Routes>
+          <Route path="/connexion" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+          <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
+          <Route path="/inscription-administrateur" element={<RedirectIfAuthed><AdminSignUp /></RedirectIfAuthed>} />
+          <Route path="/mot-de-passe-oublie" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
+          {/* Pas de RedirectIfAuthed ici : Supabase pose une session "recovery"
+              dès l'arrivée sur ce lien, RedirectIfAuthed la prendrait pour une
+              connexion normale et renverrait vers "/" avant que la personne
+              ait pu choisir son nouveau mot de passe. */}
+          <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
+          <Route path="/parent-access" element={<ParentAccess />} />
+          <Route
+            path="/admin"
+            element={
+              <RequirePlatformAdmin>
+                <PlatformAdmin />
+              </RequirePlatformAdmin>
+            }
+          />
+          <Route
+            path="/*"
+            element={
+              <RequireAuth>
+                <RoleRouter />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </Suspense>
     </AuthProvider>
   );
 }
