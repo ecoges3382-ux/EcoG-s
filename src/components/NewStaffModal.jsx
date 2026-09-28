@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
@@ -92,7 +93,11 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     onSaved();
   }
 
-  return (
+  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
+  // le contexte d'empilement créé par l'animation de transition de page
+  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
+  // et la barre de navigation du bas au lieu de les recouvrir.
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -208,7 +213,8 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -38,7 +38,13 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
       </button>
 
       {open && (
-        <div style={listStyle}>
+        // width: max-content + minWidth: 100% : le panneau s'adapte à son
+        // propre contenu au lieu d'hériter bêtement de la largeur du bouton
+        // fermé — utile quand ce dernier est volontairement compact (ex.
+        // le sélecteur d'année scolaire dans la barre du haut, qui doit
+        // rester étroit une fois refermé mais afficher l'année en entier
+        // une fois ouvert).
+        <div style={{ ...listStyle, width: 'max-content', minWidth: '100%', maxWidth: 280 }}>
           {normalized.map((o, i) => {
             const active = o.value === value;
             return (

@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { fmtF, trancheLabel } from '../lib/utils.js';
 import { printDocument, slug } from '../lib/print.js';
 import DocumentHeader from './DocumentHeader.jsx';
@@ -10,7 +11,11 @@ import DocumentHeader from './DocumentHeader.jsx';
 export default function FinancialStatement({ studentName, classeNom, schoolYearLabel, montantDu, montantPaye, resteFrais, echeances, payments, school, onClose }) {
   const reste = montantDu - montantPaye;
 
-  return (
+  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
+  // le contexte d'empilement créé par l'animation de transition de page
+  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
+  // et la barre de navigation du bas au lieu de les recouvrir.
+  return createPortal(
     <div
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -73,7 +78,8 @@ export default function FinancialStatement({ studentName, classeNom, schoolYearL
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

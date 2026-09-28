@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { generateAccessCode, copyText } from '../lib/utils.js';
@@ -471,7 +472,10 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
     setLink({ action, url: data.link });
   }
 
-  return (
+  // Portal vers document.body : ceinture et bretelles, même si cette page
+  // n'a pas de .page-transition (route /admin indépendante de Shell.jsx) —
+  // garde ce modal cohérent avec tous les autres modals de l'app.
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 20px', overflowY: 'auto' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -591,7 +595,8 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

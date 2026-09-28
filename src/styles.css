@@ -26,7 +26,12 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 * { box-sizing: border-box; }
-html, body { overflow-x: hidden; }
+/* Sur html ET body à la fois (plutôt que l'un des deux seulement), ce garde-
+   fou contre un débordement horizontal parasite a un effet de bord : il
+   fait de body un second conteneur de défilement concurrent de html,
+   piégeant tout position:sticky (comme .topbar-row plus bas) au lieu de le
+   laisser s'accrocher au défilement réel de la page. */
+body { overflow-x: hidden; }
 body {
   margin:0; padding: 0; background: var(--cream);
   font-family: var(--sans); color: var(--ink);
@@ -62,10 +67,21 @@ input { caret-color: #000; }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
 /* ---- Layout shell ---- */
-#app { display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; }
-#layout { display: flex; flex: 1; }
+/* overflow-x (contre un débordement horizontal parasite) posé sur #layout
+   plutôt que #app : sur #app, il aurait aussi — par une règle CSS peu
+   connue — basculé l'overflow-y en "auto", transformant #app en second
+   conteneur de défilement et cassant le position:sticky de .topbar-row
+   ci-dessous (la barre du haut se serait mise à défiler avec la page). */
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+#layout { display: flex; flex: 1; overflow-x: hidden; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
+
+/* Reste visible en permanence au défilement (année scolaire, rôle, aide,
+   déconnexion toujours à portée de main) — un modal ouvert par-dessus reste
+   au-dessus grâce au portail vers document.body (voir les composants
+   *Modal.jsx), donc pas de conflit avec le z-index ici. */
+.topbar-row { position: sticky; top: 0; z-index: 30; }
 
 /* Mode application (après connexion) : fond sombre */
 body.app-mode { background: var(--dark-bg); }

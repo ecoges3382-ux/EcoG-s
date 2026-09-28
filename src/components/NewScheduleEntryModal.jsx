@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
@@ -22,8 +23,13 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Portal vers document.body pour les 3 retours de ce composant : sans
+  // lui, un modal reste piégé dans le contexte d'empilement créé par
+  // l'animation de transition de page (.page-transition, voir Shell.jsx),
+  // et passe derrière la barre du haut et la barre de navigation du bas
+  // au lieu de les recouvrir.
   if (classes.length === 0) {
-    return (
+    return createPortal(
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -48,11 +54,12 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
             Annuler
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
   if (slots.length === 0) {
-    return (
+    return createPortal(
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -70,7 +77,8 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
             Fermer
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -132,7 +140,7 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
     onSaved();
   }
 
-  return (
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -182,7 +190,8 @@ export default function NewScheduleEntryModal({ schoolId, schoolYearId, classes,
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
@@ -458,8 +459,13 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     onCreated();
   }
 
+  // Portal vers document.body pour les 2 retours de ce composant : sans
+  // lui, un modal reste piégé dans le contexte d'empilement créé par
+  // l'animation de transition de page (.page-transition, voir Shell.jsx),
+  // et passe derrière la barre du haut et la barre de navigation du bas
+  // au lieu de les recouvrir.
   if (students.length === 0) {
-    return (
+    return createPortal(
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -484,11 +490,12 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
             Annuler
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -553,7 +560,8 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 

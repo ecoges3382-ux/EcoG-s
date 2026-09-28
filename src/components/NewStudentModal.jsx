@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { generateAccessCode, displayName, fmtF, MODES } from '../lib/utils.js';
@@ -255,8 +256,13 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     navigator.clipboard.writeText(url).then(() => setCopied(true));
   }
 
+  // Portal vers document.body pour les 3 retours de ce composant : sans
+  // lui, un modal reste piégé dans le contexte d'empilement créé par
+  // l'animation de transition de page (.page-transition, voir Shell.jsx),
+  // et passe derrière la barre du haut et la barre de navigation du bas
+  // au lieu de les recouvrir.
   if (classes.length === 0) {
-    return (
+    return createPortal(
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -281,12 +287,13 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             Annuler
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   if (result) {
-    return (
+    return createPortal(
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Élève inscrit</p>
@@ -311,11 +318,12 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             Terminé
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -523,7 +531,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }
 

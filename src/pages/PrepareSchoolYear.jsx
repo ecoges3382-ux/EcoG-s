@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
@@ -516,7 +517,11 @@ function AddExistingStudentModal({ excludeIds, onClose, onAdd }) {
 
   const filtered = (students || []).filter((s) => s.full_name.toLowerCase().includes(search.trim().toLowerCase()));
 
-  return (
+  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
+  // le contexte d'empilement créé par l'animation de transition de page
+  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
+  // et la barre de navigation du bas au lieu de les recouvrir.
+  return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', maxHeight: '80vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -542,7 +547,8 @@ function AddExistingStudentModal({ excludeIds, onClose, onAdd }) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
