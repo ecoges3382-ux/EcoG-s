@@ -11,20 +11,18 @@ export default function SchoolYearSelector() {
 
   if (loading || !activeYear) return null;
 
+  // Même apparence que tous les autres menus déroulants de l'app (champ
+  // blanc bordé, liste attachée juste en dessous) au lieu d'un bouton-pilule
+  // coloré propre à la barre du haut — seul le fond passe au doré quand on
+  // consulte une année clôturée, pour garder ce repère visuel important.
   return (
     <Dropdown
       value={selectedYear?.id || ''}
       onChange={selectYear}
       options={selectableYears.map((y) => ({ value: y.id, label: `${y.label}${y.is_current ? '' : ' · clôturée'}` }))}
       title={isHistorical ? `Consultation de ${selectedYear?.label} (clôturée)` : `Année en cours : ${selectedYear?.label}`}
-      textColor={isHistorical ? 'var(--clay-dark)' : '#fff'}
-      chevronColor={isHistorical ? 'var(--clay-dark)' : 'rgba(255,255,255,0.75)'}
-      style={{
-        fontSize: '12.5px', fontWeight: 600, padding: '7px 10px', borderRadius: 20,
-        border: 'none',
-        background: isHistorical ? 'var(--gold)' : 'rgba(255,255,255,0.1)',
-      }}
-      wrapperStyle={{ flexShrink: 1, minWidth: 0, maxWidth: 118, width: 'auto' }}
+      style={isHistorical ? { background: 'var(--gold)', borderColor: 'var(--gold)' } : undefined}
+      wrapperStyle={{ flexShrink: 1, minWidth: 0, maxWidth: 140, width: 'auto' }}
     />
   );
 }
