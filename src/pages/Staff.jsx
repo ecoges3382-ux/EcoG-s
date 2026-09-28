@@ -8,6 +8,7 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
 function IdBadgeIcon() {
@@ -66,6 +67,7 @@ function PencilIcon() {
 
 export default function Staff() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const [staff, setStaff] = useState(null);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -157,7 +159,7 @@ export default function Staff() {
   // place (avances sur salaire, classe principale, matière enseignée…).
   // "Archiver" ne fait que changer le statut, jamais irréversible.
   async function handleArchiveOne(id, name, restore) {
-    if (!restore && !window.confirm(`Archiver ${name} ? Cette personne n'apparaîtra plus dans la liste active, mais son historique (avances, salaires versés) est conservé.`)) return;
+    if (!restore && !(await confirm(`Archiver ${name} ? Cette personne n'apparaîtra plus dans la liste active, mais son historique (avances, salaires versés) est conservé.`, { confirmLabel: 'Archiver', danger: false }))) return;
     setDeleting(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: restore ? 'actif' : 'inactif' }).eq('id', id);
     setDeleting(false);
@@ -166,7 +168,7 @@ export default function Staff() {
   }
 
   async function handleDeleteOne(id, name) {
-    if (!window.confirm(`Supprimer définitivement ${name} de l'équipe ? Cette action est irréversible et impossible si cette personne a un historique (avances, salaires, classe ou matière encore rattachée).`)) return;
+    if (!(await confirm(`Supprimer définitivement ${name} de l'équipe ? Cette action est irréversible et impossible si cette personne a un historique (avances, salaires, classe ou matière encore rattachée).`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('staff').delete().eq('id', id);
     setDeleting(false);
@@ -176,7 +178,7 @@ export default function Staff() {
 
   async function handleArchiveSelected() {
     const label = showArchives ? 'réactiver' : 'archiver';
-    if (!window.confirm(`${showArchives ? 'Réactiver' : 'Archiver'} ${selectedIds.length} membre${selectedIds.length > 1 ? 's' : ''} du personnel ?`)) return;
+    if (!(await confirm(`${showArchives ? 'Réactiver' : 'Archiver'} ${selectedIds.length} membre${selectedIds.length > 1 ? 's' : ''} du personnel ?`, { confirmLabel: showArchives ? 'Réactiver' : 'Archiver', danger: false }))) return;
     setDeleting(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: showArchives ? 'actif' : 'inactif' }).in('id', selectedIds);
     setDeleting(false);

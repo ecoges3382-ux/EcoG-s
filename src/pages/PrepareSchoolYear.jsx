@@ -7,6 +7,7 @@ import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
@@ -546,6 +547,7 @@ function AddExistingStudentModal({ excludeIds, onClose, onAdd }) {
 
 function ResumeStep({ prep, onActivated }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const [decisions, setDecisions] = useState(null);
   const [directEnrollCount, setDirectEnrollCount] = useState(0);
   const [error, setError] = useState('');
@@ -564,7 +566,7 @@ function ResumeStep({ prep, onActivated }) {
   useEffect(() => { reload(); }, [prep.id]);
 
   async function handleActivate() {
-    if (!window.confirm(`Activer ${prep.label} maintenant ? L'année en cours sera clôturée (toujours consultable, mais les écrans de saisie basculeront sur ${prep.label}).`)) return;
+    if (!(await confirm(`Activer ${prep.label} maintenant ? L'année en cours sera clôturée (toujours consultable, mais les écrans de saisie basculeront sur ${prep.label}).`, { confirmLabel: 'Activer' }))) return;
     setActivating(true);
     setError('');
     const { error: rpcError } = await supabase.rpc('activate_school_year', { p_school_year_id: prep.id });

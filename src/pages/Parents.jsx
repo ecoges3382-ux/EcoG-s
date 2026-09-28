@@ -7,6 +7,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
 function UsersGroupIcon() {
@@ -36,6 +37,7 @@ function TrashIcon() {
 
 export default function Parents() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const [parents, setParents] = useState(null);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
@@ -93,7 +95,7 @@ export default function Parents() {
   }
 
   async function handleDeleteOne(id, name) {
-    if (!window.confirm(`Supprimer définitivement l'accès de ${name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer définitivement l'accès de ${name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', id);
     setDeleting(false);
@@ -102,7 +104,7 @@ export default function Parents() {
   }
 
   async function handleDeleteSelected() {
-    if (!window.confirm(`Supprimer définitivement ${selectedIds.length} accès parent${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} accès parent${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('parent_access').delete().in('id', selectedIds);
     setDeleting(false);

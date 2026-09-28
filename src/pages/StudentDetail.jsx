@@ -11,6 +11,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
@@ -19,6 +20,7 @@ const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function StudentDetail() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
@@ -164,7 +166,7 @@ export default function StudentDetail() {
   const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 10);
 
   async function handleDelete() {
-    if (!window.confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer définitivement ${student.full_name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
     setDeleting(false);

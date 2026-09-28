@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { generateAccessCode, copyText } from '../lib/utils.js';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 
 // Même logique que dans Accounts.jsx : supabase-js ne remplit pas `data`
@@ -56,6 +57,7 @@ const TABS = [
 
 export default function PlatformAdmin() {
   const { signOut } = useAuth();
+  const confirm = useConfirm();
   const [tab, setTab] = useState('ecoles');
   const [schools, setSchools] = useState(null);
   const [error, setError] = useState('');
@@ -78,7 +80,7 @@ export default function PlatformAdmin() {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(255,255,255,0.65)' }}>Toutes les écoles de la plateforme, tous comptes confondus.</p>
           </div>
           <button
-            onClick={() => { if (window.confirm('Voulez-vous vraiment vous déconnecter ?')) signOut(); }}
+            onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }}
             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', padding: '9px 14px', flexShrink: 0 }}
           >
             Se déconnecter
@@ -123,6 +125,7 @@ async function copyWithToast(text, showToast) {
 function SchoolInvitesTab() {
   const { profile } = useAuth();
   const showToast = useToast();
+  const confirm = useConfirm();
   const [invites, setInvites] = useState(null);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -158,7 +161,7 @@ function SchoolInvitesTab() {
   }
 
   async function handleRevoke(invite) {
-    if (!window.confirm('Révoquer ce code ? Il ne pourra plus créer de compte.')) return;
+    if (!(await confirm('Révoquer ce code ? Il ne pourra plus créer de compte.', { confirmLabel: 'Révoquer' }))) return;
     setRevokingId(invite.id);
     setError('');
     const { error: deleteError } = await supabase.from('school_signup_invites').delete().eq('id', invite.id).is('used_at', null);
@@ -644,6 +647,7 @@ function TrashIcon() {
 
 function AdminsTab() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const [admins, setAdmins] = useState(null);
   const [invites, setInvites] = useState(null);
@@ -689,7 +693,7 @@ function AdminsTab() {
   }
 
   async function handleRemove(a) {
-    if (!window.confirm(`Retirer ${a.email || a.user_id} des administrateurs de la plateforme ?`)) return;
+    if (!(await confirm(`Retirer ${a.email || a.user_id} des administrateurs de la plateforme ?`, { confirmLabel: 'Retirer' }))) return;
     setRemovingId(a.user_id);
     setError('');
     const { error: err } = await callPlatformAdmin({ action: 'remove_admin', userId: a.user_id });
@@ -722,7 +726,7 @@ function AdminsTab() {
   }
 
   async function handleRevoke(invite) {
-    if (!window.confirm(`Révoquer l'invitation pour ${invite.email} ?`)) return;
+    if (!(await confirm(`Révoquer l'invitation pour ${invite.email} ?`, { confirmLabel: 'Révoquer' }))) return;
     setRevokingId(invite.id);
     setError('');
     const { error: deleteError } = await supabase.from('platform_admin_invites').delete().eq('id', invite.id);

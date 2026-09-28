@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES, supportWhatsappLink } from '../lib/utils.js';
 import { applySchoolColor, resetSchoolColor } from '../lib/theme.js';
 import { SchoolYearProvider } from '../lib/schoolYear.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 
 const SIDEBAR_ITEMS = [
@@ -71,6 +72,7 @@ function sidebarLinkStyle(isActive) {
 
 export default function Shell() {
   const { profile, signOut, isPlatformAdmin } = useAuth();
+  const confirm = useConfirm();
   const location = useLocation();
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
@@ -126,7 +128,7 @@ export default function Shell() {
             <HelpIcon />
           </a>
           <button
-            onClick={() => { if (window.confirm('Voulez-vous vraiment vous déconnecter ?')) signOut(); }}
+            onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }}
             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}
           >
             <span aria-hidden="true">⏻</span> <span className="logout-label">Se déconnecter</span>
