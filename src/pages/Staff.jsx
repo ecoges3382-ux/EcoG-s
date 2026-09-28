@@ -81,7 +81,7 @@ export default function Staff() {
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
-  const gridCols = selectMode ? '28px 1.6fr 0.7fr 0.9fr 1.2fr 1.5fr 1.5fr' : '1.6fr 0.7fr 0.9fr 1.2fr 1.5fr 1.5fr 76px';
+  const gridCols = selectMode ? '28px 1.6fr 0.7fr 0.9fr 1.2fr 1.5fr 1.5fr' : '1.6fr 0.7fr 0.9fr 1.2fr 1.5fr 1.5fr 132px';
 
   async function reload() {
     await guardedFetch({
@@ -251,7 +251,7 @@ export default function Staff() {
         <>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
           <div className="card-bold" style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: selectMode ? 860 : 830 }}>
+            <div style={{ minWidth: selectMode ? 860 : 886 }}>
               <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
                 {selectMode && <span></span>}
                 <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Nom</span><span>Matricule</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span><span>Matière(s)</span>
@@ -280,12 +280,12 @@ export default function Staff() {
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
                   </Link>
                   {!selectMode && (
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end' }}>
                       <button
                         type="button"
                         onClick={() => openEdit(p)}
                         title="Modifier"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                       >
                         <PencilIcon />
                       </button>
@@ -294,7 +294,7 @@ export default function Staff() {
                           type="button"
                           onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)}
                           title={showArchives ? 'Réactiver' : 'Archiver'}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                         >
                           {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
                         </button>
@@ -304,7 +304,7 @@ export default function Staff() {
                           type="button"
                           onClick={() => handleDeleteOne(p.id, p.full_name)}
                           title="Supprimer définitivement"
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, padding: 0, borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
                         >
                           <TrashIcon />
                         </button>
