@@ -164,9 +164,9 @@ export default function Students() {
   const filtered = classFilter === 'toutes' ? students : students.filter((s) => s.niveau === classFilter);
 
   function exportCsv() {
-    const rows = [['Matricule', 'Nom', 'Classe', 'Montant dû', 'Payé', 'Reste', 'Téléphone parent']];
+    const rows = [['Nom', 'Matricule', 'Classe', 'Montant dû', 'Payé', 'Reste', 'Téléphone parent']];
     students.forEach((s) => {
-      rows.push([s.matricule || '', s.full_name, s.niveau, s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye), s.parent_phone || '']);
+      rows.push([s.full_name, s.matricule || '', s.niveau, s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye), s.parent_phone || '']);
     });
     downloadCsv('eleves.csv', rows);
   }
