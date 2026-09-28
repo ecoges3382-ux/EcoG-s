@@ -63,10 +63,14 @@ export function SkeletonLine({ width = '60%' }) {
 
 // Tout premier chargement de la session (App.jsx, avant même de savoir si
 // quelqu'un est connecté) : rien n'existe encore à imiter, donc seulement
-// le repère de marque qui respire doucement plutôt qu'un mot figé.
-export function SkeletonScreen() {
+// le repère de marque qui respire doucement plutôt qu'un mot figé. Réutilisé
+// (avec un minHeight réduit) comme fallback <Suspense> le temps qu'un
+// fichier de page chargé à la demande (voir App.jsx) arrive du réseau —
+// à l'intérieur de la coquille de l'app (Shell.jsx), jamais en remplaçant
+// toute la page : la barre latérale et la barre du haut restent visibles.
+export function SkeletonScreen({ minHeight = '100vh' }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ minHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
         className="skeleton-brand"
         style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--forest-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 17, color: '#fff' }}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES, supportWhatsappLink } from '../lib/utils.js';
@@ -6,6 +6,7 @@ import { applySchoolColor, resetSchoolColor } from '../lib/theme.js';
 import { SchoolYearProvider } from '../lib/schoolYear.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
+import { SkeletonScreen } from '../components/Skeleton.jsx';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
@@ -151,7 +152,13 @@ export default function Shell() {
               ce qui rejoue l'animation .page-transition (sinon React ne
               ferait que remplacer le contenu sans redéclencher le CSS). */}
           <div key={location.pathname} className="page-transition">
-            <Outlet />
+            {/* Suspense local : le temps que le fichier de la page suivante
+                arrive du réseau (voir le découpage par page dans App.jsx),
+                seul ce panneau de contenu affiche le repère de marque —
+                la barre latérale et la barre du haut restent en place. */}
+            <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
+              <Outlet />
+            </Suspense>
           </div>
         </div>
       </div>
