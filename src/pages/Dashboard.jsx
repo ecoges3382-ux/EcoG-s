@@ -10,6 +10,7 @@ import { guardedFetch } from '../lib/offlineCache.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OnboardingBanner from '../components/OnboardingBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 
 // Tous les indicateurs annuels (effectifs, finances, présences, résultats)
 // suivent l'année SÉLECTIONNÉE — jamais is_current directement — pour
@@ -72,7 +73,22 @@ export default function Dashboard() {
   }, [schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;
-  if (!students || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!students || !schoolYear) {
+    return (
+      <div>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 18 }}>
+          <SkeletonCard big />
+          <SkeletonCard big />
+        </div>
+        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 26 }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold">
+          <SkeletonTableRows count={5} columns={6} />
+        </div>
+      </div>
+    );
+  }
 
   const previousYear = [...selectableYears]
     .filter((y) => y.id !== schoolYear.id && y.label < schoolYear.label)
@@ -329,7 +345,9 @@ function TodaySection({ activeYear, students }) {
     <div style={{ marginBottom: 28 }}>
       <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Aujourd'hui — {activeYear.label}</p>
       {!data ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }} className="desktop-grid-3">
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }} className="desktop-grid-3">
           <Stat label="Absents aujourd'hui" value={data.absentsAujourdhui} color={data.absentsAujourdhui > 0 ? 'var(--danger)' : undefined} />
@@ -343,7 +361,7 @@ function TodaySection({ activeYear, students }) {
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>Priorité du jour</p>
           <span style={{ fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>{enRetard.length} élèves</span>
         </div>
-        {!students ? <p style={{ fontSize: 13, color: 'var(--muted)' }}>Chargement…</p> : null}
+        {!students ? <SkeletonRow count={3} /> : null}
         {students && enRetard.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Aucun retard de paiement.</p>}
         {enRetard.map((s, i) => (
           <Link
@@ -419,7 +437,7 @@ function ComparisonSection({ currentYear, previousYear, currentStudents, current
 // seule requête par ressource pour toute la page) — seules les données de
 // l'année précédente sont chargées séparément, par ComparisonSection.
 function CompareTable({ currentYear, previousYear, currStudents, currAttendance, prevStudents, prevAttendance }) {
-  if (!currStudents || !currAttendance || !prevAttendance) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!currStudents || !currAttendance || !prevAttendance) return <div className="card-bold"><SkeletonTableRows count={4} columns={3} /></div>;
 
   const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
   const tauxPresenceOf = (records) => {

@@ -9,6 +9,7 @@ import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const STATUTS = [
   { id: 'present', label: 'Présent', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -115,7 +116,7 @@ export default function Attendance() {
   studentsInNiveau.forEach((s) => { counts[statuts[s.id] || 'present'] += 1; });
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!students) return <div className="card-bold"><SkeletonRow count={6} /></div>;
 
   return (
     <div>
@@ -286,7 +287,7 @@ function AttendanceStats({ schoolYear, niveaux, students }) {
       </p>
 
       {records === null ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <SkeletonRow count={3} avatar={false} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }} className="desktop-grid-4">
           <Stat label="Élèves inscrits" value={studentsInNiveau.length} />

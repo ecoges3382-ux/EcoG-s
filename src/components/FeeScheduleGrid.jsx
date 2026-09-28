@@ -5,6 +5,7 @@ import { NIVEAUX, fmtF } from '../lib/utils.js';
 import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
+import { SkeletonTableRows } from './Skeleton.jsx';
 
 // Grille tarifaire (montant attendu par niveau) pour UNE année scolaire
 // donnée. Utilisée à la fois dans Paramètres → Grille tarifaire (toujours
@@ -108,7 +109,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!rows || !niveauxPresents || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!rows || !niveauxPresents || !schoolYear) return <div className="card-bold"><SkeletonTableRows count={4} columns={2} /></div>;
 
   if (niveauxPresents.length === 0) {
     return (

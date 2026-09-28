@@ -9,6 +9,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonTableRows } from '../components/Skeleton.jsx';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -79,7 +80,7 @@ export default function Schedule() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!entries || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!entries || !schoolYear) return <div className="card-bold"><SkeletonTableRows count={5} columns={4} /></div>;
 
   const options = view === 'classe'
     ? [...new Set(entries.map((e) => e.classes?.nom).filter(Boolean))].sort()

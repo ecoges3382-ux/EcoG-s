@@ -8,6 +8,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonTableRows } from '../components/Skeleton.jsx';
 
 function BookIcon() {
   return (
@@ -85,7 +86,7 @@ export default function Subjects() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
-      {!subjects && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!subjects && <div className="card-bold"><SkeletonTableRows count={5} columns={4} /></div>}
 
       {subjects && subjects.length === 0 && (
         <div className="card-bold">

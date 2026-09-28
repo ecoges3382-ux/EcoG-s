@@ -13,6 +13,7 @@ import FinancialStatement from '../components/FinancialStatement.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -149,7 +150,7 @@ export default function StudentDetail() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!student || enrollment === undefined) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!student || enrollment === undefined) return <div className="card-bold"><SkeletonRow count={3} /></div>;
 
   const reste = Number(enrollment?.montant_du || 0) - Number(enrollment?.montant_paye || 0);
   const resteFrais = Number(enrollment?.frais_connexe_du || 0) - Number(enrollment?.frais_connexe_paye || 0);
@@ -285,7 +286,7 @@ export default function StudentDetail() {
             Historique des paiements — {schoolYear.label}
           </p>
           <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
-            {payments === undefined && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+            {payments === undefined && <SkeletonRow count={2} avatar={false} />}
             {payments?.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré pour cette année.</p>}
             {payments?.map((p, i) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
@@ -318,7 +319,7 @@ export default function StudentDetail() {
             Assiduité — {schoolYear.label}
           </p>
           {attendance === undefined ? (
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>
+            <SkeletonRow count={2} avatar={false} />
           ) : totalAppels === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun appel enregistré pour cet élève cette année.</p>
           ) : (
@@ -347,7 +348,7 @@ export default function StudentDetail() {
 
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
       <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
-        {parents === null && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+        {parents === null && <SkeletonRow count={2} />}
         {parents?.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun parent relié pour l'instant.</p>}
         {parents?.map((p, i) => (
           <Link

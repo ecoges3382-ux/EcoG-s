@@ -10,6 +10,7 @@ import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 import { saveCache, loadCache } from '../lib/offlineCache.js';
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
@@ -218,7 +219,7 @@ export default function ParentAccess() {
 
           {offline && <OfflineBanner />}
           {detailError && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{detailError}</p>}
-          {!detailError && !detail && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+          {!detailError && !detail && <SkeletonRow count={3} />}
 
           {detail && (
             <ChildDetail detail={detail} periode={periode} setPeriode={setPeriode} onChangeYear={changeYear} />

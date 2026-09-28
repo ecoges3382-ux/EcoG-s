@@ -415,7 +415,7 @@ function PassageThresholds({ schoolId }) {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!rows || !niveauxPresents) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!rows || !niveauxPresents) return <div className="card-bold"><SkeletonTableRows count={5} columns={2} /></div>;
 
   return (
     <div className="card-bold" style={{ padding: '18px 20px', marginTop: 16, maxWidth: 520 }}>

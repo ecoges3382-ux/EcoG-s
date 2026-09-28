@@ -9,6 +9,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonTableRows } from '../components/Skeleton.jsx';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation' },
@@ -120,7 +121,7 @@ export default function Notes() {
         {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun élève inscrit pour l'instant.</p>}
       </div>
 
-      {!grades && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!grades && <div className="card-bold"><SkeletonTableRows count={6} columns={3} /></div>}
 
       {grades && (
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 }} className="desktop-grid-3">

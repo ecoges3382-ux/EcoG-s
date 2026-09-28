@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { supabase } from '../lib/supabase.js';
 import PasswordInput from '../components/PasswordInput.jsx';
+import { SkeletonLine } from '../components/Skeleton.jsx';
 
 // Page atteinte en cliquant le lien reçu par e-mail (ForgotPassword.jsx) —
 // Supabase pose alors automatiquement une session "recovery" (gérée par
@@ -54,7 +55,7 @@ export default function ResetPassword() {
         </div>
 
         {loading ? (
-          <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13.5 }}>Chargement…</p>
+          <div style={{ display: 'flex', justifyContent: 'center' }}><SkeletonLine width="60%" /></div>
         ) : done ? (
           <div className="card-bold" style={{ padding: '26px 24px', textAlign: 'center' }}>
             <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--ink)' }}>Mot de passe mis à jour.</p>

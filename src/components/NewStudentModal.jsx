@@ -8,6 +8,7 @@ import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
+import { SkeletonLine } from './Skeleton.jsx';
 
 // Propre à ce formulaire : pas de "Moitié" (n'a pas de montant à
 // pré-remplir depuis la grille tarifaire), et "Autre" en plus — le parent
@@ -472,7 +473,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             ) : (
               <>
                 <label style={labelStyle}>Parent (fratrie déjà inscrite)</label>
-                {existingParents === null && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Chargement…</p>}
+                {existingParents === null && <SkeletonLine width="70%" />}
                 {existingParents?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun parent existant dans cette école pour l'instant.</p>}
                 {existingParents?.length > 0 && (
                   <>

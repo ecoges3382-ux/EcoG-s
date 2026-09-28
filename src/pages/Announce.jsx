@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
 // Publication/modification/archivage réservés à fondateur/directeur/
@@ -143,7 +144,7 @@ export default function Announce() {
       )}
 
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}
-      {!error && !items && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!error && !items && <div className="card-bold"><SkeletonRow count={3} avatar={false} /></div>}
 
       {items && (
         <>

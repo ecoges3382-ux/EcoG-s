@@ -33,6 +33,7 @@ import PrepareSchoolYear from './pages/PrepareSchoolYear.jsx';
 import Money from './pages/Money.jsx';
 import Accounts from './pages/Accounts.jsx';
 import FirstTimeSetup from './pages/FirstTimeSetup.jsx';
+import { SkeletonScreen } from './components/Skeleton.jsx';
 
 function SetupNeeded() {
   return (
@@ -55,7 +56,7 @@ function RequireAuth({ children }) {
   const { user, profile, loading, isPlatformAdmin, adminLoading } = useAuth();
   const location = useLocation();
   if (loading || adminLoading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>Chargement…</div>;
+    return <SkeletonScreen />;
   }
   if (!user) {
     // Racine du domaine, personne connectée : vitrine publique plutôt que
@@ -106,7 +107,7 @@ function RequireAuth({ children }) {
 function RequirePlatformAdmin({ children }) {
   const { user, isPlatformAdmin, adminLoading } = useAuth();
   if (adminLoading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>Chargement…</div>;
+    return <SkeletonScreen />;
   }
   if (!user) return <Navigate to="/connexion" replace />;
   if (!isPlatformAdmin) return <Navigate to="/" replace />;
