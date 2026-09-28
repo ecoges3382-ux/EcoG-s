@@ -7,6 +7,7 @@ import { initials, sortClasses, NIVEAUX, fmtF, stickyColStyle } from '../lib/uti
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import NewStudentModal from '../components/NewStudentModal.jsx';
+import DatePicker from '../components/DatePicker.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
@@ -156,11 +157,11 @@ function CreateYearForm({ oldYear, onCreated }) {
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={labelStyle}>Date de début (facultatif)</label>
-          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={inputStyle} />
+          <DatePicker value={dateDebut} onChange={setDateDebut} style={inputStyle} />
         </div>
         <div>
           <label style={labelStyle}>Date de fin (facultatif)</label>
-          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
+          <DatePicker value={dateFin} onChange={setDateFin} style={{ ...inputStyle, marginBottom: 18 }} />
         </div>
       </div>
 

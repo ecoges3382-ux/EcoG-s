@@ -7,6 +7,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
@@ -144,7 +145,7 @@ export default function Attendance() {
         <>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
             <Dropdown value={niveau} onChange={setNiveau} options={niveaux} style={selectStyle} wrapperStyle={{ width: 'auto', minWidth: 140 }} />
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={selectStyle} />
+            <DatePicker value={date} onChange={setDate} style={{ ...selectStyle, width: 'auto' }} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 22 }} className="desktop-grid-3">
@@ -269,15 +270,15 @@ function AttendanceStats({ schoolYear, niveaux, students }) {
           style={selectStyle}
           wrapperStyle={{ width: 'auto', minWidth: 170 }}
         />
-        {periode === 'jour' && <input type="date" value={dateRef} onChange={(e) => setDateRef(e.target.value)} style={selectStyle} />}
+        {periode === 'jour' && <DatePicker value={dateRef} onChange={setDateRef} style={{ ...selectStyle, width: 'auto' }} />}
         {(periode === 'semaine' || periode === 'mois') && (
-          <input type="date" value={dateRef} onChange={(e) => setDateRef(e.target.value)} style={selectStyle} title="Une date dans la période souhaitée" />
+          <DatePicker value={dateRef} onChange={setDateRef} style={{ ...selectStyle, width: 'auto' }} title="Une date dans la période souhaitée" />
         )}
         {periode === 'personnalise' && (
           <>
-            <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} style={selectStyle} />
+            <DatePicker value={customStart} onChange={setCustomStart} style={{ ...selectStyle, width: 'auto' }} />
             <span style={{ color: 'var(--muted)', fontSize: 13 }}>→</span>
-            <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} style={selectStyle} />
+            <DatePicker value={customEnd} onChange={setCustomEnd} style={{ ...selectStyle, width: 'auto' }} />
           </>
         )}
       </div>

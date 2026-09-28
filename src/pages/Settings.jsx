@@ -8,6 +8,7 @@ import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
@@ -288,19 +289,19 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
           <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
             <div>
               <label style={calLabelStyle}>1ère tranche</label>
-              <input type="date" value={d1} onChange={(e) => setD1(e.target.value)} style={calInputStyle} />
+              <DatePicker value={d1} onChange={setD1} style={calInputStyle} />
             </div>
             <div>
               <label style={calLabelStyle}>2ème tranche</label>
-              <input type="date" value={d2} onChange={(e) => setD2(e.target.value)} style={calInputStyle} />
+              <DatePicker value={d2} onChange={setD2} style={calInputStyle} />
             </div>
             <div>
               <label style={calLabelStyle}>3ème tranche</label>
-              <input type="date" value={d3} onChange={(e) => setD3(e.target.value)} style={calInputStyle} />
+              <DatePicker value={d3} onChange={setD3} style={calInputStyle} />
             </div>
             <div>
               <label style={calLabelStyle}>Frais connexes</label>
-              <input type="date" value={dc} onChange={(e) => setDc(e.target.value)} style={calInputStyle} />
+              <DatePicker value={dc} onChange={setDc} style={calInputStyle} />
             </div>
           </div>
           {error && <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}

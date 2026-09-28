@@ -7,6 +7,7 @@ import NameInput from './NameInput.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
+import DatePicker from './DatePicker.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -191,7 +192,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Date d'entrée">
-            <input type="date" value={dateEntree} onChange={(e) => setDateEntree(e.target.value)} style={inputStyle} />
+            <DatePicker value={dateEntree} onChange={setDateEntree} style={inputStyle} />
           </Field>
           <Field label="Salaire mensuel">
             <MoneyInput value={salaireMensuel} onChange={setSalaireMensuel} suffix="F CFA" style={inputStyle} />

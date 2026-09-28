@@ -14,6 +14,7 @@ import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import DatePicker from '../components/DatePicker.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -542,7 +543,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={modalInputStyle} />
+            <DatePicker value={date} onChange={setDate} style={modalInputStyle} />
           </div>
           <div>
             <label style={modalLabelStyle}>Note</label>

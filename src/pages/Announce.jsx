@@ -9,6 +9,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -269,9 +270,9 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
       />
       <div style={{ marginBottom: 14 }}>
         <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Date d'expiration (facultatif)</label>
-        <input
-          type="date" value={dateExpiration} onChange={(e) => setDateExpiration(e.target.value)} min={todayIso()}
-          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, color: 'var(--ink)' }}
+        <DatePicker
+          value={dateExpiration} onChange={setDateExpiration} min={todayIso()}
+          style={{ width: 'auto', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, color: 'var(--ink)' }}
         />
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
