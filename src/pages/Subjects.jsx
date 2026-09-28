@@ -6,6 +6,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SubjectModal from '../components/SubjectModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
 function BookIcon() {
@@ -19,6 +20,7 @@ function BookIcon() {
 
 export default function Subjects() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const [subjects, setSubjects] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -55,7 +57,7 @@ export default function Subjects() {
   useEffect(() => { reload(); }, []);
 
   async function handleDelete(s) {
-    if (!window.confirm(`Supprimer la matière ${s.nom} ?`)) return;
+    if (!(await confirm(`Supprimer la matière ${s.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('subjects').delete().eq('id', s.id);
     if (deleteError) {
       // 23503 = violation de clé étrangère (RESTRICT) : la base bloque la

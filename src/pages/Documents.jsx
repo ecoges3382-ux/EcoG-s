@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -21,6 +22,7 @@ const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire', 'enseignant'];
 
 export default function Documents() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
   const [documents, setDocuments] = useState(null);
@@ -80,7 +82,7 @@ export default function Documents() {
   }
 
   async function handleDelete(doc) {
-    if (!window.confirm(`Supprimer « ${doc.titre} » ?`)) return;
+    if (!(await confirm(`Supprimer « ${doc.titre} » ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('documents').delete().eq('id', doc.id);
     if (deleteError) setError(deleteError.message);
     else reload();

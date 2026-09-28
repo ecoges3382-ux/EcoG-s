@@ -7,6 +7,7 @@ import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -36,6 +37,7 @@ function todayIso() {
 
 export default function Announce() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const { schoolYear, activeYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
   const [items, setItems] = useState(null);
@@ -101,7 +103,7 @@ export default function Announce() {
   }
 
   async function handleDelete(item) {
-    if (!window.confirm('Supprimer définitivement ce brouillon ?')) return;
+    if (!(await confirm('Supprimer définitivement ce brouillon ?', { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('announcements').delete().eq('id', item.id);
     if (deleteError) { setError(deleteError.message); return; }
     reload();
@@ -305,6 +307,7 @@ function timeAgo(dateStr) {
 }
 
 function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
+  const confirm = useConfirm();
   const cibleLabel = a.portee === 'Une classe' ? (a.classes?.nom || a.classe_cible || 'Classe') : a.portee;
   const expiree = a.date_expiration && a.date_expiration < todayIso() && a.statut === 'publiee';
   const st = STATUT_LABELS[a.statut] || STATUT_LABELS.publiee;
@@ -312,7 +315,7 @@ function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
   const [waResult, setWaResult] = useState(null);
 
   async function diffuserWhatsApp() {
-    if (!window.confirm(`Diffuser « ${a.titre} » par WhatsApp à ${cibleLabel === 'École entière' ? 'tous les parents' : `la classe « ${cibleLabel} »`} ?`)) return;
+    if (!(await confirm(`Diffuser « ${a.titre} » par WhatsApp à ${cibleLabel === 'École entière' ? 'tous les parents' : `la classe « ${cibleLabel} »`} ?`, { confirmLabel: 'Diffuser', danger: false }))) return;
     setWaSending(true);
     setWaResult(null);
     try {

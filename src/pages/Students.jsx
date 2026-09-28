@@ -7,6 +7,7 @@ import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
@@ -73,6 +74,7 @@ function UsersIcon() {
 
 export default function Students() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const { schoolYear, activeYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [classes, setClasses] = useState(null);
@@ -272,7 +274,7 @@ export default function Students() {
   }
 
   async function handleDeleteOne(id, name) {
-    if (!window.confirm(`Supprimer définitivement ${name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer définitivement ${name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
     setDeleting(false);
@@ -281,7 +283,7 @@ export default function Students() {
   }
 
   async function handleDeleteSelected() {
-    if (!window.confirm(`Supprimer définitivement ${selectedIds.length} élève${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} élève${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('students').delete().in('id', selectedIds);
     setDeleting(false);

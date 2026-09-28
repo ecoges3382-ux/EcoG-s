@@ -6,6 +6,7 @@ import { initials, fmtF, MODES, modeLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -16,6 +17,7 @@ const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 export default function StaffDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [person, setPerson] = useState(null);
@@ -89,7 +91,7 @@ export default function StaffDetail() {
   // d'avances de la personne via la contrainte cascade (désormais restrict).
   async function handleArchiveToggle() {
     const next = isArchived ? 'actif' : 'inactif';
-    if (next === 'inactif' && !window.confirm(`Archiver ${person.full_name} ? Son historique (avances, salaires versés) reste consultable.`)) return;
+    if (next === 'inactif' && !(await confirm(`Archiver ${person.full_name} ? Son historique (avances, salaires versés) reste consultable.`, { confirmLabel: 'Archiver', danger: false }))) return;
     setArchiving(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: next }).eq('id', id);
     setArchiving(false);
@@ -98,7 +100,7 @@ export default function StaffDetail() {
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Supprimer définitivement ${person.full_name} de l'équipe ? Cette action est irréversible et impossible si un historique (avances, salaires, classe ou matière) est encore rattaché.`)) return;
+    if (!(await confirm(`Supprimer définitivement ${person.full_name} de l'équipe ? Cette action est irréversible et impossible si un historique (avances, salaires, classe ou matière) est encore rattaché.`, { confirmLabel: 'Supprimer' }))) return;
     setArchiving(true);
     const { error: deleteError } = await supabase.from('staff').delete().eq('id', id);
     setArchiving(false);
@@ -187,6 +189,7 @@ function Row({ label, value, topBorder }) {
 // reste des indicateurs annuels de l'appli.
 function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onChanged, createdBy }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const [mois, setMois] = useState('');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
@@ -201,7 +204,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
   // (pas de policy update côté base) : une erreur se corrige en
   // supprimant la ligne fautive puis en en enregistrant une bonne.
   async function handleDelete(s) {
-    if (!window.confirm(`Supprimer ce versement de ${fmtF(s.montant)} (${s.mois}) ? Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer ce versement de ${fmtF(s.montant)} (${s.mois}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('staff_salaries').delete().eq('id', s.id);
     if (deleteError) { setFormError(deleteError.message); return; }
     showToast('Supprimé');

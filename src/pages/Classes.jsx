@@ -7,6 +7,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
 function BuildingIcon() {
@@ -21,6 +22,7 @@ function BuildingIcon() {
 
 export default function Classes() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [classes, setClasses] = useState(null);
   const [enrollments, setEnrollments] = useState([]);
@@ -55,7 +57,7 @@ export default function Classes() {
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
   async function handleDelete(c) {
-    if (!window.confirm(`Supprimer la classe ${c.nom} ?`)) return;
+    if (!(await confirm(`Supprimer la classe ${c.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('classes').delete().eq('id', c.id);
     if (deleteError) {
       // 23503 = violation de clé étrangère (RESTRICT) : la base bloque la

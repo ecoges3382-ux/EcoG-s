@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { ToastProvider } from './components/Toast.jsx';
+import { ConfirmProvider } from './components/ConfirmDialog.jsx';
 import './styles.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <BrowserRouter>
         <ToastProvider>
-          <App />
+          <ConfirmProvider>
+            <App />
+          </ConfirmProvider>
         </ToastProvider>
       </BrowserRouter>
     </ErrorBoundary>

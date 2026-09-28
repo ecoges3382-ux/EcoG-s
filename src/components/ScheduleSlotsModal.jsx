@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
 
 // Gestion des créneaux horaires de l'école (schedule_slots) — la grille de
 // l'emploi du temps était figée à 5 créneaux fixes 8h-16h, jamais
@@ -11,6 +12,7 @@ import { useToast } from './Toast.jsx';
 // déposer, toujours des boutons simples).
 export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const [newLabel, setNewLabel] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
@@ -32,7 +34,7 @@ export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged
   }
 
   async function handleDelete(slot) {
-    if (!window.confirm(`Supprimer le créneau "${slot.label}" ? Les cours qui y sont associés seront aussi supprimés.`)) return;
+    if (!(await confirm(`Supprimer le créneau "${slot.label}" ? Les cours qui y sont associés seront aussi supprimés.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('schedule_slots').delete().eq('id', slot.id);
     if (deleteError) { setError(deleteError.message); return; }
     onChanged();

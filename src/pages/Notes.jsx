@@ -5,6 +5,7 @@ import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -20,6 +21,7 @@ const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Se
 export default function Notes() {
   const { profile } = useAuth();
   const showToast = useToast();
+  const confirm = useConfirm();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -70,7 +72,7 @@ export default function Notes() {
   }, [schoolYear?.id]);
 
   async function handleDelete(g) {
-    if (!window.confirm(`Supprimer la note de ${g.students?.full_name || 'cet élève'} en ${g.subjects?.nom} (${g.note}/${g.sur}) ? Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer la note de ${g.students?.full_name || 'cet élève'} en ${g.subjects?.nom} (${g.note}/${g.sur}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('grades').delete().eq('id', g.id);
     setDeleting(false);

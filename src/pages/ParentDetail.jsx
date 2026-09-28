@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
@@ -14,6 +15,7 @@ const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
 export default function ParentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [access, setAccess] = useState(null);
@@ -76,7 +78,7 @@ export default function ParentDetail() {
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Supprimer définitivement l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer définitivement l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', id);
     setDeleting(false);

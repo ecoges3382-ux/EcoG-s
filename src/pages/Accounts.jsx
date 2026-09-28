@@ -7,6 +7,7 @@ import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
 import NameInput from '../components/NameInput.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -76,6 +77,7 @@ export default function Accounts() {
 
 function StaffAccounts() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const isFondateur = profile.role === 'fondateur';
 
   const [accounts, setAccounts] = useState(null);
@@ -103,7 +105,7 @@ function StaffAccounts() {
   useEffect(() => { reload(); }, []);
 
   async function handleDelete(account) {
-    if (!window.confirm(`Supprimer le compte de ${account.full_name} ? Cette action est définitive.`)) return;
+    if (!(await confirm(`Supprimer le compte de ${account.full_name} ? Cette action est définitive.`, { confirmLabel: 'Supprimer' }))) return;
     const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', {
       body: { action: 'delete', profileId: account.id },
     });
@@ -248,6 +250,7 @@ function NewStaffAccountModal({ onClose, onCreated }) {
 
 function ParentAccessTab() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const canManage = PARENT_MANAGER_ROLES.includes(profile.role);
 
@@ -281,14 +284,14 @@ function ParentAccessTab() {
   useEffect(() => { reload(); }, []);
 
   async function handleDelete(access) {
-    if (!window.confirm(`Supprimer l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner.`)) return;
+    if (!(await confirm(`Supprimer l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', access.id);
     if (deleteError) setError(deleteError.message);
     else reload();
   }
 
   async function handleRegenerate(access) {
-    if (!window.confirm(`Régénérer le code de ${access.full_name} ? L'ancien lien cessera immédiatement de fonctionner.`)) return;
+    if (!(await confirm(`Régénérer le code de ${access.full_name} ? L'ancien lien cessera immédiatement de fonctionner.`, { confirmLabel: 'Régénérer' }))) return;
     let done = false;
     for (let attempt = 0; attempt < 5 && !done; attempt++) {
       const { error: updateError } = await supabase.from('parent_access').update({ code: generateAccessCode() }).eq('id', access.id);

@@ -11,6 +11,7 @@ import AmountAwareTextarea from '../components/AmountAwareTextarea.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -210,6 +211,7 @@ function FraisConnexes() {
 function Payments() {
   const { profile } = useAuth();
   const showToast = useToast();
+  const confirm = useConfirm();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
@@ -227,7 +229,7 @@ function Payments() {
   // trigger recompute_enrollment_paye recalcule automatiquement le payé
   // de l'inscription dès la suppression, donc rien d'autre à faire ici.
   async function handleDelete(p) {
-    if (!window.confirm(`Supprimer ce paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'cet élève'} ? Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer ce paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'cet élève'} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('payments').delete().eq('id', p.id);
     setDeleting(false);
@@ -541,6 +543,7 @@ const modalLabelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color
 
 function Expenses() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
@@ -586,7 +589,7 @@ function Expenses() {
   // Comme "payments"/"staff_salaries" : registre append-only, une erreur
   // se corrige en supprimant la ligne fautive puis en en ajoutant une bonne.
   async function handleDelete(d) {
-    if (!window.confirm(`Supprimer la dépense « ${d.libelle} » (${fmtF(d.montant)}) ? Cette action est irréversible.`)) return;
+    if (!(await confirm(`Supprimer la dépense « ${d.libelle} » (${fmtF(d.montant)}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('expenses').delete().eq('id', d.id);
     if (deleteError) { setError(deleteError.message); return; }
     showToast('Supprimé');
@@ -646,6 +649,7 @@ function Expenses() {
 
 function Advances() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [advances, setAdvances] = useState(null);
@@ -705,7 +709,7 @@ function Advances() {
   // approuvée ou refusée (potentiellement déjà partiellement remboursée),
   // elle reste dans l'historique, comme les autres registres financiers.
   async function handleDelete(a) {
-    if (!window.confirm(`Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ?`)) return;
+    if (!(await confirm(`Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id);
     if (deleteError) { setError(deleteError.message); return; }
     showToast('Supprimé');

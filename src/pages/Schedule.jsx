@@ -5,6 +5,7 @@ import { sortClasses } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import NewScheduleEntryModal from '../components/NewScheduleEntryModal.jsx';
 import ScheduleSlotsModal from '../components/ScheduleSlotsModal.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -21,6 +22,7 @@ const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 // comparaison sur du texte libre n'aurait jamais été fiable.
 export default function Schedule() {
   const { profile } = useAuth();
+  const confirm = useConfirm();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [entries, setEntries] = useState(null);
   const [teachers, setTeachers] = useState([]);
@@ -70,7 +72,7 @@ export default function Schedule() {
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
   async function handleDelete(entry) {
-    if (!window.confirm(`Supprimer ce créneau (${entry.matiere}) ?`)) return;
+    if (!(await confirm(`Supprimer ce créneau (${entry.matiere}) ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('schedule_entries').delete().eq('id', entry.id);
     if (deleteError) { setError(deleteError.message); return; }
     reload();
