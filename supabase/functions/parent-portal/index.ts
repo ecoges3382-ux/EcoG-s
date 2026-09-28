@@ -13,24 +13,39 @@
 // ce calcul reste donc côté serveur (ici) et ne renvoie au parent que le
 // rang final, jamais l'identité ou les notes des autres élèves.
 //
-// Le déploiement de cette fonction se fait par copier-coller dans le
-// dashboard Supabase (pas la CLI) : un import relatif vers src/lib/bulletin.js
-// ne se résoudrait pas dans ce mode. PERIODES_BULLETIN et computeRang
+// Déployée automatiquement par .github/workflows/deploy-functions.yml (CLI,
+// plus de copier-coller manuel dans le dashboard Supabase) — mais un import
+// relatif vers src/lib/bulletin.js ne se résoudrait de toute façon pas dans
+// le bundle isolé de cette fonction. PERIODES_BULLETIN et computeRang
 // ci-dessous sont donc une COPIE FIDÈLE de src/lib/bulletin.js — toute
 // modification de la formule de classement là-bas doit être répercutée ici
 // à la main, sous peine de faire diverger le rang vu par le parent de celui
-// du bulletin admin (Grades.jsx).
+// du bulletin admin (Grades.jsx). Régression déjà vécue une fois avec cette
+// même copie (formule interros/devoirs mise à jour dans bulletin.js sans
+// être répercutée ici, notes du bulletin parent restées vides) — d'où ce
+// rappel explicite.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const PERIODES_BULLETIN = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3'];
 
-type Grade = { student_id: string; subject_id: string; note: number; sur: number; periode: string };
+type Grade = { student_id: string; subject_id: string; type: string; note: number; sur: number; periode: string };
 type Subject = { id: string; coefficient: number; niveau?: string | null };
 
+// Les interrogations comptent ensemble comme UNE composante (leur moyenne),
+// chaque devoir compte comme sa propre composante, les notes "examen" ne
+// rentrent pas dans ce calcul — copie fidèle de subjectPeriodeMoyenne dans
+// src/lib/bulletin.js (voir le commentaire en tête de fichier).
 function subjectPeriodeMoyenne(grades: Grade[], studentId: string, subjectId: string, periode: string): number | null {
   const notes = grades.filter((g) => g.student_id === studentId && g.subject_id === subjectId && g.periode === periode);
-  if (notes.length === 0) return null;
-  return notes.reduce((a, g) => a + (Number(g.note) / Number(g.sur)) * 20, 0) / notes.length;
+  const interros = notes.filter((g) => g.type === 'controle');
+  const devoirs = notes.filter((g) => g.type === 'devoir');
+  const composantes: number[] = [];
+  if (interros.length > 0) {
+    composantes.push(interros.reduce((a, g) => a + (Number(g.note) / Number(g.sur)) * 20, 0) / interros.length);
+  }
+  devoirs.forEach((g) => composantes.push((Number(g.note) / Number(g.sur)) * 20));
+  if (composantes.length === 0) return null;
+  return composantes.reduce((a, v) => a + v, 0) / composantes.length;
 }
 
 function periodeMoyenneGenerale(subjects: Subject[], grades: Grade[], studentId: string, periode: string): number | null {
@@ -255,7 +270,7 @@ Deno.serve(async (req) => {
         adminClient.from('payments').select('id, montant, type_frais, mode, tranche, date, note').eq('student_id', student.id).eq('school_year_id', targetYear.id).order('date', { ascending: false }),
         adminClient.from('attendance_records').select('date, statut').eq('student_id', student.id).eq('school_year_id', targetYear.id).order('date', { ascending: false }),
         adminClient.from('subjects').select('id, nom, coefficient, niveau').eq('school_id', access.school_id),
-        adminClient.from('grades').select('student_id, subject_id, note, sur, periode').eq('student_id', student.id).eq('school_year_id', targetYear.id),
+        adminClient.from('grades').select('student_id, subject_id, type, note, sur, periode').eq('student_id', student.id).eq('school_year_id', targetYear.id),
         niveau
           ? adminClient.from('fee_schedules').select('*').eq('school_year_id', targetYear.id).eq('niveau', niveau).maybeSingle()
           : Promise.resolve({ data: null }),
@@ -278,7 +293,7 @@ Deno.serve(async (req) => {
       if (classmateIds.length > 0 && niveau) {
         const { data: classGrades } = await adminClient
           .from('grades')
-          .select('student_id, subject_id, note, sur, periode')
+          .select('student_id, subject_id, type, note, sur, periode')
           .eq('school_year_id', targetYear.id)
           .in('student_id', classmateIds);
         rangs = {};
