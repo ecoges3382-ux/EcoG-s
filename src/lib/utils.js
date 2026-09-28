@@ -260,5 +260,16 @@ export function stickyColStyle(bg) {
     zIndex: 1,
     background: bg,
     borderRight: '1px solid var(--line)',
+    // Sans ça, Safari peint parfois la colonne figée en retard sur le
+    // reste de la ligne pendant le défilement (élastique sur iOS) : on
+    // entrevoit une fraction de seconde ce qui défile derrière, à travers
+    // un fond pourtant bien opaque. En forçant cette colonne sur sa propre
+    // couche graphique (comme le composited layer d'une image ou vidéo),
+    // le navigateur la peint indépendamment du contenu qui défile dessous
+    // au lieu de la recomposer avec lui à chaque frame.
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
   };
 }
