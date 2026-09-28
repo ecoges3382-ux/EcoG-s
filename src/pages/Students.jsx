@@ -371,6 +371,7 @@ export default function Students() {
           return (
             <div
               key={s.id}
+              className="row-link"
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
             >
               {canDelete && selectMode && (
