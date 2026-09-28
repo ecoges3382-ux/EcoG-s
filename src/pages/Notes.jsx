@@ -11,11 +11,12 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale } from '../lib/bulletin.js';
 
 const TYPES = [
-  { id: 'controle', label: 'Interrogation' },
-  { id: 'devoir', label: 'Devoir' },
-  { id: 'examen', label: 'Examen' },
+  { id: 'controle', label: 'Interrogation', labelPluriel: 'Interrogations' },
+  { id: 'devoir', label: 'Devoir', labelPluriel: 'Devoirs' },
+  { id: 'examen', label: 'Examen', labelPluriel: 'Examens' },
 ];
 
 const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Semestre 2'];
@@ -31,6 +32,7 @@ export default function Notes() {
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [niveau, setNiveau] = useState('');
+  const [periode, setPeriode] = useState(null); // null = pas encore initialisé (voir reload)
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -61,6 +63,14 @@ export default function Notes() {
         setStudents(st);
         setSubjects(su);
         if (!niveau && st.length) setNiveau(st[0].niveau);
+        // Trimestre le plus récemment saisi par défaut (grades est trié par
+        // date de saisie décroissante) plutôt qu'un mélange de tout —
+        // exactement ce qui rendait la liste illisible : interros, devoirs
+        // et examens de tous les trimestres confondus dans un seul flux.
+        if (periode === null) {
+          const dernier = g.find((gr) => PERIODES_BULLETIN.includes(gr.periode))?.periode;
+          setPeriode(dernier || 'Trimestre 1');
+        }
       },
       setOffline,
       onError: (err) => setError(err.message),
@@ -85,21 +95,31 @@ export default function Notes() {
 
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
-  const filteredGrades = niveau ? (grades || []).filter((g) => niveauByStudent.get(g.student_id) === niveau) : (grades || []);
+  const gradesDuNiveau = niveau ? (grades || []).filter((g) => niveauByStudent.get(g.student_id) === niveau) : (grades || []);
+  // "Toutes les périodes" reste possible (bouton dédié), mais le filtre par
+  // trimestre est ce qui règle le vrai problème : sans lui, interros,
+  // devoirs et examens de tous les trimestres s'affichaient ensemble, sans
+  // aucun moyen de les distinguer d'un coup d'œil.
+  const filteredGrades = periode === 'Tous' ? gradesDuNiveau : gradesDuNiveau.filter((g) => g.periode === periode);
+  const groupesParType = TYPES
+    .map((t) => ({ ...t, items: filteredGrades.filter((g) => g.type === t.id) }))
+    .filter((t) => t.items.length > 0);
 
+  // Même calcul que le bulletin (src/lib/bulletin.js) — jamais une deuxième
+  // formule pour le même chiffre : la moyenne du trimestre sélectionné ici
+  // doit être celle qu'on retrouve sur le bulletin de l'élève.
   const classement = useMemo(() => {
-    const byStudent = new Map();
-    filteredGrades.forEach((g) => {
-      const key = g.student_id;
-      if (!byStudent.has(key)) byStudent.set(key, { name: g.students?.full_name || '—', total: 0, count: 0 });
-      const entry = byStudent.get(key);
-      entry.total += (Number(g.note) / Number(g.sur)) * 20;
-      entry.count += 1;
-    });
-    return [...byStudent.values()]
-      .map((e) => ({ name: e.name, moyenne: e.total / e.count }))
+    const idsNiveau = students.filter((s) => !niveau || s.niveau === niveau).map((s) => s.id);
+    return idsNiveau
+      .map((id) => ({
+        name: students.find((s) => s.id === id)?.full_name || '—',
+        moyenne: periode === 'Tous'
+          ? annualMoyenneGenerale(subjects, grades || [], id)
+          : periodeMoyenneGenerale(subjects, grades || [], id, periode),
+      }))
+      .filter((c) => c.moyenne != null)
       .sort((a, b) => b.moyenne - a.moyenne);
-  }, [filteredGrades]);
+  }, [students, niveau, subjects, grades, periode]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
 
@@ -115,51 +135,78 @@ export default function Notes() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         {niveauxPresents.map((n) => (
           <button key={n} onClick={() => setNiveau(n)} style={toggleStyle(n === niveau)}>{n}</button>
         ))}
         {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun élève inscrit pour l'instant.</p>}
       </div>
 
+      {/* Sans ce filtre, interros/devoirs/examens de tous les trimestres
+          s'affichaient dans un seul flux — impossible à distinguer d'un
+          coup d'œil. Un trimestre à la fois, plus "Tous" pour l'exception
+          (retrouver une note saisie par semestre, cas déjà documenté comme
+          hors bulletin dans bulletin.js). */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
+        {[...PERIODES_BULLETIN, 'Tous'].map((p) => (
+          <button key={p} onClick={() => setPeriode(p)} style={toggleStyle(p === periode)}>{p}</button>
+        ))}
+      </div>
+
       {!grades && <div className="card-bold"><SkeletonTableRows count={6} columns={3} /></div>}
 
       {grades && (
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 }} className="desktop-grid-3">
-          <div className="card-bold" style={{ overflow: 'hidden' }}>
-            {filteredGrades.slice(0, 30).map((g, i) => (
-              <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < Math.min(filteredGrades.length, 30) - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
-                <div>
-                  <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{g.students?.full_name}</p>
-                  <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{g.subjects?.nom} · {TYPES.find((t) => t.id === g.type)?.label} · {g.periode}</p>
+          <div>
+            {groupesParType.map((groupe) => (
+              <div key={groupe.id} className="card-bold" style={{ overflow: 'hidden', marginBottom: 16 }}>
+                <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)' }}>{groupe.items.length}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
-                  <button
-                    type="button"
-                    onClick={() => setEditingGrade(g)}
-                    title="Modifier"
-                    style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
-                  >
-                    <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(g)}
-                    disabled={deleting}
-                    title="Supprimer"
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
-                  >
-                    <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                  </button>
-                </div>
+                {groupe.items.map((g, i) => (
+                  <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < groupe.items.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{g.students?.full_name}</p>
+                      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
+                        {g.subjects?.nom}{periode === 'Tous' ? ` · ${g.periode}` : ''}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingGrade(g)}
+                        title="Modifier"
+                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                      >
+                        <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(g)}
+                        disabled={deleting}
+                        title="Supprimer"
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                      >
+                        <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
-            {filteredGrades.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour l'instant.</p>}
+            {groupesParType.length === 0 && (
+              <div className="card-bold" style={{ padding: 20 }}>
+                <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.</p>
+              </div>
+            )}
           </div>
 
           <div className="card-bold" style={{ padding: '16px 18px' }}>
-            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Classement (moyennes /20)</p>
+            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+              Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
+            </p>
             {classement.map((c, i) => (
               <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
                 <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
@@ -178,6 +225,7 @@ export default function Notes() {
           students={students}
           subjects={subjects}
           defaultNiveau={niveau}
+          defaultPeriode={PERIODES_BULLETIN.includes(periode) ? periode : undefined}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
         />
@@ -199,7 +247,7 @@ export default function Notes() {
   );
 }
 
-function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, editing, onClose, onCreated }) {
+function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, defaultPeriode, editing, onClose, onCreated }) {
   const showToast = useToast();
   const [niveau, setNiveau] = useState(defaultNiveau || '');
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
@@ -210,7 +258,7 @@ function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNive
   const [type, setType] = useState(editing?.type || 'controle');
   const [note, setNote] = useState(editing ? String(editing.note) : '');
   const [sur, setSur] = useState(editing ? editing.sur : 20);
-  const [periode, setPeriode] = useState(editing?.periode || 'Trimestre 1');
+  const [periode, setPeriode] = useState(editing?.periode || defaultPeriode || 'Trimestre 1');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
