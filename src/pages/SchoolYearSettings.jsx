@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
 
@@ -42,7 +43,7 @@ export default function SchoolYearSettings() {
   useEffect(() => { reload(); }, []);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!years) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!years) return <div className="card-bold"><SkeletonRow count={3} avatar={false} /></div>;
 
   const active = years.find((y) => y.statut === 'active');
   const preparation = years.find((y) => y.statut === 'preparation');

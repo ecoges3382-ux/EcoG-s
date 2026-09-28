@@ -5,6 +5,7 @@ import { generateAccessCode, copyText } from '../lib/utils.js';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 // Même logique que dans Accounts.jsx : supabase-js ne remplit pas `data`
 // quand la fonction répond en erreur, il faut relire fnError.context.
@@ -191,7 +192,7 @@ function SchoolInvitesTab() {
           {creating ? 'Génération…' : 'Générer un code individuel'}
         </button>
       </form>
-      {!invites && <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>}
+      {!invites && <div className="card-bold" style={{ background: 'var(--paper)' }}><SkeletonRow count={3} avatar={false} /></div>}
       {invites?.length === 0 && <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }}>Aucun code créé.</p>}
       {invites && invites.length > 0 && (
         <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)' }}>
@@ -298,7 +299,7 @@ function EcolesTab({ schools, reload }) {
     return list;
   }, [schools, search, sort]);
 
-  if (!schools) return <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>;
+  if (!schools) return <div className="card-bold" style={{ background: 'var(--paper)' }}><SkeletonRow count={6} avatar={false} /></div>;
 
   const detailSchool = schools.find((s) => s.id === detailId) || null;
 
@@ -535,7 +536,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
         </div>
 
         <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Personnel</p>
-        {!staff && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+        {!staff && <div style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}><SkeletonRow count={2} avatar={false} /></div>}
         {staff && staff.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun compte.</p>}
         {staff && staff.length > 0 && (
           <div style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
@@ -740,7 +741,7 @@ function AdminsTab() {
       {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
 
       <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Administrateurs actuels</p>
-      {!admins && <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>}
+      {!admins && <div className="card-bold" style={{ background: 'var(--paper)' }}><SkeletonRow count={3} avatar={false} /></div>}
       {admins && (
         <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)', marginBottom: 24 }}>
           {admins.map((a, i) => (
@@ -862,7 +863,7 @@ function JournalTab() {
   }, []);
 
   if (error) return <p style={{ color: '#ffb4a8', fontWeight: 600, fontSize: 13.5 }}>{error}</p>;
-  if (!actions) return <p style={{ color: 'rgba(255,255,255,0.65)' }}>Chargement…</p>;
+  if (!actions) return <div className="card-bold" style={{ background: 'var(--paper)' }}><SkeletonRow count={5} avatar={false} /></div>;
 
   return (
     <div className="card-bold" style={{ overflow: 'hidden', background: 'var(--paper)' }}>

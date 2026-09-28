@@ -7,6 +7,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 function FileIcon() {
   return (
@@ -142,7 +143,7 @@ export default function Documents() {
       )}
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
-      {!documents && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!documents && <div className="card-bold"><SkeletonRow count={4} avatar={false} /></div>}
 
       {documents && (
         <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>

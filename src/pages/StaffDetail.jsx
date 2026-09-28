@@ -10,6 +10,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -79,7 +80,7 @@ export default function StaffDetail() {
   }, [id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!person) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!person) return <div className="card-bold"><SkeletonRow count={3} /></div>;
 
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
@@ -236,7 +237,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
       </div>
 
       {!salaries ? (
-        <p style={{ color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>
+        <SkeletonRow count={2} avatar={false} />
       ) : salaries.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: canManage ? 14 : 0 }}>Aucun versement enregistré pour cette année.</p>
       ) : (

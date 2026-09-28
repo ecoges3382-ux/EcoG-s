@@ -10,6 +10,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 
 // Ordre = priorité demandée : effectifs, financier, impayés, présences,
 // résultats, puis la synthèse qui les résume tous.
@@ -137,7 +138,16 @@ export default function Reports() {
   }, [schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!students || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!students || !schoolYear) {
+    return (
+      <div>
+        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold"><SkeletonTableRows count={4} columns={4} /></div>
+      </div>
+    );
+  }
 
   const commonProps = { school: profile.schools, schoolYear, students, attendance, classResults, effectifsMouvement, personnel };
 
@@ -387,7 +397,7 @@ function PresencesReport({ school, schoolYear, students, attendance }) {
 
 function ResultatsReport({ school, schoolYear, classResults }) {
   if (!classResults) {
-    return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+    return <div className="card-bold"><SkeletonTableRows count={4} columns={4} /></div>;
   }
   const avecNotes = classResults.reduce((a, c) => a + Number(c.nb_avec_notes || 0), 0);
   const ponderees = classResults.filter((c) => c.moyenne_generale != null);

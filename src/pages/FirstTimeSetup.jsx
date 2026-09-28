@@ -7,6 +7,7 @@ import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import ClassModal from '../components/ClassModal.jsx';
 import SubjectModal from '../components/SubjectModal.jsx';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
 const STEPS = [
@@ -190,7 +191,7 @@ function SimpleListStep({ title, hint, items, addLabel, onAdd, renderItem, empty
         </button>
       </div>
 
-      {!items && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+      {!items && <SkeletonRow count={3} avatar={false} />}
       {items && items.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>{emptyText}</p>}
       {items && items.length > 0 && (
         <div>

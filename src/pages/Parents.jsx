@@ -9,6 +9,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 function UsersGroupIcon() {
   return (
@@ -130,7 +131,7 @@ export default function Parents() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
-      {!parents && !error && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!parents && !error && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
       {parents && parents.length === 0 && (
         <div className="card-bold">

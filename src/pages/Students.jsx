@@ -8,6 +8,7 @@ import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
@@ -161,7 +162,7 @@ export default function Students() {
   }, [schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;
-  if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!students) return <div className="card-bold"><SkeletonRow count={6} /></div>;
 
   const filtered = classFilter === 'toutes' ? students : students.filter((s) => s.niveau === classFilter);
 

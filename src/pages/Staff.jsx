@@ -10,6 +10,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 function IdBadgeIcon() {
   return (
@@ -229,7 +230,7 @@ export default function Staff() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>}
-      {!error && !staff && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!error && !staff && <div className="card-bold"><SkeletonRow count={6} /></div>}
 
       {staff && visibleStaff.length === 0 && (
         <div className="card-bold">

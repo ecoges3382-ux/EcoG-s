@@ -11,6 +11,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow, SkeletonLine } from '../components/Skeleton.jsx';
 
 // La classe d'un élève est propre à l'année scolaire en cours
 // (enrollments) — students ne garde que son identité. Utilisé par les deux
@@ -137,7 +138,7 @@ function StaffAccounts() {
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {offline && <OfflineBanner />}
-      {!accounts && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!accounts && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
       {accounts && (
         // Pas d'overflow ici, ni X ni Y : dès qu'un seul axe est autre que
@@ -332,7 +333,7 @@ function ParentAccessTab() {
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {offline && <OfflineBanner />}
-      {!accesses && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!accesses && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
       {accesses && (
         <div className="card-bold">
@@ -465,7 +466,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
 
         <label style={labelStyle}>Élève(s) rattaché(s)</label>
         <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
-          {students === null && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Chargement…</p>}
+          {students === null && <SkeletonLine width="70%" />}
           {students?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun élève inscrit pour l'instant.</p>}
           {students?.map((s) => (
             <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
@@ -521,7 +522,7 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
     <ModalShell title={`Enfants rattachés — ${access.full_name}`} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
-          {students === null && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Chargement…</p>}
+          {students === null && <SkeletonLine width="70%" />}
           {students?.map((s) => (
             <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />

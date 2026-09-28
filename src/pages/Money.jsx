@@ -13,6 +13,7 @@ import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
@@ -69,7 +70,16 @@ function Overview() {
   const { students, error, offline, schoolYear } = useEnrollments();
   const [search, setSearch] = useState('');
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!students) {
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold"><SkeletonTableRows count={5} columns={5} /></div>
+      </div>
+    );
+  }
 
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
@@ -167,7 +177,7 @@ function Overview() {
 function FraisConnexes() {
   const { students, error, schoolYear } = useEnrollments();
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!students) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!students) return <div className="card-bold"><SkeletonTableRows count={5} columns={5} /></div>;
 
   const totalDu = students.reduce((a, s) => a + Number(s.frais_connexe_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
@@ -263,7 +273,16 @@ function Payments() {
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!payments) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!payments) {
+    return (
+      <div>
+        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 22 }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold"><SkeletonRow count={5} avatar={false} /></div>
+      </div>
+    );
+  }
 
   const totalEncaisse = payments.reduce((a, p) => a + Number(p.montant), 0);
   const partiels = payments.filter((p) => p.tranche !== 'complet').length;
@@ -597,7 +616,7 @@ function Expenses() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!expenses || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!expenses || !schoolYear) return <div className="card-bold"><SkeletonRow count={4} avatar={false} /></div>;
 
   const total = expenses.reduce((a, d) => a + Number(d.montant), 0);
 
@@ -717,7 +736,7 @@ function Advances() {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!advances || !schoolYear) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!advances || !schoolYear) return <div className="card-bold"><SkeletonRow count={4} avatar={false} /></div>;
 
   const canDecide = profile.role === 'fondateur' || profile.role === 'directeur';
 

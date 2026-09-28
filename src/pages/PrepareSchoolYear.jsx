@@ -9,6 +9,7 @@ import NewStudentModal from '../components/NewStudentModal.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import { SkeletonRow, SkeletonLine, SkeletonTableRows } from '../components/Skeleton.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
 const STEPS = [
@@ -59,7 +60,7 @@ export default function PrepareSchoolYear() {
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour à Année scolaire
       </Link>
 
-      {prep === undefined && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {prep === undefined && <div className="card-bold"><SkeletonRow count={3} avatar={false} /></div>}
 
       {prep === null && <CreateYearForm oldYear={oldYear} onCreated={reload} />}
 
@@ -328,7 +329,7 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!rows) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!rows) return <div className="card-bold"><SkeletonTableRows count={5} columns={5} /></div>;
 
   const counts = { tous: rows.length, a_traiter: 0, passe: 0, redouble: 0, part: 0 };
   rows.forEach((r) => { counts[r.decision] += 1; });
@@ -526,7 +527,7 @@ function AddExistingStudentModal({ excludeIds, onClose, onAdd }) {
           Pour un élève déjà présent dans les fiches de l'école (ex. absent l'année dernière, qui revient) — sa fiche n'est jamais recréée.
         </p>
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher par nom…" style={inputStyle} />
-        {students === null && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Chargement…</p>}
+        {students === null && <SkeletonLine width="70%" />}
         {students !== null && filtered.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Aucun élève trouvé.</p>}
         <div style={{ maxHeight: 260, overflowY: 'auto' }}>
           {filtered.map((s, i) => (
@@ -577,7 +578,7 @@ function ResumeStep({ prep, onActivated }) {
   }
 
   if (error && !decisions) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!decisions) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!decisions) return <div className="card-bold"><SkeletonTableRows count={5} columns={5} /></div>;
 
   const counts = { passe: 0, redouble: 0, part: 0, a_traiter: 0 };
   let totalDu = 0;

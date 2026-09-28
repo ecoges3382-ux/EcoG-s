@@ -6,6 +6,7 @@ import { getWhatsAppConfig, saveWhatsAppConfig, WHATSAPP_TYPE_LABELS, WHATSAPP_S
 import { useToast } from '../components/Toast.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const CAN_VIEW_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const MESSAGE_TYPES = Object.keys(WHATSAPP_TYPE_LABELS);
@@ -81,7 +82,7 @@ export default function SettingsWhatsApp() {
 
       {offline && <OfflineBanner />}
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
-      {!error && !config && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!error && !config && <div className="card-bold"><SkeletonRow count={3} avatar={false} /></div>}
 
       {config && (
         <>
@@ -216,7 +217,7 @@ function HistoryCard({ messages }) {
     <div>
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Derniers envois</p>
       <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 560 }}>
-        {messages === null && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
+        {messages === null && <SkeletonRow count={2} avatar={false} />}
         {messages?.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun message envoyé pour l'instant.</p>}
         {messages?.map((m, i) => {
           const st = WHATSAPP_STATUT_LABELS[m.statut] || WHATSAPP_STATUT_LABELS.en_attente;

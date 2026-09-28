@@ -8,6 +8,7 @@ import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -68,7 +69,7 @@ export default function ParentDetail() {
   }, [access, schoolYear?.id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!access) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>;
+  if (!access) return <div className="card-bold"><SkeletonRow count={3} /></div>;
 
   const children = (access.parent_access_students || []).map((row) => row.students).filter(Boolean);
 

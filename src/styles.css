@@ -140,6 +140,17 @@ body.app-mode .page-title { color: #fff !important; }
 @keyframes confirmDialogIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
 .confirm-dialog-in { animation: confirmDialogIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* ---- Squelettes de chargement (Skeleton.jsx), à la place du texte
+   "Chargement…" ---- */
+@keyframes skeletonShimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--line) 25%, var(--line-strong) 37%, var(--line) 63%);
+  background-size: 400px 100%;
+  animation: skeletonShimmer 1.6s ease-in-out infinite;
+}
+@keyframes skeletonBrandPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.skeleton-brand { animation: skeletonBrandPulse 1.6s ease-in-out infinite; }
+
 /* Entrée en cascade des cartes-clé du tableau de bord — se rejoue à chaque
    visite (Dashboard.jsx est remonté à chaque navigation, voir
    .page-transition ci-dessus) : Dashboard.jsx pose --stat-d sur chaque
@@ -162,7 +173,7 @@ body.app-mode .page-title { color: #fff !important; }
 .fill-bar { animation: fillBar 1.1s cubic-bezier(0.22, 1, 0.36, 1) 150ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .page-transition, .empty-state-in, .stat-in, .fill-bar, .confirm-dialog-in { animation: none !important; }
+  .page-transition, .empty-state-in, .stat-in, .fill-bar, .confirm-dialog-in, .skeleton-shimmer, .skeleton-brand { animation: none !important; }
   button:not(:disabled):hover { transform: none !important; }
 }
 

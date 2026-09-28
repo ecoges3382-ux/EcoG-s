@@ -10,6 +10,7 @@ import DocumentHeader from '../components/DocumentHeader.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonTableRows } from '../components/Skeleton.jsx';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
@@ -108,7 +109,7 @@ export default function Grades() {
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Bulletins scolaires</p>
 
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}
-      {!error && grades === null && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
+      {!error && grades === null && <div className="card-bold"><SkeletonTableRows count={5} columns={3} /></div>}
 
       {grades !== null && (
         <>
