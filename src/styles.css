@@ -111,6 +111,18 @@ body.app-mode .page-title { color: #fff !important; }
 }
 .school-tabs-mobile a.active { border-color: var(--forest); background: var(--forest); color: #fff; }
 
+/* ---- Transition entre pages (Shell.jsx enveloppe <Outlet/> dans une div
+   clé par pathname, donc remontée = rejoue l'animation à chaque
+   navigation) et état vide (EmptyState.jsx) ---- */
+@keyframes screenPageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.page-transition { animation: screenPageIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes emptyStateIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.empty-state-in { animation: emptyStateIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition, .empty-state-in { animation: none !important; }
+}
+
 /* ---- Impression / export PDF (bulletin, reçu, situation financière) ----
    Un seul mécanisme réutilisé par tous les documents imprimables plutôt
    qu'un moteur PDF séparé : chaque document se marque .print-sheet, et

@@ -4,7 +4,18 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import { useToast } from '../components/Toast.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+
+function FileIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 16.5h4" />
+    </svg>
+  );
+}
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire', 'enseignant'];
 
@@ -156,7 +167,13 @@ export default function Documents() {
               )}
             </div>
           ))}
-          {documents.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun document partagé pour l'instant.</p>}
+          {documents.length === 0 && (
+            <EmptyState
+              icon={<FileIcon />}
+              title="Aucun document partagé"
+              subtitle={canManage ? 'Utilise le formulaire ci-dessus pour partager le premier document avec ton équipe.' : "L'équipe n'a encore partagé aucun document ici."}
+            />
+          )}
         </div>
       )}
     </div>

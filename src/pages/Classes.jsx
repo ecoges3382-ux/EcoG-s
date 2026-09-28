@@ -6,7 +6,18 @@ import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+
+function BuildingIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="3.5" width="16" height="17" rx="1.4" />
+      <path d="M9 20v-4h6v4" />
+      <path d="M8 7.5h1.2M8 11h1.2M14.8 7.5H16M14.8 11H16" />
+    </svg>
+  );
+}
 
 export default function Classes() {
   const { profile } = useAuth();
@@ -74,7 +85,18 @@ export default function Classes() {
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {!classes && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
-      {classes && (
+      {classes && classes.length === 0 && (
+        <div className="card-bold">
+          <EmptyState
+            icon={<BuildingIcon />}
+            title="Aucune classe pour l'instant"
+            subtitle="Crée tes classes pour pouvoir y inscrire des élèves et leur assigner un emploi du temps."
+            actionLabel="Créer ma première classe"
+            onAction={() => { setEditing(null); setModalOpen(true); }}
+          />
+        </div>
+      )}
+      {classes && classes.length > 0 && (
         <div className="card-bold" style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 680 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
@@ -100,7 +122,6 @@ export default function Classes() {
                 </div>
               );
             })}
-            {classes.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune classe pour l'instant.</p>}
           </div>
         </div>
       )}

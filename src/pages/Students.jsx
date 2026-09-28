@@ -6,6 +6,7 @@ import { fmt, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displ
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
@@ -55,6 +56,17 @@ function PencilIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
       <path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.3" />
+      <path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" />
+      <circle cx="17" cy="8.5" r="2.4" />
+      <path d="M15.5 14c2.4.2 4.2 2.4 4.4 4.7" />
     </svg>
   );
 }
@@ -413,7 +425,19 @@ export default function Students() {
             </div>
           );
         })}
-        {filtered.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève.</p>}
+        {filtered.length === 0 && (
+          classFilter === 'toutes'
+            ? (
+              <EmptyState
+                icon={<UsersIcon />}
+                title="Aucun élève inscrit"
+                subtitle="Ajoute ton premier élève pour commencer à suivre sa scolarité et ses paiements."
+                actionLabel={!isHistorical ? 'Inscrire un élève' : undefined}
+                onAction={!isHistorical ? () => { setEditingStudent(null); setModalOpen(true); } : undefined}
+              />
+            )
+            : <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève dans cette classe.</p>
+        )}
       </div>
 
       {selectMode && (

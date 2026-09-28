@@ -6,7 +6,19 @@ import { initials } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+
+function UsersGroupIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="9" r="3" />
+      <circle cx="16" cy="9" r="3" />
+      <path d="M2.5 20c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" />
+      <path d="M10.5 20c0-3 2.5-5.2 5.5-5.2s5.5 2.2 5.5 5.2" />
+    </svg>
+  );
+}
 
 const MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -118,7 +130,18 @@ export default function Parents() {
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {!parents && !error && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
-      {parents && (
+      {parents && parents.length === 0 && (
+        <div className="card-bold">
+          <EmptyState
+            icon={<UsersGroupIcon />}
+            title="Aucun parent pour l'instant"
+            subtitle="Un parent apparaît ici dès qu'il est rattaché à un élève, depuis la fiche d'inscription."
+            actionLabel="Aller vers Élèves"
+            actionTo="/eleves"
+          />
+        </div>
+      )}
+      {parents && parents.length > 0 && (
         <div className="card-bold" style={{ overflow: 'hidden' }}>
           {parents.map((p, i) => {
             const childCount = (p.parent_access_students || []).length;
@@ -166,7 +189,6 @@ export default function Parents() {
               </div>
             );
           })}
-          {parents.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun parent pour l'instant.</p>}
         </div>
       )}
 
