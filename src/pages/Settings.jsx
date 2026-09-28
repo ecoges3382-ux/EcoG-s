@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { SkeletonTableRows } from '../components/Skeleton.jsx';
 
 const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
 
