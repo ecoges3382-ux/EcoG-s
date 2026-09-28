@@ -5,7 +5,17 @@ import { sortClasses, stickyColStyle } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SubjectModal from '../components/SubjectModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+
+function BookIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 5.5c0-1 .8-1.5 2-1.5h6v15H6c-1.2 0-2 .5-2 1.5V5.5z" />
+      <path d="M20 5.5c0-1-.8-1.5-2-1.5h-6v15h6c1.2 0 2 .5 2 1.5V5.5z" />
+    </svg>
+  );
+}
 
 export default function Subjects() {
   const { profile } = useAuth();
@@ -75,7 +85,18 @@ export default function Subjects() {
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {!subjects && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
-      {subjects && (
+      {subjects && subjects.length === 0 && (
+        <div className="card-bold">
+          <EmptyState
+            icon={<BookIcon />}
+            title="Aucune matière pour l'instant"
+            subtitle="Ajoute les matières enseignées pour pouvoir y rattacher des enseignants et saisir des notes."
+            actionLabel="Créer ma première matière"
+            onAction={() => { setEditing(null); setModalOpen(true); }}
+          />
+        </div>
+      )}
+      {subjects && subjects.length > 0 && (
         <div className="card-bold" style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 560 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.6fr 1fr 1.3fr 0.7fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
@@ -97,7 +118,6 @@ export default function Subjects() {
                 </div>
               </div>
             ))}
-            {subjects.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune matière pour l'instant.</p>}
           </div>
         </div>
       )}

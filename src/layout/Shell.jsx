@@ -145,7 +145,12 @@ export default function Shell() {
         </div>
 
         <div id="screen">
-          <Outlet />
+          {/* Clé par chemin : force un remontage à chaque changement de page,
+              ce qui rejoue l'animation .page-transition (sinon React ne
+              ferait que remplacer le contenu sans redéclencher le CSS). */}
+          <div key={location.pathname} className="page-transition">
+            <Outlet />
+          </div>
         </div>
       </div>
 

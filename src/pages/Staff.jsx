@@ -7,7 +7,19 @@ import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+
+function IdBadgeIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="3.5" width="16" height="17" rx="2.4" />
+      <circle cx="12" cy="10.5" r="2.4" />
+      <path d="M8.3 16.5c.5-1.7 1.9-2.6 3.7-2.6s3.2.9 3.7 2.6" />
+      <path d="M9 3.5v2M15 3.5v2" />
+    </svg>
+  );
+}
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -217,7 +229,22 @@ export default function Staff() {
       {error && <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>}
       {!error && !staff && <p style={{ color: 'var(--muted)' }}>Chargement…</p>}
 
-      {staff && (
+      {staff && visibleStaff.length === 0 && (
+        <div className="card-bold">
+          {showArchives ? (
+            <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre archivé.</p>
+          ) : (
+            <EmptyState
+              icon={<IdBadgeIcon />}
+              title="Aucun membre du personnel"
+              subtitle="Ajoute les enseignants et le personnel administratif pour leur assigner des classes et des matières."
+              actionLabel="Ajouter un membre"
+              onAction={() => { setEditingStaff(null); setModalOpen(true); }}
+            />
+          )}
+        </div>
+      )}
+      {staff && visibleStaff.length > 0 && (
         <>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
           <div className="card-bold" style={{ overflowX: 'auto' }}>
@@ -283,11 +310,6 @@ export default function Staff() {
                   )}
                 </div>
               ))}
-              {visibleStaff.length === 0 && (
-                <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>
-                  {showArchives ? 'Aucun membre archivé.' : 'Aucun membre du personnel actif.'}
-                </p>
-              )}
             </div>
           </div>
         </>
