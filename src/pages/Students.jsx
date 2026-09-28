@@ -112,7 +112,7 @@ export default function Students() {
       load: async () => {
         const { data, error: fetchError } = await supabase
           .from('enrollments')
-          .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url )')
+          .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, parent_phone, photo_url, date_naissance )')
           .eq('school_year_id', schoolYear.id)
           .order('full_name', { foreignTable: 'students' });
         if (fetchError) return { error: fetchError };
@@ -126,6 +126,7 @@ export default function Students() {
             matricule: e.students.matricule,
             parent_phone: e.students.parent_phone,
             photo_url: e.students.photo_url,
+            date_naissance: e.students.date_naissance,
             classe_id: e.classe_id,
             niveau: e.classes?.nom || '—',
             classeNiveau: e.classes?.niveau || null,
