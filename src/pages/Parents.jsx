@@ -148,6 +148,7 @@ export default function Parents() {
             return (
               <div
                 key={p.id}
+                className="row-link"
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < parents.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
                 {selectMode && (

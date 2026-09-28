@@ -134,17 +134,17 @@ function YearKpis({ students, attendance, classResults }) {
   return (
     <>
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 18 }}>
-        <div className="card-bold" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff' }}>
+        <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff' }}>
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement</p>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}>{tauxRecouv}%</p>
             <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmtF(totalDu)} attendus</p>
           </div>
           <div style={{ height: 9, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
+            <div className="fill-bar" style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
           </div>
         </div>
-        <div className="card-bold" style={{ padding: '22px 24px' }}>
+        <div className="card-bold stat-in" style={{ padding: '22px 24px' }}>
           <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif</p>
           <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 30, fontWeight: 700 }}>{students.length}</p>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>élève{students.length > 1 ? 's' : ''} inscrit{students.length > 1 ? 's' : ''}</p>
@@ -231,9 +231,10 @@ function ClassBreakdown({ students, attendance, classResults }) {
               <Link
                 key={r.nom}
                 to="/eleves"
+                className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr', gap: 10, padding: '11px 18px 11px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13, textDecoration: 'none', color: 'inherit' }}
               >
-                <span style={{ fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 18 }}>{r.nom}</span>
+                <span style={{ fontWeight: 600, ...stickyColStyle('var(--row-bg)'), paddingLeft: 18 }}>{r.nom}</span>
                 <span>{r.effectif}</span>
                 <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>{fmtF(reste)}</span>
                 <span>{taux}%</span>
@@ -457,7 +458,7 @@ function CompareTable({ currentYear, previousYear, currStudents, currAttendance,
 
 function Stat({ label, value, color, sub }) {
   return (
-    <div className="card-bold" style={{ padding: '16px 18px' }}>
+    <div className="card-bold stat-in" style={{ padding: '16px 18px' }}>
       <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
       <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color }}>{value}</p>
       {sub && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{sub}</p>}

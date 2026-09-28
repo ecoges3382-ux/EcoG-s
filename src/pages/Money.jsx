@@ -135,9 +135,10 @@ function Overview() {
               <Link
                 key={s.id}
                 to={`/eleves/${s.id}`}
+                className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < Math.min(filtered.length, 200) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>
+                <div style={{ ...stickyColStyle('var(--row-bg)'), paddingLeft: 20 }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>

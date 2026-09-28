@@ -255,7 +255,7 @@ export default function Staff() {
                 {!selectMode && <span></span>}
               </div>
               {visibleStaff.map((p, i) => (
-                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: '14px 20px', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: '14px 20px', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   {selectMode && (
                     <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
                   )}
@@ -265,7 +265,7 @@ export default function Staff() {
                     style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
                   >
                     <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--paper)') }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--row-bg)') }}>
                       <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
                         {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
                       </div>
