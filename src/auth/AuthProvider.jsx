@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
   const [session, setSession] = useState(undefined); // undefined = pas encore chargé
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -124,7 +126,14 @@ export function AuthProvider({ children }) {
         ? supabase.auth.signInWithPassword({ email: identifier, password })
         : supabase.auth.signInWithPassword({ phone: identifier, password })
     ),
-    signOut: () => supabase.auth.signOut(),
+    // Navigue vers "/" AVANT de couper la session (pas après) : RequireAuth
+    // n'affiche la vitrine publique qu'à cette route précise, sinon
+    // (ex. déconnexion depuis /parametres) il redirigerait d'abord vers
+    // /connexion, avec un aller-retour visible à l'écran.
+    signOut: () => {
+      navigate('/', { replace: true });
+      return supabase.auth.signOut();
+    },
     refreshProfile,
   };
 
