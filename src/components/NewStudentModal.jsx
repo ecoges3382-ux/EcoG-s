@@ -9,6 +9,7 @@ import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
 import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
+import DatePicker from './DatePicker.jsx';
 import { SkeletonLine } from './Skeleton.jsx';
 
 // Propre à ce formulaire : pas de "Moitié" (n'a pas de montant à
@@ -36,6 +37,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const canEditEnrollment = !isEditing || !isHistorical;
   const [studentNom, setStudentNom] = useState(student?.nom || '');
   const [studentPrenom, setStudentPrenom] = useState(student?.prenom || '');
+  const [dateNaissance, setDateNaissance] = useState(student?.date_naissance || '');
   const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
   const [montantDu, setMontantDu] = useState(student?.montant_du ?? 0);
   const [montantDuTouched, setMontantDuTouched] = useState(!!student);
@@ -142,6 +144,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           prenom: studentPrenom.trim(),
           full_name: displayName(studentNom.trim(), studentPrenom.trim()),
           photo_url: photoUrl || null,
+          date_naissance: dateNaissance || null,
         })
         .eq('id', student.id)
         .eq('school_id', schoolId);
@@ -205,6 +208,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       p_paiement_tranche: paiementTranche,
       p_paiement_mode: paiementMode,
       p_frais_inscription_montant: fraisInscription,
+      p_date_naissance: dateNaissance || null,
     });
     if (rpcError) {
       setSubmitting(false);
@@ -343,6 +347,11 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             <label style={labelStyle}>Prénom</label>
             <NameInput mode="title" value={studentPrenom} onChange={setStudentPrenom} style={inputStyle} />
           </div>
+        </div>
+
+        <div style={{ marginBottom: 12, maxWidth: 200 }}>
+          <label style={labelStyle}>Date de naissance (facultatif)</label>
+          <DatePicker value={dateNaissance} onChange={setDateNaissance} style={inputStyle} />
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
