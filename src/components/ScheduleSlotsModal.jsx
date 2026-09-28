@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './ConfirmDialog.jsx';
@@ -65,7 +66,11 @@ export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged
 
   const sorted = [...slots].sort((a, b) => a.ordre - b.ordre);
 
-  return (
+  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
+  // le contexte d'empilement créé par l'animation de transition de page
+  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
+  // et la barre de navigation du bas au lieu de les recouvrir.
+  return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -114,7 +119,8 @@ export default function ScheduleSlotsModal({ schoolId, slots, onClose, onChanged
           Fermer
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

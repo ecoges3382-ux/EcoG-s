@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { fmtF, trancheLabel, typeFraisLabel, modeLabel } from '../lib/utils.js';
 import { printDocument, slug } from '../lib/print.js';
 import DocumentHeader from './DocumentHeader.jsx';
@@ -16,7 +17,11 @@ export default function PaymentReceipt({ payment, studentName, classeNom, school
   const resteScolarite = montantDu != null && montantPaye != null ? Number(montantDu) - Number(montantPaye) : null;
   const showReste = payment.type_frais !== 'inscription' && resteScolarite > 0;
 
-  return (
+  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
+  // le contexte d'empilement créé par l'animation de transition de page
+  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
+  // et la barre de navigation du bas au lieu de les recouvrir.
+  return createPortal(
     <div
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -73,7 +78,8 @@ export default function PaymentReceipt({ payment, studentName, classeNom, school
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
