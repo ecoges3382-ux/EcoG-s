@@ -11,7 +11,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
-import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale } from '../lib/bulletin.js';
+import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale, subjectPeriodeMoyenne, subjectAnnualMoyenne } from '../lib/bulletin.js';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation', labelPluriel: 'Interrogations' },
@@ -31,7 +31,14 @@ export default function Notes() {
   const [grades, setGrades] = useState(null);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
-  const [niveau, setNiveau] = useState('');
+  // Trois filtres en cascade : Classe → Élève (filtré par la classe) →
+  // Matière (filtrée par la classe), tous par défaut sur 'Tout' — voir
+  // discussion terrain : sélectionner un élève précis doit restreindre la
+  // liste à ses seules notes, sans quoi les trois menus n'auraient aucun
+  // intérêt par rapport aux boutons niveau d'avant.
+  const [niveau, setNiveau] = useState('Tout');
+  const [eleveId, setEleveId] = useState('Tout');
+  const [matiereId, setMatiereId] = useState('Tout');
   const [periode, setPeriode] = useState(null); // null = pas encore initialisé (voir reload)
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
@@ -62,7 +69,6 @@ export default function Notes() {
         setGrades(g);
         setStudents(st);
         setSubjects(su);
-        if (!niveau && st.length) setNiveau(st[0].niveau);
         // Trimestre le plus récemment saisi par défaut (grades est trié par
         // date de saisie décroissante) plutôt qu'un mélange de tout —
         // exactement ce qui rendait la liste illisible : interros, devoirs
@@ -95,31 +101,50 @@ export default function Notes() {
 
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
-  const gradesDuNiveau = niveau ? (grades || []).filter((g) => niveauByStudent.get(g.student_id) === niveau) : (grades || []);
+  const studentsForNiveau = niveau === 'Tout' ? students : students.filter((s) => s.niveau === niveau);
+  const subjectsForNiveau = niveau === 'Tout' ? subjects : subjects.filter((su) => !su.niveau || su.niveau === niveau);
+
+  // Changer de classe invalide potentiellement l'élève/la matière déjà
+  // choisis (ex. un élève de CM2 sélectionné, puis la classe passe à CE1) —
+  // on revient alors sur 'Tout' plutôt que de garder une sélection devenue
+  // incohérente.
+  function handleNiveauChange(n) {
+    setNiveau(n);
+    setEleveId('Tout');
+    setMatiereId('Tout');
+  }
+
+  let scopedGrades = grades || [];
+  if (niveau !== 'Tout') scopedGrades = scopedGrades.filter((g) => niveauByStudent.get(g.student_id) === niveau);
+  if (matiereId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.subject_id === matiereId);
+  if (eleveId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.student_id === eleveId);
   // "Toutes les périodes" reste possible (bouton dédié), mais le filtre par
   // trimestre est ce qui règle le vrai problème : sans lui, interros,
   // devoirs et examens de tous les trimestres s'affichaient ensemble, sans
   // aucun moyen de les distinguer d'un coup d'œil.
-  const filteredGrades = periode === 'Tous' ? gradesDuNiveau : gradesDuNiveau.filter((g) => g.periode === periode);
+  const filteredGrades = periode === 'Tous' ? scopedGrades : scopedGrades.filter((g) => g.periode === periode);
   const groupesParType = TYPES
     .map((t) => ({ ...t, items: filteredGrades.filter((g) => g.type === t.id) }))
     .filter((t) => t.items.length > 0);
 
-  // Même calcul que le bulletin (src/lib/bulletin.js) — jamais une deuxième
-  // formule pour le même chiffre : la moyenne du trimestre sélectionné ici
-  // doit être celle qu'on retrouve sur le bulletin de l'élève.
+  // Classement : uniquement pertinent en vue d'ensemble (élève === 'Tout') —
+  // dès qu'un élève précis est choisi, il n'y a plus personne à classer
+  // contre lui dans cette vue. Même calcul que le bulletin (src/lib/bulletin.js,
+  // pondéré toutes matières) sauf si une matière précise est sélectionnée, où
+  // le classement se fait alors sur cette seule matière — jamais une
+  // deuxième formule pour le même chiffre.
   const classement = useMemo(() => {
-    const idsNiveau = students.filter((s) => !niveau || s.niveau === niveau).map((s) => s.id);
-    return idsNiveau
-      .map((id) => ({
-        name: students.find((s) => s.id === id)?.full_name || '—',
-        moyenne: periode === 'Tous'
-          ? annualMoyenneGenerale(subjects, grades || [], id)
-          : periodeMoyenneGenerale(subjects, grades || [], id, periode),
+    if (eleveId !== 'Tout') return [];
+    return studentsForNiveau
+      .map((s) => ({
+        name: s.full_name,
+        moyenne: matiereId === 'Tout'
+          ? (periode === 'Tous' ? annualMoyenneGenerale(subjects, grades || [], s.id) : periodeMoyenneGenerale(subjects, grades || [], s.id, periode))
+          : (periode === 'Tous' ? subjectAnnualMoyenne(grades || [], s.id, matiereId) : subjectPeriodeMoyenne(grades || [], s.id, matiereId, periode)),
       }))
       .filter((c) => c.moyenne != null)
       .sort((a, b) => b.moyenne - a.moyenne);
-  }, [students, niveau, subjects, grades, periode]);
+  }, [studentsForNiveau, eleveId, matiereId, subjects, grades, periode]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
 
@@ -135,12 +160,27 @@ export default function Notes() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        {niveauxPresents.map((n) => (
-          <button key={n} onClick={() => setNiveau(n)} style={toggleStyle(n === niveau)}>{n}</button>
-        ))}
-        {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun élève inscrit pour l'instant.</p>}
+      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+        <Dropdown
+          label="Classe"
+          value={niveau}
+          onChange={handleNiveauChange}
+          options={['Tout', ...niveauxPresents]}
+        />
+        <Dropdown
+          label="Élève"
+          value={eleveId}
+          onChange={setEleveId}
+          options={[{ value: 'Tout', label: 'Tout' }, ...studentsForNiveau.map((s) => ({ value: s.id, label: s.full_name }))]}
+        />
+        <Dropdown
+          label="Matière"
+          value={matiereId}
+          onChange={setMatiereId}
+          options={[{ value: 'Tout', label: 'Tout' }, ...subjectsForNiveau.map((s) => ({ value: s.id, label: s.nom }))]}
+        />
       </div>
+      {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Aucun élève inscrit pour l'instant.</p>}
 
       {/* Sans ce filtre, interros/devoirs/examens de tous les trimestres
           s'affichaient dans un seul flux — impossible à distinguer d'un
@@ -156,7 +196,7 @@ export default function Notes() {
       {!grades && <div className="card-bold"><SkeletonTableRows count={6} columns={3} /></div>}
 
       {grades && (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 }} className="desktop-grid-3">
+        <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
           <div>
             {groupesParType.map((groupe) => (
               <div key={groupe.id} className="card-bold" style={{ overflow: 'hidden', marginBottom: 16 }}>
@@ -203,18 +243,20 @@ export default function Notes() {
             )}
           </div>
 
-          <div className="card-bold" style={{ padding: '16px 18px' }}>
-            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-              Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
-            </p>
-            {classement.map((c, i) => (
-              <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
-              </div>
-            ))}
-            {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>—</p>}
-          </div>
+          {eleveId === 'Tout' && (
+            <div className="card-bold" style={{ padding: '16px 18px' }}>
+              <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
+              </p>
+              {classement.map((c, i) => (
+                <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
+                </div>
+              ))}
+              {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>—</p>}
+            </div>
+          )}
         </div>
       )}
 
@@ -224,7 +266,7 @@ export default function Notes() {
           schoolYearId={schoolYear.id}
           students={students}
           subjects={subjects}
-          defaultNiveau={niveau}
+          defaultNiveau={niveau !== 'Tout' ? niveau : undefined}
           defaultPeriode={PERIODES_BULLETIN.includes(periode) ? periode : undefined}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
@@ -237,7 +279,7 @@ export default function Notes() {
           schoolYearId={schoolYear.id}
           students={students}
           subjects={subjects}
-          defaultNiveau={niveauByStudent.get(editingGrade.student_id) || niveau}
+          defaultNiveau={niveauByStudent.get(editingGrade.student_id)}
           editing={editingGrade}
           onClose={() => setEditingGrade(null)}
           onCreated={() => { setEditingGrade(null); reload(); }}
@@ -249,7 +291,12 @@ export default function Notes() {
 
 function NewGradeModal({ schoolId, schoolYearId, students, subjects, defaultNiveau, defaultPeriode, editing, onClose, onCreated }) {
   const showToast = useToast();
-  const [niveau, setNiveau] = useState(defaultNiveau || '');
+  // Formulaire volontairement indépendant des filtres de la page (Classe /
+  // Élève / Matière au-dessus) : il garde son propre état, initialisé à la
+  // classe passée en contexte (édition, ou filtre page si ce n'est pas
+  // 'Tout') sinon à la première classe disponible — jamais 'Tout' lui-même,
+  // qui n'est pas une vraie classe.
+  const [niveau, setNiveau] = useState(defaultNiveau || [...new Set(students.map((s) => s.niveau))].sort()[0] || '');
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
 
