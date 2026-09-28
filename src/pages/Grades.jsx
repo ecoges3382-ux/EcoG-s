@@ -44,7 +44,7 @@ export default function Grades() {
         const [{ data: enr, error: enrError }, { data: su }, { data: gr }] = await Promise.all([
           supabase.from('enrollments').select('classes ( nom ), students ( id, full_name, matricule ) ').eq('school_year_id', schoolYear.id),
           supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-          supabase.from('grades').select('student_id, subject_id, note, sur, periode').eq('school_year_id', schoolYear.id),
+          supabase.from('grades').select('student_id, subject_id, type, note, sur, periode').eq('school_year_id', schoolYear.id),
         ]);
         if (enrError) return { error: enrError };
         const st = (enr || [])
