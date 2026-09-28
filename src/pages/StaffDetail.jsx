@@ -8,6 +8,7 @@ import MoneyInput from '../components/MoneyInput.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
+import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
@@ -277,7 +278,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
             style={smallInput}
             wrapperStyle={{ flex: '1 1 120px', width: 'auto' }}
           />
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...smallInput, flex: '1 1 130px' }} />
+          <DatePicker value={date} onChange={setDate} style={{ ...smallInput, flex: '1 1 130px', width: 'auto' }} />
           <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (facultatif)" style={{ ...smallInput, flex: '2 1 160px' }} />
           <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
             {submitting ? 'Enregistrement…' : 'Enregistrer un versement'}
