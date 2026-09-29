@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { supabase } from '../lib/supabase.js';
 import PasswordInput from '../components/PasswordInput.jsx';
+import { Monogram } from '../components/Logo.jsx';
 
 // Création d'un compte administrateur de la plateforme — jamais liée à une
 // école, contrairement à SignUp.jsx (qui crée une école + un fondateur
@@ -61,7 +62,7 @@ export default function AdminSignUp() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--forest-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 20, color: '#fff', margin: '0 auto 16px' }}>EG</div>
+          <Monogram size={56} style={{ margin: '0 auto 16px' }} />
           <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Compte administrateur</p>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Réservé aux administrateurs de la plateforme, avec un code d'invitation</p>
         </div>

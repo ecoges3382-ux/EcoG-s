@@ -36,16 +36,10 @@
 }
 .lp-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; }
 .lp-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.lp-brand-mark {
-  width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(140deg, var(--lp-gold-soft), var(--lp-gold)); color: var(--lp-deep);
-  font-family: var(--serif); font-weight: 700; font-size: 14px;
-  box-shadow: 0 6px 18px -6px rgba(212, 168, 73, 0.7);
-}
-.lp-brand-name { font-family: var(--serif); font-weight: 700; font-size: 21px; color: #fff; transition: color 0.35s; }
-.lp-brand-name b { color: var(--lp-gold); font-weight: 700; }
-.lp-nav.is-solid .lp-brand-name { color: var(--ink); }
-.lp-nav.is-solid .lp-brand-name b { color: var(--clay); }
+/* Sur le fond sombre du haut de page, « Eco » est blanc ; une fois l'en-tête
+   solide (clair), il repasse en vert foncé — l'or de « Gès » reste le même. */
+.lp-brand-wordmark { --wm-eco: #fff; }
+.lp-nav.is-solid .lp-brand-wordmark { --wm-eco: #02352C; }
 .lp-nav-links { display: flex; gap: 28px; }
 .lp-nav-links a { color: rgba(255, 255, 255, 0.78); text-decoration: none; font-size: 14px; font-weight: 600; transition: color 0.2s; }
 .lp-nav-links a:hover { color: #fff; }

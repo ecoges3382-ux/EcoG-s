@@ -12,6 +12,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { saveCache, loadCache } from '../lib/offlineCache.js';
+import { Monogram } from '../components/Logo.jsx';
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
@@ -166,7 +167,7 @@ export default function ParentAccess() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 20, color: '#fff', margin: '0 auto 16px' }}>EG</div>
+            <Monogram size={56} style={{ margin: '0 auto 16px' }} />
             <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Espace parent</p>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Saisis le code fourni par l'école</p>
           </div>
