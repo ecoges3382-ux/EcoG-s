@@ -1,3 +1,5 @@
+import { Monogram } from './Logo.jsx';
+
 // Écrans de chargement animés — remplace le texte "Chargement…" partout
 // dans l'app. Le principe (dégradé qui glisse) existait déjà sur la page
 // d'accueil publique (Landing.css, .landing-skeleton) ; repris ici en
@@ -71,12 +73,7 @@ export function SkeletonLine({ width = '60%' }) {
 export function SkeletonScreen({ minHeight = '100vh' }) {
   return (
     <div style={{ minHeight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div
-        className="skeleton-brand"
-        style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--forest-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 17, color: '#fff' }}
-      >
-        EG
-      </div>
+      <Monogram size={64} className="skeleton-brand" />
     </div>
   );
 }
