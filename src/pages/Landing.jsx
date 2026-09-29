@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL, supportWhatsappLink, supportMailLink } from '../lib/utils.js';
 import './Landing.css';
+import { Wordmark } from '../components/Logo.jsx';
 
 // Page d'accueil publique, affichée à la racine pour tout visiteur non
 // connecté (voir App.jsx). L'inscription d'une école exige un code à usage
@@ -130,8 +131,7 @@ function Nav() {
       <header className={`lp-nav ${solid ? 'is-solid' : ''}`}>
         <div className="lp-wrap lp-nav-inner">
           <a href="#top" className="lp-brand" aria-label="EcoGès, retour en haut">
-            <span className="lp-brand-mark">EG</span>
-            <span className="lp-brand-name">Eco<b>Gès</b></span>
+            <Wordmark className="lp-brand-wordmark" height={30} />
           </a>
           <nav className="lp-nav-links">
             <a href="#fonctions">Fonctions</a>

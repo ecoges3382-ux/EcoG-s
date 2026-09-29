@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { Monogram } from '../components/Logo.jsx';
 
 // Auto-service, réservé aux comptes e-mail — le mot de passe oublié d'un
 // compte téléphone seul ne peut pas être réinitialisé par ce mécanisme
@@ -42,7 +43,7 @@ export default function ForgotPassword() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 20, color: '#fff', margin: '0 auto 16px' }}>EG</div>
+          <Monogram size={56} style={{ margin: '0 auto 16px' }} />
           <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Mot de passe oublié</p>
           <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Reçois un lien pour choisir un nouveau mot de passe</p>
         </div>
