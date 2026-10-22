@@ -11,6 +11,7 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
+  { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money' },
   { to: '/eleves', label: 'Élèves', icon: 'ti-users' },
   { to: '/parents', label: 'Parents', icon: 'ti-users-group' },
   { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2' },
@@ -32,6 +33,7 @@ const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/m
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet' },
+  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money' },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', group: SCHOOL_GROUP_PATHS },
   { to: '/comptes', shortLabel: 'Comptes', icon: 'ti-users-group' },
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings' },
