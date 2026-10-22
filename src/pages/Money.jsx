@@ -497,7 +497,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Type de frais</label>
-            <Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} />
+            <Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} />
           </div>
           <div>
             <label style={modalLabelStyle}>Montant</label>
