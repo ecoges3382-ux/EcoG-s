@@ -42,6 +42,7 @@ const SchoolYearSettings = lazy(() => import('./pages/SchoolYearSettings.jsx'));
 const SettingsWhatsApp = lazy(() => import('./pages/SettingsWhatsApp.jsx'));
 const PrepareSchoolYear = lazy(() => import('./pages/PrepareSchoolYear.jsx'));
 const Money = lazy(() => import('./pages/Money.jsx'));
+const Recouvrement = lazy(() => import('./pages/Recouvrement.jsx'));
 const Accounts = lazy(() => import('./pages/Accounts.jsx'));
 const FirstTimeSetup = lazy(() => import('./pages/FirstTimeSetup.jsx'));
 
@@ -69,18 +70,9 @@ function RequireAuth({ children }) {
     return <SkeletonScreen />;
   }
   if (!user) {
-    // Racine du domaine, personne connectée : vitrine publique plutôt que
-    // la redirection vers /connexion appliquée à toute autre page protégée
-    // (ex. un lien direct vers /eleves, partagé puis ouvert déconnecté).
     if (location.pathname === '/') return <Landing />;
     return <Navigate to="/connexion" replace />;
   }
-  // Un administrateur de la plateforme n'a rien à faire dans l'interface
-  // d'une école, MÊME s'il a par ailleurs un profil d'école (ex. compte créé
-  // via "Créer une école" avant d'être ajouté aux administrateurs de la
-  // plateforme — voir PlatformAdmin.jsx → onglet Administrateurs) :
-  // priorité vérifiée avant même de regarder le profil, pour ne jamais
-  // laisser passer un administrateur dans Élèves/Argent/etc.
   if (isPlatformAdmin) return <Navigate to="/admin" replace />;
   if (!profile) {
     return (
@@ -92,13 +84,6 @@ function RequireAuth({ children }) {
       </div>
     );
   }
-  // Une école suspendue/résiliée (statut posé par l'administrateur de la
-  // plateforme, voir PlatformAdmin.jsx) rend current_school_id() NULL côté
-  // base pour tous ses comptes : la policy RLS "schools: lecture de sa
-  // propre école" ne renvoie alors plus rien pour l'objet "schools" imbriqué
-  // ici, alors que "profiles" lui-même reste lisible (policy indépendante).
-  // C'est le signal fiable — jamais un champ statut lu côté client, qui
-  // serait de toute façon déjà bloqué par la même RLS.
   if (profile.school_id && !profile.schools) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center' }}>
@@ -137,6 +122,7 @@ function RoleRouter() {
       <Route path="/" element={<Shell />}>
         <Route index element={<Dashboard />} />
         <Route path="argent" element={<Money />} />
+        <Route path="recouvrement" element={<Recouvrement />} />
         <Route path="eleves" element={<Students />} />
         <Route path="eleves/:id" element={<StudentDetail />} />
         <Route path="parents" element={<Parents />} />
