@@ -182,6 +182,8 @@ export const TYPES_FRAIS = [
   { id: 'connexe', label: 'Frais connexes' },
   { id: 'inscription', label: 'Inscription' },
   { id: 'autre', label: 'Autre' },
+  { id: 'solde_ouverture_ecolage', label: "Solde d'ouverture (écolage)", hidden: true },
+  { id: 'solde_ouverture_connexe', label: "Solde d'ouverture (connexes)", hidden: true },
 ];
 export function typeFraisLabel(id) {
   return TYPES_FRAIS.find((t) => t.id === id)?.label || id;
