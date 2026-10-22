@@ -88,11 +88,6 @@ function Overview() {
   const totalReste = totalDu - totalPaye;
   const tauxRecouv = totalDu > 0 ? Math.round((totalPaye / totalDu) * 100) : 0;
 
-  // Une fois un calendrier de paiement configuré, "en retard" veut dire
-  // un délai dépassé (voir computeRelance) plutôt que juste "reste à
-  // payer" — et exclut les élèves avec un moratoire actif. computeRelance
-  // n'est calculé qu'une fois par élève, jamais recalculé pour les stats
-  // puis à nouveau pour le tableau.
   const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3));
   const enrichis = students.map((s) => ({
     ...s,
@@ -235,17 +230,24 @@ function Payments() {
   const [deleting, setDeleting] = useState(false);
 
   // Un paiement ne se corrige jamais par édition — c'est un registre
-  // append-only voulu ainsi (voir supabase/schema.sql, pas de policy
-  // update sur "payments") : une erreur de montant se corrige en
-  // supprimant la ligne fautive puis en en enregistrant une bonne. Le
-  // trigger recompute_enrollment_paye recalcule automatiquement le payé
-  // de l'inscription dès la suppression, donc rien d'autre à faire ici.
+  // append-only voulu ainsi : une erreur se corrige en supprimant la
+  // ligne fautive puis en en enregistrant une bonne.
+  //
+  // Attention : avec les policies RLS, Supabase ne renvoie PAS d'erreur
+  // quand une suppression est bloquée — il renvoie { data: [], error: null }
+  // comme si tout allait bien. C'est pour ça qu'on ajoute .select('id') :
+  // ça permet de vérifier qu'une ligne a vraiment été supprimée et de ne
+  // pas afficher un faux "Supprimé" si la policy a bloqué l'opération.
   async function handleDelete(p) {
     if (!(await confirm(`Supprimer ce paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'cet élève'} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
-    const { error: deleteError } = await supabase.from('payments').delete().eq('id', p.id);
+    const { data: deleted, error: deleteError } = await supabase.from('payments').delete().eq('id', p.id).select('id');
     setDeleting(false);
     if (deleteError) { setError(deleteError.message); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table payments). Vérifie tes policies côté Supabase.");
+      return;
+    }
     showToast('Supprimé');
     reload();
   }
@@ -264,9 +266,6 @@ function Payments() {
       onError: (e) => setError(e.message),
       onSuccess: () => setError(''),
     });
-    // Liste des élèves pour le formulaire "Enregistrer un paiement" —
-    // n'a de sens qu'en ligne (créer un paiement exige une connexion),
-    // donc pas de repli hors-ligne ici, juste un échec silencieux.
     const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
       .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—', montant_du: e.montant_du, montant_paye: e.montant_paye }))
@@ -373,9 +372,6 @@ function Payments() {
 
 function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated }) {
   const showToast = useToast();
-  // Filtre en deux temps (classe puis élève) plutôt qu'un seul menu avec
-  // tous les élèves de l'école mélangés — plus rapide à trouver quand il y
-  // en a beaucoup.
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const [classeFilter, setClasseFilter] = useState(classes[0] || '');
   const studentsInClasse = students.filter((s) => s.niveau === classeFilter);
@@ -394,11 +390,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  // Générée une seule fois à l'ouverture de ce formulaire (pas à chaque
-  // frappe ni à chaque tentative d'envoi) : si la même soumission part deux
-  // fois (double-clic qui passe outre le bouton désactivé, retry réseau),
-  // les deux requêtes portent la même clé. La contrainte unique côté base
-  // (voir supabase/schema.sql) rejette la 2e avec l'erreur 23505.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   async function handleSubmit(e) {
@@ -416,11 +407,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     const { error: insertError } = await supabase.from('payments').insert(payload);
 
     if (insertError && insertError.code === '23505') {
-      // Cette clé existe déjà en base : une tentative précédente (retry
-      // réseau, double envoi) a réussi côté serveur sans que ce client le
-      // sache. On ne traite jamais ça comme un succès silencieux — on
-      // relit la ligne déjà enregistrée pour confirmer qu'elle correspond
-      // bien à cette soumission avant de fermer le formulaire.
       const { data: existing, error: fetchError } = await supabase
         .from('payments')
         .select('student_id, type_frais, montant, mode, tranche, date')
@@ -438,15 +424,10 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
         && existing.tranche === payload.tranche
         && existing.date === payload.date;
       if (matches) {
-        // Même paiement, déjà enregistré par la tentative précédente : rien à refaire.
         showToast('Enregistré');
         onCreated();
         return;
       }
-      // La ligne déjà enregistrée ne correspond pas à ce qui vient d'être
-      // soumis (ex. montant modifié entre deux essais) : on ne referme pas
-      // silencieusement, pour ne pas laisser croire que CETTE saisie a été
-      // prise en compte alors que c'est l'ancienne qui reste en base.
       setError(`Un paiement a déjà été enregistré pour cette même saisie, mais avec des données différentes (${fmtF(existing.montant)} au lieu de ${fmtF(payload.montant)}). Vérifie la liste des paiements plutôt que de réessayer.`);
       return;
     }
@@ -460,11 +441,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     onCreated();
   }
 
-  // Portal vers document.body pour les 2 retours de ce composant : sans
-  // lui, un modal reste piégé dans le contexte d'empilement créé par
-  // l'animation de transition de page (.page-transition, voir Shell.jsx),
-  // et passe derrière la barre du haut et la barre de navigation du bas
-  // au lieu de les recouvrir.
   if (students.length === 0) {
     return createPortal(
       <div
@@ -614,12 +590,18 @@ function Expenses() {
     reload();
   }
 
-  // Comme "payments"/"staff_salaries" : registre append-only, une erreur
-  // se corrige en supprimant la ligne fautive puis en en ajoutant une bonne.
+  // Même précaution que pour payments et salary_advances : .select('id')
+  // pour vérifier qu'une ligne a bien été supprimée (les policies RLS
+  // renvoient silencieusement { data: [], error: null } quand elles
+  // bloquent une opération).
   async function handleDelete(d) {
     if (!(await confirm(`Supprimer la dépense « ${d.libelle} » (${fmtF(d.montant)}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
-    const { error: deleteError } = await supabase.from('expenses').delete().eq('id', d.id);
+    const { data: deleted, error: deleteError } = await supabase.from('expenses').delete().eq('id', d.id).select('id');
     if (deleteError) { setError(deleteError.message); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table expenses). Vérifie tes policies côté Supabase.");
+      return;
+    }
     showToast('Supprimé');
     reload();
   }
@@ -704,9 +686,6 @@ function Advances() {
       onError: (e) => setError(e.message),
       onSuccess: () => setError(''),
     });
-    // Une demande ne peut concerner qu'un membre actif — n'a de sens
-    // qu'en ligne (soumettre une demande exige une connexion), donc pas
-    // de repli hors-ligne ici.
     const { data: st } = await supabase.from('staff').select('id, full_name, role').eq('statut', 'actif').order('full_name');
     setStaff(st || []);
     if (st?.length && !staffId) setStaffId(st[0].id);
@@ -741,17 +720,22 @@ function Advances() {
     else { showToast('Avance marquée comme payée'); reload(); }
   }
 
-  // Suppression autorisée à tout moment pour corriger une erreur de saisie.
-  // Si l'avance a déjà été partiellement ou totalement remboursée, on
-  // prévient explicitement que l'historique de remboursement sera perdu.
+  // .select('id') après le delete : c'est le SEUL moyen de savoir si une
+  // ligne a vraiment été supprimée. Sans lui, une policy RLS qui bloque
+  // l'opération renvoie { data: [], error: null } et on croit à tort que
+  // c'est un succès (bug observé : toast "Supprimé" mais ligne toujours là).
   async function handleDelete(a) {
     const rembourse = Number(a.montant_rembourse) || 0;
     const message = rembourse > 0
       ? `Cette avance a déjà été remboursée à hauteur de ${fmtF(rembourse)}. La supprimer effacera aussi cet historique. Continuer ?`
       : `Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ?`;
     if (!(await confirm(message, { confirmLabel: 'Supprimer' }))) return;
-    const { error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id);
+    const { data: deleted, error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id).select('id');
     if (deleteError) { setError(deleteError.message); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table salary_advances (elle n'autorise peut-être la suppression que pour les avances en attente). Vérifie tes policies côté Supabase.");
+      return;
+    }
     showToast('Supprimé');
     reload();
   }
@@ -854,10 +838,6 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
   const [error, setError] = useState('');
   const rembourse = Number(advance.montant_rembourse) || 0;
 
-  // Le membre actuellement lié à l'avance peut ne plus être dans la liste
-  // des "staff actif" (désactivé depuis la création). On l'ajoute en tête
-  // des options pour ne pas se retrouver avec un dropdown vide, tout en
-  // permettant de le remplacer par un autre.
   const staffOptions = (() => {
     const opts = staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }));
     if (advance.staff_id && !opts.find((o) => o.value === advance.staff_id)) {
@@ -886,10 +866,6 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
     }
     setSubmitting(true);
     setError('');
-    // Le solde restant est recalculé pour rester cohérent : solde = montant
-    // total - déjà remboursé. On ne touche pas à montant_rembourse : si
-    // l'avance avait déjà été partiellement remboursée, cette information
-    // reste vraie, c'est seulement le montant octroyé qui est corrigé.
     const newSolde = Math.max(amount - rembourse, 0);
     const { error: updateError } = await supabase
       .from('salary_advances')
