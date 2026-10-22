@@ -688,6 +688,7 @@ function Advances() {
   const [montant, setMontant] = useState('');
   const [motif, setMotif] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [editingAdvance, setEditingAdvance] = useState(null);
 
   async function reload() {
     if (!schoolYear) return;
@@ -740,11 +741,15 @@ function Advances() {
     else { showToast('Avance marquée comme payée'); reload(); }
   }
 
-  // Uniquement tant que la demande n'a pas encore été statuée — une fois
-  // approuvée ou refusée (potentiellement déjà partiellement remboursée),
-  // elle reste dans l'historique, comme les autres registres financiers.
+  // Suppression autorisée à tout moment pour corriger une erreur de saisie.
+  // Si l'avance a déjà été partiellement ou totalement remboursée, on
+  // prévient explicitement que l'historique de remboursement sera perdu.
   async function handleDelete(a) {
-    if (!(await confirm(`Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ?`, { confirmLabel: 'Supprimer' }))) return;
+    const rembourse = Number(a.montant_rembourse) || 0;
+    const message = rembourse > 0
+      ? `Cette avance a déjà été remboursée à hauteur de ${fmtF(rembourse)}. La supprimer effacera aussi cet historique. Continuer ?`
+      : `Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ?`;
+    if (!(await confirm(message, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id);
     if (deleteError) { setError(deleteError.message); return; }
     showToast('Supprimé');
@@ -760,7 +765,7 @@ function Advances() {
     <div>
       {offline && <OfflineBanner />}
       <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-        Le fondateur et le directeur peuvent approuver ou refuser une demande. Les autres rôles peuvent
+        Le fondateur et le directeur peuvent approuver, refuser, modifier ou supprimer une demande. Les autres rôles peuvent
         seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.
       </p>
 
@@ -782,15 +787,22 @@ function Advances() {
                   <>
                     <button onClick={() => decide(a.id, 'approuvee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>Approuver</button>
                     <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>Refuser</button>
-                    <button onClick={() => handleDelete(a)} title="Supprimer cette demande" style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 10px', borderRadius: 8, border: 'none', background: 'none', color: 'var(--danger)' }}>
-                      <i className="ti ti-trash" style={{ fontSize: 14, verticalAlign: '-2px' }} aria-hidden="true"></i>
-                    </button>
                   </>
                 )}
                 {canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
                   <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
                     <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
                   </button>
+                )}
+                {canDecide && (
+                  <>
+                    <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                    </button>
+                    <button onClick={() => handleDelete(a)} title="Supprimer cette avance" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -821,7 +833,108 @@ function Advances() {
           pour pouvoir soumettre une demande d'avance sur salaire.
         </p>
       )}
+
+      {editingAdvance && (
+        <EditAdvanceModal
+          advance={editingAdvance}
+          staff={staff}
+          onClose={() => setEditingAdvance(null)}
+          onSaved={() => { setEditingAdvance(null); showToast('Modifié'); reload(); }}
+        />
+      )}
     </div>
+  );
+}
+
+function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
+  const [staffId, setStaffId] = useState(advance.staff_id);
+  const [montant, setMontant] = useState(String(advance.montant));
+  const [motif, setMotif] = useState(advance.motif || '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const rembourse = Number(advance.montant_rembourse) || 0;
+
+  // Le membre actuellement lié à l'avance peut ne plus être dans la liste
+  // des "staff actif" (désactivé depuis la création). On l'ajoute en tête
+  // des options pour ne pas se retrouver avec un dropdown vide, tout en
+  // permettant de le remplacer par un autre.
+  const staffOptions = (() => {
+    const opts = staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }));
+    if (advance.staff_id && !opts.find((o) => o.value === advance.staff_id)) {
+      opts.unshift({
+        value: advance.staff_id,
+        label: `${advance.staff?.full_name || '—'}${advance.staff?.role ? ` (${advance.staff.role})` : ''} — inactif`,
+      });
+    }
+    return opts;
+  })();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const amount = Number(montant);
+    if (!staffId) {
+      setError('Sélectionne un membre du personnel.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      setError('Le montant doit être supérieur à 0.');
+      return;
+    }
+    if (rembourse > 0 && amount < rembourse) {
+      setError(`Le montant ne peut pas être inférieur au montant déjà remboursé (${fmtF(rembourse)}).`);
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    // Le solde restant est recalculé pour rester cohérent : solde = montant
+    // total - déjà remboursé. On ne touche pas à montant_rembourse : si
+    // l'avance avait déjà été partiellement remboursée, cette information
+    // reste vraie, c'est seulement le montant octroyé qui est corrigé.
+    const newSolde = Math.max(amount - rembourse, 0);
+    const { error: updateError } = await supabase
+      .from('salary_advances')
+      .update({ staff_id: staffId, montant: amount, solde: newSolde, motif: motif.trim() || null })
+      .eq('id', advance.id);
+    setSubmitting(false);
+    if (updateError) { setError(updateError.message); return; }
+    onSaved();
+  }
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Modifier l'avance</p>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+
+        <label style={modalLabelStyle}>Membre du personnel</label>
+        <Dropdown value={staffId} onChange={setStaffId} options={staffOptions} style={modalInputStyle} />
+
+        <label style={modalLabelStyle}>Montant</label>
+        <MoneyInput value={montant} onChange={setMontant} style={modalInputStyle} suffix="F CFA" />
+
+        <label style={modalLabelStyle}>Motif</label>
+        <AmountAwareTextarea value={motif} onChange={setMotif} multiline={false} style={modalInputStyle} />
+
+        {rembourse > 0 && (
+          <p style={{ margin: '0 0 12px', fontSize: '11.5px', color: 'var(--muted)' }}>
+            Déjà remboursé : {fmtF(rembourse)} — le solde restant sera recalculé automatiquement.
+          </p>
+        )}
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
+          <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
   );
 }
 
