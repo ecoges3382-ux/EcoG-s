@@ -12,14 +12,6 @@ import OnboardingBanner from '../components/OnboardingBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 
-// Tous les indicateurs annuels (effectifs, finances, présences, résultats)
-// suivent l'année SÉLECTIONNÉE — jamais is_current directement — pour
-// pouvoir consulter 2024-2025 sans que le dashboard bascule tout seul sur
-// l'année en cours. Seule la section "Aujourd'hui" (ci-dessous) est un cas
-// à part : "absents aujourd'hui" ou "revenus du mois" n'ont de sens que
-// pour l'année réellement en cours, donc elle utilise explicitement
-// activeYear et disparaît en consultation d'historique plutôt que
-// d'afficher des zéros trompeurs pour une année révolue.
 export default function Dashboard() {
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
@@ -29,13 +21,6 @@ export default function Dashboard() {
   const [classResults, setClassResults] = useState(null);
   const [offlineExtra, setOffline] = useState(false);
 
-  // Présences agrégées pour toute l'année en une seule requête groupée
-  // (jamais un appel par élève ni par classe) — la classe de chaque élève
-  // est déjà connue via `students` (issu d'enrollments), donc le
-  // regroupement par classe se fait ensuite en mémoire à partir de ces
-  // deux petits jeux de données, sans requête supplémentaire. `date` est
-  // inclus pour alimenter le graphique de tendance mensuelle des présences
-  // (TrendsSection ci-dessous) sans requête supplémentaire.
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -53,10 +38,6 @@ export default function Dashboard() {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
-  // Moyenne générale par classe : calculée côté serveur (dashboard_class_results,
-  // supabase/schema.sql) à partir de student_annual_average — la même
-  // fonction que le rollover, jamais une deuxième formule de moyenne, et
-  // jamais toutes les notes de l'école rapatriées pour un simple total.
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -121,10 +102,6 @@ export default function Dashboard() {
 
       <PersonnelSection schoolYear={schoolYear} />
 
-      {/* isHistorical implique selectedYear !== activeYear : quand cette
-          section est visible, l'année sélectionnée EST l'année active, donc
-          `students` (déjà chargé plus haut pour schoolYear) est directement
-          réutilisable ici sans nouvelle requête. */}
       {!isHistorical && activeYear && <TodaySection activeYear={activeYear} students={students} />}
 
       <ComparisonSection currentYear={schoolYear} previousYear={previousYear} currentStudents={students} currentAttendance={attendance} />
@@ -132,6 +109,9 @@ export default function Dashboard() {
   );
 }
 
+// Tous les blocs ci-dessous sont cliquables : chaque carte ouvre l'écran
+// détail correspondant, avec un pré-filtre quand c'est pertinent (ex.
+// "Reste à recouvrer" → Recouvrement déjà filtré sur les élèves avec solde).
 function YearKpis({ students, attendance, classResults }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
@@ -154,58 +134,52 @@ function YearKpis({ students, attendance, classResults }) {
   return (
     <>
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 18 }}>
-        <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff' }}>
-          <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
-            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}>{tauxRecouv}%</p>
-            <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmtF(totalDu)} attendus</p>
+        <Link to="/recouvrement" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir le recouvrement détaillé">
+          <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff', cursor: 'pointer' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}>{tauxRecouv}%</p>
+              <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmtF(totalDu)} attendus</p>
+            </div>
+            <div style={{ height: 9, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden' }}>
+              <div className="fill-bar" style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
+            </div>
           </div>
-          <div style={{ height: 9, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden' }}>
-            <div className="fill-bar" style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
+        </Link>
+        <Link to="/eleves" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir la liste des élèves">
+          <div className="card-bold stat-in" style={{ padding: '22px 24px', cursor: 'pointer' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif</p>
+            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 30, fontWeight: 700 }}>{students.length}</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>élève{students.length > 1 ? 's' : ''} inscrit{students.length > 1 ? 's' : ''}</p>
           </div>
-        </div>
-        <div className="card-bold stat-in" style={{ padding: '22px 24px' }}>
-          <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif</p>
-          <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 30, fontWeight: 700 }}>{students.length}</p>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>élève{students.length > 1 ? 's' : ''} inscrit{students.length > 1 ? 's' : ''}</p>
-        </div>
+        </Link>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
-        <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
-        <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
-        <Stat label="Élèves à jour / avec solde" value={`${nbAJour} / ${nbAvecSolde}`} />
+        <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" to="/recouvrement" />
+        <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" to="/recouvrement?statut=avec_solde" />
+        <Stat label="Élèves à jour / avec solde" value={`${nbAJour} / ${nbAvecSolde}`} to="/recouvrement" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 26 }} className="desktop-grid-3">
-        <Stat label="Taux de présence" value={tauxPresence != null ? `${tauxPresence}%` : '—'} color="var(--success)" />
-        <Stat label="Absences / retards" value={`${counts.absent} / ${counts.retard}`} color={counts.absent > 0 ? 'var(--danger)' : undefined} />
+        <Stat label="Taux de présence" value={tauxPresence != null ? `${tauxPresence}%` : '—'} color="var(--success)" to="/presences" />
+        <Stat label="Absences / retards" value={`${counts.absent} / ${counts.retard}`} color={counts.absent > 0 ? 'var(--danger)' : undefined} to="/presences" />
         <Stat
           label="Moyenne générale de l'école"
           value={moyenneEcole != null ? `${moyenneEcole.toFixed(2)}/20` : '—'}
           sub={classResults ? `${avecNotes} élève${avecNotes > 1 ? 's' : ''} avec notes` : undefined}
+          to="/bulletins"
         />
       </div>
     </>
   );
 }
 
-// ============================================================
-// TENDANCES MENSUELLES
-// Deux graphiques côte à côte : encaissements par mois et taux de
-// présence par mois. Uniquement les mois déjà commencés (jamais de
-// barres vides pour l'avenir) — plus parlant qu'un graphique qui
-// affiche 6 mois à zéro en fin d'année.
-// ============================================================
-
 const MONTH_LABELS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-// Renvoie les mois de l'année scolaire (septembre → août suivant, ou selon
-// la date de début configurée), avec leur clé "YYYY-MM" pour filtrer les
-// données et leur libellé court pour l'affichage. Filtre les mois futurs.
 function buildSchoolYearMonths(schoolYear) {
   let startYear;
-  let startMonthIndex = 8; // Septembre par défaut
+  let startMonthIndex = 8;
   if (schoolYear?.date_debut) {
     const d = new Date(schoolYear.date_debut);
     startYear = d.getFullYear();
@@ -220,7 +194,7 @@ function buildSchoolYearMonths(schoolYear) {
     const idx = (startMonthIndex + i) % 12;
     const year = startYear + Math.floor((startMonthIndex + i) / 12);
     const firstOfMonth = new Date(year, idx, 1);
-    if (firstOfMonth > today) break; // n'affiche pas les mois futurs
+    if (firstOfMonth > today) break;
     months.push({
       key: `${year}-${String(idx + 1).padStart(2, '0')}`,
       label: MONTH_LABELS_FR[idx],
@@ -255,7 +229,6 @@ function TrendsSection({ schoolYear, attendance }) {
 
   const months = buildSchoolYearMonths(schoolYear);
 
-  // Encaissements par mois (barres vertes)
   const paymentsData = months.map((m) => ({
     label: m.label,
     value: (payments || [])
@@ -265,7 +238,6 @@ function TrendsSection({ schoolYear, attendance }) {
   const totalPayments = paymentsData.reduce((a, d) => a + d.value, 0);
   const avgPayments = months.length > 0 ? totalPayments / months.length : 0;
 
-  // Taux de présence par mois (barres dorées)
   const presenceData = months.map((m) => {
     const records = (attendance || []).filter((r) => r.date && r.date.startsWith(m.key));
     if (records.length === 0) return { label: m.label, value: 0, hasData: false };
@@ -313,8 +285,6 @@ function TrendsSection({ schoolYear, attendance }) {
   );
 }
 
-// Graphique à barres en SVG/div pur (aucune dépendance externe). Survol
-// d'une barre → info-bulle flottante avec la valeur exacte au-dessus.
 function TrendChart({ title, subtitle, icon, color, colorLight, data, formatValue, emptyMessage, maxValue }) {
   const [hoverIdx, setHoverIdx] = useState(null);
   const hasAny = (data || []).some((d) => d.value > 0);
@@ -338,8 +308,6 @@ function TrendChart({ title, subtitle, icon, color, colorLight, data, formatValu
 
   const max = maxValue || Math.max(...(data || []).map((d) => d.value), 1);
   const count = (data || []).length || 1;
-  // Hauteur du graphique ; les barres occupent 70% de la hauteur, le reste
-  // est réservé pour les libellés sous les barres.
   const chartHeight = 130;
 
   return (
@@ -424,11 +392,6 @@ function TrendChart({ title, subtitle, icon, color, colorLight, data, formatValu
   );
 }
 
-// Les classes affichées sont celles réellement concernées par l'année
-// sélectionnée (regroupement par classe_id des inscriptions de CETTE
-// année) — jamais la liste permanente de "classes", qui existe
-// indépendamment des années et peut contenir des classes sans aucun élève
-// inscrit cette année-là, ou ne plus refléter qui y était les années passées.
 function ClassBreakdown({ students, attendance, classResults }) {
   const attendanceByStudent = new Map();
   (attendance || []).forEach((r) => {
@@ -504,10 +467,6 @@ function ClassBreakdown({ students, attendance, classResults }) {
   );
 }
 
-// Trois totaux simples (masse salariale versée, avances en attente de
-// remboursement, dépenses) sur l'année sélectionnée — jamais une deuxième
-// formule : mêmes tables et mêmes colonnes que StaffDetail/Argent, juste
-// agrégées ici en une somme par école plutôt que par personne.
 function PersonnelSection({ schoolYear }) {
   const [data, setData] = useState(null);
 
@@ -536,18 +495,15 @@ function PersonnelSection({ schoolYear }) {
     <div style={{ marginBottom: 28 }}>
       <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Personnel</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }} className="desktop-grid-4">
-        <Stat label="Membres actifs" value={data ? data.effectifPersonnel : '…'} />
-        <Stat label="Masse salariale versée" value={data ? fmtF(data.masseSalariale) : '…'} color="var(--success)" />
-        <Stat label="Avances en cours" value={data ? fmtF(data.avancesEnCours) : '…'} color={data && data.avancesEnCours > 0 ? 'var(--amber)' : undefined} />
-        <Stat label="Dépenses" value={data ? fmtF(data.depenses) : '…'} color="var(--danger)" />
+        <Stat label="Membres actifs" value={data ? data.effectifPersonnel : '…'} to="/personnel" />
+        <Stat label="Masse salariale versée" value={data ? fmtF(data.masseSalariale) : '…'} color="var(--success)" to="/personnel" />
+        <Stat label="Avances en cours" value={data ? fmtF(data.avancesEnCours) : '…'} color={data && data.avancesEnCours > 0 ? 'var(--amber)' : undefined} to="/argent" />
+        <Stat label="Dépenses" value={data ? fmtF(data.depenses) : '…'} color="var(--danger)" to="/argent" />
       </div>
     </div>
   );
 }
 
-// Section volontairement liée à activeYear (jamais l'année consultée) et
-// masquée en consultation d'historique — "aujourd'hui"/"ce mois-ci" n'a de
-// sens que pour l'année réellement en cours de l'école.
 function TodaySection({ activeYear, students }) {
   const [data, setData] = useState(null);
 
@@ -588,16 +544,16 @@ function TodaySection({ activeYear, students }) {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }} className="desktop-grid-3">
-          <Stat label="Absents aujourd'hui" value={data.absentsAujourdhui} color={data.absentsAujourdhui > 0 ? 'var(--danger)' : undefined} />
-          <Stat label="Paiements du jour" value={fmtF(data.paiementsDuJour.montant)} sub={`${data.paiementsDuJour.count} paiement${data.paiementsDuJour.count > 1 ? 's' : ''}`} />
-          <Stat label="Revenus du mois" value={fmtF(data.revenusDuMois)} color="var(--success)" />
+          <Stat label="Absents aujourd'hui" value={data.absentsAujourdhui} color={data.absentsAujourdhui > 0 ? 'var(--danger)' : undefined} to="/presences" />
+          <Stat label="Paiements du jour" value={fmtF(data.paiementsDuJour.montant)} sub={`${data.paiementsDuJour.count} paiement${data.paiementsDuJour.count > 1 ? 's' : ''}`} to="/argent" />
+          <Stat label="Revenus du mois" value={fmtF(data.revenusDuMois)} color="var(--success)" to="/argent" />
         </div>
       )}
 
       <div className="card-bold" style={{ padding: '20px 22px', maxWidth: 640 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>Priorité du jour</p>
-          <span style={{ fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>{enRetard.length} élèves</span>
+          <Link to="/recouvrement?statut=avec_solde" style={{ fontSize: '12.5px', color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>{enRetard.length} élèves →</Link>
         </div>
         {!students ? <SkeletonRow count={3} /> : null}
         {students && enRetard.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Aucun retard de paiement.</p>}
@@ -624,10 +580,6 @@ function TodaySection({ activeYear, students }) {
   );
 }
 
-// Comparaison explicitement présentée comme deux années distinctes,
-// jamais fusionnées dans un seul chiffre — et clairement marquée
-// "non disponible" si l'année précédente n'a aucune inscription réelle
-// (typiquement la toute première année d'usage d'EcoGès par l'école).
 function ComparisonSection({ currentYear, previousYear, currentStudents, currentAttendance }) {
   const { students: prevStudents } = useEnrollmentsForYear(previousYear);
   const [prevAttendance, setPrevAttendance] = useState(null);
@@ -671,9 +623,6 @@ function ComparisonSection({ currentYear, previousYear, currentStudents, current
   );
 }
 
-// Reçoit les données de l'année en cours déjà chargées par Dashboard (une
-// seule requête par ressource pour toute la page) — seules les données de
-// l'année précédente sont chargées séparément, par ComparisonSection.
 function CompareTable({ currentYear, previousYear, currStudents, currAttendance, prevStudents, prevAttendance }) {
   if (!currStudents || !currAttendance || !prevAttendance) return <div className="card-bold"><SkeletonTableRows count={4} columns={3} /></div>;
 
@@ -712,12 +661,31 @@ function CompareTable({ currentYear, previousYear, currStudents, currAttendance,
   );
 }
 
-function Stat({ label, value, color, sub }) {
-  return (
-    <div className="card-bold stat-in" style={{ padding: '16px 18px' }}>
+// Stat accepte un `to` optionnel : si fourni, la carte devient un lien vers
+// l'écran détail correspondant. Sans `to`, elle reste une carte statique.
+function Stat({ label, value, color, sub, to }) {
+  const content = (
+    <>
       <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
       <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color }}>{value}</p>
       {sub && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{sub}</p>}
+    </>
+  );
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className="card-bold stat-in"
+        style={{ padding: '16px 18px', textDecoration: 'none', color: 'inherit', display: 'block', cursor: 'pointer' }}
+        title="Voir le détail"
+      >
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <div className="card-bold stat-in" style={{ padding: '16px 18px' }}>
+      {content}
     </div>
   );
 }
