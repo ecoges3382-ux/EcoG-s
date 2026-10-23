@@ -82,7 +82,6 @@ export default function Students() {
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
 
-  // Grille : Élève, Matricule, Sexe, Classe, Date Inscr., Tél, Reste, Statut
   const gridCols = selectMode
     ? '28px 1.5fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
     : '1.5fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
@@ -291,7 +290,9 @@ export default function Students() {
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Élèves</p>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+          Élèves <span style={{ fontSize: 16, color: 'var(--muted)', fontWeight: 400 }}>({students.length})</span>
+        </p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}><i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter</button>
           {!isHistorical && (
