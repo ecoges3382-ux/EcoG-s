@@ -47,25 +47,16 @@ export function displayName(nom, prenom) {
   return `${(nom || '').toUpperCase()} ${prenom || ''}`.trim();
 }
 
-// --- NOUVELLE LOGIQUE INTELLIGENTE POUR LE DÉCOUPAGE NOM/PRÉNOM ---
 export function splitFullName(fullName) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { nom: '', prenom: '' };
   if (parts.length === 1) return { nom: parts[0], prenom: '' };
-
-  // 1. On cherche s'il y a un mot TOUT EN MAJUSCULES (>= 2 lettres). Ex: "KONE Aïcha" -> "KONE"
   const upperWordIndex = parts.findIndex(p => p === p.toUpperCase() && p.length > 1);
   if (upperWordIndex !== -1) {
     const nom = parts[upperWordIndex];
     const prenom = parts.filter((_, i) => i !== upperWordIndex).join(' ');
     return { nom, prenom };
   }
-
-  // 2. Si l'école a tout écrit en minuscules ou avec des majuscules normales ("Kone Aïcha" ou "kone aïcha"),
-  // on utilise l'ordre classique "NOM Prénom" (premier mot = nom), courant en Afrique de l'Ouest.
-  // Si c'était "Aïcha Kone", on applique la règle du dernier mot.
-  // Par défaut, on considère que le format est "NOM Prénom" si le premier mot est plus long que le deuxième.
-  // Mais pour être sûr, on va prendre le premier mot comme nom.
   return { nom: parts[0], prenom: parts.slice(1).join(' ') };
 }
 
@@ -239,13 +230,44 @@ export async function copyText(text) {
   }
 }
 
+// Permet de figer une colonne à gauche (pour le nom de l'élève)
 export function stickyColStyle(bg) {
   return {
     position: 'sticky',
     left: 0,
-    zIndex: 1,
+    zIndex: 2,
     background: bg,
     borderRight: '1px solid var(--line)',
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  };
+}
+
+// Permet de figer une colonne à droite (pour les boutons d'action)
+export function stickyRightColStyle(bg) {
+  return {
+    position: 'sticky',
+    right: 0,
+    zIndex: 2,
+    background: bg,
+    borderLeft: '1px solid var(--line)',
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  };
+}
+
+// Permet de figer la ligne d'en-tête en haut
+export function stickyHeaderStyle(bg) {
+  return {
+    position: 'sticky',
+    top: 0,
+    zIndex: 3,
+    background: bg,
+    borderBottom: '1px solid var(--line)',
     transform: 'translateZ(0)',
     WebkitTransform: 'translateZ(0)',
     backfaceVisibility: 'hidden',
