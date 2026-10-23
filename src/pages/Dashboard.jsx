@@ -33,7 +33,9 @@ export default function Dashboard() {
   // (jamais un appel par élève ni par classe) — la classe de chaque élève
   // est déjà connue via `students` (issu d'enrollments), donc le
   // regroupement par classe se fait ensuite en mémoire à partir de ces
-  // deux petits jeux de données, sans requête supplémentaire.
+  // deux petits jeux de données, sans requête supplémentaire. `date` est
+  // inclus pour alimenter le graphique de tendance mensuelle des présences
+  // (TrendsSection ci-dessous) sans requête supplémentaire.
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -41,7 +43,7 @@ export default function Dashboard() {
       cacheKey: `dashboard_attendance_${schoolYear.id}`,
       hasData: false,
       load: async () => {
-        const { data, error: e } = await supabase.from('attendance_records').select('student_id, statut').eq('school_year_id', schoolYear.id);
+        const { data, error: e } = await supabase.from('attendance_records').select('student_id, date, statut').eq('school_year_id', schoolYear.id);
         return e ? { error: e } : { data: data || [] };
       },
       setData: setAttendance,
@@ -113,6 +115,8 @@ export default function Dashboard() {
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
 
+      <TrendsSection schoolYear={schoolYear} attendance={attendance} />
+
       <ClassBreakdown students={students} attendance={attendance} classResults={classResults} />
 
       <PersonnelSection schoolYear={schoolYear} />
@@ -183,6 +187,240 @@ function YearKpis({ students, attendance, classResults }) {
         />
       </div>
     </>
+  );
+}
+
+// ============================================================
+// TENDANCES MENSUELLES
+// Deux graphiques côte à côte : encaissements par mois et taux de
+// présence par mois. Uniquement les mois déjà commencés (jamais de
+// barres vides pour l'avenir) — plus parlant qu'un graphique qui
+// affiche 6 mois à zéro en fin d'année.
+// ============================================================
+
+const MONTH_LABELS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+// Renvoie les mois de l'année scolaire (septembre → août suivant, ou selon
+// la date de début configurée), avec leur clé "YYYY-MM" pour filtrer les
+// données et leur libellé court pour l'affichage. Filtre les mois futurs.
+function buildSchoolYearMonths(schoolYear) {
+  let startYear;
+  let startMonthIndex = 8; // Septembre par défaut
+  if (schoolYear?.date_debut) {
+    const d = new Date(schoolYear.date_debut);
+    startYear = d.getFullYear();
+    startMonthIndex = d.getMonth();
+  } else {
+    const match = schoolYear?.label?.match(/^(\d{4})-(\d{4})$/);
+    startYear = match ? Number(match[1]) : new Date().getFullYear();
+  }
+  const today = new Date();
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    const idx = (startMonthIndex + i) % 12;
+    const year = startYear + Math.floor((startMonthIndex + i) / 12);
+    const firstOfMonth = new Date(year, idx, 1);
+    if (firstOfMonth > today) break; // n'affiche pas les mois futurs
+    months.push({
+      key: `${year}-${String(idx + 1).padStart(2, '0')}`,
+      label: MONTH_LABELS_FR[idx],
+    });
+  }
+  return months;
+}
+
+function TrendsSection({ schoolYear, attendance }) {
+  const [payments, setPayments] = useState(null);
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    guardedFetch({
+      cacheKey: `dashboard_monthly_payments_${schoolYear.id}`,
+      hasData: false,
+      load: async () => {
+        const { data, error: e } = await supabase
+          .from('payments')
+          .select('date, montant')
+          .eq('school_year_id', schoolYear.id);
+        return e ? { error: e } : { data: data || [] };
+      },
+      setData: setPayments,
+      isCancelled: () => cancelled,
+    });
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
+
+  if (!schoolYear) return null;
+
+  const months = buildSchoolYearMonths(schoolYear);
+
+  // Encaissements par mois (barres vertes)
+  const paymentsData = months.map((m) => ({
+    label: m.label,
+    value: (payments || [])
+      .filter((p) => p.date && p.date.startsWith(m.key))
+      .reduce((a, p) => a + Number(p.montant), 0),
+  }));
+  const totalPayments = paymentsData.reduce((a, d) => a + d.value, 0);
+  const avgPayments = months.length > 0 ? totalPayments / months.length : 0;
+
+  // Taux de présence par mois (barres dorées)
+  const presenceData = months.map((m) => {
+    const records = (attendance || []).filter((r) => r.date && r.date.startsWith(m.key));
+    if (records.length === 0) return { label: m.label, value: 0, hasData: false };
+    const presents = records.filter((r) => r.statut === 'present' || r.statut === 'retard').length;
+    return { label: m.label, value: Math.round((presents / records.length) * 100), hasData: true };
+  });
+  const monthsWithData = presenceData.filter((d) => d.hasData);
+  const avgPresence = monthsWithData.length > 0
+    ? Math.round(monthsWithData.reduce((a, d) => a + d.value, 0) / monthsWithData.length)
+    : 0;
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>
+        Tendances mensuelles
+      </p>
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <TrendChart
+          title="Encaissements par mois"
+          subtitle={totalPayments > 0
+            ? `Total ${fmtF(totalPayments)} · moyenne ${fmtF(Math.round(avgPayments))}/mois`
+            : 'Aucun paiement sur cette période'}
+          icon="ti-trending-up"
+          color="#0F4C3A"
+          colorLight="#1F8A62"
+          data={paymentsData}
+          formatValue={(v) => fmtF(v)}
+          emptyMessage="Aucun paiement enregistré pour cette année."
+        />
+        <TrendChart
+          title="Taux de présence par mois"
+          subtitle={monthsWithData.length > 0
+            ? `Moyenne ${avgPresence}% sur ${monthsWithData.length} mois`
+            : 'Aucun appel enregistré sur cette période'}
+          icon="ti-chart-line"
+          color="#D4A849"
+          colorLight="#EBCB82"
+          data={presenceData.map((d) => ({ label: d.label, value: d.value }))}
+          formatValue={(v) => (v > 0 ? `${v}%` : '—')}
+          emptyMessage="Aucun appel enregistré pour cette année."
+          maxValue={100}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Graphique à barres en SVG/div pur (aucune dépendance externe). Survol
+// d'une barre → info-bulle flottante avec la valeur exacte au-dessus.
+function TrendChart({ title, subtitle, icon, color, colorLight, data, formatValue, emptyMessage, maxValue }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+  const hasAny = (data || []).some((d) => d.value > 0);
+
+  if (!hasAny) {
+    return (
+      <div className="card-bold" style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{title}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>{subtitle}</p>
+          </div>
+          <i className={`ti ${icon}`} style={{ fontSize: 22, color }} aria-hidden="true"></i>
+        </div>
+        <div style={{ padding: '32px 0', textAlign: 'center' }}>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', fontStyle: 'italic' }}>{emptyMessage}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const max = maxValue || Math.max(...(data || []).map((d) => d.value), 1);
+  const count = (data || []).length || 1;
+  // Hauteur du graphique ; les barres occupent 70% de la hauteur, le reste
+  // est réservé pour les libellés sous les barres.
+  const chartHeight = 130;
+
+  return (
+    <div className="card-bold" style={{ padding: '18px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{title}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>{subtitle}</p>
+        </div>
+        <i className={`ti ${icon}`} style={{ fontSize: 22, color, flexShrink: 0 }} aria-hidden="true"></i>
+      </div>
+
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: Math.max(4, 24 / count), height: chartHeight + 24 }}>
+        {(data || []).map((d, i) => {
+          const pct = max > 0 ? Math.min(d.value / max, 1) : 0;
+          const barHeight = Math.max(pct * chartHeight, d.value > 0 ? 4 : 2);
+          const isHover = hoverIdx === i;
+          const isFuture = d.value === 0 && max > 0;
+          return (
+            <div
+              key={`${d.label}-${i}`}
+              onMouseEnter={() => setHoverIdx(i)}
+              onMouseLeave={() => setHoverIdx(null)}
+              onTouchStart={() => setHoverIdx(i)}
+              style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', position: 'relative', cursor: 'pointer' }}
+            >
+              {isHover && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: barHeight + 12,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'var(--ink)',
+                  color: '#fff',
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  zIndex: 5,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                }}>
+                  {formatValue(d.value)}
+                </div>
+              )}
+              <div style={{
+                width: '100%',
+                height: barHeight,
+                background: isHover
+                  ? `linear-gradient(180deg, ${colorLight} 0%, ${color} 100%)`
+                  : isFuture
+                    ? 'var(--line)'
+                    : `linear-gradient(180deg, ${color} 0%, ${colorLight} 100%)`,
+                borderRadius: '6px 6px 2px 2px',
+                minHeight: 2,
+                transition: 'height 0.4s ease, background 0.15s',
+              }} />
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: Math.max(4, 24 / count), marginTop: 6 }}>
+        {(data || []).map((d, i) => (
+          <p
+            key={`lbl-${d.label}-${i}`}
+            style={{
+              flex: 1,
+              margin: 0,
+              textAlign: 'center',
+              fontSize: 10,
+              fontWeight: 600,
+              color: hoverIdx === i ? 'var(--ink)' : 'var(--muted)',
+              transition: 'color 0.15s',
+            }}
+          >
+            {d.label}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
 
