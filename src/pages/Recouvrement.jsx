@@ -369,6 +369,88 @@ function TypeCard({ label, du, paye, reste, taux, inscription, count }) {
   );
 }
 
+// Carte « priorité » : liste les élèves qui ont un reste DÛ sur un type de
+// frais donné. Volontairement sans paramètre commun entre écolage et
+// connexes — chaque appel reçoit son propre tableau, son propre total, ses
+// propres couleurs. Aucune fusion des deux totaux n'est possible depuis ce
+// composant.
+function PriorityCard({ title, icon, accent, accentDark, accentLight, students, getReste, totalReste }) {
+  const enRetard = students.filter((s) => s.enRetard);
+  const aJour = students.length - enRetard.length;
+  const top = students.slice(0, 8);
+
+  return (
+    <div className="card-bold" style={{ padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 18, color: accent }} aria-hidden="true"></i>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{title}</p>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: accentDark, background: accentLight, padding: '3px 10px', borderRadius: 20 }}>
+          {students.length} élève{students.length > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+        Total restant : <strong style={{ color: accentDark, fontSize: 14 }}>{fmtF(totalReste)}</strong>
+        {enRetard.length > 0 && (
+          <> · <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{enRetard.length} en retard</span></>
+        )}
+        {enRetard.length === 0 && aJour > 0 && (
+          <> · <span style={{ color: 'var(--amber)', fontWeight: 600 }}>{aJour} dans les délais</span></>
+        )}
+      </p>
+
+      {students.length === 0 ? (
+        <p style={{ margin: 0, padding: '14px 0', fontSize: 12.5, color: 'var(--success)', fontWeight: 600, textAlign: 'center' }}>
+          <i className="ti ti-check" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+          Tout est à jour
+        </p>
+      ) : (
+        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 4 }}>
+          {top.map((s, i) => (
+            <Link
+              key={s.id}
+              to={`/eleves/${s.id}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 0',
+                textDecoration: 'none',
+                color: 'inherit',
+                borderBottom: i < top.length - 1 ? '1px solid var(--line)' : 'none',
+                gap: 8,
+              }}
+            >
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.full_name}
+                </p>
+                <p style={{ margin: 0, fontSize: 10.5, color: 'var(--muted)' }}>{s.niveau}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: s.enRetard ? 'var(--danger)' : 'var(--amber)' }}>
+                  {fmtF(getReste(s))}
+                </span>
+                {s.enRetard && (
+                  <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--danger)', padding: '2px 7px', borderRadius: 10, background: 'var(--danger-light)', whiteSpace: 'nowrap' }}>
+                    RETARD
+                  </span>
+                )}
+              </div>
+            </Link>
+          ))}
+          {students.length > top.length && (
+            <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic' }}>
+              + {students.length - top.length} autre{students.length - top.length > 1 ? 's' : ''} — voir le détail ci-dessous
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 function MoneyCell({ paye, du, reste }) {
   return (
     <div>
