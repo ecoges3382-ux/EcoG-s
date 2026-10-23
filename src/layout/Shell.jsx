@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase.js';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
+  { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money' },
   { to: '/eleves', label: 'Élèves', icon: 'ti-users', countKey: 'students' },
   { to: '/parents', label: 'Parents', icon: 'ti-users-group', countKey: 'parents' },
@@ -145,7 +146,6 @@ export default function Shell() {
   );
 }
 
-// Composant séparé pour pouvoir utiliser le hook useSelectedSchoolYear (qui est fourni par SchoolYearProvider, juste au-dessus)
 function SidebarMenu() {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile?.school_id);
