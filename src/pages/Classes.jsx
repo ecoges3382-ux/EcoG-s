@@ -15,8 +15,7 @@ import { SkeletonTableRows } from '../components/Skeleton.jsx';
 function BuildingIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="4" y="3.5" width="16" height="17" rx="1.4" /><path d="M9 20v-4h6v4" />
-      <path d="M8 7.5h1.2M8 11h1.2M14.8 7.5H16M14.8 11H16" />
+      <rect x="4" y="3.5" width="16" height="17" rx="1.4" /><path d="M9 20v-4h6v4" /><path d="M8 7.5h1.2M8 11h1.2M14.8 7.5H16M14.8 11H16" />
     </svg>
   );
 }
@@ -132,7 +131,7 @@ export default function Classes() {
         </div>
       )}
       {classes && classes.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
           <div style={{ minWidth: selectMode ? 720 : 680 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
               {selectMode && <span></span>}
@@ -143,23 +142,16 @@ export default function Classes() {
               const effectif = enrollments.filter((e) => e.classe_id === c.id).length;
               return (
                 <div key={c.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                  {selectMode && (
-                    <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleOne(c.id)} />
-                  )}
+                  {selectMode && <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleOne(c.id)} />}
                   <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>{c.nom}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
                   <span style={{ fontSize: 13 }}>{effectif}{c.capacite ? ` / ${c.capacite}` : ''}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
-                  
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
-                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier">
-                        <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                      </button>
-                      <button onClick={() => handleDeleteOne(c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer">
-                        <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                      </button>
+                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier"><i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i></button>
+                      <button onClick={() => handleDeleteOne(c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer"><i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i></button>
                     </div>
                   )}
                 </div>
@@ -168,31 +160,9 @@ export default function Classes() {
           </div>
         </div>
       )}
-
-      <p style={{ margin: '14px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>
-        L'effectif est compté à partir des inscriptions de l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.
-      </p>
-
-      {selectMode && (
-        <SelectionBar
-          count={selectedIds.length}
-          allSelected={classes && classes.length > 0 && classes.every((c) => selectedIds.includes(c.id))}
-          onCancel={exitSelectMode}
-          onToggleAll={toggleAllVisible}
-          onDelete={handleDeleteSelected}
-          deleting={deleting}
-        />
-      )}
-
-      {modalOpen && (
-        <ClassModal
-          schoolId={profile.school_id}
-          teachers={teachers}
-          editing={editing}
-          onClose={() => setModalOpen(false)}
-          onSaved={() => { setModalOpen(false); reload(); }}
-        />
-      )}
+      <p style={{ margin: '14px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>L'effectif est compté à partir des inscriptions de l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.</p>
+      {selectMode && <SelectionBar count={selectedIds.length} allSelected={classes && classes.length > 0 && classes.every((c) => selectedIds.includes(c.id))} onCancel={exitSelectMode} onToggleAll={toggleAllVisible} onDelete={handleDeleteSelected} deleting={deleting} />}
+      {modalOpen && <ClassModal schoolId={profile.school_id} teachers={teachers} editing={editing} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); reload(); }} />}
     </div>
   );
 }
