@@ -27,7 +27,6 @@ const TABS = [
   { id: 'avances', label: 'Avances sur salaire' },
 ];
 
-
 export default function Money() {
   const [tab, setTab] = useState('vue');
   const { schoolYear, isHistorical } = useSelectedSchoolYear();
@@ -232,7 +231,7 @@ function Payments() {
     setDeleting(false);
     if (deleteError) { setError(deleteError.message); return; }
     if (!deleted || deleted.length === 0) {
-      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table payments). Vérifie tes policies côté Supabase.");
+      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table payments).");
       return;
     }
     showToast('Supprimé');
@@ -514,12 +513,11 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
         </div>
 
-        {students.length === 0 && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)' }}>Aucun élève inscrit.</p>}
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
-          <button type="submit" disabled={submitting || students.length === 0} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
+          <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
             {submitting ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
@@ -582,7 +580,7 @@ function Expenses() {
     const { data: deleted, error: deleteError } = await supabase.from('expenses').delete().eq('id', d.id).select('id');
     if (deleteError) { setError(deleteError.message); return; }
     if (!deleted || deleted.length === 0) {
-      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table expenses). Vérifie tes policies côté Supabase.");
+      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table expenses).");
       return;
     }
     showToast('Supprimé');
@@ -712,7 +710,7 @@ function Advances() {
     const { data: deleted, error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id).select('id');
     if (deleteError) { setError(deleteError.message); return; }
     if (!deleted || deleted.length === 0) {
-      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table salary_advances (elle n'autorise peut-être la suppression que pour les avances en attente). Vérifie tes policies côté Supabase.");
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table salary_advances.");
       return;
     }
     showToast('Supprimé');
@@ -831,14 +829,8 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
   async function handleSubmit(e) {
     e.preventDefault();
     const amount = Number(montant);
-    if (!staffId) {
-      setError('Sélectionne un membre du personnel.');
-      return;
-    }
-    if (!amount || amount <= 0) {
-      setError('Le montant doit être supérieur à 0.');
-      return;
-    }
+    if (!staffId) { setError('Sélectionne un membre du personnel.'); return; }
+    if (!amount || amount <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
     if (rembourse > 0 && amount < rembourse) {
       setError(`Le montant ne peut pas être inférieur au montant déjà remboursé (${fmtF(rembourse)}).`);
       return;
