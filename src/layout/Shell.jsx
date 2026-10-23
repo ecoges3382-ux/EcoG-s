@@ -1,22 +1,22 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES, supportWhatsappLink } from '../lib/utils.js';
 import { applySchoolColor, resetSchoolColor } from '../lib/theme.js';
-import { SchoolYearProvider } from '../lib/schoolYear.jsx';
+import { SchoolYearProvider, useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 import { SkeletonScreen } from '../components/Skeleton.jsx';
+import { supabase } from '../lib/supabase.js';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
-  { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money' },
-  { to: '/eleves', label: 'Élèves', icon: 'ti-users' },
-  { to: '/parents', label: 'Parents', icon: 'ti-users-group' },
-  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2' },
-  { to: '/classes', label: 'Classes', icon: 'ti-building' },
-  { to: '/matieres', label: 'Matières', icon: 'ti-book-2' },
+  { to: '/eleves', label: 'Élèves', icon: 'ti-users', countKey: 'students' },
+  { to: '/parents', label: 'Parents', icon: 'ti-users-group', countKey: 'parents' },
+  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', countKey: 'staff' },
+  { to: '/classes', label: 'Classes', icon: 'ti-building', countKey: 'classes' },
+  { to: '/matieres', label: 'Matières', icon: 'ti-book-2', countKey: 'subjects' },
   { to: '/notes', label: 'Notes', icon: 'ti-pencil' },
   { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate' },
   { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time' },
@@ -39,28 +39,18 @@ const BOTTOM_NAV_ITEMS = [
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings' },
 ];
 
-// Dessinée directement (plutôt qu'une classe de police d'icônes) pour être
-// certaine de s'afficher, y compris sur mobile où seule l'icône reste
-// visible (le texte "Administration" se cache sur petit écran).
 function ShieldIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <path d="M12 3l8 3v6c0 4.5 -3 7.5 -8 9c-5 -1.5 -8 -4.5 -8 -9v-6l8 -3z" />
-      <path d="M12 11m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0" />
-      <path d="M12 12.5v2.5" />
+      <path d="M12 3l8 3v6c0 4.5 -3 7.5 -8 9c-5 -1.5 -8 -4.5 -8 -9v-6l8 -3z" /><path d="M12 11m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0" /><path d="M12 12.5v2.5" />
     </svg>
   );
 }
 
-// Même raison que ShieldIcon ci-dessus : "ti-lifebuoy" ne s'affichait pas
-// (bouton vide) — icône de police non fiable, alors qu'un tracé SVG
-// s'affiche toujours.
 function HelpIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.75.35-1.25 1.1-1.25 2.2" />
-      <path d="M12 17.5v.01" />
+      <circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.75.35-1.25 1.1-1.25 2.2" /><path d="M12 17.5v.01" />
     </svg>
   );
 }
@@ -80,8 +70,6 @@ export default function Shell() {
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
 
-  // Fond sombre pour l'appli une fois connecté (cohérent avec la maquette
-  // d'origine, qui bascule body.app-mode après connexion).
   useEffect(() => {
     document.body.classList.add('app-mode');
     return () => document.body.classList.remove('app-mode');
@@ -109,31 +97,18 @@ export default function Shell() {
         <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
           <SchoolYearSelector />
           {isPlatformAdmin && (
-            <NavLink
-              to="/admin"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}
-            >
-              <ShieldIcon />
-              <span className="logout-label">Administration</span>
+            <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <ShieldIcon /><span className="logout-label">Administration</span>
             </NavLink>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20 }}>
             <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
             <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
           </div>
-          <a
-            href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")}
-            target="_blank"
-            rel="noreferrer"
-            title="Besoin d'aide ? Discuter sur WhatsApp"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}
-          >
+          <a href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")} target="_blank" rel="noreferrer" title="Besoin d'aide ? Discuter sur WhatsApp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}>
             <HelpIcon />
           </a>
-          <button
-            onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }}
-            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}
-          >
+          <button onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}>
             <span aria-hidden="true">⏻</span> <span className="logout-label">Se déconnecter</span>
           </button>
         </div>
@@ -141,23 +116,10 @@ export default function Shell() {
 
       <div id="layout">
         <div id="sidebar">
-          {SIDEBAR_ITEMS.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)}>
-              <i className={`ti ${item.icon}`} style={{ fontSize: 18, color: '#fff' }} aria-hidden="true"></i>
-              <span className="sidebar-label">{item.label}</span>
-            </NavLink>
-          ))}
+          <SidebarMenu />
         </div>
-
         <div id="screen">
-          {/* Clé par chemin : force un remontage à chaque changement de page,
-              ce qui rejoue l'animation .page-transition (sinon React ne
-              ferait que remplacer le contenu sans redéclencher le CSS). */}
           <div key={location.pathname} className="page-transition">
-            {/* Suspense local : le temps que le fichier de la page suivante
-                arrive du réseau (voir le découpage par page dans App.jsx),
-                seul ce panneau de contenu affiche le repère de marque —
-                la barre latérale et la barre du haut restent en place. */}
             <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
               <Outlet />
             </Suspense>
@@ -180,5 +142,62 @@ export default function Shell() {
       </div>
     </div>
     </SchoolYearProvider>
+  );
+}
+
+// Composant séparé pour pouvoir utiliser le hook useSelectedSchoolYear (qui est fourni par SchoolYearProvider, juste au-dessus)
+function SidebarMenu() {
+  const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile?.school_id);
+  const [counts, setCounts] = useState({});
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+
+    async function loadCounts() {
+      const [
+        { count: cStudents },
+        { count: cParents },
+        { count: cStaff },
+        { count: cClasses },
+        { count: cSubjects }
+      ] = await Promise.all([
+        supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id),
+        supabase.from('parent_access').select('id', { count: 'exact', head: true }),
+        supabase.from('staff').select('id', { count: 'exact', head: true }).eq('statut', 'actif'),
+        supabase.from('classes').select('id', { count: 'exact', head: true }),
+        supabase.from('subjects').select('id', { count: 'exact', head: true })
+      ]);
+
+      if (!cancelled) {
+        setCounts({
+          students: cStudents || 0,
+          parents: cParents || 0,
+          staff: cStaff || 0,
+          classes: cClasses || 0,
+          subjects: cSubjects || 0,
+        });
+      }
+    }
+
+    loadCounts();
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
+
+  return (
+    <>
+      {SIDEBAR_ITEMS.map((item) => (
+        <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)}>
+          <i className={`ti ${item.icon}`} style={{ fontSize: 18, color: '#fff' }} aria-hidden="true"></i>
+          <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
+          {item.countKey && counts[item.countKey] !== undefined && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+              {counts[item.countKey]}
+            </span>
+          )}
+        </NavLink>
+      ))}
+    </>
   );
 }
