@@ -90,8 +90,8 @@ export default function Subjects() {
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-          Matières <span style={{ fontSize: 16, color: 'var(--muted)', fontWeight: 400 }}>({subjects ? subjects.length : 0})</span>
-        </p>
+  Matières
+</p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {!selectMode && (
             <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
