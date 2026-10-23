@@ -19,6 +19,25 @@ import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skel
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
+// --- ICÔNES SVG (identiques à la page Élèves) ---
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+// ------------------------------------------------
+
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
   { id: 'connexe', label: 'Frais connexes' },
@@ -321,7 +340,7 @@ function Payments() {
                   title="Supprimer ce paiement"
                   style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
                 >
-                  <i className="ti ti-trash" style={{ fontSize: 17 }} aria-hidden="true"></i>
+                  <TrashIcon />
                 </button>
               )}
             </div>
@@ -617,7 +636,7 @@ function Expenses() {
                   title="Supprimer"
                   style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
                 >
-                  <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                  <TrashIcon />
                 </button>
               )}
             </div>
@@ -744,7 +763,6 @@ function Advances() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <StatusBadge statut={a.statut} solde={a.solde} montant={a.montant} />
               
-              {/* BOUTONS D'ACTION */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
                   <>
@@ -754,17 +772,18 @@ function Advances() {
                 )}
                 {canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
                   <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
-                    Marquer comme payé
+                    <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
                   </button>
                 )}
                 
+                {/* NOUVEAUX BOUTONS SVG */}
                 {canDecide && (
                   <>
-                    <button onClick={() => setEditingAdvance(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
-                      Modifier
+                    <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      <PencilIcon />
                     </button>
-                    <button onClick={() => handleDelete(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)' }}>
-                      Supprimer
+                    <button onClick={() => handleDelete(a)} title="Supprimer cette avance" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      <TrashIcon />
                     </button>
                   </>
                 )}
