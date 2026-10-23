@@ -8,10 +8,10 @@
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Importation des polices : Poppins (petits textes) + Playfair Display (grands titres) -->
+    <!-- Importation de la police Poppins pour les petits textes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
       /* --- BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
@@ -43,17 +43,15 @@
         font-family: 'Poppins', sans-serif !important;
       }
       
+      /* On écrase la variable --sans utilisée par l'application */
       :root {
         --sans: 'Poppins', sans-serif !important;
       }
 
-      /* --- ON APPLIQUE PLAYFAIR DISPLAY AUX GROS TITRES --- */
-      .page-title, 
-      h1, h2, h3, 
-      .serif-title,
-      [style*="font-family: var(--serif)"] {
-        font-family: 'Playfair Display', serif !important;
-      }
+      /* 
+        Les titres gardent leur ancienne police (var(--serif)) car 
+        on n'a pas ajouté de règle qui les force à changer. 
+      */
     </style>
   </head>
   <body>
