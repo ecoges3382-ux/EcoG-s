@@ -109,9 +109,6 @@ export default function Dashboard() {
   );
 }
 
-// Tous les blocs ci-dessous sont cliquables : chaque carte ouvre l'écran
-// détail correspondant, avec un pré-filtre quand c'est pertinent (ex.
-// "Reste à recouvrer" → Recouvrement déjà filtré sur les élèves avec solde).
 function YearKpis({ students, attendance, classResults }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
@@ -467,6 +464,15 @@ function ClassBreakdown({ students, attendance, classResults }) {
   );
 }
 
+// Section Personnel enrichie : en plus de la masse salariale versée et des
+// avances, on affiche maintenant :
+//  - le nombre de membres actifs couverts par au moins un versement (pour
+//    repérer les oublis de saisie, très fréquents en début d'année) ;
+//  - la masse salariale THÉORIQUE attendue depuis le début de l'année, en
+//    tenant compte des embauches en cours d'année (date_entree), pour
+//    comparer au réel et repérer les écarts ;
+//  - le total réellement décaissé pour le personnel (masse salariale +
+//    avances versées, avant remboursement), utile pour la trésorerie.
 function PersonnelSection({ schoolYear }) {
   const [data, setData] = useState(null);
 
@@ -475,30 +481,127 @@ function PersonnelSection({ schoolYear }) {
     let cancelled = false;
     setData(null);
     Promise.all([
-      supabase.from('staff').select('id').eq('statut', 'actif'),
-      supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
-      supabase.from('salary_advances').select('solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
+      supabase.from('staff').select('id, salaire_mensuel, date_entree').eq('statut', 'actif'),
+      supabase.from('staff_salaries').select('staff_id, montant').eq('school_year_id', schoolYear.id),
+      supabase.from('salary_advances').select('montant, solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
       supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id),
     ]).then(([{ data: staff }, { data: salaries }, { data: advances }, { data: expenses }]) => {
       if (cancelled) return;
+
+      // --- Début de l'année scolaire ---
+      const today = new Date();
+      let startDate;
+      if (schoolYear.date_debut) {
+        startDate = new Date(schoolYear.date_debut);
+      } else {
+        const match = schoolYear.label?.match(/^(\d{4})-(\d{4})$/);
+        const startYear = match ? Number(match[1]) : today.getFullYear();
+        startDate = new Date(startYear, 8, 1); // septembre par défaut
+      }
+
+      // --- Nombre de mois écoulés (borné à 1 minimum) ---
+      const monthsElapsed = Math.max(
+        1,
+        (today.getFullYear() - startDate.getFullYear()) * 12
+        + (today.getMonth() - startDate.getMonth())
+        + 1,
+      );
+
+      // --- Masse salariale théorique : somme des salaires mensuels des
+      //     employés actifs × nombre de mois depuis leur entrée (ou depuis
+      //     le début d'année, selon ce qui est le plus tardif). Un employé
+      //     entré en cours d'année ne compte donc que depuis son entrée. ---
+      const masseTheorique = (staff || []).reduce((sum, s) => {
+        if (!s.salaire_mensuel) return sum;
+        let empStart = startDate;
+        if (s.date_entree) {
+          const entree = new Date(s.date_entree);
+          if (entree > startDate) empStart = entree;
+        }
+        const months = Math.max(
+          0,
+          (today.getFullYear() - empStart.getFullYear()) * 12
+          + (today.getMonth() - empStart.getMonth())
+          + 1,
+        );
+        return sum + Number(s.salaire_mensuel) * months;
+      }, 0);
+
+      const masseSalariale = (salaries || []).reduce((a, s) => a + Number(s.montant), 0);
+      const versementsDistincts = new Set((salaries || []).map((s) => s.staff_id)).size;
+      const avancesTotales = (advances || []).reduce((a, s) => a + Number(s.montant), 0);
+      const avancesEnCours = (advances || []).reduce((a, s) => a + Number(s.solde), 0);
+      const depenses = (expenses || []).reduce((a, s) => a + Number(s.montant), 0);
+
       setData({
         effectifPersonnel: (staff || []).length,
-        masseSalariale: (salaries || []).reduce((a, s) => a + Number(s.montant), 0),
-        avancesEnCours: (advances || []).reduce((a, s) => a + Number(s.solde), 0),
-        depenses: (expenses || []).reduce((a, s) => a + Number(s.montant), 0),
+        masseSalariale,
+        masseTheorique,
+        versementsDistincts,
+        avancesTotales,
+        avancesEnCours,
+        totalDecaisse: masseSalariale + avancesTotales,
+        depenses,
+        monthsElapsed,
       });
     });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
+  // --- Sous-textes contextuels ---
+  const versementsLabel = data
+    ? `${data.versementsDistincts} / ${data.effectifPersonnel} membres couverts${data.versementsDistincts < data.effectifPersonnel ? ' ⚠️' : ''}`
+    : undefined;
+
+  const ecart = data ? (data.masseSalariale - data.masseTheorique) : 0;
+  const ecartLabel = data && data.masseTheorique > 0
+    ? ecart >= 0
+      ? `+${fmtF(ecart)} (au-dessus du théorique)`
+      : `${fmtF(ecart)} (manquant)`
+    : undefined;
+
+  const decaisseSub = data
+    ? `${fmtF(data.masseSalariale)} salaires + ${fmtF(data.avancesTotales)} avances`
+    : undefined;
+
   return (
     <div style={{ marginBottom: 28 }}>
       <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Personnel</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }} className="desktop-grid-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
         <Stat label="Membres actifs" value={data ? data.effectifPersonnel : '…'} to="/personnel" />
-        <Stat label="Masse salariale versée" value={data ? fmtF(data.masseSalariale) : '…'} color="var(--success)" to="/personnel" />
-        <Stat label="Avances en cours" value={data ? fmtF(data.avancesEnCours) : '…'} color={data && data.avancesEnCours > 0 ? 'var(--amber)' : undefined} to="/argent" />
-        <Stat label="Dépenses" value={data ? fmtF(data.depenses) : '…'} color="var(--danger)" to="/argent" />
+        <Stat
+          label="Masse salariale versée"
+          value={data ? fmtF(data.masseSalariale) : '…'}
+          color="var(--success)"
+          sub={versementsLabel}
+          subColor={data && data.versementsDistincts < data.effectifPersonnel ? 'var(--danger)' : undefined}
+          to="/personnel"
+        />
+        <Stat
+          label={`Salaires théoriques (${data ? data.monthsElapsed : '…'} mois)`}
+          value={data ? fmtF(data.masseTheorique) : '…'}
+          color="var(--ink)"
+          sub={ecartLabel}
+          subColor={ecart < 0 ? 'var(--danger)' : 'var(--success)'}
+          to="/personnel"
+        />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }} className="desktop-grid-3">
+        <Stat
+          label="Total décaissé personnel"
+          value={data ? fmtF(data.totalDecaisse) : '…'}
+          color="var(--clay-dark)"
+          sub={decaisseSub}
+          to="/personnel"
+        />
+        <Stat
+          label="Avances en cours"
+          value={data ? fmtF(data.avancesEnCours) : '…'}
+          color={data && data.avancesEnCours > 0 ? 'var(--amber)' : undefined}
+          sub={data && data.avancesTotales > 0 ? `sur ${fmtF(data.avancesTotales)} avancés` : undefined}
+          to="/argent"
+        />
+        <Stat label="Autres dépenses" value={data ? fmtF(data.depenses) : '…'} color="var(--danger)" to="/argent" />
       </div>
     </div>
   );
@@ -662,13 +765,14 @@ function CompareTable({ currentYear, previousYear, currStudents, currAttendance,
 }
 
 // Stat accepte un `to` optionnel : si fourni, la carte devient un lien vers
-// l'écran détail correspondant. Sans `to`, elle reste une carte statique.
-function Stat({ label, value, color, sub, to }) {
+// l'écran détail correspondant. `sub` = sous-texte (ex. "5 / 40 membres
+// couverts"). `subColor` permet de colorer ce sous-texte (rouge si alerte).
+function Stat({ label, value, color, sub, subColor, to }) {
   const content = (
     <>
       <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
       <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color }}>{value}</p>
-      {sub && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{sub}</p>}
+      {sub && <p style={{ margin: '2px 0 0', fontSize: 11, color: subColor || 'var(--muted)', fontWeight: subColor ? 600 : 400 }}>{sub}</p>}
     </>
   );
   if (to) {
