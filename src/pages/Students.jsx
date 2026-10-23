@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName, stickyColStyle } from '../lib/utils.js';
+import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
@@ -82,7 +82,6 @@ export default function Students() {
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
 
-  // On donne plus d'espace à la première colonne (le nom) pour qu'il puisse passer à la ligne
   const gridCols = selectMode
     ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
     : '2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
@@ -339,9 +338,9 @@ export default function Students() {
         {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
       </p>
 
-      <div className="card-bold" style={{ overflowX: 'auto' }}>
+      <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
         <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Élève</span>
             <span>Matricule</span>
@@ -351,7 +350,7 @@ export default function Students() {
             <span>Tél. Parent</span>
             <span>Reste</span>
             <span>Statut</span>
-            {!selectMode && <span></span>}
+            {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
           </div>
           {filtered.map((s, i) => {
             const status = statusOf(s, schoolYear, feeSchedulesByNiveau[s.classeNiveau]);
@@ -383,7 +382,7 @@ export default function Students() {
                   <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>{status.label}</span>
                 </Link>
                 {!selectMode && (canEdit || canDelete) && (
-                  <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
                     {canEdit && (
                       <button type="button" onClick={() => { setEditingStudent(s); setModalOpen(true); }} title="Modifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
                         <PencilIcon />
