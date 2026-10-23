@@ -194,29 +194,57 @@ export default function Students() {
       setImportMessage({ type: 'error', text: 'Fichier vide ou illisible.' });
       return;
     }
-    const header = rows[0].map((h) => h.trim().toLowerCase());
-    const idx = {
-      matricule: header.indexOf('matricule'),
-      nom: header.indexOf('nom'),
-      classe: header.indexOf('classe'),
-      du: header.findIndex((h) => h.startsWith('montant d')),
-      tel: header.findIndex((h) => h.startsWith('téléphone') || h.startsWith('telephone')),
-      connexeDu: header.findIndex((h) => h.startsWith('frais connexes dus') || h.startsWith('connexe d')),
-      soldeEcolage: header.findIndex((h) => h.startsWith('déjà payé (écolage)') || h.startsWith('deja paye (ecolage)') || h.startsWith('solde ecolage')),
-      soldeConnexe: header.findIndex((h) => h.startsWith('déjà payé (connexes)') || h.startsWith('deja paye (connexes)') || h.startsWith('solde connexe')),
-    };
-    if (idx.nom === -1 || idx.classe === -1) {
-      setImportMessage({ type: 'error', text: 'Le fichier doit contenir au moins les colonnes "Nom" et "Classe".' });
+
+    // NOUVEAU : On cherche intelligemment la ligne qui contient les titres
+    let headerRowIndex = -1;
+    let idx = {};
+
+    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+      const r = rows[i].map(c => String(c).toLowerCase());
+      const hasNom = r.some(c => c.includes('nom'));
+      const hasClasse = r.some(c => c.includes('classe'));
+      
+      if (hasNom && hasClasse) {
+        headerRowIndex = i;
+        idx = {
+          matricule: r.findIndex(c => c.includes('matricule')),
+          nom: r.findIndex(c => c.includes('nom')),
+          classe: r.findIndex(c => c.includes('classe')),
+          du: r.findIndex(c => c.includes('montant d') || c.includes('montant du')),
+          tel: r.findIndex(c => c.includes('téléphone') || c.includes('telephone')),
+          connexeDu: r.findIndex(c => c.includes('frais connexes dus') || c.includes('connexe d')),
+          soldeEcolage: r.findIndex(c => c.includes('déjà payé (écolage)') || c.includes('deja paye (ecolage)') || c.includes('solde ecolage')),
+          soldeConnexe: r.findIndex(c => c.includes('déjà payé (connexes)') || c.includes('deja paye (connexes)') || c.includes('solde connexe')),
+        };
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      // Si on ne trouve pas, on affiche ce qui a été lu pour aider à comprendre
+      const apercu = rows.slice(0, 3).map(l => l.join(' | ')).join('   ///   ');
+      setImportMessage({ 
+        type: 'error', 
+        text: `Impossible de trouver les colonnes "Nom" et "Classe". Voici ce que le fichier contient au début : ${apercu}` 
+      });
       return;
     }
+
+    const dataRows = rows.slice(headerRowIndex + 1);
     const toInsertStudents = [];
     const enrollmentInfo = [];
     let skipped = 0;
-    rows.slice(1).forEach((r) => {
+    
+    dataRows.forEach((r) => {
+      if (r.every(c => !c)) return; // ignore les lignes vides
+      
       const fullName = (r[idx.nom] || '').trim();
       const classeNom = (r[idx.classe] || '').trim();
-      const classeObj = (classes || []).find((c) => c.nom === classeNom);
+      // On ignore les majuscules/minuscules pour la classe
+      const classeObj = (classes || []).find((c) => c.nom.toLowerCase() === classeNom.toLowerCase());
+      
       if (!fullName || !classeObj) { skipped += 1; return; }
+      
       const { nom, prenom } = splitFullName(fullName);
       toInsertStudents.push({
         school_id: profile.school_id,
@@ -234,10 +262,12 @@ export default function Students() {
         soldeConnexe: idx.soldeConnexe !== -1 ? Number(r[idx.soldeConnexe]) || 0 : 0,
       });
     });
+    
     if (toInsertStudents.length === 0) {
-      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${(classes || []).map((c) => c.nom).join(', ') || 'aucune classe créée pour l\'instant'}).` });
+      setImportMessage({ type: 'error', text: `Aucun élève importé. Vérifie que les noms de classes dans ton fichier correspondent exactement aux classes créées dans EcoGès (${(classes || []).map((c) => c.nom).join(', ') || 'aucune classe'}).` });
       return;
     }
+    
     setImporting(true);
     const importRows = toInsertStudents.map((s, i) => ({
       nom: s.nom,
