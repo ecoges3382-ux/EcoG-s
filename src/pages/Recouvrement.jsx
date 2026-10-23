@@ -215,17 +215,7 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
     totalReste={totalConnexePrioritaire}
   />
 </div>
-      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
-        <Stat label="Attendu (écolage + connexes)" value={fmtF(totalAttendu)} />
-        <Stat label="Encaissé" value={fmtF(totalEncaisse)} color="var(--success)" />
-        <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
-      </div>
-      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
-        <Stat label="Taux global de recouvrement" value={`${tauxGlobal}%`} color="var(--success)" />
-        <Stat label="Élèves à jour" value={nbAJour} color="var(--success)" />
-        <Stat label="Élèves avec solde" value={nbAvecSolde} color={nbAvecSolde > 0 ? 'var(--danger)' : undefined} />
-      </div>
-
+     
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
           Détail par élève
@@ -328,6 +318,28 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
         </div>
       </div>
 
+      {/* Synthèse globale — SEUL endroit où écolage et connexes sont additionnés.
+    Volontairement placé tout en bas, isolé visuellement, avec un titre
+    explicite et un fond différent, pour ne jamais induire en erreur une
+    lecture rapide : tout ce qui est au-dessus est strictement séparé. */}
+<div className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+    <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest)' }} aria-hidden="true"></i>
+    <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark)' }}>
+      Synthèse globale — écolage + connexes
+    </p>
+  </div>
+  <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
+    <SynthesisStat label="Attendu total" value={fmtF(totalAttendu)} />
+    <SynthesisStat label="Encaissé total" value={fmtF(totalEncaisse)} color="var(--success)" />
+    <SynthesisStat label="Reste total à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
+  </div>
+  <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+    <SynthesisStat label="Taux global de recouvrement" value={`${tauxGlobal}%`} color="var(--success)" />
+    <SynthesisStat label="Élèves à jour (tout confondu)" value={nbAJour} color="var(--success)" />
+    <SynthesisStat label="Élèves avec au moins un solde" value={nbAvecSolde} color={nbAvecSolde > 0 ? 'var(--danger)' : undefined} />
+  </div>
+</div>
       <p style={{ margin: '12px 0 0', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
         Les frais d'inscription sont payés à l'inscription — aucun reste à recouvrer. La colonne « Inscription »
         affiche uniquement ce qui a été encaissé sous ce type de frais dans les paiements de l'année.
@@ -448,6 +460,17 @@ function PriorityCard({ title, icon, accent, accentDark, accentLight, students, 
           )}
         </div>
       )}
+    </div>
+  );
+}
+// Variante de Stat réservée à la carte « Synthèse globale » — même contenu
+// mais sur fond blanc pour ressortir sur le dégradé vert de la carte
+// englobante (une carte dans une carte).
+function SynthesisStat({ label, value, color }) {
+  return (
+    <div style={{ background: 'var(--paper)', borderRadius: 10, padding: '12px 14px' }}>
+      <p style={{ margin: '0 0 3px', fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color }}>{value}</p>
     </div>
   );
 }
