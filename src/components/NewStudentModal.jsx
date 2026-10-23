@@ -294,7 +294,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Matricule (facultatif)</label>
-            <input value={matricule} onChange={(e) => setMatricule(e.target.value)} style={inputStyle} placeholder="Ex: MAT-001" />
+            <input value={matricule} onChange={(e) => setMatricule(e.target.value)} style={inputStyle} placeholder="Auto si vide" />
           </div>
           <div>
             <label style={labelStyle}>Sexe</label>
