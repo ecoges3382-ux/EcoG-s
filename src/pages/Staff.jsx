@@ -175,9 +175,9 @@ export default function Staff() {
       <SchoolTabs />
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-          Personnel <span style={{ fontSize: 16, color: 'var(--muted)', fontWeight: 400 }}>({visibleStaff.length})</span>
-        </p>
+       <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+  Personnel
+</p>
         {staff && (
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
             <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
