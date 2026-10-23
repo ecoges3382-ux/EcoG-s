@@ -177,6 +177,11 @@ export function modeLabel(id) {
   return MODES.find((m) => m.id === id)?.label || id;
 }
 
+// `hidden: true` sur les deux derniers types : ces paiements ne sont créés
+// que par l'import CSV de migration (soldes d'ouverture) — jamais proposés
+// dans le formulaire manuel "Enregistrer un paiement" de Money.jsx, pour
+// qu'une secrétaire ne puisse pas créer par erreur une ligne de solde
+// d'ouverture en croyant enregistrer un vrai paiement.
 export const TYPES_FRAIS = [
   { id: 'scolarite', label: 'Scolarité' },
   { id: 'connexe', label: 'Frais connexes' },
