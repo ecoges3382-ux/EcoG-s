@@ -176,87 +176,108 @@ export default function Students() {
   }
 
   async function handleImportFile(e) {
-  const file = e.target.files[0];
-  e.target.value = '';
-  if (!file) return;
-  setImportMessage(null);
-  const text = await file.text();
-  const rows = parseCsv(text);
-  if (rows.length < 2) {
-    setImportMessage({ type: 'error', text: 'Fichier vide ou illisible.' });
-    return;
-  }
-  const header = rows[0].map((h) => h.trim().toLowerCase());
-  const idx = {
-    matricule: header.indexOf('matricule'),
-    nom: header.indexOf('nom'),
-    classe: header.indexOf('classe'),
-    du: header.findIndex((h) => h.startsWith('montant d')),
-    tel: header.findIndex((h) => h.startsWith('téléphone') || h.startsWith('telephone')),
-    // Colonnes optionnelles pour l'import de migration :
-    connexeDu: header.findIndex((h) => h.startsWith('frais connexes dus') || h.startsWith('connexe d')),
-    soldeEcolage: header.findIndex((h) => h.startsWith('déjà payé (écolage)') || h.startsWith('deja paye (ecolage)') || h.startsWith('solde ecolage')),
-    soldeConnexe: header.findIndex((h) => h.startsWith('déjà payé (connexes)') || h.startsWith('deja paye (connexes)') || h.startsWith('solde connexe')),
-  };
-  if (idx.nom === -1 || idx.classe === -1) {
-    setImportMessage({ type: 'error', text: 'Le fichier doit contenir au moins les colonnes "Nom" et "Classe".' });
-    return;
-  }
-  const toInsertStudents = [];
-  const enrollmentInfo = [];
-  let skipped = 0;
-  rows.slice(1).forEach((r) => {
-    const fullName = (r[idx.nom] || '').trim();
-    const classeNom = (r[idx.classe] || '').trim();
-    const classeObj = (classes || []).find((c) => c.nom === classeNom);
-    if (!fullName || !classeObj) { skipped += 1; return; }
-    const { nom, prenom } = splitFullName(fullName);
-    toInsertStudents.push({
-      school_id: profile.school_id,
-      full_name: displayName(nom, prenom),
-      nom,
-      prenom,
-      matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
-      parent_phone: idx.tel !== -1 ? (r[idx.tel] || '').trim() || null : null,
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    setImportMessage(null);
+    const text = await file.text();
+    const rows = parseCsv(text);
+    if (rows.length < 2) {
+      setImportMessage({ type: 'error', text: 'Fichier vide ou illisible.' });
+      return;
+    }
+    const header = rows[0].map((h) => h.trim().toLowerCase());
+    const idx = {
+      matricule: header.indexOf('matricule'),
+      nom: header.indexOf('nom'),
+      classe: header.indexOf('classe'),
+      du: header.findIndex((h) => h.startsWith('montant d')),
+      tel: header.findIndex((h) => h.startsWith('téléphone') || h.startsWith('telephone')),
+      // Colonnes optionnelles pour l'import de migration (école venant
+      // d'une autre app). Reconnaît plusieurs variantes d'orthographe
+      // (avec ou sans accents, avec ou sans parenthèses) pour tolérer
+      // les fichiers Excel de provenances très diverses.
+      connexeDu: header.findIndex((h) => h.startsWith('frais connexes dus') || h.startsWith('connexe d')),
+      soldeEcolage: header.findIndex((h) => h.startsWith('déjà payé (écolage)') || h.startsWith('deja paye (ecolage)') || h.startsWith('solde ecolage')),
+      soldeConnexe: header.findIndex((h) => h.startsWith('déjà payé (connexes)') || h.startsWith('deja paye (connexes)') || h.startsWith('solde connexe')),
+    };
+    if (idx.nom === -1 || idx.classe === -1) {
+      setImportMessage({ type: 'error', text: 'Le fichier doit contenir au moins les colonnes "Nom" et "Classe".' });
+      return;
+    }
+    const toInsertStudents = [];
+    const enrollmentInfo = [];
+    let skipped = 0;
+    rows.slice(1).forEach((r) => {
+      const fullName = (r[idx.nom] || '').trim();
+      const classeNom = (r[idx.classe] || '').trim();
+      const classeObj = (classes || []).find((c) => c.nom === classeNom);
+      if (!fullName || !classeObj) { skipped += 1; return; }
+      const { nom, prenom } = splitFullName(fullName);
+      toInsertStudents.push({
+        school_id: profile.school_id,
+        full_name: displayName(nom, prenom),
+        nom,
+        prenom,
+        matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
+        parent_phone: idx.tel !== -1 ? (r[idx.tel] || '').trim() || null : null,
+      });
+      enrollmentInfo.push({
+        classeId: classeObj.id,
+        montantDu: idx.du !== -1 ? Number(r[idx.du]) || 0 : 0,
+        fraisConnexeDu: idx.connexeDu !== -1 ? Number(r[idx.connexeDu]) || 0 : 0,
+        soldeEcolage: idx.soldeEcolage !== -1 ? Number(r[idx.soldeEcolage]) || 0 : 0,
+        soldeConnexe: idx.soldeConnexe !== -1 ? Number(r[idx.soldeConnexe]) || 0 : 0,
+      });
     });
-    enrollmentInfo.push({
-      classeId: classeObj.id,
-      montantDu: idx.du !== -1 ? Number(r[idx.du]) || 0 : 0,
-      fraisConnexeDu: idx.connexeDu !== -1 ? Number(r[idx.connexeDu]) || 0 : 0,
-      soldeEcolage: idx.soldeEcolage !== -1 ? Number(r[idx.soldeEcolage]) || 0 : 0,
-      soldeConnexe: idx.soldeConnexe !== -1 ? Number(r[idx.soldeConnexe]) || 0 : 0,
+    if (toInsertStudents.length === 0) {
+      setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${(classes || []).map((c) => c.nom).join(', ') || 'aucune classe créée pour l\'instant'}).` });
+      return;
+    }
+    setImporting(true);
+    // Tout le fichier dans un seul appel RPC, donc une seule transaction :
+    // soit toutes les lignes sont importées, soit aucune (voir
+    // import_students_csv dans supabase/schema.sql). Les lignes invalides
+    // (nom vide, classe non reconnue) ont déjà été filtrées ci-dessus,
+    // avant l'appel — un échec ici est un vrai problème de fond, pas une
+    // ligne à corriger, donc bloquer tout le fichier plutôt que produire un
+    // import à moitié fait est le bon choix.
+    //
+    // Les soldes d'ouverture (solde_ecolage_anterieur / solde_connexe_anterieur)
+    // permettent à une école qui migre depuis une autre app de conserver ce
+    // qu'elle avait DÉJÀ encaissé : côté base, ces montants sont transformés
+    // en lignes de paiement traçables de type "solde_ouverture_*" (voir
+    // create_student_with_enrollment dans supabase/schema.sql).
+    const importRows = toInsertStudents.map((s, i) => ({
+      nom: s.nom,
+      prenom: s.prenom,
+      full_name: s.full_name,
+      matricule: s.matricule,
+      parent_phone: s.parent_phone,
+      classe_id: enrollmentInfo[i].classeId,
+      montant_du: enrollmentInfo[i].montantDu,
+      frais_connexe_du: enrollmentInfo[i].fraisConnexeDu,
+      solde_ecolage_anterieur: enrollmentInfo[i].soldeEcolage,
+      solde_connexe_anterieur: enrollmentInfo[i].soldeConnexe,
+    }));
+    const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', {
+      p_school_id: profile.school_id,
+      // Toujours l'année active, jamais l'année consultée : importer des
+      // élèves crée de nouvelles identités, ça n'a de sens que pour
+      // l'année en cours (le bouton est de toute façon masqué en
+      // consultation d'un historique, mais on ne veut pas en dépendre).
+      p_school_year_id: activeYear.id,
+      p_rows: importRows,
     });
-  });
-  if (toInsertStudents.length === 0) {
-    setImportMessage({ type: 'error', text: `Aucune ligne valide (classe reconnue attendue : ${(classes || []).map((c) => c.nom).join(', ') || 'aucune classe créée pour l\'instant'}).` });
-    return;
+    setImporting(false);
+    if (importError) {
+      setImportMessage({ type: 'error', text: importError.message });
+      return;
+    }
+    setImportMessage({ type: 'success', text: `${importedCount} élève${importedCount > 1 ? 's' : ''} importé${importedCount > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
+    reload();
   }
-  setImporting(true);
-  const importRows = toInsertStudents.map((s, i) => ({
-    nom: s.nom,
-    prenom: s.prenom,
-    full_name: s.full_name,
-    matricule: s.matricule,
-    parent_phone: s.parent_phone,
-    classe_id: enrollmentInfo[i].classeId,
-    montant_du: enrollmentInfo[i].montantDu,
-    frais_connexe_du: enrollmentInfo[i].fraisConnexeDu,
-    solde_ecolage_anterieur: enrollmentInfo[i].soldeEcolage,
-    solde_connexe_anterieur: enrollmentInfo[i].soldeConnexe,
-  }));
-  const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', {
-    p_school_id: profile.school_id,
-    p_school_year_id: activeYear.id,
-    p_rows: importRows,
-  });
-  setImporting(false);
-  if (importError) {
-    setImportMessage({ type: 'error', text: importError.message });
-    return;
-  }
-  setImportMessage({ type: 'success', text: `${importedCount} élève${importedCount > 1 ? 's' : ''} importé${importedCount > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
-  reload();
-}
+
   function toggleOne(id) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
