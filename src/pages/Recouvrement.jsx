@@ -192,6 +192,29 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
         />
       </div>
 
+      {/* Carte priorité — deux colonnes strictement séparées, jamais fusionnées */}
+<div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+  <PriorityCard
+    title="Priorité — Écolage"
+    icon="ti-cash"
+    accent="var(--forest)"
+    accentDark="var(--forest-dark)"
+    accentLight="var(--forest-light)"
+    students={ecolagePrioritaires}
+    getReste={(s) => s.resteEcolage}
+    totalReste={totalEcolagePrioritaire}
+  />
+  <PriorityCard
+    title="Priorité — Frais connexes"
+    icon="ti-receipt-2"
+    accent="var(--clay)"
+    accentDark="var(--clay-dark)"
+    accentLight="var(--clay-light)"
+    students={connexePrioritaires}
+    getReste={(s) => s.resteConnexe}
+    totalReste={totalConnexePrioritaire}
+  />
+</div>
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
         <Stat label="Attendu (écolage + connexes)" value={fmtF(totalAttendu)} />
         <Stat label="Encaissé" value={fmtF(totalEncaisse)} color="var(--success)" />
