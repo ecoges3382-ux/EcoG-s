@@ -1,27 +1,45 @@
-<style>
-  /* Forcer la barre de défilement à être visible et blanche */
-  ::-webkit-scrollbar {
-    -webkit-appearance: none;
-    width: 14px !important;
-    height: 14px !important;
-  }
-  ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2) !important;
-    border-radius: 0 !important;
-  }
-  ::-webkit-scrollbar-thumb {
-    background-color: #ffffff !important;
-    border-radius: 10px !important;
-    border: 3px solid transparent !important;
-    background-clip: content-box !important;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background-color: #e5e7eb !important;
-  }
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EcoGès - Gestion scolaire</title>
 
-  /* Pour Firefox */
-  * {
-    scrollbar-width: auto !important;
-    scrollbar-color: #ffffff rgba(0, 0, 0, 0.2) !important;
-  }
-</style>
+    <!-- Librairie pour lire les fichiers Excel (Importation) -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Styles pour rendre la barre de défilement toujours visible et blanche -->
+    <style>
+      ::-webkit-scrollbar {
+        -webkit-appearance: none;
+        width: 14px !important;
+        height: 14px !important;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1) !important;
+        border-radius: 0 !important;
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: #ffffff !important;
+        border-radius: 10px !important;
+        border: 3px solid transparent !important;
+        background-clip: content-box !important;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: #e5e7eb !important;
+      }
+      * {
+        scrollbar-width: auto !important;
+        scrollbar-color: #ffffff rgba(0, 0, 0, 0.1) !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- L'endroit où React affiche l'application -->
+    <div id="root"></div>
+    
+    <!-- Le moteur de l'application -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
