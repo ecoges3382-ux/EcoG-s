@@ -9,8 +9,14 @@
     <!-- Librairie pour lire les fichiers Excel (Importation) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Styles pour rendre la barre de défilement toujours visible et blanche -->
+    <!-- Importation de la police Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Styles globaux (Barre de défilement + Police) -->
     <style>
+      /* --- BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
       ::-webkit-scrollbar {
         -webkit-appearance: none;
         width: 14px !important;
@@ -32,6 +38,24 @@
       * {
         scrollbar-width: auto !important;
         scrollbar-color: #ffffff rgba(0, 0, 0, 0.1) !important;
+      }
+
+      /* --- APPLICATION DE LA POLICE POPPINS PARTOUT --- */
+      body, button, input, select, textarea, a, span, p, div, table, th, td, label {
+        font-family: 'Poppins', sans-serif !important;
+      }
+      
+      /* On écrase la variable --sans utilisée par l'application */
+      :root {
+        --sans: 'Poppins', sans-serif !important;
+      }
+
+      /* --- ON GARDE LA BELLE POLICE "SERIF" POUR LES GROS TITRES --- */
+      .page-title, 
+      h1, h2, h3, 
+      .serif-title,
+      [style*="font-family: var(--serif)"] {
+        font-family: var(--serif) !important;
       }
     </style>
   </head>
