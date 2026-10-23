@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, downloadCsv, sortClasses, stickyColStyle } from '../lib/utils.js';
+import { initials, fmtF, downloadCsv, sortClasses, stickyColStyle } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -43,8 +43,6 @@ function RestoreIcon() {
   );
 }
 
-// Réservé à la vue "Archivés" : une suppression définitive, seulement
-// possible si plus rien n'y fait référence (contrainte restrict côté SQL).
 function TrashIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -81,7 +79,13 @@ export default function Staff() {
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
-  const gridCols = selectMode ? '28px 1.6fr 0.7fr 0.9fr 1.2fr 1.5fr 1.5fr' : '1.6fr 0.7fr 0.9fr 1.2fr 1.5fr 1.5fr 132px';
+  // Grille à 8 colonnes : la colonne "Salaire mensuel" a été ajoutée entre
+  // "Niveau d'études" et "Classe(s)" — visible d'un coup d'œil si un
+  // employé n'a pas de salaire renseigné (badge rouge), ce qui impacte
+  // directement le calcul théorique du Dashboard.
+  const gridCols = selectMode
+    ? '28px 1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr'
+    : '1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px';
 
   async function reload() {
     await guardedFetch({
@@ -98,20 +102,21 @@ export default function Staff() {
     });
   }
 
-  // Un départ ne supprime plus jamais la ligne (voir handleArchiveOne) —
-  // seul le statut change. La liste affichée reste donc filtrée par statut,
-  // "Archivés" n'étant qu'une autre vue de la même table, jamais une
-  // suppression réelle.
   const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
+
+  // Membres actifs sans salaire mensuel — sert à afficher le bandeau
+  // d'alerte et à calculer le sous-texte de la colonne. On ne compte que
+  // les actifs : un archivé sans salaire n'a plus d'impact sur le calcul
+  // théorique du Dashboard.
+  const actifsSansSalaire = visibleStaff.filter((p) => !showArchives && p.salaire_mensuel == null);
+  const nbActifs = showArchives ? 0 : visibleStaff.length;
+  const nbAvecSalaire = showArchives ? 0 : nbActifs - actifsSansSalaire.length;
 
   function subjectsFor(staffId) {
     return subjects.filter((s) => s.enseignant_id === staffId).map((s) => s.nom);
   }
 
   function reloadSubjects() {
-    // Les matières attribuables à un enseignant sont celles réellement
-    // créées par l'école (page Matières), jamais saisies à la main ici —
-    // même logique que les classes juste au-dessus.
     supabase.from('subjects').select('id, nom, enseignant_id').order('nom').then(({ data }) => {
       setSubjects(data || []);
     });
@@ -131,9 +136,24 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
+    // Enrichi avec salaire mensuel + date d'entrée : quand une école veut
+    // vérifier qui a un salaire renseigné (ou auditer la masse salariale),
+    // elle peut le faire dans Excel plutôt que de cliquer sur 40 fiches.
+    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
     visibleStaff.forEach((p) => {
-      rows.push([p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '', (p.classes || []).join(' / '), subjectsFor(p.id).join(' / '), p.phone || '', p.email || '']);
+      rows.push([
+        p.full_name,
+        p.matricule || '',
+        p.statut === 'inactif' ? 'Archivé' : 'Actif',
+        p.role,
+        p.niveau_etudes || '',
+        p.salaire_mensuel != null ? p.salaire_mensuel : '',
+        p.date_entree || '',
+        (p.classes || []).join(' / '),
+        subjectsFor(p.id).join(' / '),
+        p.phone || '',
+        p.email || '',
+      ]);
     });
     downloadCsv('personnel.csv', rows);
   }
@@ -154,11 +174,6 @@ export default function Staff() {
     setSelectedIds([]);
   }
 
-  // Un membre du personnel n'est plus jamais supprimé en un clic depuis la
-  // liste active — la suppression détruirait aussi, via la contrainte
-  // (désormais restrict et non plus cascade), toute référence encore en
-  // place (avances sur salaire, classe principale, matière enseignée…).
-  // "Archiver" ne fait que changer le statut, jamais irréversible.
   async function handleArchiveOne(id, name, restore) {
     if (!restore && !(await confirm(`Archiver ${name} ? Cette personne n'apparaîtra plus dans la liste active, mais son historique (avances, salaires versés) est conservé.`, { confirmLabel: 'Archiver', danger: false }))) return;
     setDeleting(true);
@@ -229,6 +244,32 @@ export default function Staff() {
         </button>
       </div>
 
+      {/* Bandeau d'alerte si des membres actifs n'ont pas de salaire renseigné.
+          Impact direct sur le Dashboard : la masse salariale théorique sera
+          sous-évaluée pour chaque employé sans salaire mensuel. */}
+      {!showArchives && nbActifs > 0 && actifsSansSalaire.length > 0 && (
+        <div className="card-bold" style={{ padding: '12px 16px', marginBottom: 14, background: 'var(--amber-light)', borderColor: 'var(--amber)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: 'var(--clay-dark)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--clay-dark)' }}>
+                {actifsSansSalaire.length} membre{actifsSansSalaire.length > 1 ? 's' : ''} actif{actifsSansSalaire.length > 1 ? 's' : ''} sans salaire mensuel renseigné
+              </p>
+              <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--clay-dark)', lineHeight: 1.5 }}>
+                Le calcul « salaires théoriques » du tableau de bord sera sous-évalué pour {actifsSansSalaire.length > 1 ? 'ces personnes' : 'cette personne'}. Clique sur sa ligne pour ajouter un salaire mensuel.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!showArchives && nbActifs > 0 && actifsSansSalaire.length === 0 && (
+        <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>
+          <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+          {nbAvecSalaire} / {nbActifs} membres avec salaire renseigné
+        </p>
+      )}
+
       {error && <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>}
       {!error && !staff && <div className="card-bold"><SkeletonRow count={6} /></div>}
 
@@ -251,68 +292,89 @@ export default function Staff() {
         <>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
           <div className="card-bold" style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: selectMode ? 860 : 886 }}>
+            <div style={{ minWidth: selectMode ? 940 : 966 }}>
               <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
                 {selectMode && <span></span>}
-                <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Nom</span><span>Matricule</span><span>Rôle</span><span>Niveau d'études</span><span>Classe(s)</span><span>Matière(s)</span>
+                <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Nom</span>
+                <span>Matricule</span>
+                <span>Rôle</span>
+                <span>Niveau</span>
+                <span>Salaire</span>
+                <span>Classe(s)</span>
+                <span>Matière(s)</span>
                 {!selectMode && <span></span>}
               </div>
-              {visibleStaff.map((p, i) => (
-                <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '14px 20px' : '14px 20px 14px 0', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                  {selectMode && (
-                    <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
-                  )}
-                  <Link
-                    to={selectMode ? '#' : `/personnel/${p.id}`}
-                    onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(p.id); } : undefined}
-                    style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--row-bg)'), paddingLeft: selectMode ? 0 : 20 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
-                        {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
+              {visibleStaff.map((p, i) => {
+                const salaireManquant = !showArchives && p.salaire_mensuel == null;
+                return (
+                  <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '14px 20px' : '14px 20px 14px 0', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                    {selectMode && (
+                      <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
+                    )}
+                    <Link
+                      to={selectMode ? '#' : `/personnel/${p.id}`}
+                      onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(p.id); } : undefined}
+                      style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--row-bg)'), paddingLeft: selectMode ? 0 : 20 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+                          {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
+                        </div>
+                        <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{p.full_name}</span>
                       </div>
-                      <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{p.full_name}</span>
-                    </div>
-                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role}</span>
-                    <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
-                  </Link>
-                  {!selectMode && (
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end' }}>
-                      <button
-                        type="button"
-                        onClick={() => openEdit(p)}
-                        title="Modifier"
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
-                      >
-                        <PencilIcon />
-                      </button>
-                      {canDelete && (
+                      <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role}</span>
+                      <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
+                      <span style={{ fontSize: 13 }}>
+                        {salaireManquant ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+                            <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>
+                            Manquant
+                          </span>
+                        ) : p.salaire_mensuel != null ? (
+                          <span style={{ fontWeight: 600 }}>{fmtF(p.salaire_mensuel)}</span>
+                        ) : (
+                          <span style={{ color: 'var(--muted)' }}>—</span>
+                        )}
+                      </span>
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
+                    </Link>
+                    {!selectMode && (
+                      <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end' }}>
                         <button
                           type="button"
-                          onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)}
-                          title={showArchives ? 'Réactiver' : 'Archiver'}
+                          onClick={() => openEdit(p)}
+                          title="Modifier"
                           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
                         >
-                          {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
+                          <PencilIcon />
                         </button>
-                      )}
-                      {canDelete && showArchives && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteOne(p.id, p.full_name)}
-                          title="Supprimer définitivement"
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                        >
-                          <TrashIcon />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)}
+                            title={showArchives ? 'Réactiver' : 'Archiver'}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                          >
+                            {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
+                          </button>
+                        )}
+                        {canDelete && showArchives && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOne(p.id, p.full_name)}
+                            title="Supprimer définitivement"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                          >
+                            <TrashIcon />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </>
