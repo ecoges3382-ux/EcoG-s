@@ -16,11 +16,6 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
-// Une fois un calendrier de paiement configuré (Argent → Grille tarifaire),
-// le statut se base sur les délais dépassés plutôt que sur un pourcentage
-// fixe — voir computeRelance dans lib/retard.js. Tant qu'aucune date n'est
-// configurée, on garde l'ancien calcul par pourcentage (pas de régression
-// pour une école qui n'a pas encore rempli son calendrier).
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
   if (relance.moratoire) return { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' };
@@ -161,6 +156,7 @@ export default function Students() {
     downloadCsv('eleves.csv', rows);
   }
 
+  // --- IMPORTATION INTELLIGENTE ---
   async function handleImportFile(e) {
     const file = e.target.files[0];
     e.target.value = '';
@@ -195,7 +191,7 @@ export default function Students() {
       return;
     }
 
-    // NOUVEAU : On cherche intelligemment la ligne qui contient les titres
+    // On cherche intelligemment la ligne qui contient les titres
     let headerRowIndex = -1;
     let idx = {};
 
@@ -221,7 +217,6 @@ export default function Students() {
     }
 
     if (headerRowIndex === -1) {
-      // Si on ne trouve pas, on affiche ce qui a été lu pour aider à comprendre
       const apercu = rows.slice(0, 3).map(l => l.join(' | ')).join('   ///   ');
       setImportMessage({ 
         type: 'error', 
@@ -240,17 +235,25 @@ export default function Students() {
       
       const fullName = (r[idx.nom] || '').trim();
       const classeNom = (r[idx.classe] || '').trim();
-      // On ignore les majuscules/minuscules pour la classe
       const classeObj = (classes || []).find((c) => c.nom.toLowerCase() === classeNom.toLowerCase());
       
       if (!fullName || !classeObj) { skipped += 1; return; }
       
       const { nom, prenom } = splitFullName(fullName);
+
+      // CORRECTION DU FORMATAGE ICI :
+      // On force le nom en majuscules et le prénom avec la 1ère lettre en majuscule.
+      const formattedNom = (nom || '').toUpperCase();
+      const formattedPrenom = (prenom || '')
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+
       toInsertStudents.push({
         school_id: profile.school_id,
-        full_name: displayName(nom, prenom),
-        nom,
-        prenom,
+        full_name: displayName(formattedNom, formattedPrenom),
+        nom: formattedNom,
+        prenom: formattedPrenom,
         matricule: idx.matricule !== -1 ? (r[idx.matricule] || '').trim() || null : null,
         parent_phone: idx.tel !== -1 ? (r[idx.tel] || '').trim() || null : null,
       });
