@@ -84,55 +84,56 @@ export default function Recouvrement() {
     const resteEcolage = Number(s.montant_du) - Number(s.montant_paye);
     const resteConnexe = Number(s.frais_connexe_du) - Number(s.frais_connexe_paye);
     const inscriptionPaye = inscriptionByStudent[s.id] || 0;
-    const resteTotal = Math.max(resteEcolage, 0) + Math.max(resteConnexe, 0);
     const relance = computeRelance(s, schoolYear, s.feeSchedule);
     let statutKey;
     if (relance.moratoire) statutKey = 'moratoire';
     else if (resteEcolage <= 0 && resteConnexe <= 0) statutKey = 'a_jour';
     else if (calendrierConfigure) statutKey = (relance.relance || relance.relanceConnexe) ? 'a_relancer' : 'dans_les_delais';
     else statutKey = 'solde_restant';
-    return { ...s, resteEcolage, resteConnexe, inscriptionPaye, resteTotal, relance, statutKey };
+    return { ...s, resteEcolage, resteConnexe, inscriptionPaye, relance, statutKey };
   });
 
+  // ---- Totaux par type de frais (JAMAIS additionnés ici) ----
   const totalEcolageDu = enrichis.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalEcolagePaye = enrichis.reduce((a, s) => a + Number(s.montant_paye), 0);
   const totalEcolageReste = Math.max(totalEcolageDu - totalEcolagePaye, 0);
+  const tauxEcolage = totalEcolageDu > 0 ? Math.round((totalEcolagePaye / totalEcolageDu) * 100) : 0;
+
   const totalConnexeDu = enrichis.reduce((a, s) => a + Number(s.frais_connexe_du), 0);
   const totalConnexePaye = enrichis.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
   const totalConnexeReste = Math.max(totalConnexeDu - totalConnexePaye, 0);
+  const tauxConnexe = totalConnexeDu > 0 ? Math.round((totalConnexePaye / totalConnexeDu) * 100) : 0;
+
   const totalInscriptionPaye = enrichis.reduce((a, s) => a + s.inscriptionPaye, 0);
+  const nbInscriptionPayes = enrichis.filter((s) => s.inscriptionPaye > 0).length;
+
+  // ---- Priorités (séparées) ----
+  const ecolagePrioritaires = enrichis
+    .filter((s) => s.resteEcolage > 0)
+    .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relance : true }))
+    .sort((a, b) => b.resteEcolage - a.resteEcolage);
+  const connexePrioritaires = enrichis
+    .filter((s) => s.resteConnexe > 0)
+    .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relanceConnexe : true }))
+    .sort((a, b) => b.resteConnexe - a.resteConnexe);
+  const totalEcolagePrioritaire = ecolagePrioritaires.reduce((a, s) => a + s.resteEcolage, 0);
+  const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.resteConnexe, 0);
+
+  // ---- Synthèse globale (SEUL endroit où on additionne) ----
   const totalAttendu = totalEcolageDu + totalConnexeDu;
   const totalEncaisse = totalEcolagePaye + totalConnexePaye;
   const totalReste = totalEcolageReste + totalConnexeReste;
   const tauxGlobal = totalAttendu > 0 ? Math.round((totalEncaisse / totalAttendu) * 100) : 0;
-  const tauxEcolage = totalEcolageDu > 0 ? Math.round((totalEcolagePaye / totalEcolageDu) * 100) : 0;
-  const tauxConnexe = totalConnexeDu > 0 ? Math.round((totalConnexePaye / totalConnexeDu) * 100) : 0;
-
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
-  // Élèves avec un reste d'écolage — TRIÉS par montant restant décroissant.
-// `enRetard` = délai dépassé sur le calendrier ; si aucun calendrier n'est
-// configuré, tout solde restant est considéré prioritaire (fallback).
-const ecolagePrioritaires = enrichis
-  .filter((s) => s.resteEcolage > 0)
-  .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relance : true }))
-  .sort((a, b) => b.resteEcolage - a.resteEcolage);
-
-// Idem pour les frais connexes — table de calcul INDÉPENDANTE.
-const connexePrioritaires = enrichis
-  .filter((s) => s.resteConnexe > 0)
-  .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relanceConnexe : true }))
-  .sort((a, b) => b.resteConnexe - a.resteConnexe);
-
-const totalEcolagePrioritaire = ecolagePrioritaires.reduce((a, s) => a + s.resteEcolage, 0);
-const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.resteConnexe, 0);
   const nbAvecSolde = enrichis.length - nbAJour;
 
+  // ---- Tableau détaillé ----
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const filtered = enrichis
     .filter((s) => !search.trim() || s.full_name.toLowerCase().includes(search.trim().toLowerCase()))
     .filter((s) => filterClasse === 'toutes' || s.niveau === filterClasse)
     .filter((s) => filterStatut === 'tous' || s.statutKey === filterStatut)
-    .sort((a, b) => b.resteTotal - a.resteTotal);
+    .sort((a, b) => (b.resteEcolage + b.resteConnexe) - (a.resteEcolage + a.resteConnexe));
 
   function exportCsv() {
     const header = [
@@ -140,7 +141,6 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
       'Écolage dû', 'Écolage payé', 'Écolage reste',
       'Inscription payée',
       'Connexes dû', 'Connexes payé', 'Connexes reste',
-      'Total reste',
       'Statut',
     ];
     const lines = filtered.map((s) => [
@@ -148,7 +148,6 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
       Number(s.montant_du), Number(s.montant_paye), s.resteEcolage,
       s.inscriptionPaye,
       Number(s.frais_connexe_du), Number(s.frais_connexe_paye), s.resteConnexe,
-      s.resteTotal,
       STATUT_RECOUVREMENT[s.statutKey].label,
     ]);
     downloadCsv(`recouvrement-${schoolYear.label.replace(/\s+/g, '_')}.csv`, [header, ...lines]);
@@ -169,6 +168,12 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
         </span>
       </div>
 
+      {/* ============================================================
+          BLOC 1 — VUE PAR TYPE DE FRAIS (Attendu / Encaissé / Reste)
+          Les 3 types sont strictement séparés, chacun dans sa carte.
+          C'est LA vue principale : l'Attendu d'écolage et l'Attendu de
+          connexes ne sont jamais additionnés ici.
+          ============================================================ */}
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
         <TypeCard
           label="Droit d'écolage"
@@ -181,7 +186,7 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
           label="Frais d'inscription"
           inscription
           paye={totalInscriptionPaye}
-          count={enrichis.filter((s) => s.inscriptionPaye > 0).length}
+          count={nbInscriptionPayes}
         />
         <TypeCard
           label="Frais connexes"
@@ -192,30 +197,35 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
         />
       </div>
 
-      {/* Carte priorité — deux colonnes strictement séparées, jamais fusionnées */}
-<div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-  <PriorityCard
-    title="Priorité — Écolage"
-    icon="ti-cash"
-    accent="var(--forest)"
-    accentDark="var(--forest-dark)"
-    accentLight="var(--forest-light)"
-    students={ecolagePrioritaires}
-    getReste={(s) => s.resteEcolage}
-    totalReste={totalEcolagePrioritaire}
-  />
-  <PriorityCard
-    title="Priorité — Frais connexes"
-    icon="ti-receipt-2"
-    accent="var(--clay)"
-    accentDark="var(--clay-dark)"
-    accentLight="var(--clay-light)"
-    students={connexePrioritaires}
-    getReste={(s) => s.resteConnexe}
-    totalReste={totalConnexePrioritaire}
-  />
-</div>
-     
+      {/* ============================================================
+          BLOC 2 — PRIORITÉS (séparées écolage / connexes)
+          ============================================================ */}
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+        <PriorityCard
+          title="Priorité — Écolage"
+          icon="ti-cash"
+          accent="var(--forest)"
+          accentDark="var(--forest-dark)"
+          accentLight="var(--forest-light)"
+          students={ecolagePrioritaires}
+          getReste={(s) => s.resteEcolage}
+          totalReste={totalEcolagePrioritaire}
+        />
+        <PriorityCard
+          title="Priorité — Frais connexes"
+          icon="ti-receipt-2"
+          accent="var(--clay)"
+          accentDark="var(--clay-dark)"
+          accentLight="var(--clay-light)"
+          students={connexePrioritaires}
+          getReste={(s) => s.resteConnexe}
+          totalReste={totalConnexePrioritaire}
+        />
+      </div>
+
+      {/* ============================================================
+          BLOC 3 — TABLEAU DÉTAILLÉ PAR ÉLÈVE
+          ============================================================ */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
           Détail par élève
@@ -270,12 +280,11 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
 
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 820 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
             <span>Connexes</span>
-            <span>Reste total</span>
             <span>Statut</span>
           </div>
           {filtered.map((s, i) => {
@@ -285,7 +294,7 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
                 key={s.id}
                 to={`/eleves/${s.id}`}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
                 <div style={{ ...stickyColStyle('var(--row-bg)'), paddingLeft: 20 }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
@@ -303,9 +312,6 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
                   )}
                 </div>
                 <MoneyCell paye={Number(s.frais_connexe_paye)} du={Number(s.frais_connexe_du)} reste={s.resteConnexe} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: s.resteTotal > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                  {fmtF(s.resteTotal)}
-                </span>
                 <span style={{ background: st.bg, color: st.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
                   {st.label}
                 </span>
@@ -318,41 +324,46 @@ const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.reste
         </div>
       </div>
 
-      {/* Synthèse globale — SEUL endroit où écolage et connexes sont additionnés.
-    Volontairement placé tout en bas, isolé visuellement, avec un titre
-    explicite et un fond différent, pour ne jamais induire en erreur une
-    lecture rapide : tout ce qui est au-dessus est strictement séparé. */}
-<div className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-    <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest)' }} aria-hidden="true"></i>
-    <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark)' }}>
-      Synthèse globale — écolage + connexes
-    </p>
-  </div>
-  <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
-    <SynthesisStat label="Attendu total" value={fmtF(totalAttendu)} />
-    <SynthesisStat label="Encaissé total" value={fmtF(totalEncaisse)} color="var(--success)" />
-    <SynthesisStat label="Reste total à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
-  </div>
-  <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-    <SynthesisStat label="Taux global de recouvrement" value={`${tauxGlobal}%`} color="var(--success)" />
-    <SynthesisStat label="Élèves à jour (tout confondu)" value={nbAJour} color="var(--success)" />
-    <SynthesisStat label="Élèves avec au moins un solde" value={nbAvecSolde} color={nbAvecSolde > 0 ? 'var(--danger)' : undefined} />
-  </div>
-</div>
+      {/* ============================================================
+          BLOC 4 — SYNTHÈSE GLOBALE (seul endroit où écolage + connexes
+          sont additionnés). Volontairement tout en bas, isolée.
+          ============================================================ */}
+      <div className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest)' }} aria-hidden="true"></i>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark)' }}>
+            Synthèse globale — écolage + connexes
+          </p>
+        </div>
+        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
+          <SynthesisStat label="Attendu total" value={fmtF(totalAttendu)} />
+          <SynthesisStat label="Encaissé total" value={fmtF(totalEncaisse)} color="var(--success)" />
+          <SynthesisStat label="Reste total à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
+        </div>
+        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
+          <SynthesisStat label="Taux global de recouvrement" value={`${tauxGlobal}%`} color="var(--success)" />
+          <SynthesisStat label="Élèves à jour (tout confondu)" value={nbAJour} color="var(--success)" />
+          <SynthesisStat label="Élèves avec au moins un solde" value={nbAvecSolde} color={nbAvecSolde > 0 ? 'var(--danger)' : undefined} />
+        </div>
+      </div>
+
       <p style={{ margin: '12px 0 0', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
         Les frais d'inscription sont payés à l'inscription — aucun reste à recouvrer. La colonne « Inscription »
-        affiche uniquement ce qui a été encaissé sous ce type de frais dans les paiements de l'année.
-        Le « Reste total » ne cumule que l'écolage et les frais connexes.
+        affiche uniquement ce qui a été encaissé sous ce type de frais. Les blocs « Écolage » et « Connexes »
+        sont toujours séparés ; seule la synthèse en bas les additionne, pour la vue comptable.
       </p>
     </div>
   );
 }
 
+// ============================================================
+// Carte par type de frais — affiche DÛ / PAYÉ / RESTE / TAUX
+// séparément. L'inscription n'a pas de "dû" (payée d'avance).
+// ============================================================
 function TypeCard({ label, du, paye, reste, taux, inscription, count }) {
   return (
     <div className="card-bold" style={{ padding: '16px 18px' }}>
-      <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
         {label}
       </p>
       {inscription ? (
@@ -366,14 +377,23 @@ function TypeCard({ label, du, paye, reste, taux, inscription, count }) {
         </>
       ) : (
         <>
-          <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>
-            {fmtF(paye)} <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>/ {fmtF(du)}</span>
-          </p>
-          <div style={{ height: 6, background: 'var(--line)', borderRadius: 4, overflow: 'hidden', margin: '6px 0 4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>Attendu</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(du)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>Encaissé</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{fmtF(paye)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>Reste</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(reste)}</span>
+          </div>
+          <div style={{ height: 6, background: 'var(--line)', borderRadius: 4, overflow: 'hidden', margin: '8px 0 6px' }}>
             <div style={{ height: '100%', width: `${taux}%`, background: reste > 0 ? 'var(--amber)' : 'var(--success)' }} />
           </div>
           <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
-            {taux}% recouvré · reste {fmtF(reste)}
+            {taux}% recouvré
           </p>
         </>
       )}
@@ -381,11 +401,10 @@ function TypeCard({ label, du, paye, reste, taux, inscription, count }) {
   );
 }
 
-// Carte « priorité » : liste les élèves qui ont un reste DÛ sur un type de
-// frais donné. Volontairement sans paramètre commun entre écolage et
-// connexes — chaque appel reçoit son propre tableau, son propre total, ses
-// propres couleurs. Aucune fusion des deux totaux n'est possible depuis ce
-// composant.
+// ============================================================
+// Carte « priorité » : liste les élèves avec un reste dû sur UN type.
+// Aucune fusion possible : chaque appel a son propre tableau et total.
+// ============================================================
 function PriorityCard({ title, icon, accent, accentDark, accentLight, students, getReste, totalReste }) {
   const enRetard = students.filter((s) => s.enRetard);
   const aJour = students.length - enRetard.length;
@@ -425,14 +444,9 @@ function PriorityCard({ title, icon, accent, accentDark, accentLight, students, 
               key={s.id}
               to={`/eleves/${s.id}`}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 0',
-                textDecoration: 'none',
-                color: 'inherit',
-                borderBottom: i < top.length - 1 ? '1px solid var(--line)' : 'none',
-                gap: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 0', textDecoration: 'none', color: 'inherit',
+                borderBottom: i < top.length - 1 ? '1px solid var(--line)' : 'none', gap: 8,
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -463,17 +477,7 @@ function PriorityCard({ title, icon, accent, accentDark, accentLight, students, 
     </div>
   );
 }
-// Variante de Stat réservée à la carte « Synthèse globale » — même contenu
-// mais sur fond blanc pour ressortir sur le dégradé vert de la carte
-// englobante (une carte dans une carte).
-function SynthesisStat({ label, value, color }) {
-  return (
-    <div style={{ background: 'var(--paper)', borderRadius: 10, padding: '12px 14px' }}>
-      <p style={{ margin: '0 0 3px', fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
-      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color }}>{value}</p>
-    </div>
-  );
-}
+
 function MoneyCell({ paye, du, reste }) {
   return (
     <div>
@@ -485,11 +489,11 @@ function MoneyCell({ paye, du, reste }) {
   );
 }
 
-function Stat({ label, value, color }) {
+function SynthesisStat({ label, value, color }) {
   return (
-    <div className="card-bold" style={{ padding: '18px 20px' }}>
-      <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
-      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color }}>{value}</p>
+    <div style={{ background: 'var(--paper)', borderRadius: 10, padding: '12px 14px' }}>
+      <p style={{ margin: '0 0 3px', fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color }}>{value}</p>
     </div>
   );
 }
