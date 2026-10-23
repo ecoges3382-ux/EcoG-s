@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName } from '../lib/utils.js';
+import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName, stickyColStyle } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
@@ -82,9 +82,10 @@ export default function Students() {
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
 
+  // On donne plus d'espace à la première colonne (le nom) pour qu'il puisse passer à la ligne
   const gridCols = selectMode
-    ? '28px 1.5fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
-    : '1.5fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
+    ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
+    : '2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
 
   async function reload() {
     if (!schoolYear) return;
@@ -339,10 +340,10 @@ export default function Students() {
       </p>
 
       <div className="card-bold" style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: selectMode ? 1050 : 1010 }}>
+        <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
-            <span style={{ paddingLeft: selectMode ? 0 : 20 }}>Élève</span>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Élève</span>
             <span>Matricule</span>
             <span>Sexe</span>
             <span>Classe</span>
@@ -365,11 +366,13 @@ export default function Students() {
                   onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(s.id); } : undefined}
                   style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, paddingLeft: selectMode ? 0 : 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
                       {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
                     </div>
-                    <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.full_name}</p>
+                    <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3 }}>
+                      {s.full_name}
+                    </p>
                   </div>
                   <span style={{ fontSize: 13 }}>{s.matricule || '—'}</span>
                   <span style={{ fontSize: 13 }}>{s.sexe || '—'}</span>
