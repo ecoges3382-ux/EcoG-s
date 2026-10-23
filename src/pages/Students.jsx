@@ -79,9 +79,6 @@ export default function Students() {
   const { schoolYear, activeYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [students, setStudents] = useState(null);
   const [classes, setClasses] = useState(null);
-  // Grille tarifaire de l'année consultée, indexée par niveau pédagogique
-  // (pas le nom de classe) — sert à répartir les échéances proportionnellement
-  // aux vrais montants de tranche configurés (voir lib/retard.js).
   const [feeSchedulesByNiveau, setFeeSchedulesByNiveau] = useState({});
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
@@ -93,17 +90,9 @@ export default function Students() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
-  // Suppression désactivée en consultation d'un historique : c'est une
-  // action globale et irréversible sur l'identité de l'élève (students),
-  // pas une correction propre à l'année consultée.
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
-  // La fiche élève peut être corrigée quelle que soit l'année consultée ;
-  // l'inscription modifiée reste celle de l'année sélectionnée.
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
 
-  // La liste des élèves vient des inscriptions de l'année scolaire en
-  // cours (enrollments), pas directement de "students" — c'est elle qui
-  // porte désormais la classe et le dû/payé, propres à chaque année.
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
@@ -148,9 +137,6 @@ export default function Students() {
   useEffect(() => {
     if (!schoolYear) return;
     reload();
-    // Les classes disponibles à l'inscription et à l'import CSV sont
-    // celles réellement créées par l'école (page Classes) — pas une liste
-    // générique de la maternelle à la terminale.
     supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
       setClasses(sortClasses(data || []));
     });
@@ -180,8 +166,30 @@ export default function Students() {
     e.target.value = '';
     if (!file) return;
     setImportMessage(null);
-    const text = await file.text();
-    const rows = parseCsv(text);
+
+    const isExcel = /\.xlsx?$/i.test(file.name);
+    let rows;
+    
+    if (isExcel) {
+      if (!window.XLSX) {
+        setImportMessage({ type: 'error', text: 'La librairie Excel est en cours de chargement. Réessaie dans 2 secondes.' });
+        return;
+      }
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = window.XLSX.read(buffer, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawRows = window.XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', raw: false });
+        rows = rawRows.map(r => r.map(c => c == null ? '' : String(c).trim()));
+      } catch (err) {
+        setImportMessage({ type: 'error', text: `Impossible de lire le fichier Excel : ${err.message}` });
+        return;
+      }
+    } else {
+      const text = await file.text();
+      rows = parseCsv(text);
+    }
+
     if (rows.length < 2) {
       setImportMessage({ type: 'error', text: 'Fichier vide ou illisible.' });
       return;
@@ -193,10 +201,6 @@ export default function Students() {
       classe: header.indexOf('classe'),
       du: header.findIndex((h) => h.startsWith('montant d')),
       tel: header.findIndex((h) => h.startsWith('téléphone') || h.startsWith('telephone')),
-      // Colonnes optionnelles pour l'import de migration (école venant
-      // d'une autre app). Reconnaît plusieurs variantes d'orthographe
-      // (avec ou sans accents, avec ou sans parenthèses) pour tolérer
-      // les fichiers Excel de provenances très diverses.
       connexeDu: header.findIndex((h) => h.startsWith('frais connexes dus') || h.startsWith('connexe d')),
       soldeEcolage: header.findIndex((h) => h.startsWith('déjà payé (écolage)') || h.startsWith('deja paye (ecolage)') || h.startsWith('solde ecolage')),
       soldeConnexe: header.findIndex((h) => h.startsWith('déjà payé (connexes)') || h.startsWith('deja paye (connexes)') || h.startsWith('solde connexe')),
@@ -235,19 +239,6 @@ export default function Students() {
       return;
     }
     setImporting(true);
-    // Tout le fichier dans un seul appel RPC, donc une seule transaction :
-    // soit toutes les lignes sont importées, soit aucune (voir
-    // import_students_csv dans supabase/schema.sql). Les lignes invalides
-    // (nom vide, classe non reconnue) ont déjà été filtrées ci-dessus,
-    // avant l'appel — un échec ici est un vrai problème de fond, pas une
-    // ligne à corriger, donc bloquer tout le fichier plutôt que produire un
-    // import à moitié fait est le bon choix.
-    //
-    // Les soldes d'ouverture (solde_ecolage_anterieur / solde_connexe_anterieur)
-    // permettent à une école qui migre depuis une autre app de conserver ce
-    // qu'elle avait DÉJÀ encaissé : côté base, ces montants sont transformés
-    // en lignes de paiement traçables de type "solde_ouverture_*" (voir
-    // create_student_with_enrollment dans supabase/schema.sql).
     const importRows = toInsertStudents.map((s, i) => ({
       nom: s.nom,
       prenom: s.prenom,
@@ -262,10 +253,6 @@ export default function Students() {
     }));
     const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', {
       p_school_id: profile.school_id,
-      // Toujours l'année active, jamais l'année consultée : importer des
-      // élèves crée de nouvelles identités, ça n'a de sens que pour
-      // l'année en cours (le bouton est de toute façon masqué en
-      // consultation d'un historique, mais on ne veut pas en dépendre).
       p_school_year_id: activeYear.id,
       p_rows: importRows,
     });
@@ -328,7 +315,13 @@ export default function Students() {
             <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
               <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
               {importing ? 'Import…' : 'Importer'}
-              <input type="file" accept=".csv,text/csv" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={handleImportFile}
+                disabled={importing}
+                style={{ display: 'none' }}
+              />
             </label>
           )}
           {!isHistorical && (
@@ -364,8 +357,6 @@ export default function Students() {
         >
           Toutes <span style={{ opacity: 0.7 }}>{students.length}</span>
         </button>
-        {/* Menu déroulant plutôt qu'un bouton par classe : une école avec
-            10+ classes ne peut pas toutes les lister une à une côte à côte. */}
         <Dropdown
           value={classFilter === 'toutes' ? '' : classFilter}
           onChange={(v) => setClassFilter(v || 'toutes')}
