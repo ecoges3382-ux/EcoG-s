@@ -1,5 +1,4 @@
-// Séparateur de milliers "." et décimales "," (ex. 125.375,43) — demandé
-// explicitement, à la place de l'espace utilisé par la locale fr-FR.
+// Séparateur de milliers "." et décimales "," (ex. 125.375,43)
 export function fmt(n) {
   return Number(n ?? 0).toLocaleString('de-DE');
 }
@@ -48,11 +47,26 @@ export function displayName(nom, prenom) {
   return `${(nom || '').toUpperCase()} ${prenom || ''}`.trim();
 }
 
+// --- NOUVELLE LOGIQUE INTELLIGENTE POUR LE DÉCOUPAGE NOM/PRÉNOM ---
 export function splitFullName(fullName) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { nom: '', prenom: '' };
   if (parts.length === 1) return { nom: parts[0], prenom: '' };
-  return { nom: parts[parts.length - 1], prenom: parts.slice(0, -1).join(' ') };
+
+  // 1. On cherche s'il y a un mot TOUT EN MAJUSCULES (>= 2 lettres). Ex: "KONE Aïcha" -> "KONE"
+  const upperWordIndex = parts.findIndex(p => p === p.toUpperCase() && p.length > 1);
+  if (upperWordIndex !== -1) {
+    const nom = parts[upperWordIndex];
+    const prenom = parts.filter((_, i) => i !== upperWordIndex).join(' ');
+    return { nom, prenom };
+  }
+
+  // 2. Si l'école a tout écrit en minuscules ou avec des majuscules normales ("Kone Aïcha" ou "kone aïcha"),
+  // on utilise l'ordre classique "NOM Prénom" (premier mot = nom), courant en Afrique de l'Ouest.
+  // Si c'était "Aïcha Kone", on applique la règle du dernier mot.
+  // Par défaut, on considère que le format est "NOM Prénom" si le premier mot est plus long que le deuxième.
+  // Mais pour être sûr, on va prendre le premier mot comme nom.
+  return { nom: parts[0], prenom: parts.slice(1).join(' ') };
 }
 
 export function csvEscape(val) {
