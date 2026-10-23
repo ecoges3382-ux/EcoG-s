@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName } from '../lib/utils.js';import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
+import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName } from '../lib/utils.js';
+import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
@@ -81,9 +82,10 @@ export default function Students() {
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
 
+  // Grille : Élève, Matricule, Sexe, Classe, Date Inscr., Tél, Reste, Statut
   const gridCols = selectMode
-    ? '28px 1.5fr 0.8fr 0.6fr 0.8fr 1fr 0.8fr 1fr 100px'
-    : '1.5fr 0.8fr 0.6fr 0.8fr 1fr 0.8fr 1fr 100px';
+    ? '28px 1.5fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
+    : '1.5fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
 
   async function reload() {
     if (!schoolYear) return;
@@ -93,7 +95,7 @@ export default function Students() {
       load: async () => {
         const { data, error: fetchError } = await supabase
           .from('enrollments')
-          .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )')
+          .select('id, created_at, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )')
           .eq('school_year_id', schoolYear.id)
           .order('full_name', { foreignTable: 'students' });
         if (fetchError) return { error: fetchError };
@@ -101,6 +103,7 @@ export default function Students() {
           data: (data || []).map((e) => ({
             id: e.students.id,
             enrollment_id: e.id,
+            created_at: e.created_at,
             full_name: e.students.full_name,
             nom: e.students.nom,
             prenom: e.students.prenom,
@@ -145,9 +148,9 @@ export default function Students() {
   const filtered = classFilter === 'toutes' ? students : students.filter((s) => s.niveau === classFilter);
 
   function exportCsv() {
-    const rows = [['Nom', 'Matricule', 'Classe', 'Sexe', 'Montant dû', 'Payé', 'Reste', 'Téléphone parent']];
+    const rows = [['Nom', 'Matricule', 'Sexe', 'Classe', "Date d'inscription", 'Montant dû', 'Payé', 'Reste', 'Téléphone parent']];
     students.forEach((s) => {
-      rows.push([s.full_name, s.matricule || '', s.niveau, s.sexe === 'F' ? 'F' : 'M', s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye), s.parent_phone || '']);
+      rows.push([s.full_name, s.matricule || '', s.sexe === 'F' ? 'F' : 'M', s.niveau, new Date(s.created_at).toLocaleDateString('fr-FR'), s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye), s.parent_phone || '']);
     });
     downloadCsv('eleves.csv', rows);
   }
@@ -335,13 +338,14 @@ export default function Students() {
       </p>
 
       <div className="card-bold" style={{ overflowX: 'auto' }}>
-        <div style={{ minWidth: selectMode ? 980 : 940 }}>
+        <div style={{ minWidth: selectMode ? 1050 : 1010 }}>
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
             <span style={{ paddingLeft: selectMode ? 0 : 20 }}>Élève</span>
             <span>Matricule</span>
             <span>Sexe</span>
             <span>Classe</span>
+            <span>Inscription</span>
             <span>Tél. Parent</span>
             <span>Reste</span>
             <span>Statut</span>
@@ -369,6 +373,7 @@ export default function Students() {
                   <span style={{ fontSize: 13 }}>{s.matricule || '—'}</span>
                   <span style={{ fontSize: 13 }}>{s.sexe || '—'}</span>
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{s.niveau}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{new Date(s.created_at).toLocaleDateString('fr-FR')}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{s.parent_phone || '—'}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(reste)}</span>
                   <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>{status.label}</span>
