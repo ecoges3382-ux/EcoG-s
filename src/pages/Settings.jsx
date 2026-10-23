@@ -7,6 +7,7 @@ import { NIVEAUX, SUPPORT_WHATSAPP_DISPLAY, supportWhatsappLink, supportMailLink
 import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
@@ -17,6 +18,7 @@ const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
 
 export default function Settings() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile, refreshProfile } = useAuth();
   const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
   const school = profile.schools;
@@ -32,6 +34,9 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  
+  // Clé pour forcer le re-render de la grille tarifaire quand on l'efface
+  const [gridKey, setGridKey] = useState(0);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -57,6 +62,17 @@ export default function Settings() {
     await refreshProfile();
     setSaved(true);
     showToast('Enregistré');
+  }
+
+  async function handleClearGrid() {
+    if (!(await confirm('Voulez-vous vraiment effacer toute la grille tarifaire de cette année ? Cette action est irréversible.', { confirmLabel: 'Tout effacer', danger: true }))) return;
+    setGridKey(k => k + 1);
+    const { error: deleteError } = await supabase.from('fee_schedules').delete().eq('school_year_id', schoolYear.id);
+    if (deleteError) {
+      showToast(deleteError.message, 'error');
+      return;
+    }
+    showToast('Grille tarifaire effacée');
   }
 
   return (
@@ -128,10 +144,6 @@ export default function Settings() {
         )}
       </form>
 
-      {/* Calendrier de paiement et grille tarifaire : réglages à mettre en
-          place avant de commencer à utiliser l'appli au quotidien — pas
-          quelque chose qu'on va chercher dans Argent, directement visible
-          en entrant dans Paramètres. Deux paramètres distincts, deux cartes. */}
       {schoolYear && (
         <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
           <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
@@ -140,11 +152,25 @@ export default function Settings() {
 
       {schoolYear && (
         <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
-          <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
-          <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-            Montants attendus par niveau pour {schoolYear.label}.
-          </p>
-          <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div>
+              <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+                Montants attendus par niveau pour {schoolYear.label}.
+              </p>
+            </div>
+            {canManageYear && (
+              <button
+                onClick={handleClearGrid}
+                title="Effacer toute la grille"
+                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>
+                Tout effacer
+              </button>
+            )}
+          </div>
+          <FeeScheduleGrid key={gridKey} schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
         </div>
       )}
 
@@ -206,26 +232,15 @@ export default function Settings() {
         </Link>
       )}
 
-      {/* Un simple lien suffit : pas de billetterie, juste un canal direct
-          pour signaler un problème — la même adresse que celle affichée sur
-          la page d'accueil publique (voir src/lib/utils.js). */}
       <div className="card-bold" style={{ padding: '16px 20px', marginTop: 12, maxWidth: 520 }}>
         <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Besoin d'aide ?</p>
         <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>En cas de souci, contacte l'équipe EcoGès directement.</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <a
-            href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', textDecoration: 'none' }}
-          >
+          <a href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', textDecoration: 'none' }}>
             <i className="ti ti-brand-whatsapp" style={{ fontSize: 15 }} aria-hidden="true"></i>
             {SUPPORT_WHATSAPP_DISPLAY}
           </a>
-          <a
-            href={supportMailLink('Assistance EcoGès')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}
-          >
+          <a href={supportMailLink('Assistance EcoGès')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}>
             <i className="ti ti-mail" style={{ fontSize: 15 }} aria-hidden="true"></i>
             E-mail
           </a>
@@ -238,13 +253,9 @@ export default function Settings() {
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)' };
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
 
-// Un seul calendrier par année scolaire, identique pour toute l'école (pas
-// par niveau) : une fois un délai dépassé, les élèves qui n'ont pas payé
-// ce qu'il fallait à ce stade apparaissent "à relancer" dans Élèves et
-// Argent (voir src/lib/retard.js). La 3ème tranche reste facultative pour
-// une école qui ne fonctionne qu'en 2 tranches.
 function PaymentCalendar({ schoolYear, canManage, onSaved }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const [d1, setD1] = useState(schoolYear.date_tranche1 || '');
   const [d2, setD2] = useState(schoolYear.date_tranche2 || '');
   const [d3, setD3] = useState(schoolYear.date_tranche3 || '');
@@ -277,13 +288,44 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
     onSaved();
   }
 
+  async function handleClear() {
+    if (!(await confirm('Voulez-vous vraiment effacer toutes les dates du calendrier ?', { confirmLabel: 'Tout effacer', danger: true }))) return;
+    setSaving(true);
+    setError('');
+    const { error: saveError } = await supabase.from('school_years').update({
+      date_tranche1: null,
+      date_tranche2: null,
+      date_tranche3: null,
+      date_connexe: null,
+    }).eq('id', schoolYear.id);
+    setSaving(false);
+    if (saveError) { setError(saveError.message); return; }
+    setD1(''); setD2(''); setD3(''); setDc('');
+    showToast('Calendrier effacé');
+    onSaved();
+  }
+
   return (
     <div>
-      <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Calendrier de paiement</p>
-      <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-        Une fois un délai dépassé, les élèves qui n'ont pas payé ce qu'il fallait à ce stade
-        apparaissent automatiquement « à relancer » dans Élèves et Argent.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Calendrier de paiement</p>
+          <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+            Une fois un délai dépassé, les élèves qui n'ont pas payé ce qu'il fallait à ce stade apparaissent automatiquement « à relancer » dans Élèves et Argent.
+          </p>
+        </div>
+        {canManage && (
+          <button
+            onClick={handleClear}
+            disabled={saving || (!d1 && !d2 && !d3 && !dc)}
+            title="Effacer toutes les dates"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: saving || (!d1 && !d2 && !d3 && !dc) ? 'default' : 'pointer', opacity: saving || (!d1 && !d2 && !d3 && !dc) ? 0.4 : 1, whiteSpace: 'nowrap' }}
+          >
+            <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>
+            Tout effacer
+          </button>
+        )}
+      </div>
       {canManage ? (
         <>
           <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
@@ -338,14 +380,6 @@ function CalDateDisplay({ label, value }) {
 const calLabelStyle = { display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
 const calInputStyle = { width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)', textAlign: 'center' };
 
-// Seuil de moyenne annuelle (sur 20) à partir duquel un élève est classé
-// automatiquement "Passe" plutôt que "Redouble" lors de la préparation
-// d'une nouvelle année (voir start_school_year_preparation). Réglage
-// permanent de l'école (pas par année) : niveau=null est le seuil par
-// défaut, une ligne par niveau le surcharge si besoin — les deux modes
-// ("même seuil partout" / "seuil différent par niveau") ne sont pas deux
-// écrans séparés, juste la même mécanique : ne rien remplir par niveau = le
-// défaut s'applique partout.
 function PassageThresholds({ schoolId }) {
   const showToast = useToast();
   const [rows, setRows] = useState(null);
@@ -402,7 +436,6 @@ function PassageThresholds({ schoolId }) {
     const existing = rows.byNiveau[niveau];
     let saveError = null;
     if (value === '') {
-      // Champ vidé : retombe sur le seuil par défaut, pas de ligne à zéro.
       if (existing) ({ error: saveError } = await supabase.from('passage_thresholds').delete().eq('id', existing.id));
     } else {
       const payload = { school_id: schoolId, niveau, seuil: Number(value) || 0 };
@@ -425,8 +458,7 @@ function PassageThresholds({ schoolId }) {
       <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600 }}>Seuil de passage automatique</p>
       <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
         Moyenne annuelle minimale (sur 20) pour qu'un élève soit classé automatiquement « Passe »
-        plutôt que « Redouble » lors de la préparation d'une nouvelle année. Laisse un niveau sur le
-        seuil par défaut (grisé) ou personnalise-le pour ce niveau uniquement.
+        plutôt que « Redouble » lors de la préparation d'une nouvelle année.
       </p>
 
       <ThresholdRow
@@ -485,13 +517,6 @@ function ThresholdRow({ label, value, placeholder, saving, onSave }) {
   );
 }
 
-// Sans surcharge pour ce niveau, le champ affiche la valeur du seuil par
-// défaut en grisé (fond + texte atténués) — dès que le seuil par défaut
-// change et est confirmé, la key (recalculée par le parent) fait remonter
-// ce composant avec la nouvelle valeur : le grisage se met à jour tout
-// seul, sans action de l'utilisateur sur ce niveau. Le champ reste
-// modifiable directement : taper dedans crée une surcharge propre à ce
-// niveau (fond blanc, texte normal) ; "Revenir au défaut" la supprime.
 function NiveauThresholdEditor({ niveau, override, defaultValue, saving, onSave }) {
   const hasOverride = override != null;
   const fallback = defaultValue != null ? String(defaultValue) : '10';
