@@ -109,6 +109,22 @@ export default function Recouvrement() {
   const tauxConnexe = totalConnexeDu > 0 ? Math.round((totalConnexePaye / totalConnexeDu) * 100) : 0;
 
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
+  // Élèves avec un reste d'écolage — TRIÉS par montant restant décroissant.
+// `enRetard` = délai dépassé sur le calendrier ; si aucun calendrier n'est
+// configuré, tout solde restant est considéré prioritaire (fallback).
+const ecolagePrioritaires = enrichis
+  .filter((s) => s.resteEcolage > 0)
+  .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relance : true }))
+  .sort((a, b) => b.resteEcolage - a.resteEcolage);
+
+// Idem pour les frais connexes — table de calcul INDÉPENDANTE.
+const connexePrioritaires = enrichis
+  .filter((s) => s.resteConnexe > 0)
+  .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relanceConnexe : true }))
+  .sort((a, b) => b.resteConnexe - a.resteConnexe);
+
+const totalEcolagePrioritaire = ecolagePrioritaires.reduce((a, s) => a + s.resteEcolage, 0);
+const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.resteConnexe, 0);
   const nbAvecSolde = enrichis.length - nbAJour;
 
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
