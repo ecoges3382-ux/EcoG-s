@@ -8,10 +8,6 @@ export function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Bornes de périodes usuelles (jour/semaine/mois), utilisées à la fois par
-// les statistiques de présence (Attendance.jsx) et le dashboard/rapports de
-// direction — une seule définition de "semaine"/"mois" dans toute l'appli.
-// Lundi comme premier jour de semaine.
 export function startOfWeekIso(iso) {
   const d = new Date(`${iso}T00:00:00`);
   const day = d.getDay();
@@ -31,18 +27,10 @@ export function endOfMonthIso(iso) {
   return `${iso.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
 }
 
-// Pour tout montant affiché à l'écran (pas les exports CSV, qui gardent
-// des nombres bruts) : "F" tout court ne précise pas de quel franc il
-// s'agit, ici c'est toujours le franc CFA.
 export function fmtF(n) {
   return `${fmt(n)} F CFA`;
 }
 
-// Reformate chaque montant repéré dans un texte libre (ex. note
-// d'arrangement "paye 20000 par mois") au même format que le reste de
-// l'app ("20.000") — sans toucher au reste du texte. Un nombre déjà
-// collé à un point n'est reformaté que si le point est suivi d'autres
-// chiffres (sinon on mangerait un point de fin de phrase comme "5.").
 export function formatAmountsInText(text) {
   return (text || '').replace(/\d+(?:\.\d+)*(?:,\d+)?/g, (token) => {
     const [intPart, decPart] = token.split(',');
@@ -56,16 +44,10 @@ export function initials(name) {
   return (name || '').split(' ').map((w) => w[0]).join('');
 }
 
-// Format d'affichage des noms dans toute l'app : "NOM Prénom" — le nom de
-// famille toujours en majuscules, même saisi en minuscule.
 export function displayName(nom, prenom) {
   return `${(nom || '').toUpperCase()} ${prenom || ''}`.trim();
 }
 
-// Découpe un nom complet libre (une seule colonne dans un import CSV, par
-// exemple) en { nom, prenom } — le dernier mot devient le nom de famille.
-// Best-effort seulement : à utiliser en dernier recours, quand on n'a pas
-// de champs Nom/Prénom déjà séparés à la saisie.
 export function splitFullName(fullName) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { nom: '', prenom: '' };
@@ -126,8 +108,6 @@ export function parseCsv(text) {
   return rows;
 }
 
-// Alphabet sans caractères ambigus (pas de 0/O, 1/I/L) — un code d'accès
-// parent doit rester lisible et saisissable facilement depuis un téléphone.
 const ACCESS_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export function generateAccessCode(length = 8) {
   const bytes = new Uint32Array(length);
@@ -140,8 +120,20 @@ export const NIVEAUX = [
   '6e', '5e', '4e', '3e', '2nde', '1ere', 'Tle',
 ];
 
-// Trie les classes dans l'ordre pédagogique (Maternelle → Terminale), pas
-// alphabétique (où "6e" passerait avant "CE1") ni par date de création.
+export const NATIONALITES = [
+  'Béninoise', 'Burkinabè', 'Burundaise', 'Camerounaise', 'Centrafricaine', 'Congolaise (Brazzaville)', 
+  'Congolaise (RDC)', 'Ivoirienne', 'Djiboutienne', 'Égyptienne', 'Érythréenne', 'Éthiopienne', 
+  'Gabonaise', 'Gambienne', 'Ghanéenne', 'Guinéenne', 'Équato-guinéenne', 'Bissau-guinéenne', 
+  'Kényane', 'Libérienne', 'Libyenne', 'Malgache', 'Malawienne', 'Malienne', 'Marocaine', 
+  'Mauritanienne', 'Mauricienne', 'Mozambicaine', 'Namibienne', 'Nigérienne', 'Nigériane', 
+  'Rwandaise', 'Sénégalaise', 'Seychelloise', 'Sierra-Léonaise', 'Somalienne', 'Sud-africaine', 
+  'Soudanaise', 'Sud-soudanaise', 'Tanzanienne', 'Tchadienne', 'Togolaise', 'Tunisienne', 
+  'Ougandaise', 'Zambienne', 'Zimbabwéenne', 'Française', 'Belge', 'Canadienne', 'Américaine', 
+  'Algérienne', 'Allemande', 'Angolaise', 'Saoudienne', 'Argentine', 'Australienne', 'Autrichienne', 
+  'Brésilienne', 'Britannique', 'Chinoise', 'Espagnole', 'Indienne', 'Italienne', 'Japonaise', 
+  'Libanaise', 'Portugaise', 'Russe', 'Suisse', 'Turque', 'Autre'
+];
+
 export function sortClasses(list) {
   return [...list].sort((a, b) => {
     const diff = NIVEAUX.indexOf(a.niveau) - NIVEAUX.indexOf(b.niveau);
@@ -150,11 +142,6 @@ export function sortClasses(list) {
   });
 }
 
-// Certaines écoles fonctionnent en 2 tranches, d'autres en 3 — la liste
-// reste la même pour toutes, une école à 2 tranches n'utilise juste pas la
-// 3ème. "partiel" reste géré en affichage pour d'anciens paiements
-// enregistrés avant ce champ (voir trancheLabel), mais n'est plus proposé
-// à la saisie.
 export const TRANCHES = [
   { id: 'tranche1', label: '1ère tranche' },
   { id: 'tranche2', label: '2ème tranche' },
@@ -177,11 +164,6 @@ export function modeLabel(id) {
   return MODES.find((m) => m.id === id)?.label || id;
 }
 
-// `hidden: true` sur les deux derniers types : ces paiements ne sont créés
-// que par l'import CSV de migration (soldes d'ouverture) — jamais proposés
-// dans le formulaire manuel "Enregistrer un paiement" de Money.jsx, pour
-// qu'une secrétaire ne puisse pas créer par erreur une ligne de solde
-// d'ouverture en croyant enregistrer un vrai paiement.
 export const TYPES_FRAIS = [
   { id: 'scolarite', label: 'Scolarité' },
   { id: 'connexe', label: 'Frais connexes' },
@@ -203,10 +185,6 @@ export const ROLES = {
   parent: { label: 'Parent' },
 };
 
-// Ordre hiérarchique d'affichage des comptes utilisateurs, valable pour
-// toutes les écoles : fondateur, puis directeur, puis censeur (s'il y en a
-// un), puis secrétaire, puis tout le reste (dans l'ordre où ils arrivaient
-// déjà, généralement alphabétique).
 const ROLE_ORDER = ['fondateur', 'directeur', 'censeur', 'secretaire'];
 export function sortByRole(list) {
   return [...list].sort((a, b) => {
@@ -216,10 +194,6 @@ export function sortByRole(list) {
   });
 }
 
-// Canal de support unique, réutilisé à la fois par la page d'accueil
-// publique (Landing.jsx) et le lien d'aide accessible depuis l'application
-// une fois connecté (Shell.jsx, Settings.jsx) — une seule source pour ces
-// coordonnées plutôt qu'un numéro/e-mail recopié à chaque endroit.
 export const SUPPORT_WHATSAPP_NUMBER = '22995056424';
 export const SUPPORT_WHATSAPP_DISPLAY = '+229 95 05 64 24';
 export const SUPPORT_EMAIL = 'ecoges3382@gmail.com';
@@ -231,8 +205,6 @@ export function supportMailLink(subject) {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
 
-// navigator.clipboard est absent hors HTTPS et peut refuser l'écriture
-// (ancien Safari iOS, permissions) : on retombe alors sur execCommand.
 export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -253,13 +225,6 @@ export async function copyText(text) {
   }
 }
 
-// Première colonne d'un tableau qui défile horizontalement (repartition
-// par classe, listes élèves/personnel...) : reste visible pendant que le
-// reste de la ligne coulisse dessous, comme la colonne figée d'un tableur.
-// `bg` doit reprendre le fond réel de la ligne (l'en-tête et les lignes de
-// données n'ont pas le même fond), sinon le contenu qui défile transparaît
-// derrière la colonne figée. L'ombre légère à droite signale qu'il y a
-// autre chose qui continue sous cette colonne.
 export function stickyColStyle(bg) {
   return {
     position: 'sticky',
@@ -267,13 +232,6 @@ export function stickyColStyle(bg) {
     zIndex: 1,
     background: bg,
     borderRight: '1px solid var(--line)',
-    // Sans ça, Safari peint parfois la colonne figée en retard sur le
-    // reste de la ligne pendant le défilement (élastique sur iOS) : on
-    // entrevoit une fraction de seconde ce qui défile derrière, à travers
-    // un fond pourtant bien opaque. En forçant cette colonne sur sa propre
-    // couche graphique (comme le composited layer d'une image ou vidéo),
-    // le navigateur la peint indépendamment du contenu qui défile dessous
-    // au lieu de la recomposer avec lui à chaque frame.
     transform: 'translateZ(0)',
     WebkitTransform: 'translateZ(0)',
     backfaceVisibility: 'hidden',
