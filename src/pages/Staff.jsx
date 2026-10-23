@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, fmtF, downloadCsv, sortClasses, stickyColStyle } from '../lib/utils.js';
+import { initials, fmtF, downloadCsv, sortClasses, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -15,10 +15,8 @@ import { SkeletonRow } from '../components/Skeleton.jsx';
 function IdBadgeIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="4" y="3.5" width="16" height="17" rx="2.4" />
-      <circle cx="12" cy="10.5" r="2.4" />
-      <path d="M8.3 16.5c.5-1.7 1.9-2.6 3.7-2.6s3.2.9 3.7 2.6" />
-      <path d="M9 3.5v2M15 3.5v2" />
+      <rect x="4" y="3.5" width="16" height="17" rx="2.4" /><circle cx="12" cy="10.5" r="2.4" />
+      <path d="M8.3 16.5c.5-1.7 1.9-2.6 3.7-2.6s3.2.9 3.7 2.6" /><path d="M9 3.5v2M15 3.5v2" />
     </svg>
   );
 }
@@ -28,9 +26,7 @@ const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 function ArchiveIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 4m0 1a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z" />
-      <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
-      <path d="M10 12l4 0" />
+      <path d="M3 4m0 1a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z" /><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" /><path d="M10 12l4 0" />
     </svg>
   );
 }
@@ -46,11 +42,8 @@ function RestoreIcon() {
 function TrashIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7l16 0" />
-      <path d="M10 11l0 6" />
-      <path d="M14 11l0 6" />
-      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
-      <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" />
+      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
     </svg>
   );
 }
@@ -58,8 +51,7 @@ function TrashIcon() {
 function PencilIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
-      <path d="M13.5 6.5l4 4" />
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
     </svg>
   );
 }
@@ -79,12 +71,9 @@ export default function Staff() {
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
-  // Grille à 8 colonnes : la colonne "Salaire mensuel" a été ajoutée entre
-  // "Niveau d'études" et "Classe(s)" — visible d'un coup d'œil si un
-  // employé n'a pas de salaire renseigné (badge rouge), ce qui impacte
-  // directement le calcul théorique du Dashboard.
+  
   const gridCols = selectMode
-    ? '28px 1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr'
+    ? '28px 1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px'
     : '1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px';
 
   async function reload() {
@@ -104,10 +93,6 @@ export default function Staff() {
 
   const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
 
-  // Membres actifs sans salaire mensuel — sert à afficher le bandeau
-  // d'alerte et à calculer le sous-texte de la colonne. On ne compte que
-  // les actifs : un archivé sans salaire n'a plus d'impact sur le calcul
-  // théorique du Dashboard.
   const actifsSansSalaire = visibleStaff.filter((p) => !showArchives && p.salaire_mensuel == null);
   const nbActifs = showArchives ? 0 : visibleStaff.length;
   const nbAvecSalaire = showArchives ? 0 : nbActifs - actifsSansSalaire.length;
@@ -136,23 +121,12 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    // Enrichi avec salaire mensuel + date d'entrée : quand une école veut
-    // vérifier qui a un salaire renseigné (ou auditer la masse salariale),
-    // elle peut le faire dans Excel plutôt que de cliquer sur 40 fiches.
     const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
     visibleStaff.forEach((p) => {
       rows.push([
-        p.full_name,
-        p.matricule || '',
-        p.statut === 'inactif' ? 'Archivé' : 'Actif',
-        p.role,
-        p.niveau_etudes || '',
-        p.salaire_mensuel != null ? p.salaire_mensuel : '',
-        p.date_entree || '',
-        (p.classes || []).join(' / '),
-        subjectsFor(p.id).join(' / '),
-        p.phone || '',
-        p.email || '',
+        p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '',
+        p.salaire_mensuel != null ? p.salaire_mensuel : '', p.date_entree || '', (p.classes || []).join(' / '),
+        subjectsFor(p.id).join(' / '), p.phone || '', p.email || '',
       ]);
     });
     downloadCsv('personnel.csv', rows);
@@ -208,7 +182,9 @@ export default function Staff() {
       <SchoolTabs />
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Personnel</p>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+          Personnel <span style={{ fontSize: 16, color: 'var(--muted)', fontWeight: 400 }}>({visibleStaff.length})</span>
+        </p>
         {staff && (
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
             <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
@@ -218,10 +194,7 @@ export default function Staff() {
               <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
             </button>
             {canDelete && !selectMode && (
-              <button
-                onClick={() => setSelectMode(true)}
-                style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}
-              >
+              <button onClick={() => setSelectMode(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
                 Sélectionner
               </button>
             )}
@@ -230,23 +203,14 @@ export default function Staff() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        <button
-          onClick={() => setShowArchives(false)}
-          style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${!showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: !showArchives ? 'var(--forest)' : 'var(--paper)', color: !showArchives ? '#fff' : 'var(--ink)' }}
-        >
+        <button onClick={() => setShowArchives(false)} style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${!showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: !showArchives ? 'var(--forest)' : 'var(--paper)', color: !showArchives ? '#fff' : 'var(--ink)' }}>
           Actifs
         </button>
-        <button
-          onClick={() => setShowArchives(true)}
-          style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: showArchives ? 'var(--forest)' : 'var(--paper)', color: showArchives ? '#fff' : 'var(--ink)' }}
-        >
+        <button onClick={() => setShowArchives(true)} style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: showArchives ? 'var(--forest)' : 'var(--paper)', color: showArchives ? '#fff' : 'var(--ink)' }}>
           Archivés{staff ? ` (${staff.filter((p) => p.statut === 'inactif').length})` : ''}
         </button>
       </div>
 
-      {/* Bandeau d'alerte si des membres actifs n'ont pas de salaire renseigné.
-          Impact direct sur le Dashboard : la masse salariale théorique sera
-          sous-évaluée pour chaque employé sans salaire mensuel. */}
       {!showArchives && nbActifs > 0 && actifsSansSalaire.length > 0 && (
         <div className="card-bold" style={{ padding: '12px 16px', marginBottom: 14, background: 'var(--amber-light)', borderColor: 'var(--amber)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
@@ -278,106 +242,82 @@ export default function Staff() {
           {showArchives ? (
             <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre archivé.</p>
           ) : (
-            <EmptyState
-              icon={<IdBadgeIcon />}
-              title="Aucun membre du personnel"
-              subtitle="Ajoute les enseignants et le personnel administratif pour leur assigner des classes et des matières."
-              actionLabel="Ajouter un membre"
-              onAction={() => { setEditingStaff(null); setModalOpen(true); }}
-            />
+            <EmptyState icon={<IdBadgeIcon />} title="Aucun membre du personnel" subtitle="Ajoute les enseignants et le personnel administratif pour leur assigner des classes et des matières." actionLabel="Ajouter un membre" onAction={() => { setEditingStaff(null); setModalOpen(true); }} />
           )}
         </div>
       )}
       {staff && visibleStaff.length > 0 && (
-        <>
-          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)' }}>{visibleStaff.length} membre{visibleStaff.length > 1 ? 's' : ''}</p>
-          <div className="card-bold" style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: selectMode ? 940 : 966 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
-                {selectMode && <span></span>}
-                <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Nom</span>
-                <span>Matricule</span>
-                <span>Rôle</span>
-                <span>Niveau</span>
-                <span>Salaire</span>
-                <span>Classe(s)</span>
-                <span>Matière(s)</span>
-                {!selectMode && <span></span>}
-              </div>
-              {visibleStaff.map((p, i) => {
-                const salaireManquant = !showArchives && p.salaire_mensuel == null;
-                return (
-                  <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '14px 20px' : '14px 20px 14px 0', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                    {selectMode && (
-                      <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
-                    )}
-                    <Link
-                      to={selectMode ? '#' : `/personnel/${p.id}`}
-                      onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(p.id); } : undefined}
-                      style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--row-bg)'), paddingLeft: selectMode ? 0 : 20 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
-                          {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
-                        </div>
-                        <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{p.full_name}</span>
-                      </div>
-                      <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
-                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role}</span>
-                      <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
-                      <span style={{ fontSize: 13 }}>
-                        {salaireManquant ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
-                            <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>
-                            Manquant
-                          </span>
-                        ) : p.salaire_mensuel != null ? (
-                          <span style={{ fontWeight: 600 }}>{fmtF(p.salaire_mensuel)}</span>
-                        ) : (
-                          <span style={{ color: 'var(--muted)' }}>—</span>
-                        )}
-                      </span>
-                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
-                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
-                    </Link>
-                    {!selectMode && (
-                      <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end' }}>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(p)}
-                          title="Modifier"
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
-                        >
-                          <PencilIcon />
-                        </button>
-                        {canDelete && (
-                          <button
-                            type="button"
-                            onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)}
-                            title={showArchives ? 'Réactiver' : 'Archiver'}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}
-                          >
-                            {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
-                          </button>
-                        )}
-                        {canDelete && showArchives && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteOne(p.id, p.full_name)}
-                            title="Supprimer définitivement"
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                          >
-                            <TrashIcon />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+          <div style={{ minWidth: selectMode ? 980 : 940 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
+              {selectMode && <span></span>}
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Nom</span>
+              <span>Matricule</span>
+              <span>Rôle</span>
+              <span>Niveau</span>
+              <span>Salaire</span>
+              <span>Classe(s)</span>
+              <span>Matière(s)</span>
+              {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
             </div>
+            {visibleStaff.map((p, i) => {
+              const salaireManquant = !showArchives && p.salaire_mensuel == null;
+              return (
+                <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '14px 20px' : '14px 20px 14px 0', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  {selectMode && (
+                    <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} />
+                  )}
+                  <Link
+                    to={selectMode ? '#' : `/personnel/${p.id}`}
+                    onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(p.id); } : undefined}
+                    style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+                        {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
+                      </div>
+                      <span style={{ fontSize: '13.5px', fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3 }}>{p.full_name}</span>
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role}</span>
+                    <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
+                    <span style={{ fontSize: 13 }}>
+                      {salaireManquant ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+                          <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>
+                          Manquant
+                        </span>
+                      ) : p.salaire_mensuel != null ? (
+                        <span style={{ fontWeight: 600 }}>{fmtF(p.salaire_mensuel)}</span>
+                      ) : (
+                        <span style={{ color: 'var(--muted)' }}>—</span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
+                  </Link>
+                  {!selectMode && (
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
+                      <button type="button" onClick={() => openEdit(p)} title="Modifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+                        <PencilIcon />
+                      </button>
+                      {canDelete && (
+                        <button type="button" onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)} title={showArchives ? 'Réactiver' : 'Archiver'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+                          {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
+                        </button>
+                      )}
+                      {canDelete && showArchives && (
+                        <button type="button" onClick={() => handleDeleteOne(p.id, p.full_name)} title="Supprimer définitivement" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
+                          <TrashIcon />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </>
+        </div>
       )}
 
       {selectMode && (
