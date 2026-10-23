@@ -20,6 +20,24 @@ function BuildingIcon() {
   );
 }
 
+// --- ICÔNES SVG ---
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+// -----------------
+
 export default function Classes() {
   const { profile } = useAuth();
   const confirm = useConfirm();
@@ -105,9 +123,9 @@ export default function Classes() {
       <SchoolTabs />
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-       <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-  Classes
-</p>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+          Classes
+        </p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           {!selectMode && (
             <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
@@ -131,7 +149,7 @@ export default function Classes() {
         </div>
       )}
       {classes && classes.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
           <div style={{ minWidth: selectMode ? 720 : 680 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
               {selectMode && <span></span>}
@@ -148,10 +166,15 @@ export default function Classes() {
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
                   <span style={{ fontSize: 13 }}>{effectif}{c.capacite ? ` / ${c.capacite}` : ''}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
+                  
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
-                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier"><i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i></button>
-                      <button onClick={() => handleDeleteOne(c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer"><i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i></button>
+                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier">
+                        <PencilIcon />
+                      </button>
+                      <button onClick={() => handleDeleteOne(c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer">
+                        <TrashIcon />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -160,6 +183,7 @@ export default function Classes() {
           </div>
         </div>
       )}
+
       <p style={{ margin: '14px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>L'effectif est compté à partir des inscriptions de l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.</p>
       {selectMode && <SelectionBar count={selectedIds.length} allSelected={classes && classes.length > 0 && classes.every((c) => selectedIds.includes(c.id))} onCancel={exitSelectMode} onToggleAll={toggleAllVisible} onDelete={handleDeleteSelected} deleting={deleting} />}
       {modalOpen && <ClassModal schoolId={profile.school_id} teachers={teachers} editing={editing} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); reload(); }} />}
