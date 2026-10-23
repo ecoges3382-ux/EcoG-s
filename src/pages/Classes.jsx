@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { sortClasses, stickyColStyle } from '../lib/utils.js';
+import { sortClasses, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
@@ -15,8 +15,7 @@ import { SkeletonTableRows } from '../components/Skeleton.jsx';
 function BuildingIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="4" y="3.5" width="16" height="17" rx="1.4" />
-      <path d="M9 20v-4h6v4" />
+      <rect x="4" y="3.5" width="16" height="17" rx="1.4" /><path d="M9 20v-4h6v4" />
       <path d="M8 7.5h1.2M8 11h1.2M14.8 7.5H16M14.8 11H16" />
     </svg>
   );
@@ -37,7 +36,7 @@ export default function Classes() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
-  const gridCols = selectMode ? '28px 1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr' : '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr';
+  const gridCols = selectMode ? '28px 1fr 0.9fr 0.9fr 0.8fr 1.6fr 80px' : '1fr 0.9fr 0.9fr 0.8fr 1.6fr 80px';
 
   async function reload() {
     if (!schoolYear) return;
@@ -83,11 +82,7 @@ export default function Classes() {
     if (!(await confirm(`Supprimer la classe ${c.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('classes').delete().eq('id', c.id);
     if (deleteError) {
-      setError(
-        deleteError.code === '23503'
-          ? `Impossible de supprimer « ${c.nom} » : des élèves y sont encore inscrits.`
-          : deleteError.message,
-      );
+      setError(deleteError.code === '23503' ? `Impossible de supprimer « ${c.nom} » : des élèves y sont encore inscrits.` : deleteError.message);
       return;
     }
     reload();
@@ -133,21 +128,16 @@ export default function Classes() {
 
       {classes && classes.length === 0 && (
         <div className="card-bold">
-          <EmptyState
-            icon={<BuildingIcon />}
-            title="Aucune classe pour l'instant"
-            subtitle="Crée tes classes pour pouvoir y inscrire des élèves et leur assigner un emploi du temps."
-            actionLabel="Créer ma première classe"
-            onAction={() => { setEditing(null); setModalOpen(true); }}
-          />
+          <EmptyState icon={<BuildingIcon />} title="Aucune classe pour l'instant" subtitle="Crée tes classes pour pouvoir y inscrire des élèves et leur assigner un emploi du temps." actionLabel="Créer ma première classe" onAction={() => { setEditing(null); setModalOpen(true); }} />
         </div>
       )}
       {classes && classes.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'auto' }}>
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{ minWidth: selectMode ? 720 : 680 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
               {selectMode && <span></span>}
-              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span><span></span>
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span>
+              {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
             </div>
             {classes.map((c, i) => {
               const effectif = enrollments.filter((e) => e.classe_id === c.id).length;
@@ -163,11 +153,11 @@ export default function Classes() {
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
                   
                   {!selectMode && (
-                    <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink)' }} title="Modifier">
+                    <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
+                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier">
                         <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
                       </button>
-                      <button onClick={() => handleDeleteOne(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+                      <button onClick={() => handleDeleteOne(c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer">
                         <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
                       </button>
                     </div>
