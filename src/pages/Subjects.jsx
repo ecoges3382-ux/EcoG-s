@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { sortClasses, stickyColStyle } from '../lib/utils.js';
+import { sortClasses, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SubjectModal from '../components/SubjectModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import SelectionBar from '../components/SelectionBar.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
@@ -13,8 +14,7 @@ import { SkeletonTableRows } from '../components/Skeleton.jsx';
 function BookIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 5.5c0-1 .8-1.5 2-1.5h6v15H6c-1.2 0-2 .5-2 1.5V5.5z" />
-      <path d="M20 5.5c0-1-.8-1.5-2-1.5h-6v15h6c1.2 0 2 .5 2 1.5V5.5z" />
+      <path d="M4 5.5c0-1 .8-1.5 2-1.5h6v15H6c-1.2 0-2 .5-2 1.5V5.5z" /><path d="M20 5.5c0-1-.8-1.5-2-1.5h-6v15h6c1.2 0 2 .5 2 1.5V5.5z" />
     </svg>
   );
 }
@@ -29,12 +29,14 @@ export default function Subjects() {
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
+  const gridCols = selectMode ? '28px 1.6fr 0.6fr 1fr 1.3fr 80px' : '1.6fr 0.6fr 1fr 1.3fr 80px';
 
   async function reload() {
-    // Le niveau proposé pour une matière est celui des classes réellement
-    // créées par l'école (page Classes), pas une liste générique
-    // maternelle→terminale qui n'aurait aucun sens pour un établissement
-    // qui ne couvre pas tous ces niveaux.
     await guardedFetch({
       cacheKey: `subjects_${profile.school_id}`,
       hasData: subjects !== null,
@@ -57,20 +59,42 @@ export default function Subjects() {
 
   useEffect(() => { reload(); }, []);
 
-  async function handleDelete(s) {
+  function toggleOne(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const ids = subjects.map((s) => s.id);
+      return ids.every((id) => prev.includes(id)) ? [] : ids;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds([]);
+  }
+
+  async function handleDeleteOne(s) {
     if (!(await confirm(`Supprimer la matière ${s.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('subjects').delete().eq('id', s.id);
     if (deleteError) {
-      // 23503 = violation de clé étrangère (RESTRICT) : la base bloque la
-      // suppression tant que des notes existent pour cette matière, plutôt
-      // que de les supprimer en cascade — voir schema.sql.
-      setError(
-        deleteError.code === '23503'
-          ? `Impossible de supprimer « ${s.nom} » : des notes existantes utilisent encore cette matière.`
-          : deleteError.message,
-      );
+      setError(deleteError.code === '23503' ? `Impossible de supprimer « ${s.nom} » : des notes existantes utilisent encore cette matière.` : deleteError.message);
       return;
     }
+    reload();
+  }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} matière${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('subjects').delete().in('id', selectedIds);
+    setDeleting(false);
+    if (deleteError) { 
+      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : certaines matières ont des notes associées." : deleteError.message); 
+      return; 
+    }
+    exitSelectMode();
     reload();
   }
 
@@ -79,10 +103,21 @@ export default function Subjects() {
       <SchoolTabs />
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Matières</p>
-        <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
-          <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouvelle matière
-        </button>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+          Matières <span style={{ fontSize: 16, color: 'var(--muted)', fontWeight: 400 }}>({subjects ? subjects.length : 0})</span>
+        </p>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          {!selectMode && (
+            <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+              <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouvelle matière
+            </button>
+          )}
+          {subjects && subjects.length > 0 && !selectMode && (
+            <button onClick={() => setSelectMode(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+              Sélectionner
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
@@ -90,39 +125,52 @@ export default function Subjects() {
 
       {subjects && subjects.length === 0 && (
         <div className="card-bold">
-          <EmptyState
-            icon={<BookIcon />}
-            title="Aucune matière pour l'instant"
-            subtitle="Ajoute les matières enseignées pour pouvoir y rattacher des enseignants et saisir des notes."
-            actionLabel="Créer ma première matière"
-            onAction={() => { setEditing(null); setModalOpen(true); }}
-          />
+          <EmptyState icon={<BookIcon />} title="Aucune matière pour l'instant" subtitle="Ajoute les matières enseignées pour pouvoir y rattacher des enseignants et saisir des notes." actionLabel="Créer ma première matière" onAction={() => { setEditing(null); setModalOpen(true); }} />
         </div>
       )}
       {subjects && subjects.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'auto' }}>
-          <div style={{ minWidth: 560 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.6fr 1fr 1.3fr 0.7fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Matière</span><span>Coef.</span><span>Niveau</span><span>Enseignant</span><span></span>
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+          <div style={{ minWidth: selectMode ? 620 : 560 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+              {selectMode && <span></span>}
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Matière</span><span>Coef.</span><span>Niveau</span><span>Enseignant</span>
+              {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
             </div>
             {subjects.map((s, i) => (
-              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.6fr 1fr 1.3fr 0.7fr', gap: 8, padding: '13px 20px 13px 0', alignItems: 'center', borderBottom: i < subjects.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>{s.nom}</span>
+              <div key={s.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < subjects.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                {selectMode && (
+                  <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} />
+                )}
+                <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>{s.nom}</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>×{s.coefficient}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau || 'Tous niveaux'}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.staff?.full_name || '—'}</span>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={() => { setEditing(s); setModalOpen(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink)' }} title="Modifier">
-                    <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                  </button>
-                  <button onClick={() => handleDelete(s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
-                    <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                  </button>
-                </div>
+                
+                {!selectMode && (
+                  <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
+                    <button onClick={() => { setEditing(s); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier">
+                      <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                    </button>
+                    <button onClick={() => handleDeleteOne(s)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer">
+                      <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
+      )}
+
+      {selectMode && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={subjects && subjects.length > 0 && subjects.every((s) => selectedIds.includes(s.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
       )}
 
       {modalOpen && (
