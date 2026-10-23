@@ -57,10 +57,6 @@ export default function Money() {
   );
 }
 
-// Thin wrapper autour du hook partagé (src/lib/enrollments.js, aussi
-// utilisé par Dashboard.jsx et Reports.jsx) — garde la même interface
-// qu'avant (students/error/schoolYear) pour ne rien changer aux composants
-// qui l'appellent ci-dessous.
 function useEnrollments() {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
@@ -229,15 +225,6 @@ function Payments() {
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Un paiement ne se corrige jamais par édition — c'est un registre
-  // append-only voulu ainsi : une erreur se corrige en supprimant la
-  // ligne fautive puis en en enregistrant une bonne.
-  //
-  // Attention : avec les policies RLS, Supabase ne renvoie PAS d'erreur
-  // quand une suppression est bloquée — il renvoie { data: [], error: null }
-  // comme si tout allait bien. C'est pour ça qu'on ajoute .select('id') :
-  // ça permet de vérifier qu'une ligne a vraiment été supprimée et de ne
-  // pas afficher un faux "Supprimé" si la policy a bloqué l'opération.
   async function handleDelete(p) {
     if (!(await confirm(`Supprimer ce paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'cet élève'} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
@@ -590,10 +577,6 @@ function Expenses() {
     reload();
   }
 
-  // Même précaution que pour payments et salary_advances : .select('id')
-  // pour vérifier qu'une ligne a bien été supprimée (les policies RLS
-  // renvoient silencieusement { data: [], error: null } quand elles
-  // bloquent une opération).
   async function handleDelete(d) {
     if (!(await confirm(`Supprimer la dépense « ${d.libelle} » (${fmtF(d.montant)}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     const { data: deleted, error: deleteError } = await supabase.from('expenses').delete().eq('id', d.id).select('id');
@@ -720,10 +703,6 @@ function Advances() {
     else { showToast('Avance marquée comme payée'); reload(); }
   }
 
-  // .select('id') après le delete : c'est le SEUL moyen de savoir si une
-  // ligne a vraiment été supprimée. Sans lui, une policy RLS qui bloque
-  // l'opération renvoie { data: [], error: null } et on croit à tort que
-  // c'est un succès (bug observé : toast "Supprimé" mais ligne toujours là).
   async function handleDelete(a) {
     const rembourse = Number(a.montant_rembourse) || 0;
     const message = rembourse > 0
