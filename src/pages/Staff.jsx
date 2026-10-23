@@ -42,8 +42,7 @@ function RestoreIcon() {
 function TrashIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" />
-      <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
     </svg>
   );
 }
@@ -92,7 +91,6 @@ export default function Staff() {
   }
 
   const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
-
   const actifsSansSalaire = visibleStaff.filter((p) => !showArchives && p.salaire_mensuel == null);
   const nbActifs = showArchives ? 0 : visibleStaff.length;
   const nbAvecSalaire = showArchives ? 0 : nbActifs - actifsSansSalaire.length;
@@ -123,11 +121,7 @@ export default function Staff() {
   function exportCsv() {
     const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
     visibleStaff.forEach((p) => {
-      rows.push([
-        p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '',
-        p.salaire_mensuel != null ? p.salaire_mensuel : '', p.date_entree || '', (p.classes || []).join(' / '),
-        subjectsFor(p.id).join(' / '), p.phone || '', p.email || '',
-      ]);
+      rows.push([p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '', p.salaire_mensuel != null ? p.salaire_mensuel : '', p.date_entree || '', (p.classes || []).join(' / '), subjectsFor(p.id).join(' / '), p.phone || '', p.email || '']);
     });
     downloadCsv('personnel.csv', rows);
   }
@@ -167,7 +161,6 @@ export default function Staff() {
   }
 
   async function handleArchiveSelected() {
-    const label = showArchives ? 'réactiver' : 'archiver';
     if (!(await confirm(`${showArchives ? 'Réactiver' : 'Archiver'} ${selectedIds.length} membre${selectedIds.length > 1 ? 's' : ''} du personnel ?`, { confirmLabel: showArchives ? 'Réactiver' : 'Archiver', danger: false }))) return;
     setDeleting(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: showArchives ? 'actif' : 'inactif' }).in('id', selectedIds);
@@ -216,12 +209,8 @@ export default function Staff() {
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
             <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: 'var(--clay-dark)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
             <div>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--clay-dark)' }}>
-                {actifsSansSalaire.length} membre{actifsSansSalaire.length > 1 ? 's' : ''} actif{actifsSansSalaire.length > 1 ? 's' : ''} sans salaire mensuel renseigné
-              </p>
-              <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--clay-dark)', lineHeight: 1.5 }}>
-                Le calcul « salaires théoriques » du tableau de bord sera sous-évalué pour {actifsSansSalaire.length > 1 ? 'ces personnes' : 'cette personne'}. Clique sur sa ligne pour ajouter un salaire mensuel.
-              </p>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--clay-dark)' }}>{actifsSansSalaire.length} membre{actifsSansSalaire.length > 1 ? 's' : ''} actif{actifsSansSalaire.length > 1 ? 's' : ''} sans salaire mensuel renseigné</p>
+              <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--clay-dark)', lineHeight: 1.5 }}>Le calcul « salaires théoriques » du tableau de bord sera sous-évalué pour {actifsSansSalaire.length > 1 ? 'ces personnes' : 'cette personne'}.</p>
             </div>
           </div>
         </div>
@@ -229,8 +218,7 @@ export default function Staff() {
 
       {!showArchives && nbActifs > 0 && actifsSansSalaire.length === 0 && (
         <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>
-          <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
-          {nbAvecSalaire} / {nbActifs} membres avec salaire renseigné
+          <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>{nbAvecSalaire} / {nbActifs} membres avec salaire renseigné
         </p>
       )}
 
@@ -247,7 +235,7 @@ export default function Staff() {
         </div>
       )}
       {staff && visibleStaff.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
           <div style={{ minWidth: selectMode ? 980 : 940 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
               {selectMode && <span></span>}
@@ -284,8 +272,7 @@ export default function Staff() {
                     <span style={{ fontSize: 13 }}>
                       {salaireManquant ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
-                          <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>
-                          Manquant
+                          <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>Manquant
                         </span>
                       ) : p.salaire_mensuel != null ? (
                         <span style={{ fontWeight: 600 }}>{fmtF(p.salaire_mensuel)}</span>
@@ -298,18 +285,12 @@ export default function Staff() {
                   </Link>
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
-                      <button type="button" onClick={() => openEdit(p)} title="Modifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
-                        <PencilIcon />
-                      </button>
+                      <button type="button" onClick={() => openEdit(p)} title="Modifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}><PencilIcon /></button>
                       {canDelete && (
-                        <button type="button" onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)} title={showArchives ? 'Réactiver' : 'Archiver'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
-                          {showArchives ? <RestoreIcon /> : <ArchiveIcon />}
-                        </button>
+                        <button type="button" onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)} title={showArchives ? 'Réactiver' : 'Archiver'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>{showArchives ? <RestoreIcon /> : <ArchiveIcon />}</button>
                       )}
                       {canDelete && showArchives && (
-                        <button type="button" onClick={() => handleDeleteOne(p.id, p.full_name)} title="Supprimer définitivement" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
-                          <TrashIcon />
-                        </button>
+                        <button type="button" onClick={() => handleDeleteOne(p.id, p.full_name)} title="Supprimer définitivement" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }}><TrashIcon /></button>
                       )}
                     </div>
                   )}
@@ -321,29 +302,11 @@ export default function Staff() {
       )}
 
       {selectMode && (
-        <SelectionBar
-          count={selectedIds.length}
-          allSelected={visibleStaff.length > 0 && visibleStaff.every((p) => selectedIds.includes(p.id))}
-          onCancel={exitSelectMode}
-          onToggleAll={toggleAllVisible}
-          onDelete={handleArchiveSelected}
-          deleting={deleting}
-          actionLabel={showArchives ? 'Réactiver' : 'Archiver'}
-          actionColor="var(--forest)"
-          actionIcon={showArchives ? <RestoreIcon /> : <ArchiveIcon />}
-        />
+        <SelectionBar count={selectedIds.length} allSelected={visibleStaff.length > 0 && visibleStaff.every((p) => selectedIds.includes(p.id))} onCancel={exitSelectMode} onToggleAll={toggleAllVisible} onDelete={handleArchiveSelected} deleting={deleting} actionLabel={showArchives ? 'Réactiver' : 'Archiver'} actionColor="var(--forest)" actionIcon={showArchives ? <RestoreIcon /> : <ArchiveIcon />} />
       )}
 
       {modalOpen && (
-        <NewStaffModal
-          schoolId={profile.school_id}
-          existingStaff={staff || []}
-          availableClasses={classes}
-          availableSubjects={subjects}
-          editing={editingStaff}
-          onClose={() => { setModalOpen(false); setEditingStaff(null); }}
-          onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); reloadSubjects(); }}
-        />
+        <NewStaffModal schoolId={profile.school_id} existingStaff={staff || []} availableClasses={classes} availableSubjects={subjects} editing={editingStaff} onClose={() => { setModalOpen(false); setEditingStaff(null); }} onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); reloadSubjects(); }} />
       )}
     </div>
   );
