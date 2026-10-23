@@ -12,10 +12,6 @@ import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { SkeletonLine } from './Skeleton.jsx';
 
-// Propre à ce formulaire : pas de "Moitié" (n'a pas de montant à
-// pré-remplir depuis la grille tarifaire), et "Autre" en plus — le parent
-// n'a pas payé un montant qui correspond à l'une des tranches ni à
-// l'écolage complet.
 const PAIEMENT_TRANCHES = [
   { id: 'tranche1', label: '1ère tranche' },
   { id: 'tranche2', label: '2ème tranche' },
@@ -24,21 +20,28 @@ const PAIEMENT_TRANCHES = [
   { id: 'autre', label: 'Autre' },
 ];
 
+const LIENS_PARENTE = [
+  { id: 'pere', label: 'Père' },
+  { id: 'mere', label: 'Mère' },
+  { id: 'tuteur', label: 'Tuteur' },
+  { id: 'autre', label: 'Autre' },
+];
+
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
   const showToast = useToast();
   const isEditing = !!student;
-  // En consultation d'un historique, seule l'IDENTITÉ de l'élève (nom,
-  // prénom, photo) reste modifiable — jamais la classe ni l'écolage dû
-  // d'une inscription déjà close, pour la même raison que la création
-  // d'élève est déjà épinglée sur l'année active ailleurs dans l'appli
-  // (voir Students.jsx) : ce ne sont pas des champs "informatifs", ce sont
-  // des montants qui alimentent déjà des rapports et des reçus émis pour
-  // cette année-là.
   const canEditEnrollment = !isEditing || !isHistorical;
+  
   const [studentNom, setStudentNom] = useState(student?.nom || '');
   const [studentPrenom, setStudentPrenom] = useState(student?.prenom || '');
+  const [matricule, setMatricule] = useState(student?.matricule || '');
   const [dateNaissance, setDateNaissance] = useState(student?.date_naissance || '');
+  const [sexe, setSexe] = useState(student?.sexe || 'M');
+  const [nationalite, setNationalite] = useState(student?.nationalite || '');
+  const [adresse, setAdresse] = useState(student?.adresse || '');
+  
   const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
+  const [typeInscription, setTypeInscription] = useState('nouveau');
   const [montantDu, setMontantDu] = useState(student?.montant_du ?? 0);
   const [montantDuTouched, setMontantDuTouched] = useState(!!student);
   const [feeSchedules, setFeeSchedules] = useState({});
@@ -46,12 +49,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Paiement encaissé sur place au moment de l'inscription (le parent paie
-  // souvent immédiatement) : facultatif. Choisir une tranche pré-remplit le
-  // montant déjà paramétré dans la grille tarifaire pour ce niveau — mais
-  // reste modifiable, un parent peut payer moins ou plus que ce montant
-  // officiel. "Autre" vide le champ : le montant ne correspond à aucune
-  // tranche ni à l'écolage complet, à saisir entièrement à la main.
   const [paiementTranche, setPaiementTranche] = useState(PAIEMENT_TRANCHES[0].id);
   const [paiementMontant, setPaiementMontant] = useState(0);
   const [paiementMontantTouched, setPaiementMontantTouched] = useState(false);
@@ -60,9 +57,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const selectedClasse = classes.find((c) => c.id === classeId);
   const fraisInscription = selectedClasse ? Number(feeSchedules[selectedClasse.niveau]?.montant_inscription) || 0 : 0;
 
-  // Grille tarifaire (Paramètres → Grille tarifaire) : pré-remplit le
-  // montant dû selon le niveau choisi, tant que l'utilisateur ne l'a pas
-  // modifié à la main (bourse, réduction…).
   useEffect(() => {
     if (!schoolYearId) return;
     supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe, montant_inscription, montant_tranche1, montant_tranche2, montant_tranche3').eq('school_year_id', schoolYearId).then(({ data }) => {
@@ -79,9 +73,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classeId, feeSchedules]);
 
-  // Suit la tranche choisie (et le niveau/l'écolage dû tant que l'utilisateur
-  // n'a pas modifié le montant versé à la main) — se réinitialise à chaque
-  // changement de tranche via handleTrancheChange ci-dessous.
   useEffect(() => {
     if (paiementMontantTouched) return;
     const fee = selectedClasse ? feeSchedules[selectedClasse.niveau] : null;
@@ -98,8 +89,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     setPaiementMontantTouched(false);
   }
 
-  // Parent : nouveau (avec code d'accès généré à l'inscription) ou
-  // rattachement à un parent déjà présent dans l'école (fratrie).
   const [parentMode, setParentMode] = useState('new');
   const [existingParents, setExistingParents] = useState(null);
   const [existingParentId, setExistingParentId] = useState('');
@@ -108,8 +97,9 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [parentPrenom, setParentPrenom] = useState('');
   const [parentAccessDial, setParentAccessDial] = useState(COUNTRIES[0].dial);
   const [parentAccessLocal, setParentAccessLocal] = useState('');
+  const [lienParente, setLienParente] = useState('pere');
 
-  const [result, setResult] = useState(null); // { code } une fois un nouveau parent créé
+  const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -143,8 +133,12 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           nom: studentNom.trim(),
           prenom: studentPrenom.trim(),
           full_name: displayName(studentNom.trim(), studentPrenom.trim()),
-          photo_url: photoUrl || null,
+          matricule: matricule.trim() || null,
           date_naissance: dateNaissance || null,
+          sexe,
+          nationalite: nationalite.trim() || null,
+          adresse: adresse.trim() || null,
+          photo_url: photoUrl || null,
         })
         .eq('id', student.id)
         .eq('school_id', schoolId);
@@ -175,9 +169,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       return;
     }
 
-    // Le téléphone du parent (saisi une seule fois, dans la section Parent
-    // ci-dessous) est repris sur la fiche élève — nouveau parent créé à
-    // l'instant, ou parent existant déjà rattaché.
     let studentParentPhone = null;
     if (canManageParents && parentMode === 'new') {
       studentParentPhone = composePhone(parentAccessDial, parentAccessLocal) || null;
@@ -185,11 +176,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       studentParentPhone = (existingParents || []).find((p) => p.id === existingParentId)?.phone || null;
     }
 
-    // Élève + inscription (+ rattachement à un parent existant le cas
-    // échéant) en une seule transaction côté base : si une étape échoue,
-    // tout est annulé — jamais d'élève créé sans inscription. La fonction
-    // tourne "security invoker", donc soumise à la même RLS qu'un insert
-    // direct (aucune élévation de privilège), voir supabase/schema.sql.
     const isExistingParent = canManageParents && parentMode === 'existing' && !!existingParentId;
     const { data: studentId, error: rpcError } = await supabase.rpc('create_student_with_enrollment', {
       p_school_id: schoolId,
@@ -198,7 +184,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       p_full_name: displayName(studentNom.trim(), studentPrenom.trim()),
       p_parent_phone: studentParentPhone,
       p_photo_url: photoUrl || null,
-      p_matricule: null,
+      p_matricule: matricule.trim() || null,
       p_school_year_id: schoolYearId,
       p_classe_id: classeId || null,
       p_montant_du: Number(montantDu) || 0,
@@ -209,6 +195,12 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       p_paiement_mode: paiementMode,
       p_frais_inscription_montant: fraisInscription,
       p_date_naissance: dateNaissance || null,
+      p_solde_ecolage_anterieur: 0,
+      p_solde_connexe_anterieur: 0,
+      p_sexe: sexe,
+      p_nationalite: nationalite.trim() || null,
+      p_adresse: adresse.trim() || null,
+      p_type_inscription: typeInscription,
     });
     if (rpcError) {
       setSubmitting(false);
@@ -223,8 +215,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       return;
     }
 
-    // parentMode === 'new' : rien à créer si le nom du parent est resté vide
-    // (l'accès parent pourra toujours être ajouté plus tard depuis Comptes).
     if (!parentNom.trim()) {
       setSubmitting(false);
       showToast('Enregistré');
@@ -241,6 +231,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         prenom: parentPrenom.trim(),
         phone: composePhone(parentAccessDial, parentAccessLocal) || null,
         code: generateAccessCode(),
+        lien_parente: lienParente,
       }).select().single();
       if (!paError) { created = data; break; }
       if (paError.code !== '23505') { setSubmitting(false); setError(paError.message); return; }
@@ -260,36 +251,14 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     navigator.clipboard.writeText(url).then(() => setCopied(true));
   }
 
-  // Portal vers document.body pour les 3 retours de ce composant : sans
-  // lui, un modal reste piégé dans le contexte d'empilement créé par
-  // l'animation de transition de page (.page-transition, voir Shell.jsx),
-  // et passe derrière la barre du haut et la barre de navigation du bas
-  // au lieu de les recouvrir.
   if (classes.length === 0) {
     return createPortal(
-      <div
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Aucune classe créée</p>
-          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Il faut d'abord créer au moins une classe (CI, CP, 6e A…) avant de pouvoir y inscrire un élève.
-          </p>
-          <Link
-            to="/classes"
-            onClick={onClose}
-            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}
-          >
-            Aller créer une classe
-          </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}
-          >
-            Annuler
-          </button>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Il faut d'abord créer au moins une classe (CI, CP, 6e A…) avant de pouvoir y inscrire un élève.</p>
+          <Link to="/classes" onClick={onClose} style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}>Aller créer une classe</Link>
+          <button type="button" onClick={onClose} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
         </div>
       </div>,
       document.body
@@ -301,26 +270,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Élève inscrit</p>
-          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Code d'accès du parent — à lui transmettre pour qu'il consulte la fiche de son enfant.
-          </p>
-          <p style={{ margin: '0 0 18px', fontFamily: 'monospace', fontSize: 24, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '12px', borderRadius: 10 }}>
-            {result.code}
-          </p>
-          <button
-            type="button"
-            onClick={copyLink}
-            style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px', marginBottom: 10 }}
-          >
-            {copied ? 'Lien copié !' : 'Copier le lien à envoyer'}
-          </button>
-          <button
-            type="button"
-            onClick={onCreated}
-            style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}
-          >
-            Terminé
-          </button>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Code d'accès du parent — à lui transmettre pour qu'il consulte la fiche de son enfant.</p>
+          <p style={{ margin: '0 0 18px', fontFamily: 'monospace', fontSize: 24, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '12px', borderRadius: 10 }}>{result.code}</p>
+          <button type="button" onClick={copyLink} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px', marginBottom: 10 }}>{copied ? 'Lien copié !' : 'Copier le lien à envoyer'}</button>
+          <button type="button" onClick={onCreated} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}>Terminé</button>
         </div>
       </div>,
       document.body
@@ -328,15 +281,32 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   }
 
   return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? 'Modifier les informations de l’élève' : "Inscription d'un élève"}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
+
+        {!isEditing && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            {[{ id: 'nouveau', label: 'Nouvel élève' }, { id: 'reinscription', label: 'Réinscription' }].map((m) => (
+              <button
+                type="button"
+                key={m.id}
+                onClick={() => setTypeInscription(m.id)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  border: `1px solid ${typeInscription === m.id ? 'var(--forest)' : 'var(--line-strong)'}`,
+                  background: typeInscription === m.id ? 'var(--forest)' : 'var(--paper)',
+                  color: typeInscription === m.id ? '#fff' : 'var(--ink)',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
@@ -349,57 +319,48 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </div>
         </div>
 
-        <div style={{ marginBottom: 12, maxWidth: 200 }}>
-          <label style={labelStyle}>Date de naissance (facultatif)</label>
-          <DatePicker value={dateNaissance} onChange={setDateNaissance} style={inputStyle} />
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Matricule (facultatif)</label>
+            <input value={matricule} onChange={(e) => setMatricule(e.target.value)} style={inputStyle} placeholder="Ex: MAT-001" />
+          </div>
+          <div>
+            <label style={labelStyle}>Sexe</label>
+            <Dropdown value={sexe} onChange={setSexe} options={[{ value: 'M', label: 'Masculin' }, { value: 'F', label: 'Féminin' }]} style={inputStyle} />
+          </div>
+        </div>
+
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Date de naissance</label>
+            <DatePicker value={dateNaissance} onChange={setDateNaissance} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Nationalité (facultatif)</label>
+            <input value={nationalite} onChange={(e) => setNationalite(e.target.value)} style={inputStyle} placeholder="Ex: Béninoise" />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelStyle}>Adresse (facultatif)</label>
+          <input value={adresse} onChange={(e) => setAdresse(e.target.value)} style={inputStyle} placeholder="Ex: Cotonou, Akpakpa" />
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
-            <Dropdown
-              value={classeId}
-              onChange={setClasseId}
-              disabled={!canEditEnrollment}
-              options={classes.map((c) => ({ value: c.id, label: c.nom }))}
-              style={inputStyle}
-            />
+            <Dropdown value={classeId} onChange={setClasseId} disabled={!canEditEnrollment} options={classes.map((c) => ({ value: c.id, label: c.nom }))} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Écolage dû</label>
-            <MoneyInput
-              value={montantDu}
-              onChange={(v) => { setMontantDuTouched(true); setMontantDu(v); }}
-              disabled={!canEditEnrollment}
-              style={{ ...inputStyle, opacity: canEditEnrollment ? 1 : 0.6 }}
-              suffix="F CFA"
-            />
+            <MoneyInput value={montantDu} onChange={(v) => { setMontantDuTouched(true); setMontantDu(v); }} disabled={!canEditEnrollment} style={{ ...inputStyle, opacity: canEditEnrollment ? 1 : 0.6 }} suffix="F CFA" />
           </div>
         </div>
-        {!canEditEnrollment && (
-          <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>
-            Classe et écolage dû ne sont modifiables que pour l'année scolaire en cours — cette
-            inscription appartient à une année historique déjà close.
-          </p>
-        )}
-        {canEditEnrollment && selectedClasse && !feeSchedules[selectedClasse.niveau] && (
-          <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>
-            Aucun tarif configuré pour {selectedClasse.niveau} — configure la grille tarifaire dans
-            Paramètres pour un pré-remplissage automatique la prochaine fois.
-          </p>
-        )}
 
         {!isEditing && <>
-        {/* Le parent paie souvent sur place au moment de l'inscription : on
-            évite de rouvrir Argent juste après pour ressaisir le même
-            paiement séparément. */}
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 18 }}>
           <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Paiement à l'inscription</p>
-          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
-            Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui. Choisir une tranche
-            pré-remplit son montant depuis la grille tarifaire, modifiable si le parent paie
-            moins ou plus.
-          </p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui.</p>
 
           {fraisInscription > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--forest-light)', marginBottom: 14 }}>
@@ -418,12 +379,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             </div>
             <div>
               <label style={labelStyle}>Montant versé</label>
-              <MoneyInput
-                value={paiementMontant}
-                onChange={(v) => { setPaiementMontantTouched(true); setPaiementMontant(v); }}
-                style={inputStyle}
-                suffix="F CFA"
-              />
+              <MoneyInput value={paiementMontant} onChange={(v) => { setPaiementMontantTouched(true); setPaiementMontant(v); }} style={inputStyle} suffix="F CFA" />
             </div>
           </div>
 
@@ -434,7 +390,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             </div>
           )}
         </div>
-
         </>}
 
         <label style={labelStyle}>Photo (facultatif)</label>
@@ -445,26 +400,11 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         {!isEditing && canManageParents && (
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 4 }}>
             <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Parent</p>
-            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
-              Pour que le parent puisse consulter la fiche de son enfant sans compte ni mot de passe.
-            </p>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Pour que le parent puisse consulter la fiche de son enfant sans compte ni mot de passe.</p>
 
             <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
               {[{ id: 'new', label: 'Nouveau parent' }, { id: 'existing', label: 'Parent existant' }].map((m) => (
-                <button
-                  type="button"
-                  key={m.id}
-                  onClick={() => {
-                    setParentMode(m.id);
-                    if (m.id === 'existing') setParentSearch(studentNom.trim());
-                  }}
-                  style={{
-                    flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${parentMode === m.id ? 'var(--forest)' : 'var(--line-strong)'}`,
-                    background: parentMode === m.id ? 'var(--forest)' : 'var(--paper)',
-                    color: parentMode === m.id ? '#fff' : 'var(--ink)',
-                  }}
-                >
+                <button type="button" key={m.id} onClick={() => { setParentMode(m.id); if (m.id === 'existing') setParentSearch(studentNom.trim()); }} style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${parentMode === m.id ? 'var(--forest)' : 'var(--line-strong)'}`, background: parentMode === m.id ? 'var(--forest)' : 'var(--paper)', color: parentMode === m.id ? '#fff' : 'var(--ink)' }}>
                   {m.label}
                 </button>
               ))}
@@ -482,10 +422,17 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
                     <NameInput mode="title" value={parentPrenom} onChange={setParentPrenom} style={inputStyle} />
                   </div>
                 </div>
-                <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>Laisser vide pour ne pas créer d'accès maintenant.</p>
-
-                <label style={labelStyle}>Téléphone du parent</label>
-                <PhoneInput dial={parentAccessDial} local={parentAccessLocal} onDialChange={setParentAccessDial} onLocalChange={setParentAccessLocal} style={{ marginBottom: 18 }} />
+                <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Lien de parenté</label>
+                    <Dropdown value={lienParente} onChange={setLienParente} options={LIENS_PARENTE.map(l => ({ value: l.id, label: l.label }))} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Téléphone du parent</label>
+                    <PhoneInput dial={parentAccessDial} local={parentAccessLocal} onDialChange={setParentAccessDial} onLocalChange={setParentAccessLocal} style={{ marginBottom: 0 }} />
+                  </div>
+                </div>
+                <p style={{ margin: '-8px 0 12px', fontSize: 11.5, color: 'var(--muted)' }}>Laisser le nom vide pour ne pas créer d'accès maintenant.</p>
               </>
             ) : (
               <>
@@ -494,32 +441,11 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
                 {existingParents?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun parent existant dans cette école pour l'instant.</p>}
                 {existingParents?.length > 0 && (
                   <>
-                    <input
-                      value={parentSearch}
-                      onChange={(e) => setParentSearch(e.target.value)}
-                      placeholder="Rechercher par nom de famille…"
-                      style={inputStyle}
-                    />
+                    <input value={parentSearch} onChange={(e) => setParentSearch(e.target.value)} placeholder="Rechercher par nom de famille…" style={inputStyle} />
                     <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, marginBottom: 18 }}>
-                      {filteredParents.length === 0 && (
-                        <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0, padding: '10px 12px' }}>
-                          Aucun parent ne correspond à « {parentSearch} ».
-                        </p>
-                      )}
+                      {filteredParents.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0, padding: '10px 12px' }}>Aucun parent ne correspond à « {parentSearch} ».</p>}
                       {filteredParents.map((p, i) => (
-                        <button
-                          type="button"
-                          key={p.id}
-                          onClick={() => setExistingParentId(p.id)}
-                          style={{
-                            display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none',
-                            borderBottom: i < filteredParents.length - 1 ? '1px solid var(--line)' : 'none',
-                            cursor: 'pointer', fontSize: 13.5,
-                            background: existingParentId === p.id ? 'var(--forest-light)' : 'transparent',
-                            color: existingParentId === p.id ? 'var(--forest-dark)' : 'var(--ink)',
-                            fontWeight: existingParentId === p.id ? 600 : 400,
-                          }}
-                        >
+                        <button type="button" key={p.id} onClick={() => setExistingParentId(p.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', borderBottom: i < filteredParents.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer', fontSize: 13.5, background: existingParentId === p.id ? 'var(--forest-light)' : 'transparent', color: existingParentId === p.id ? 'var(--forest-dark)' : 'var(--ink)', fontWeight: existingParentId === p.id ? 600 : 400 }}>
                           {p.full_name} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({p.code})</span>
                         </button>
                       ))}
