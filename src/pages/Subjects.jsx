@@ -29,7 +29,6 @@ export default function Subjects() {
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
@@ -59,21 +58,9 @@ export default function Subjects() {
 
   useEffect(() => { reload(); }, []);
 
-  function toggleOne(id) {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
-
-  function toggleAllVisible() {
-    setSelectedIds((prev) => {
-      const ids = subjects.map((s) => s.id);
-      return ids.every((id) => prev.includes(id)) ? [] : ids;
-    });
-  }
-
-  function exitSelectMode() {
-    setSelectMode(false);
-    setSelectedIds([]);
-  }
+  function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
+  function toggleAllVisible() { setSelectedIds((prev) => { const ids = subjects.map((s) => s.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
 
   async function handleDeleteOne(s) {
     if (!(await confirm(`Supprimer la matière ${s.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
@@ -94,8 +81,7 @@ export default function Subjects() {
       setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : certaines matières ont des notes associées." : deleteError.message); 
       return; 
     }
-    exitSelectMode();
-    reload();
+    exitSelectMode(); reload();
   }
 
   return (
@@ -129,7 +115,7 @@ export default function Subjects() {
         </div>
       )}
       {subjects && subjects.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
           <div style={{ minWidth: selectMode ? 620 : 560 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
               {selectMode && <span></span>}
@@ -138,22 +124,15 @@ export default function Subjects() {
             </div>
             {subjects.map((s, i) => (
               <div key={s.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < subjects.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                {selectMode && (
-                  <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} />
-                )}
+                {selectMode && <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} />}
                 <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>{s.nom}</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>×{s.coefficient}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau || 'Tous niveaux'}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.staff?.full_name || '—'}</span>
-                
                 {!selectMode && (
                   <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
-                    <button onClick={() => { setEditing(s); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier">
-                      <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                    </button>
-                    <button onClick={() => handleDeleteOne(s)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer">
-                      <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                    </button>
+                    <button onClick={() => { setEditing(s); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier"><i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i></button>
+                    <button onClick={() => handleDeleteOne(s)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer' }} title="Supprimer"><i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i></button>
                   </div>
                 )}
               </div>
@@ -162,27 +141,8 @@ export default function Subjects() {
         </div>
       )}
 
-      {selectMode && (
-        <SelectionBar
-          count={selectedIds.length}
-          allSelected={subjects && subjects.length > 0 && subjects.every((s) => selectedIds.includes(s.id))}
-          onCancel={exitSelectMode}
-          onToggleAll={toggleAllVisible}
-          onDelete={handleDeleteSelected}
-          deleting={deleting}
-        />
-      )}
-
-      {modalOpen && (
-        <SubjectModal
-          schoolId={profile.school_id}
-          teachers={teachers}
-          classes={classes}
-          editing={editing}
-          onClose={() => setModalOpen(false)}
-          onSaved={() => { setModalOpen(false); reload(); }}
-        />
-      )}
+      {selectMode && <SelectionBar count={selectedIds.length} allSelected={subjects && subjects.length > 0 && subjects.every((s) => selectedIds.includes(s.id))} onCancel={exitSelectMode} onToggleAll={toggleAllVisible} onDelete={handleDeleteSelected} deleting={deleting} />}
+      {modalOpen && <SubjectModal schoolId={profile.school_id} teachers={teachers} classes={classes} editing={editing} onClose={() => setModalOpen(false)} onSaved={() => { setModalOpen(false); reload(); }} />}
     </div>
   );
 }
