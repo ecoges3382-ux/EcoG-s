@@ -743,6 +743,8 @@ function Advances() {
             {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)' }}>{a.motif}</p>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <StatusBadge statut={a.statut} solde={a.solde} montant={a.montant} />
+              
+              {/* BOUTONS D'ACTION */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
                   <>
@@ -752,16 +754,17 @@ function Advances() {
                 )}
                 {canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
                   <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
-                    <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
+                    Marquer comme payé
                   </button>
                 )}
+                
                 {canDecide && (
                   <>
-                    <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-                      <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                    <button onClick={() => setEditingAdvance(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+                      Modifier
                     </button>
-                    <button onClick={() => handleDelete(a)} title="Supprimer cette avance" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-                      <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                    <button onClick={() => handleDelete(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)' }}>
+                      Supprimer
                     </button>
                   </>
                 )}
