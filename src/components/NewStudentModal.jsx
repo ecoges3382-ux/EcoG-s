@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { generateAccessCode, displayName, fmtF, MODES } from '../lib/utils.js';
+import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
@@ -37,7 +37,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [matricule, setMatricule] = useState(student?.matricule || '');
   const [dateNaissance, setDateNaissance] = useState(student?.date_naissance || '');
   const [sexe, setSexe] = useState(student?.sexe || 'M');
-  const [nationalite, setNationalite] = useState(student?.nationalite || '');
+  const [nationalite, setNationalite] = useState(student?.nationalite || 'Béninoise');
   const [adresse, setAdresse] = useState(student?.adresse || '');
   
   const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
@@ -115,14 +115,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!studentNom.trim()) {
-      setError('Le nom est obligatoire.');
-      return;
-    }
-    if (canManageParents && parentMode === 'existing' && !existingParentId) {
-      setError('Choisis un parent existant, ou choisis « Nouveau parent ».');
-      return;
-    }
+    if (!studentNom.trim()) { setError('Le nom est obligatoire.'); return; }
+    if (canManageParents && parentMode === 'existing' && !existingParentId) { setError('Choisis un parent existant, ou choisis « Nouveau parent ».'); return; }
     setSubmitting(true);
     setError('');
 
@@ -136,32 +130,21 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           matricule: matricule.trim() || null,
           date_naissance: dateNaissance || null,
           sexe,
-          nationalite: nationalite.trim() || null,
+          nationalite: nationalite || null,
           adresse: adresse.trim() || null,
           photo_url: photoUrl || null,
         })
         .eq('id', student.id)
         .eq('school_id', schoolId);
-      if (studentError) {
-        setSubmitting(false);
-        setError(studentError.message);
-        return;
-      }
+      if (studentError) { setSubmitting(false); setError(studentError.message); return; }
 
       if (canEditEnrollment) {
         const { error: enrollmentError } = await supabase
           .from('enrollments')
-          .update({
-            classe_id: classeId || null,
-            montant_du: Number(montantDu) || 0,
-          })
+          .update({ classe_id: classeId || null, montant_du: Number(montantDu) || 0 })
           .eq('id', student.enrollment_id)
           .eq('school_year_id', schoolYearId);
-        if (enrollmentError) {
-          setSubmitting(false);
-          setError(enrollmentError.message);
-          return;
-        }
+        if (enrollmentError) { setSubmitting(false); setError(enrollmentError.message); return; }
       }
       setSubmitting(false);
       showToast('Enregistré');
@@ -198,24 +181,13 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       p_solde_ecolage_anterieur: 0,
       p_solde_connexe_anterieur: 0,
       p_sexe: sexe,
-      p_nationalite: nationalite.trim() || null,
+      p_nationalite: nationalite || null,
       p_adresse: adresse.trim() || null,
       p_type_inscription: typeInscription,
     });
-    if (rpcError) {
-      setSubmitting(false);
-      setError(rpcError.message);
-      return;
-    }
+    if (rpcError) { setSubmitting(false); setError(rpcError.message); return; }
 
-    if (!canManageParents || isExistingParent) {
-      setSubmitting(false);
-      showToast('Enregistré');
-      onCreated();
-      return;
-    }
-
-    if (!parentNom.trim()) {
+    if (!canManageParents || isExistingParent || !parentNom.trim()) {
       setSubmitting(false);
       showToast('Enregistré');
       onCreated();
@@ -336,8 +308,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             <DatePicker value={dateNaissance} onChange={setDateNaissance} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Nationalité (facultatif)</label>
-            <input value={nationalite} onChange={(e) => setNationalite(e.target.value)} style={inputStyle} placeholder="Ex: Béninoise" />
+            <label style={labelStyle}>Nationalité</label>
+            <Dropdown value={nationalite} onChange={setNationalite} options={NATIONALITES} style={inputStyle} />
           </div>
         </div>
 
