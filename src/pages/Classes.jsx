@@ -7,6 +7,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import SelectionBar from '../components/SelectionBar.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
@@ -32,6 +33,11 @@ export default function Classes() {
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
+  const gridCols = selectMode ? '28px 1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr' : '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr';
 
   async function reload() {
     if (!schoolYear) return;
@@ -57,20 +63,46 @@ export default function Classes() {
 
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
-  async function handleDelete(c) {
+  function toggleOne(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const ids = classes.map((c) => c.id);
+      return ids.every((id) => prev.includes(id)) ? [] : ids;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds([]);
+  }
+
+  async function handleDeleteOne(c) {
     if (!(await confirm(`Supprimer la classe ${c.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('classes').delete().eq('id', c.id);
     if (deleteError) {
-      // 23503 = violation de clé étrangère (RESTRICT) : la base bloque la
-      // suppression tant que des inscriptions existent pour cette classe,
-      // plutôt que de les orpheliner silencieusement — voir schema.sql.
       setError(
         deleteError.code === '23503'
-          ? `Impossible de supprimer « ${c.nom} » : des élèves y sont encore inscrits (cette année ou une année précédente).`
+          ? `Impossible de supprimer « ${c.nom} » : des élèves y sont encore inscrits.`
           : deleteError.message,
       );
       return;
     }
+    reload();
+  }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} classe${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { error: deleteError } = await supabase.from('classes').delete().in('id', selectedIds);
+    setDeleting(false);
+    if (deleteError) { 
+      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : des élèves sont encore inscrits dans une de ces classes." : deleteError.message); 
+      return; 
+    }
+    exitSelectMode();
     reload();
   }
 
@@ -80,9 +112,18 @@ export default function Classes() {
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Classes</p>
-        <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
-          <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouvelle classe
-        </button>
+        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          {!selectMode && (
+            <button onClick={() => { setEditing(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+              <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouvelle classe
+            </button>
+          )}
+          {classes && classes.length > 0 && !selectMode && (
+            <button onClick={() => setSelectMode(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+              Sélectionner
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
@@ -101,27 +142,34 @@ export default function Classes() {
       )}
       {classes && classes.length > 0 && (
         <div className="card-bold" style={{ overflowX: 'auto' }}>
-          <div style={{ minWidth: 680 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span><span></span>
+          <div style={{ minWidth: selectMode ? 720 : 680 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+              {selectMode && <span></span>}
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span><span></span>
             </div>
             {classes.map((c, i) => {
               const effectif = enrollments.filter((e) => e.classe_id === c.id).length;
               return (
-                <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 0.9fr 0.9fr 0.8fr 1.6fr 0.7fr', gap: 8, padding: '13px 20px 13px 0', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                  <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>{c.nom}</span>
+                <div key={c.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                  {selectMode && (
+                    <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleOne(c.id)} />
+                  )}
+                  <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>{c.nom}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
                   <span style={{ fontSize: 13 }}>{effectif}{c.capacite ? ` / ${c.capacite}` : ''}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                    <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink)' }} title="Modifier">
-                      <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                    </button>
-                    <button onClick={() => handleDelete(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
-                      <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                    </button>
-                  </div>
+                  
+                  {!selectMode && (
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                      <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink)' }} title="Modifier">
+                        <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                      </button>
+                      <button onClick={() => handleDeleteOne(c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }} title="Supprimer">
+                        <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -132,6 +180,17 @@ export default function Classes() {
       <p style={{ margin: '14px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>
         L'effectif est compté à partir des inscriptions de l'année scolaire en cours{schoolYear ? ` (${schoolYear.label})` : ''}.
       </p>
+
+      {selectMode && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={classes && classes.length > 0 && classes.every((c) => selectedIds.includes(c.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
 
       {modalOpen && (
         <ClassModal
