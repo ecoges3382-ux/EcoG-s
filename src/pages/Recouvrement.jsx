@@ -20,11 +20,6 @@ const STATUT_RECOUVREMENT = {
   moratoire: { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' },
 };
 
-// "avec_solde" est un filtre transversal : il ignore le statutKey et filtre
-// directement sur "reste écolage > 0 OU reste connexe > 0". Utilisé par le
-// drill-down du Dashboard ("Reste à recouvrer" → ?statut=avec_solde), où
-// l'utilisateur veut tous les élèves qui doivent quelque chose, quel que
-// soit le détail du statut de relance.
 const STATUT_FILTERS = [
   { id: 'tous', label: 'Tous' },
   { id: 'avec_solde', label: 'Avec solde' },
@@ -248,7 +243,8 @@ export default function Recouvrement() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+      {/* Ajout de hide-scrollbar ici pour cacher la barre sous les boutons de filtres */}
+      <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUT_FILTERS.map((f) => (
           <button
             key={f.id}
