@@ -14,23 +14,24 @@ export default function SelectionBar({ count, allSelected, onCancel, onToggleAll
         zIndex: 9999, // Z-index très élevé pour passer au-dessus de tout
         display: 'flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '8px 12px',
+        justifyContent: 'center',
+        gap: 4, // Espacement réduit entre les boutons
+        padding: '6px 10px', // Padding réduit
         borderRadius: 30,
         background: 'var(--forest-dark)',
         boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
         color: '#fff',
         fontFamily: 'var(--sans)',
+        width: 'max-content', // Prend juste la place nécessaire
         maxWidth: '95vw',
-        flexWrap: 'wrap',
-        justifyContent: 'center',
+        flexWrap: 'nowrap', // Force à rester sur une seule ligne
       }}
       className="selection-bar"
     >
       <button
         type="button"
         onClick={onCancel}
-        style={{ padding: '8px 14px', borderRadius: 24, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}
+        style={{ padding: '6px 10px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}
       >
         ANNULER
       </button>
@@ -38,12 +39,12 @@ export default function SelectionBar({ count, allSelected, onCancel, onToggleAll
       <button
         type="button"
         onClick={onToggleAll}
-        style={{ padding: '8px 14px', borderRadius: 24, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}
+        style={{ padding: '6px 10px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}
       >
         {allSelected ? 'AUCUN' : 'TOUT'}
       </button>
 
-      <span style={{ minWidth: 24, textAlign: 'center', color: 'var(--gold)', fontWeight: 800, fontSize: 15 }}>
+      <span style={{ minWidth: 20, textAlign: 'center', color: 'var(--gold)', fontWeight: 800, fontSize: 14 }}>
         {count}
       </span>
 
@@ -54,16 +55,16 @@ export default function SelectionBar({ count, allSelected, onCancel, onToggleAll
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
-          padding: '8px 14px',
+          gap: 4,
+          padding: '6px 10px',
           borderRadius: 24,
           border: 'none',
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: 700,
           cursor: count === 0 || deleting ? 'default' : 'pointer',
           background: count === 0 ? 'rgba(255,255,255,0.05)' : actionColor,
           color: count === 0 ? 'rgba(255,255,255,0.3)' : '#fff',
-          letterSpacing: '0.04em',
+          letterSpacing: '0.02em',
           opacity: deleting ? 0.7 : 1,
           whiteSpace: 'nowrap',
         }}
@@ -71,7 +72,7 @@ export default function SelectionBar({ count, allSelected, onCancel, onToggleAll
         {actionIcon ? (
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{actionIcon}</span>
         ) : (
-          <i className="ti ti-trash" style={{ fontSize: 14 }} aria-hidden="true"></i>
+          <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>
         )}
         {deleting ? '...' : actionLabel.toUpperCase()}
       </button>
