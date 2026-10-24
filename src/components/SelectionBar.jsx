@@ -1,98 +1,79 @@
-<!doctype html>
-<html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EcoGès - Gestion scolaire</title>
+import { createPortal } from 'react-dom';
 
-    <!-- Librairie pour lire les fichiers Excel (Importation) -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+export default function SelectionBar({ count, allSelected, onCancel, onToggleAll, onDelete, deleting, actionLabel = 'Supprimer', actionColor = 'var(--danger)', actionIcon }) {
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: 24,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        padding: '6px 10px',
+        borderRadius: 30,
+        background: 'var(--forest-dark)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+        color: '#fff',
+        fontFamily: 'var(--sans)',
+        width: 'max-content',
+        maxWidth: '95vw',
+        flexWrap: 'nowrap',
+      }}
+      className="selection-bar"
+    >
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{ padding: '6px 10px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}
+      >
+        ANNULER
+      </button>
 
-    <!-- Importation de la police Poppins pour les petits textes -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      <button
+        type="button"
+        onClick={onToggleAll}
+        style={{ padding: '6px 10px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}
+      >
+        {allSelected ? 'AUCUN' : 'TOUT'}
+      </button>
 
-    <style>
-      /* --- 1. BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
-      ::-webkit-scrollbar {
-        -webkit-appearance: none;
-        width: 14px !important;
-        height: 14px !important;
-      }
-      ::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.1) !important;
-        border-radius: 0 !important;
-      }
-      ::-webkit-scrollbar-thumb {
-        background-color: #ffffff !important;
-        border-radius: 10px !important;
-        border: 3px solid transparent !important;
-        background-clip: content-box !important;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background-color: #e5e7eb !important;
-      }
-      * {
-        scrollbar-width: auto !important;
-        scrollbar-color: #ffffff rgba(0, 0, 0, 0.1) !important;
-      }
+      <span style={{ minWidth: 20, textAlign: 'center', color: 'var(--gold)', fontWeight: 800, fontSize: 14 }}>
+        {count}
+      </span>
 
-      /* --- 2. APPLICATION DE LA POLICE POPPINS PARTOUT --- */
-      body, button, input, select, textarea, a, span, p, div, table, th, td, label {
-        font-family: 'Poppins', sans-serif !important;
-      }
-      
-      :root {
-        --sans: 'Poppins', sans-serif !important;
-      }
-
-      /* --- 3. FIXER LA BARRE LATÉRALE ET LE CONTENU (SCROLL INDÉPENDANT) --- */
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        overflow: hidden !important;
-      }
-      
-      #app {
-        height: 100vh !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-      }
-      
-      #layout {
-        display: flex !important;
-        flex: 1 !important;
-        overflow: hidden !important;
-      }
-      
-      #sidebar {
-        height: 100% !important;
-        overflow-y: auto !important;
-        flex-shrink: 0 !important;
-      }
-      
-      #screen {
-        height: 100% !important;
-        overflow-y: auto !important;
-        flex: 1 !important;
-      }
-
-      /* --- 4. CACHER LA BARRE DE DÉFILEMENT SUR CERTAINS ÉLÉMENTS --- */
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none !important;
-      }
-      .hide-scrollbar {
-        -ms-overflow-style: none !important;  /* IE and Edge */
-        scrollbar-width: none !important;  /* Firefox */
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={count === 0 || deleting}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '6px 10px',
+          borderRadius: 24,
+          border: 'none',
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: count === 0 || deleting ? 'default' : 'pointer',
+          background: count === 0 ? 'rgba(255,255,255,0.05)' : actionColor,
+          color: count === 0 ? 'rgba(255,255,255,0.3)' : '#fff',
+          letterSpacing: '0.02em',
+          opacity: deleting ? 0.7 : 1,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {actionIcon ? (
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{actionIcon}</span>
+        ) : (
+          <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>
+        )}
+        {deleting ? '...' : actionLabel.toUpperCase()}
+      </button>
+    </div>,
+    document.body
+  );
+}
