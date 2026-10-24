@@ -54,8 +54,7 @@ export default function Money() {
     <div>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Argent</p>
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>
-        {TABS.map((t) => (
+<div className="hide-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>        {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
