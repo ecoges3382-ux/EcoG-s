@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EcoGès - Gestion scolaire</title>
 
+    <!-- Librairie pour lire les fichiers Excel (Importation) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
     <!-- Importation de la police Poppins pour les petits textes -->
@@ -14,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-      /* --- BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
+      /* --- 1. BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
       ::-webkit-scrollbar {
         -webkit-appearance: none;
         width: 14px !important;
@@ -38,7 +39,7 @@
         scrollbar-color: #ffffff rgba(0, 0, 0, 0.1) !important;
       }
 
-      /* --- APPLICATION DE LA POLICE POPPINS PARTOUT --- */
+      /* --- 2. APPLICATION DE LA POLICE POPPINS PARTOUT --- */
       body, button, input, select, textarea, a, span, p, div, table, th, td, label {
         font-family: 'Poppins', sans-serif !important;
       }
@@ -48,14 +49,46 @@
         --sans: 'Poppins', sans-serif !important;
       }
 
-      /* 
-        Les titres gardent leur ancienne police (var(--serif)) car 
-        on n'a pas ajouté de règle qui les force à changer. 
-      */
+      /* --- 3. FIXER LA BARRE LATÉRALE ET LE CONTENU (SCROLL INDÉPENDANT) --- */
+      /* Empêche toute la page de défiler */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow: hidden !important;
+      }
+      
+      #app {
+        height: 100vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+      }
+      
+      #layout {
+        display: flex !important;
+        flex: 1 !important;
+        overflow: hidden !important;
+      }
+      
+      #sidebar {
+        height: 100% !important;
+        overflow-y: auto !important;
+        flex-shrink: 0 !important;
+      }
+      
+      #screen {
+        height: 100% !important;
+        overflow-y: auto !important;
+        flex: 1 !important;
+      }
     </style>
   </head>
   <body>
+    <!-- L'endroit où React affiche l'application -->
     <div id="root"></div>
+    
+    <!-- Le moteur de l'application -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
