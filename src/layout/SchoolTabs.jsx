@@ -30,8 +30,7 @@ export default function SchoolTabs() {
   }, [location.pathname]);
 
   return (
-    <div className="school-tabs-mobile" ref={containerRef}>
-      {TABS.map((t) => (
+<div className="school-tabs-mobile hide-scrollbar" ref={containerRef}>      {TABS.map((t) => (
         <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? 'active' : '')}>
           <i className={`ti ${t.icon}`} style={{ fontSize: 14 }} aria-hidden="true"></i>
           {t.label}
