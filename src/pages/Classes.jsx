@@ -11,6 +11,7 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import { translateError } from '../lib/errors.js';
 
 function BuildingIcon() {
   return (
@@ -64,7 +65,7 @@ export default function Classes() {
       },
       setData: setClasses,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)),
       onSuccess: () => setError(''),
     });
     const [{ data: en }, { data: te }] = await Promise.all([
@@ -94,22 +95,22 @@ export default function Classes() {
   }
 
   async function handleDeleteOne(c) {
-    if (!(await confirm(`Supprimer la classe ${c.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer la classe ${c.nom} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('classes').delete().eq('id', c.id);
     if (deleteError) {
-      setError(deleteError.code === '23503' ? `Impossible de supprimer « ${c.nom} » : des élèves y sont encore inscrits.` : deleteError.message);
+      setError(deleteError.code === '23503' ? `Impossible de supprimer « ${c.nom} » : des élèves y sont encore inscrits.` : translateError(deleteError));
       return;
     }
     reload();
   }
 
   async function handleDeleteSelected() {
-    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} classe${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} classe${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('classes').delete().in('id', selectedIds);
     setDeleting(false);
     if (deleteError) { 
-      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : des élèves sont encore inscrits dans une de ces classes." : deleteError.message); 
+      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : des élèves sont encore inscrits dans une de ces classes." : translateError(deleteError)); 
       return; 
     }
     exitSelectMode();
