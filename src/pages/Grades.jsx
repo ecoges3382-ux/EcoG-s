@@ -11,6 +11,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import { usePageTour } from '../components/PageTour.jsx';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
@@ -28,12 +29,8 @@ export default function Grades() {
   const [niveau, setNiveau] = useState('');
   const [studentId, setStudentId] = useState('');
   const [periode, setPeriode] = useState('Trimestre 1');
+  const tour = usePageTour('grades');
 
-  // La classe d'un élève est propre à l'année scolaire sélectionnée
-  // (enrollments) — students ne garde que son identité. Les notes utilisées
-  // pour ce bulletin sont filtrées sur cette même année (school_year_id) :
-  // jamais de notes d'une autre année mélangées à celles-ci. Les 3
-  // requêtes sont mises en cache ensemble (notes + matières + élèves).
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -78,9 +75,6 @@ export default function Grades() {
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
   const annuel = periode === 'annuel';
 
-  // Une matière ou une période sans aucune note n'est jamais transformée en
-  // 0 — les fonctions de lib/bulletin.js renvoient null, affiché "—" plus
-  // bas, jamais une moyenne trompeuse.
   const lignes = subjectsForNiveau.map((su) => (
     annuel
       ? {
@@ -106,14 +100,19 @@ export default function Grades() {
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {offline && <OfflineBanner />}
-      <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Bulletins scolaires</p>
+      {tour.Runner}
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 10 }}>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Bulletins scolaires</p>
+        <tour.Button />
+      </div>
 
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}
       {!error && grades === null && <div className="card-bold"><SkeletonTableRows count={5} columns={3} /></div>}
 
       {grades !== null && (
         <>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 22, alignItems: 'flex-end' }}>
+          <div data-tour="grades-selectors" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 22, alignItems: 'flex-end' }}>
             <div>
               <label style={labelStyle}>Classe</label>
               <Dropdown value={niveau} onChange={setNiveau} options={niveaux} style={selectStyle} wrapperStyle={{ width: 'auto', minWidth: 140 }} />
@@ -139,6 +138,7 @@ export default function Grades() {
               />
             </div>
             <button
+              data-tour="grades-print"
               onClick={() => printDocument(`bulletin-${slug(student?.full_name)}-${slug(periodeLabel(periode))}`)}
               disabled={!student}
               style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: student ? 1 : 0.6 }}
@@ -148,7 +148,7 @@ export default function Grades() {
           </div>
 
           {student ? (
-            <div className="card-bold print-sheet" style={{ padding: '26px 28px', maxWidth: 680 }}>
+            <div data-tour="grades-sheet" className="card-bold print-sheet" style={{ padding: '26px 28px', maxWidth: 680 }}>
               <DocumentHeader
                 school={profile?.schools}
                 title="Bulletin scolaire"
@@ -199,7 +199,7 @@ export default function Grades() {
                 </p>
               )}
 
-              <div style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div data-tour="grades-summary" style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 220px', background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px' }}>
                   <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 600, color: 'var(--forest-dark)' }}>Moyenne générale</p>
                   <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: 'var(--forest-dark)' }}>
