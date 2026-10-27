@@ -9,6 +9,7 @@ import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale, subjectPeriodeMoyenne, subjectAnnualMoyenne } from '../lib/bulletin.js';
@@ -21,6 +22,14 @@ const TYPES = [
 ];
 
 const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Semestre 2'];
+
+function PencilBigIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
 
 export default function Notes() {
   const { profile } = useAuth();
@@ -108,6 +117,8 @@ export default function Notes() {
     .map((t) => ({ ...t, items: filteredGrades.filter((g) => g.type === t.id) }))
     .filter((t) => t.items.length > 0);
 
+  const totalGrades = (grades || []).length;
+
   const classement = useMemo(() => {
     if (eleveId !== 'Tout') return [];
     return studentsForNiveau
@@ -139,99 +150,113 @@ export default function Notes() {
         </button>
       </div>
 
-      <div data-tour="notes-filters" className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
-        <Dropdown
-          label="Classe"
-          value={niveau}
-          onChange={handleNiveauChange}
-          options={['Tout', ...niveauxPresents]}
-        />
-        <Dropdown
-          label="Élève"
-          value={eleveId}
-          onChange={setEleveId}
-          options={[{ value: 'Tout', label: 'Tout' }, ...studentsForNiveau.map((s) => ({ value: s.id, label: s.full_name }))]}
-        />
-        <Dropdown
-          label="Matière"
-          value={matiereId}
-          onChange={setMatiereId}
-          options={[{ value: 'Tout', label: 'Tout' }, ...subjectsForNiveau.map((s) => ({ value: s.id, label: s.nom }))]}
-        />
-      </div>
-      {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Aucun élève inscrit pour l'instant.</p>}
+      {grades && totalGrades === 0 ? (
+        <div className="card-bold">
+          <EmptyState
+            icon={<PencilBigIcon />}
+            title="Aucune note saisie pour l'instant"
+            subtitle="Saisis les notes de tes élèves pour voir les moyennes, les classements et générer des bulletins."
+            actionLabel="Saisir une première note"
+            onAction={() => setModalOpen(true)}
+          />
+        </div>
+      ) : (
+        <>
+          <div data-tour="notes-filters" className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
+            <Dropdown
+              label="Classe"
+              value={niveau}
+              onChange={handleNiveauChange}
+              options={['Tout', ...niveauxPresents]}
+            />
+            <Dropdown
+              label="Élève"
+              value={eleveId}
+              onChange={setEleveId}
+              options={[{ value: 'Tout', label: 'Tout' }, ...studentsForNiveau.map((s) => ({ value: s.id, label: s.full_name }))]}
+            />
+            <Dropdown
+              label="Matière"
+              value={matiereId}
+              onChange={setMatiereId}
+              options={[{ value: 'Tout', label: 'Tout' }, ...subjectsForNiveau.map((s) => ({ value: s.id, label: s.nom }))]}
+            />
+          </div>
+          {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Aucun élève inscrit pour l'instant.</p>}
 
-      <div data-tour="notes-periods" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
-        {[...PERIODES_BULLETIN, 'Tous'].map((p) => (
-          <button key={p} onClick={() => setPeriode(p)} style={toggleStyle(p === periode)}>{p}</button>
-        ))}
-      </div>
-
-      {!grades && <div className="card-bold"><SkeletonTableRows count={6} columns={3} /></div>}
-
-      {grades && (
-        <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
-          <div data-tour="notes-list">
-            {groupesParType.map((groupe) => (
-              <div key={groupe.id} className="card-bold" style={{ overflow: 'hidden', marginBottom: 16 }}>
-                <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)' }}>{groupe.items.length}</span>
-                </div>
-                {groupe.items.map((g, i) => (
-                  <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < groupe.items.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
-                    <div>
-                      <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{g.students?.full_name}</p>
-                      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
-                        {g.subjects?.nom}{periode === 'Tous' ? ` · ${g.periode}` : ''}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
-                      <button
-                        type="button"
-                        onClick={() => setEditingGrade(g)}
-                        title="Modifier"
-                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
-                      >
-                        <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(g)}
-                        disabled={deleting}
-                        title="Supprimer"
-                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
-                      >
-                        <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <div data-tour="notes-periods" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
+            {[...PERIODES_BULLETIN, 'Tous'].map((p) => (
+              <button key={p} onClick={() => setPeriode(p)} style={toggleStyle(p === periode)}>{p}</button>
             ))}
-            {groupesParType.length === 0 && (
-              <div className="card-bold" style={{ padding: 20 }}>
-                <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.</p>
-              </div>
-            )}
           </div>
 
-          {eleveId === 'Tout' && (
-            <div data-tour="notes-rank" className="card-bold" style={{ padding: '16px 18px' }}>
-              <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
-              </p>
-              {classement.map((c, i) => (
-                <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                  <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
+          {!grades && <div className="card-bold"><SkeletonTableRows count={6} columns={3} /></div>}
+
+          {grades && (
+            <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
+              <div data-tour="notes-list">
+                {groupesParType.map((groupe) => (
+                  <div key={groupe.id} className="card-bold" style={{ overflow: 'hidden', marginBottom: 16 }}>
+                    <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)' }}>{groupe.items.length}</span>
+                    </div>
+                    {groupe.items.map((g, i) => (
+                      <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < groupe.items.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+                        <div>
+                          <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{g.students?.full_name}</p>
+                          <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
+                            {g.subjects?.nom}{periode === 'Tous' ? ` · ${g.periode}` : ''}
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingGrade(g)}
+                            title="Modifier"
+                            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                          >
+                            <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(g)}
+                            disabled={deleting}
+                            title="Supprimer"
+                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                          >
+                            <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {groupesParType.length === 0 && (
+                  <div className="card-bold" style={{ padding: 20 }}>
+                    <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.</p>
+                  </div>
+                )}
+              </div>
+
+              {eleveId === 'Tout' && (
+                <div data-tour="notes-rank" className="card-bold" style={{ padding: '16px 18px' }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                    Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
+                  </p>
+                  {classement.map((c, i) => (
+                    <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                      <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
+                    </div>
+                  ))}
+                  {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>—</p>}
                 </div>
-              ))}
-              {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>—</p>}
+              )}
             </div>
           )}
-        </div>
+        </>
       )}
 
       {modalOpen && schoolYear && (
