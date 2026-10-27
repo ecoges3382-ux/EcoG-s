@@ -34,7 +34,19 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  
   const [gridKey, setGridKey] = useState(0);
+  const [gridHasData, setGridHasData] = useState(null);
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    supabase.from('fee_schedules').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id)
+      .then(({ count }) => {
+        if (!cancelled) setGridHasData((count || 0) > 0);
+      });
+    return () => { cancelled = true; };
+  }, [schoolYear?.id, gridKey]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -85,10 +97,8 @@ export default function Settings() {
         </div>
       )}
 
-      {/* --- GRILLE DE CARTES (2 colonnes sur PC, 1 sur mobile) --- */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16, maxWidth: 1060 }}>
         
-        {/* 1. Identité de l'établissement */}
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22 }}>
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Identité de l'établissement</p>
 
@@ -146,28 +156,38 @@ export default function Settings() {
           )}
         </form>
 
-        {/* 2. Calendrier de paiement */}
         {schoolYear && (
           <div className="card-bold" style={{ padding: 22 }}>
             <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
           </div>
         )}
 
-        {/* 3. Seuil de passage */}
         {canManageYear && <PassageThresholds schoolId={profile.school_id} />}
 
-        {/* 4. Grille tarifaire (Pleine largeur) */}
+        {/* GRILLE TARIFAIRE (maintenant côte à côte) */}
         {schoolYear && (
-          <div className="card-bold" style={{ padding: 22, gridColumn: '1 / -1' }}>
+          <div className="card-bold" style={{ padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
                 <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
                 <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-                  Montants attendus par niveau pour {schoolYear.label}.
+                  Montants par niveau pour {schoolYear.label}.
                 </p>
               </div>
               {canManageYear && (
-                <button onClick={handleClearGrid} title="Effacer toute la grille" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <button
+                  onClick={handleClearGrid}
+                  disabled={!gridHasData}
+                  title="Effacer toute la grille"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700,
+                    padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)',
+                    background: 'var(--danger-light)', color: 'var(--danger)',
+                    cursor: !gridHasData ? 'default' : 'pointer',
+                    opacity: !gridHasData ? 0.4 : 1,
+                    whiteSpace: 'nowrap'
+                  }}
+                >
                   <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>Tout effacer
                 </button>
               )}
@@ -176,7 +196,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* 5. Liens de navigation */}
         {isFondateur && (
           <Link to="/comptes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
             <div style={{ padding: '16px 20px' }}>
@@ -217,7 +236,6 @@ export default function Settings() {
           </Link>
         )}
 
-        {/* 6. Visite guidée */}
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visite guidée</p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Revoir le tutoriel de présentation d'EcoGès.</p>
@@ -230,7 +248,6 @@ export default function Settings() {
           </button>
         </div>
 
-        {/* 7. Besoin d'aide */}
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Besoin d'aide ?</p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Contacte l'équipe EcoGès directement.</p>
