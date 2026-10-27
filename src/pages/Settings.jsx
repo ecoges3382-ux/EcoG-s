@@ -34,8 +34,6 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
-  
-  // Clé pour forcer le re-render de la grille tarifaire quand on l'efface
   const [gridKey, setGridKey] = useState(0);
 
   async function handleSubmit(e) {
@@ -87,164 +85,165 @@ export default function Settings() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22, maxWidth: 520 }}>
-        <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Identité de l'établissement</p>
+      {/* --- GRILLE DE CARTES (2 colonnes sur PC, 1 sur mobile) --- */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16, maxWidth: 1060 }}>
+        
+        {/* 1. Identité de l'établissement */}
+        <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22 }}>
+          <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Identité de l'établissement</p>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Nom de l'école</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} disabled={!isFondateur} style={inputStyle} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Couleur principale de l'application</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={!isFondateur} style={{ width: 48, height: 40, borderRadius: 9, border: '1px solid var(--line-strong)', padding: 2, cursor: isFondateur ? 'pointer' : 'default' }} />
-            <input value={color} onChange={(e) => setColor(e.target.value)} disabled={!isFondateur} style={{ ...inputStyle, flex: 1 }} />
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Nom de l'école</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} disabled={!isFondateur} style={inputStyle} />
           </div>
-        </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>Logo (facultatif)</label>
-          {isFondateur ? (
-            <PhotoPicker schoolId={profile.school_id} value={logoUrl} onChange={setLogoUrl} />
-          ) : (
-            logoUrl
-              ? <img src={logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} />
-              : <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Aucun logo</p>
-          )}
-          <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>Sans logo, les initiales de l'école restent affichées.</p>
-        </div>
-
-        <p style={{ margin: '0 0 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-          Coordonnées (affichées sur les documents imprimés)
-        </p>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Adresse (facultatif)</label>
-          <input value={adresse} onChange={(e) => setAdresse(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="ex. Cotonou, Akpakpa" />
-        </div>
-        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-          <div>
-            <label style={labelStyle}>Téléphone (facultatif)</label>
-            <input value={telephone} onChange={(e) => setTelephone(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="+229 XX XX XX XX" />
-          </div>
-          <div>
-            <label style={labelStyle}>E-mail (facultatif)</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="contact@ecole.bj" />
-          </div>
-        </div>
-
-        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-        {saved && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--success)', fontWeight: 600 }}>Enregistré.</p>}
-
-        {isFondateur && (
-          <button type="submit" disabled={saving} style={{ width: '100%', background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: 13, borderRadius: 'var(--radius)', opacity: saving ? 0.7 : 1 }}>
-            <i className="ti ti-check" style={{ fontSize: 16, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
-            {saving ? 'Enregistrement…' : 'Enregistrer et appliquer'}
-          </button>
-        )}
-      </form>
-
-      {schoolYear && (
-        <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
-          <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
-        </div>
-      )}
-
-      {schoolYear && (
-        <div className="card-bold" style={{ padding: 22, marginTop: 16, maxWidth: 520 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
-              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-                Montants attendus par niveau pour {schoolYear.label}.
-              </p>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Couleur principale de l'application</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={!isFondateur} style={{ width: 48, height: 40, borderRadius: 9, border: '1px solid var(--line-strong)', padding: 2, cursor: isFondateur ? 'pointer' : 'default' }} />
+              <input value={color} onChange={(e) => setColor(e.target.value)} disabled={!isFondateur} style={{ ...inputStyle, flex: 1 }} />
             </div>
-            {canManageYear && (
-              <button
-                onClick={handleClearGrid}
-                title="Effacer toute la grille"
-                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>
-                Tout effacer
-              </button>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Logo (facultatif)</label>
+            {isFondateur ? (
+              <PhotoPicker schoolId={profile.school_id} value={logoUrl} onChange={setLogoUrl} />
+            ) : (
+              logoUrl
+                ? <img src={logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} />
+                : <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Aucun logo</p>
             )}
+            <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>Sans logo, les initiales de l'école restent affichées.</p>
           </div>
-          <FeeScheduleGrid key={gridKey} schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
+
+          <p style={{ margin: '0 0 12px', fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+            Coordonnées (affichées sur les documents imprimés)
+          </p>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Adresse (facultatif)</label>
+            <input value={adresse} onChange={(e) => setAdresse(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="ex. Cotonou, Akpakpa" />
+          </div>
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div>
+              <label style={labelStyle}>Téléphone (facultatif)</label>
+              <input value={telephone} onChange={(e) => setTelephone(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="+229 XX XX XX XX" />
+            </div>
+            <div>
+              <label style={labelStyle}>E-mail (facultatif)</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="contact@ecole.bj" />
+            </div>
+          </div>
+
+          {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+          {saved && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--success)', fontWeight: 600 }}>Enregistré.</p>}
+
+          {isFondateur && (
+            <button type="submit" disabled={saving} style={{ width: '100%', background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: 13, borderRadius: 'var(--radius)', opacity: saving ? 0.7 : 1 }}>
+              <i className="ti ti-check" style={{ fontSize: 16, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
+              {saving ? 'Enregistrement…' : 'Enregistrer et appliquer'}
+            </button>
+          )}
+        </form>
+
+        {/* 2. Calendrier de paiement */}
+        {schoolYear && (
+          <div className="card-bold" style={{ padding: 22 }}>
+            <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
+          </div>
+        )}
+
+        {/* 3. Seuil de passage */}
+        {canManageYear && <PassageThresholds schoolId={profile.school_id} />}
+
+        {/* 4. Grille tarifaire (Pleine largeur) */}
+        {schoolYear && (
+          <div className="card-bold" style={{ padding: 22, gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div>
+                <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
+                <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Montants attendus par niveau pour {schoolYear.label}.
+                </p>
+              </div>
+              {canManageYear && (
+                <button onClick={handleClearGrid} title="Effacer toute la grille" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>Tout effacer
+                </button>
+              )}
+            </div>
+            <FeeScheduleGrid key={gridKey} schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
+          </div>
+        )}
+
+        {/* 5. Liens de navigation */}
+        {isFondateur && (
+          <Link to="/comptes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Comptes utilisateurs</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Créer ou retirer des accès pour l'équipe</p>
+            </div>
+            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+          </Link>
+        )}
+
+        {['fondateur', 'directeur'].includes(profile.role) && (
+          <Link to="/parametres/annee-scolaire" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Année scolaire</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Consulter l'historique ou préparer la prochaine année</p>
+            </div>
+            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+          </Link>
+        )}
+
+        {['fondateur', 'directeur', 'secretaire'].includes(profile.role) && (
+          <Link to="/parametres/whatsapp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>WhatsApp</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Connecter le compte WhatsApp Business</p>
+            </div>
+            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+          </Link>
+        )}
+
+        {canManageYear && (
+          <Link to="/premiers-pas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Configuration initiale</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Assistant classes, matières et tarifs</p>
+            </div>
+            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+          </Link>
+        )}
+
+        {/* 6. Visite guidée */}
+        <div className="card-bold" style={{ padding: '16px 20px' }}>
+          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visite guidée</p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Revoir le tutoriel de présentation d'EcoGès.</p>
+          <button
+            onClick={() => window.startEcogesTour && window.startEcogesTour()}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--forest)', background: 'var(--forest-light)', color: 'var(--forest-dark)', cursor: 'pointer' }}
+          >
+            <i className="ti ti-help" style={{ fontSize: 15 }} aria-hidden="true"></i>
+            Lancer la visite
+          </button>
         </div>
-      )}
 
-      {canManageYear && <PassageThresholds schoolId={profile.school_id} />}
-
-      {isFondateur && (
-        <Link
-          to="/comptes"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 16, maxWidth: 520 }}
-          className="card-bold"
-        >
-          <div style={{ padding: '16px 20px' }}>
-            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Comptes utilisateurs</p>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Créer ou retirer des accès pour l'équipe</p>
+        {/* 7. Besoin d'aide */}
+        <div className="card-bold" style={{ padding: '16px 20px' }}>
+          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Besoin d'aide ?</p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Contacte l'équipe EcoGès directement.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <a href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', textDecoration: 'none' }}>
+              <i className="ti ti-brand-whatsapp" style={{ fontSize: 15 }} aria-hidden="true"></i>{SUPPORT_WHATSAPP_DISPLAY}
+            </a>
+            <a href={supportMailLink('Assistance EcoGès')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}>
+              <i className="ti ti-mail" style={{ fontSize: 15 }} aria-hidden="true"></i>E-mail
+            </a>
           </div>
-          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-        </Link>
-      )}
-
-      {['fondateur', 'directeur'].includes(profile.role) && (
-        <Link
-          to="/parametres/annee-scolaire"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 12, maxWidth: 520 }}
-          className="card-bold"
-        >
-          <div style={{ padding: '16px 20px' }}>
-            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Année scolaire</p>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Consulter l'historique ou préparer la prochaine année</p>
-          </div>
-          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-        </Link>
-      )}
-
-      {['fondateur', 'directeur', 'secretaire'].includes(profile.role) && (
-        <Link
-          to="/parametres/whatsapp"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 12, maxWidth: 520 }}
-          className="card-bold"
-        >
-          <div style={{ padding: '16px 20px' }}>
-            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>WhatsApp</p>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Connecter le compte WhatsApp Business de l'école et suivre les envois</p>
-          </div>
-          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-        </Link>
-      )}
-
-      {canManageYear && (
-        <Link
-          to="/premiers-pas"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit', marginTop: 12, maxWidth: 520 }}
-          className="card-bold"
-        >
-          <div style={{ padding: '16px 20px' }}>
-            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Configuration initiale</p>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Assistant pour mettre en place classes, matières et tarifs</p>
-          </div>
-          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-        </Link>
-      )}
-
-      <div className="card-bold" style={{ padding: '16px 20px', marginTop: 12, maxWidth: 520 }}>
-        <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Besoin d'aide ?</p>
-        <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>En cas de souci, contacte l'équipe EcoGès directement.</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <a href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', textDecoration: 'none' }}>
-            <i className="ti ti-brand-whatsapp" style={{ fontSize: 15 }} aria-hidden="true"></i>
-            {SUPPORT_WHATSAPP_DISPLAY}
-          </a>
-          <a href={supportMailLink('Assistance EcoGès')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', textDecoration: 'none' }}>
-            <i className="ti ti-mail" style={{ fontSize: 15 }} aria-hidden="true"></i>
-            E-mail
-          </a>
         </div>
+
       </div>
     </div>
   );
@@ -311,53 +310,30 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
         <div>
           <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Calendrier de paiement</p>
           <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-            Une fois un délai dépassé, les élèves qui n'ont pas payé ce qu'il fallait à ce stade apparaissent automatiquement « à relancer » dans Élèves et Argent.
+            Une fois un délai dépassé, les élèves apparaissent automatiquement « à relancer ».
           </p>
         </div>
         {canManage && (
-          <button
-            onClick={handleClear}
-            disabled={saving || (!d1 && !d2 && !d3 && !dc)}
-            title="Effacer toutes les dates"
-            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: saving || (!d1 && !d2 && !d3 && !dc) ? 'default' : 'pointer', opacity: saving || (!d1 && !d2 && !d3 && !dc) ? 0.4 : 1, whiteSpace: 'nowrap' }}
-          >
-            <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>
-            Tout effacer
+          <button onClick={handleClear} disabled={saving || (!d1 && !d2 && !d3 && !dc)} title="Effacer toutes les dates" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-light)', color: 'var(--danger)', cursor: saving || (!d1 && !d2 && !d3 && !dc) ? 'default' : 'pointer', opacity: saving || (!d1 && !d2 && !d3 && !dc) ? 0.4 : 1, whiteSpace: 'nowrap' }}>
+            <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>Tout effacer
           </button>
         )}
       </div>
       {canManage ? (
         <>
-          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            <div>
-              <label style={calLabelStyle}>1ère tranche</label>
-              <DatePicker value={d1} onChange={setD1} style={calInputStyle} />
-            </div>
-            <div>
-              <label style={calLabelStyle}>2ème tranche</label>
-              <DatePicker value={d2} onChange={setD2} style={calInputStyle} />
-            </div>
-            <div>
-              <label style={calLabelStyle}>3ème tranche</label>
-              <DatePicker value={d3} onChange={setD3} style={calInputStyle} />
-            </div>
-            <div>
-              <label style={calLabelStyle}>Frais connexes</label>
-              <DatePicker value={dc} onChange={setDc} style={calInputStyle} />
-            </div>
+          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
+            <div><label style={calLabelStyle}>1ère tranche</label><DatePicker value={d1} onChange={setD1} style={calInputStyle} /></div>
+            <div><label style={calLabelStyle}>2ème tranche</label><DatePicker value={d2} onChange={setD2} style={calInputStyle} /></div>
+            <div><label style={calLabelStyle}>3ème tranche</label><DatePicker value={d3} onChange={setD3} style={calInputStyle} /></div>
+            <div><label style={calLabelStyle}>Frais connexes</label><DatePicker value={dc} onChange={setDc} style={calInputStyle} /></div>
           </div>
           {error && <p style={{ margin: '10px 0 0', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-          <button
-            type="button"
-            disabled={!dirty || saving}
-            onClick={handleSave}
-            style={{ marginTop: 14, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
-          >
+          <button type="button" disabled={!dirty || saving} onClick={handleSave} style={{ marginTop: 14, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}>
             {saving ? 'Enregistrement…' : 'Enregistrer le calendrier'}
           </button>
         </>
       ) : (
-        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12 }}>
           <CalDateDisplay label="1ère tranche" value={schoolYear.date_tranche1} />
           <CalDateDisplay label="2ème tranche" value={schoolYear.date_tranche2} />
           <CalDateDisplay label="3ème tranche" value={schoolYear.date_tranche3} />
@@ -453,41 +429,20 @@ function PassageThresholds({ schoolId }) {
   if (!rows || !niveauxPresents) return <div className="card-bold"><SkeletonTableRows count={5} columns={2} /></div>;
 
   return (
-    <div className="card-bold" style={{ padding: '18px 20px', marginTop: 16, maxWidth: 520 }}>
+    <div className="card-bold" style={{ padding: '18px 20px' }}>
       {offline && <OfflineBanner />}
       <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600 }}>Seuil de passage automatique</p>
       <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
-        Moyenne annuelle minimale (sur 20) pour qu'un élève soit classé automatiquement « Passe »
-        plutôt que « Redouble » lors de la préparation d'une nouvelle année.
+        Moyenne annuelle minimale (sur 20) pour qu'un élève soit classé « Passe » plutôt que « Redouble ».
       </p>
 
-      <ThresholdRow
-        label="Seuil par défaut (toute l'école)"
-        value={rows.default?.seuil}
-        placeholder="10"
-        saving={saving === '__default__'}
-        onSave={saveDefault}
-      />
+      <ThresholdRow label="Seuil par défaut (toute l'école)" value={rows.default?.seuil} placeholder="10" saving={saving === '__default__'} onSave={saveDefault} />
 
       {niveauxPresents.length > 0 && (
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>Personnaliser pour un niveau</label>
-          <Dropdown
-            value={selected}
-            onChange={setSelected}
-            options={niveauxPresents}
-            style={{ marginBottom: 12 }}
-            wrapperStyle={{ maxWidth: 280 }}
-          />
-
-          <NiveauThresholdEditor
-            key={`${selected}-${rows.default?.seuil ?? ''}-${rows.byNiveau[selected]?.seuil ?? ''}`}
-            niveau={selected}
-            override={rows.byNiveau[selected]?.seuil}
-            defaultValue={rows.default?.seuil}
-            saving={saving === selected}
-            onSave={(v) => saveNiveau(selected, v)}
-          />
+          <Dropdown value={selected} onChange={setSelected} options={niveauxPresents} style={{ marginBottom: 12 }} wrapperStyle={{ maxWidth: 280 }} />
+          <NiveauThresholdEditor key={`${selected}-${rows.default?.seuil ?? ''}-${rows.byNiveau[selected]?.seuil ?? ''}`} niveau={selected} override={rows.byNiveau[selected]?.seuil} defaultValue={rows.default?.seuil} saving={saving === selected} onSave={(v) => saveNiveau(selected, v)} />
         </div>
       )}
     </div>
@@ -501,17 +456,8 @@ function ThresholdRow({ label, value, placeholder, saving, onSave }) {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
       <span style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</span>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-        <input
-          type="number" min="0" max="20" step="0.5" value={v} placeholder={placeholder}
-          onChange={(e) => setV(e.target.value)}
-          style={{ width: 76, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, textAlign: 'center', boxSizing: 'border-box', color: 'var(--ink)' }}
-        />
-        <button
-          type="button" disabled={!dirty || saving} onClick={() => onSave(v)}
-          style={{ fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
-        >
-          {saving ? '…' : 'OK'}
-        </button>
+        <input type="number" min="0" max="20" step="0.5" value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} style={{ width: 76, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, textAlign: 'center', boxSizing: 'border-box', color: 'var(--ink)' }} />
+        <button type="button" disabled={!dirty || saving} onClick={() => onSave(v)} style={{ fontSize: 11.5, fontWeight: 600, padding: '7px 12px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}>{saving ? '…' : 'OK'}</button>
       </div>
     </div>
   );
@@ -527,34 +473,13 @@ function NiveauThresholdEditor({ niveau, override, defaultValue, saving, onSave 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input
-          type="number" min="0" max="20" step="0.5" value={v}
-          onChange={(e) => setV(e.target.value)}
-          style={{
-            width: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)',
-            fontSize: 14, textAlign: 'center', boxSizing: 'border-box',
-            color: inherited ? 'var(--muted)' : 'var(--ink)',
-            background: inherited ? 'var(--line)' : 'var(--paper)',
-          }}
-        />
-        <button
-          type="button" disabled={!dirty || saving} onClick={() => onSave(v)}
-          style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}
-        >
-          {saving ? '…' : 'OK'}
-        </button>
+        <input type="number" min="0" max="20" step="0.5" value={v} onChange={(e) => setV(e.target.value)} style={{ width: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 14, textAlign: 'center', boxSizing: 'border-box', color: inherited ? 'var(--muted)' : 'var(--ink)', background: inherited ? 'var(--line)' : 'var(--paper)' }} />
+        <button type="button" disabled={!dirty || saving} onClick={() => onSave(v)} style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}>{saving ? '…' : 'OK'}</button>
         {hasOverride && (
-          <button
-            type="button" disabled={saving} onClick={() => onSave('')}
-            style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            Revenir au défaut
-          </button>
+          <button type="button" disabled={saving} onClick={() => onSave('')} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Revenir au défaut</button>
         )}
       </div>
-      <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--muted)' }}>
-        {niveau} — {inherited ? 'suit le seuil par défaut' : 'seuil personnalisé pour ce niveau'}
-      </p>
+      <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--muted)' }}>{niveau} — {inherited ? 'suit le seuil par défaut' : 'seuil personnalisé pour ce niveau'}</p>
     </div>
   );
 }
