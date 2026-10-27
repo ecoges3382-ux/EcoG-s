@@ -4,13 +4,6 @@ import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_EMAIL, supportWhatsappLink, supportMa
 import './Landing.css';
 import { Wordmark } from '../components/Logo.jsx';
 
-// Page d'accueil publique, affichée à la racine pour tout visiteur non
-// connecté (voir App.jsx). L'inscription d'une école exige un code à usage
-// unique (SignUp.jsx) : l'appel à l'action principal mène donc à un contact
-// WhatsApp, pas à /inscription. Les écrans de l'application montrés ici sont
-// des maquettes animées avec des données d'exemple, signalées comme telles :
-// aucun chiffre n'est présenté comme une statistique réelle.
-
 const WA_HELLO = supportWhatsappLink('Bonjour, je souhaite en savoir plus sur EcoGès pour mon école.');
 const WA_QUOTE = supportWhatsappLink('Bonjour, je souhaite recevoir un devis pour EcoGès.');
 
@@ -22,8 +15,6 @@ function fmtNum(n, decimals = 0) {
   return Number(n).toLocaleString('de-DE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-// Pose .is-in sur le conteneur la première fois qu'il entre à l'écran ; tout
-// le CSS de Landing.css part de cette classe.
 function InView({ as: Tag = 'div', className = '', threshold = 0.25, children, ...rest }) {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
@@ -65,7 +56,6 @@ function CountUp({ to, start, duration = 1700, delay = 0, decimals = 0 }) {
   return fmtNum(value, decimals);
 }
 
-// Titre découpé mot par mot, chaque mot remonte derrière un masque.
 function Words({ text, startDelay = 0, step = 70 }) {
   return text.split(' ').map((w, i) => (
     <span key={i}>
@@ -75,7 +65,6 @@ function Words({ text, startDelay = 0, step = 70 }) {
   ));
 }
 
-// ---------- Icônes (tracés SVG : la police d'icônes n'est pas fiable en prod) ----------
 function Svg({ size = 20, children, stroke = 2 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -106,7 +95,6 @@ const I = {
   doc: (s) => <Svg size={s}><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></Svg>,
 };
 
-// ---------- Navigation + barre de progression ----------
 function Nav() {
   const [solid, setSolid] = useState(false);
   const barRef = useRef(null);
@@ -146,7 +134,6 @@ function Nav() {
   );
 }
 
-// ---------- Hero ----------
 const SPARKS = [
   [8, 12, 0], [18, 40, 2.4], [27, 8, 5.1], [36, 30, 1.2], [44, 5, 6.3], [52, 22, 3.6], [61, 10, 0.8],
   [70, 34, 4.4], [78, 14, 2], [86, 26, 5.8], [93, 6, 3.1], [14, 60, 7], [58, 50, 7.8], [82, 56, 1.6],
@@ -315,7 +302,6 @@ function Bands() {
   );
 }
 
-// ---------- Avant / après ----------
 const GONE = [
   'Les cahiers de caisse raturés',
   'Les moyennes calculées à la main',
@@ -348,7 +334,6 @@ function Gone() {
   );
 }
 
-// ---------- Scènes ----------
 function SceneText({ n, title, text, bullets }) {
   return (
     <InView threshold={0.3}>
@@ -422,7 +407,6 @@ function ArtBulletin() {
   );
 }
 
-// p : présent, r : retard, a : absent. Retard compté comme présent.
 const ATT = ['ppppp', 'pprpp', 'ppppa', 'ppppp'];
 function ArtPresences() {
   const cells = ATT.join('');
@@ -447,7 +431,7 @@ function ArtPresences() {
             <div className="lp-legend">
               <span><i style={{ background: 'var(--lp-green)' }} />Présent</span>
               <span><i style={{ background: 'var(--lp-gold)' }} />Retard</span>
-              <span><i style={{ background: 'var(--clay)' }} />Absent</span>
+              <span><i style={{ background: 'var(--lp-clay)' }} />Absent</span>
             </div>
           </div>
         </>
@@ -701,6 +685,25 @@ function Final() {
 }
 
 export default function Landing() {
+  // Sécurité de scroll : quand on quitte l'application connectée (qui bloque
+  // le défilement global pour sa propre interface), le navigateur peut garder
+  // le body verrouillé. On force ici le retour du défilement sur toutes les
+  // racines possibles (html, body, #root) dès qu'on arrive sur cette page.
+  useEffect(() => {
+    const elements = [document.documentElement, document.body, document.getElementById('root')].filter(Boolean);
+    const originalStyles = elements.map((el) => el.style.overflow);
+
+    elements.forEach((el) => {
+      el.style.overflow = 'auto';
+    });
+
+    return () => {
+      elements.forEach((el, index) => {
+        el.style.overflow = originalStyles[index];
+      });
+    };
+  }, []);
+
   return (
     <div className="lp">
       <Nav />
