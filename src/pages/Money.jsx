@@ -19,6 +19,7 @@ import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skel
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
+import { usePageTour } from '../components/PageTour.jsx';
 
 function TrashIcon() {
   return (
@@ -47,12 +48,17 @@ const TABS = [
 export default function Money() {
   const [tab, setTab] = useState('vue');
   const { schoolYear, isHistorical } = useSelectedSchoolYear();
+  const tour = usePageTour('money');
 
   return (
     <div>
-      <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Argent</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 10 }}>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Argent</p>
+        <tour.Button />
+      </div>
+      {tour.Runner}
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>
+      <div data-tour="money-tabs" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -124,7 +130,7 @@ function Overview() {
   return (
     <div>
       {offline && <OfflineBanner />}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
+      <div data-tour="money-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
         <Stat label="Attendu" value={fmtF(totalDu)} />
         <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
         <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
@@ -144,7 +150,7 @@ function Overview() {
           style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, width: 220, boxSizing: 'border-box', color: 'var(--ink)' }}
         />
       </div>
-      <div className="card-bold" style={{ overflowX: 'auto' }}>
+      <div className="card-bold" data-tour="money-list" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 620 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span><span>Dû</span><span>Payé</span><span>Solde</span><span>Statut</span>
