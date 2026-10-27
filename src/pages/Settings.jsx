@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import { NIVEAUX, SUPPORT_WHATSAPP_DISPLAY, supportWhatsappLink, supportMailLink } from '../lib/utils.js';
-import { clearAllToursForUser } from '../lib/tours.js';
 import PhotoPicker from '../components/PhotoPicker.jsx';
 import FeeScheduleGrid from '../components/FeeScheduleGrid.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -86,11 +85,6 @@ export default function Settings() {
     showToast('Grille tarifaire effacée');
   }
 
-  function handleResetTours() {
-    clearAllToursForUser(profile?.id);
-    showToast('Visites guidées réinitialisées');
-  }
-
   return (
     <div>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Paramètres</p>
@@ -105,7 +99,6 @@ export default function Settings() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16, maxWidth: 1060 }}>
         
-        {/* 1. Identité de l'établissement */}
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22 }}>
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Identité de l'établissement</p>
 
@@ -163,10 +156,15 @@ export default function Settings() {
           )}
         </form>
 
-        {/* 2. Seuil de passage automatique — juste après l'identité */}
+        {schoolYear && (
+          <div className="card-bold" style={{ padding: 22 }}>
+            <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
+          </div>
+        )}
+
         {canManageYear && <PassageThresholds schoolId={profile.school_id} />}
 
-        {/* 3. Grille tarifaire */}
+        {/* GRILLE TARIFAIRE (maintenant côte à côte) */}
         {schoolYear && (
           <div className="card-bold" style={{ padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -195,13 +193,6 @@ export default function Settings() {
               )}
             </div>
             <FeeScheduleGrid key={gridKey} schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
-          </div>
-        )}
-
-        {/* 4. Calendrier de paiement — juste après la grille tarifaire, sur la même ligne */}
-        {schoolYear && (
-          <div className="card-bold" style={{ padding: 22 }}>
-            <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
           </div>
         )}
 
@@ -246,16 +237,14 @@ export default function Settings() {
         )}
 
         <div className="card-bold" style={{ padding: '16px 20px' }}>
-          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visites guidées</p>
-          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
-            Chaque page a sa propre visite pour t'expliquer les éléments clés. Un bouton « ? » apparaît à côté du titre de chaque page pour la lancer à tout moment. Clique ci-dessous pour les revoir toutes depuis le début.
-          </p>
+          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visite guidée</p>
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Revoir le tutoriel de présentation d'EcoGès.</p>
           <button
-            onClick={handleResetTours}
+            onClick={() => window.startEcogesTour && window.startEcogesTour()}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--forest)', background: 'var(--forest-light)', color: 'var(--forest-dark)', cursor: 'pointer' }}
           >
-            <i className="ti ti-refresh" style={{ fontSize: 15 }} aria-hidden="true"></i>
-            Réinitialiser les visites guidées
+            <i className="ti ti-help" style={{ fontSize: 15 }} aria-hidden="true"></i>
+            Lancer la visite
           </button>
         </div>
 
@@ -501,4 +490,13 @@ function NiveauThresholdEditor({ niveau, override, defaultValue, saving, onSave 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="number" min="0" max="20" step="0.5" value={v} onChange={(e) => setV(e.target
+        <input type="number" min="0" max="20" step="0.5" value={v} onChange={(e) => setV(e.target.value)} style={{ width: 90, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 14, textAlign: 'center', boxSizing: 'border-box', color: inherited ? 'var(--muted)' : 'var(--ink)', background: inherited ? 'var(--line)' : 'var(--paper)' }} />
+        <button type="button" disabled={!dirty || saving} onClick={() => onSave(v)} style={{ fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 8, border: 'none', background: dirty ? 'var(--forest)' : 'var(--line)', color: dirty ? '#fff' : 'var(--muted)', cursor: dirty ? 'pointer' : 'default' }}>{saving ? '…' : 'OK'}</button>
+        {hasOverride && (
+          <button type="button" disabled={saving} onClick={() => onSave('')} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>Revenir au défaut</button>
+        )}
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--muted)' }}>{niveau} — {inherited ? 'suit le seuil par défaut' : 'seuil personnalisé pour ce niveau'}</p>
+    </div>
+  );
+}
