@@ -6,20 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EcoGès - Gestion scolaire</title>
 
-    <!-- 1. Librairie pour lire les fichiers Excel (Importation) -->
+    <!-- Librairie pour lire les fichiers Excel (Importation) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-    <!-- 2. Librairie pour la Visite Guidée (Driver.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
-
-    <!-- 3. Importation de la police Poppins pour les textes -->
+    <!-- Importation de la police Poppins pour les textes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-      /* --- BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
+      /* --- 1. BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
       ::-webkit-scrollbar {
         -webkit-appearance: none;
         width: 14px !important;
@@ -43,16 +39,17 @@
         scrollbar-color: #ffffff rgba(0, 0, 0, 0.1) !important;
       }
 
-      /* --- APPLICATION DE LA POLICE POPPINS --- */
+      /* --- 2. APPLICATION DE LA POLICE POPPINS PARTOUT --- */
       body, button, input, select, textarea, a, span, p, div, table, th, td, label {
         font-family: 'Poppins', sans-serif !important;
       }
       
+      /* On écrase la variable --sans utilisée par l'application */
       :root {
         --sans: 'Poppins', sans-serif !important;
       }
 
-      /* --- FIXER LA BARRE LATÉRALE ET LE CONTENU (SCROLL INDÉPENDANT) --- */
+      /* --- 3. FIXER LA BARRE LATÉRALE ET LE CONTENU (SCROLL INDÉPENDANT) --- */
       html, body {
         margin: 0;
         padding: 0;
@@ -85,13 +82,13 @@
         flex: 1 !important;
       }
 
-      /* --- CACHER LA BARRE DE DÉFILEMENT SUR LES ONGLETS --- */
+      /* --- 4. CACHER LA BARRE DE DÉFILEMENT SUR CERTAINS ÉLÉMENTS --- */
       .hide-scrollbar::-webkit-scrollbar {
         display: none !important;
       }
       .hide-scrollbar {
-        -ms-overflow-style: none !important;
-        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;  /* IE and Edge */
+        scrollbar-width: none !important;  /* Firefox */
       }
     </style>
   </head>
