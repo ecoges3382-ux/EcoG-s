@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { sortClasses, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
+import { sortClasses, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import ClassModal from '../components/ClassModal.jsx';
@@ -20,7 +20,6 @@ function BuildingIcon() {
   );
 }
 
-// --- ICÔNES SVG ---
 function TrashIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -36,7 +35,6 @@ function PencilIcon() {
     </svg>
   );
 }
-// -----------------
 
 export default function Classes() {
   const { profile } = useAuth();
@@ -149,18 +147,20 @@ export default function Classes() {
         </div>
       )}
       {classes && classes.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{ minWidth: selectMode ? 720 : 680 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
               {selectMode && <span></span>}
               <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Classe</span><span>Niveau</span><span>Salle</span><span>Effectif</span><span>Prof. principal</span>
-              {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
+              {!selectMode && <span></span>}
             </div>
             {classes.map((c, i) => {
               const effectif = enrollments.filter((e) => e.classe_id === c.id).length;
               return (
                 <div key={c.id} style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < classes.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                  {selectMode && <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleOne(c.id)} />}
+                  {selectMode && (
+                    <input type="checkbox" checked={selectedIds.includes(c.id)} onChange={() => toggleOne(c.id)} />
+                  )}
                   <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>{c.nom}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
@@ -168,7 +168,7 @@ export default function Classes() {
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
                   
                   {!selectMode && (
-                    <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
+                    <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', paddingRight: 20 }}>
                       <button onClick={() => { setEditing(c); setModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }} title="Modifier">
                         <PencilIcon />
                       </button>
