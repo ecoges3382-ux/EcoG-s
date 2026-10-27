@@ -9,39 +9,61 @@ export function PageTourRunner({ pageKey, onClose }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect] = useState(null);
   const rafRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const step = tour?.steps[stepIndex];
 
   useEffect(() => {
-    if (!step) return;
+    if (!step) return undefined;
     let cancelled = false;
+    let elementFound = false;
+    setRect(null);
+
+    const skipTimer = setTimeout(() => {
+      if (cancelled || elementFound) return;
+      if (stepIndex >= tour.steps.length - 1) {
+        onCloseRef.current(true);
+      } else {
+        setStepIndex((i) => i + 1);
+      }
+    }, 3000);
+
     function tick() {
       if (cancelled) return;
       const el = document.querySelector(`[data-tour="${step.target}"]`);
       if (el) {
+        elementFound = true;
         const r = el.getBoundingClientRect();
         setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
       }
       rafRef.current = requestAnimationFrame(tick);
     }
     tick();
-    return () => { cancelled = true; cancelAnimationFrame(rafRef.current); };
-  }, [step]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafRef.current);
+      clearTimeout(skipTimer);
+    };
+  }, [step, stepIndex, tour]);
 
   function finish() {
-    onClose(false);
+    onCloseRef.current(false);
   }
 
   function next() {
     if (stepIndex >= tour.steps.length - 1) {
-      onClose(true);
+      onCloseRef.current(true);
       return;
     }
-    setStepIndex(i => i + 1);
+    setStepIndex((i) => i + 1);
   }
 
   function prev() {
-    if (stepIndex > 0) setStepIndex(i => i - 1);
+    if (stepIndex > 0) setStepIndex((i) => i - 1);
   }
 
   if (!step || !rect) return null;
@@ -52,7 +74,8 @@ export function PageTourRunner({ pageKey, onClose }) {
   const bubbleH = 170;
   const margin = 16;
 
-  let bubbleLeft, bubbleTop;
+  let bubbleLeft;
+  let bubbleTop;
   if (rect.left + rect.width + margin + bubbleW < vw - 8) {
     bubbleLeft = rect.left + rect.width + margin;
     bubbleTop = Math.max(20, Math.min(rect.top, vh - bubbleH - 20));
@@ -118,9 +141,13 @@ export function PageTourRunner({ pageKey, onClose }) {
             onClick={prev}
             disabled={stepIndex === 0}
             style={{
-              background: 'none', border: 'none', cursor: stepIndex === 0 ? 'default' : 'pointer',
+              background: 'none',
+              border: 'none',
+              cursor: stepIndex === 0 ? 'default' : 'pointer',
               color: stepIndex === 0 ? 'var(--line-strong)' : 'var(--muted)',
-              fontSize: 12, fontWeight: 600, padding: '6px 4px',
+              fontSize: 12,
+              fontWeight: 600,
+              padding: '6px 4px',
             }}
           >
             ← Précédent
@@ -129,8 +156,14 @@ export function PageTourRunner({ pageKey, onClose }) {
             type="button"
             onClick={next}
             style={{
-              background: 'var(--forest)', color: '#fff', border: 'none',
-              padding: '8px 16px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              background: 'var(--forest)',
+              color: '#fff',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: 8,
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
             }}
           >
             {stepIndex === tour.steps.length - 1 ? 'Terminer' : 'Suivant →'}
@@ -148,18 +181,18 @@ export function usePageTour(pageKey) {
   const userId = profile?.id;
 
   useEffect(() => {
-    if (!userId) return;
-    if (hasSeenTour(pageKey, userId)) return;
+    if (!userId) return undefined;
+    if (hasSeenTour(pageKey, userId)) return undefined;
     const timer = setTimeout(() => setActive(true), 800);
     return () => clearTimeout(timer);
   }, [pageKey, userId]);
 
   const launch = useCallback(() => setActive(true), []);
 
-  function handleClose(done) {
+  const handleClose = useCallback((done) => {
     if (done && userId) markTourSeen(pageKey, userId);
     setActive(false);
-  }
+  }, [userId, pageKey]);
 
   function Button() {
     return (
@@ -169,14 +202,23 @@ export function usePageTour(pageKey) {
         title="Visite guidée de cette page"
         aria-label="Visite guidée de cette page"
         style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 36, height: 36, borderRadius: '50%',
-          border: '1px solid var(--line-strong)', background: 'var(--paper)',
-          color: 'var(--forest)', cursor: 'pointer', flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          border: '1px solid var(--line-strong)',
+          background: 'var(--paper)',
+          color: 'var(--forest)',
+          cursor: 'pointer',
+          flexShrink: 0,
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.75.35-1.25 1.1-1.25 2.2" /><path d="M12 17.5v.01" />
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.75.35-1.25 1.1-1.25 2.2" />
+          <path d="M12 17.5v.01" />
         </svg>
       </button>
     );
