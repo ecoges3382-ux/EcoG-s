@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
+import { fmt, fmtF, initials, downloadCsv, parseCsv, splitFullName, sortClasses, displayName, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import NewStudentModal from '../components/NewStudentModal.jsx';
@@ -287,8 +287,8 @@ export default function Students() {
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-  Élèves
-</p>
+          Élèves
+        </p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}><i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter</button>
           {!isHistorical && (
@@ -334,7 +334,7 @@ export default function Students() {
         {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
       </p>
 
-      <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+      <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
         <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
@@ -346,7 +346,7 @@ export default function Students() {
             <span>Tél. Parent</span>
             <span>Reste</span>
             <span>Statut</span>
-            {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
+            {!selectMode && <span></span>}
           </div>
           {filtered.map((s, i) => {
             const status = statusOf(s, schoolYear, feeSchedulesByNiveau[s.classeNiveau]);
@@ -378,7 +378,7 @@ export default function Students() {
                   <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>{status.label}</span>
                 </Link>
                 {!selectMode && (canEdit || canDelete) && (
-                  <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
+                  <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', paddingRight: 20 }}>
                     {canEdit && (
                       <button type="button" onClick={() => { setEditingStudent(s); setModalOpen(true); }} title="Modifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
                         <PencilIcon />
