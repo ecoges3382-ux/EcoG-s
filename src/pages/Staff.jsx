@@ -11,6 +11,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
+import { translateError } from '../lib/errors.js';
 
 function IdBadgeIcon() {
   return (
@@ -85,7 +86,7 @@ export default function Staff() {
       },
       setData: setStaff,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)),
       onSuccess: () => setError(''),
     });
   }
@@ -147,16 +148,16 @@ export default function Staff() {
     setDeleting(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: restore ? 'actif' : 'inactif' }).eq('id', id);
     setDeleting(false);
-    if (updateError) { setError(updateError.message); return; }
+    if (updateError) { setError(translateError(updateError)); return; }
     reload();
   }
 
   async function handleDeleteOne(id, name) {
-    if (!(await confirm(`Supprimer définitivement ${name} de l'équipe ? Cette action est irréversible et impossible si cette personne a un historique (avances, salaires, classe ou matière encore rattachée).`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${name} de l'équipe ? Attention, tu ne pourras pas revenir en arrière. C'est impossible si cette personne a un historique (avances, salaires, classe ou matière encore rattachée).`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('staff').delete().eq('id', id);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : cette personne a encore un historique lié (avances, salaires, classe ou matière). Utilise l'archivage à la place." : deleteError.message); return; }
+    if (deleteError) { setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : cette personne a encore un historique lié (avances, salaires, classe ou matière). Utilise l'archivage à la place." : translateError(deleteError)); return; }
     reload();
   }
 
@@ -165,7 +166,7 @@ export default function Staff() {
     setDeleting(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: showArchives ? 'actif' : 'inactif' }).in('id', selectedIds);
     setDeleting(false);
-    if (updateError) { setError(updateError.message); return; }
+    if (updateError) { setError(translateError(updateError)); return; }
     exitSelectMode();
     reload();
   }
