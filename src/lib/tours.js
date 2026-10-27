@@ -1,6 +1,53 @@
 // src/lib/tours.js
 
 export const TOURS = {
+  welcome_desktop: {
+    label: 'Bienvenue',
+    steps: [
+      {
+        target: 'sidebar',
+        title: 'Le menu principal',
+        text: 'Toutes les pages de l\'app sont ici. Clique sur n\'importe quelle entrée pour y aller.',
+      },
+      {
+        target: 'sidebar-eleves',
+        title: 'Les élèves',
+        text: 'Inscris tes élèves, importe-les depuis un fichier Excel, ou consulte leur fiche complète.',
+      },
+      {
+        target: 'sidebar-recouvrement',
+        title: 'Le recouvrement',
+        text: 'Vois qui doit payer, qui est en retard, et envoie des relances en un clic.',
+      },
+      {
+        target: 'sidebar-parametres',
+        title: 'Les paramètres',
+        text: 'Tarifs, calendrier, personnel, visites guidées — tout se configure ici.',
+      },
+    ],
+  },
+
+  welcome_mobile: {
+    label: 'Bienvenue',
+    steps: [
+      {
+        target: 'bottomnav-eleves',
+        title: 'Les élèves',
+        text: 'Accède à la liste des élèves, à leurs paiements et à leurs notes.',
+      },
+      {
+        target: 'bottomnav-recouvrement',
+        title: 'Le recouvrement',
+        text: 'Vois qui doit payer et qui est en retard. Envoie des relances en un clic.',
+      },
+      {
+        target: 'bottomnav-parametres',
+        title: 'Les paramètres',
+        text: 'Tarifs, calendrier, personnel — tout se configure ici.',
+      },
+    ],
+  },
+
   money: {
     label: 'Argent',
     steps: [
@@ -155,4 +202,20 @@ export function hasSeenTour(pageKey, userId) {
 export function markTourSeen(pageKey, userId) {
   if (!userId) return;
   localStorage.setItem(`ecoges_tour_${pageKey}_${userId}`, 'v1');
+}
+
+// Efface TOUS les flags de visite pour un utilisateur donné — utilisé par le
+// bouton "Réinitialiser les visites" dans Paramètres. Comme ça la personne
+// peut tout revoir depuis le début.
+export function clearAllToursForUser(userId) {
+  if (!userId) return;
+  const suffix = `_${userId}`;
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('ecoges_tour_') && key.endsWith(suffix)) {
+      keys.push(key);
+    }
+  }
+  keys.forEach((k) => localStorage.removeItem(k));
 }
