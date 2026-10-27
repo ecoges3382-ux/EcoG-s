@@ -8,13 +8,12 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
-import GuidedTour from '../components/GuidedTour.jsx'; // <--- IMPORT AJOUTÉ
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
-  { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money' },
-  { to: '/eleves', label: 'Élèves', icon: 'ti-users', countKey: 'students' },
+  { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', tourId: 'sidebar-recouvrement' },
+  { to: '/eleves', label: 'Élèves', icon: 'ti-users', countKey: 'students', tourId: 'sidebar-eleves' },
   { to: '/parents', label: 'Parents', icon: 'ti-users-group', countKey: 'parents' },
   { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', countKey: 'staff' },
   { to: '/classes', label: 'Classes', icon: 'ti-building', countKey: 'classes' },
@@ -26,7 +25,7 @@ const SIDEBAR_ITEMS = [
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
   { to: '/documents', label: 'Documents', icon: 'ti-file' },
   { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar' },
-  { to: '/parametres', label: 'Paramètres', icon: 'ti-settings' },
+  { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', tourId: 'sidebar-parametres' },
   { to: '/comptes', label: 'Comptes', icon: 'ti-users-group' },
 ];
 
@@ -35,10 +34,10 @@ const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/m
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet' },
-  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money' },
-  { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', group: SCHOOL_GROUP_PATHS },
+  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', tourId: 'bottomnav-recouvrement' },
+  { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
   { to: '/comptes', shortLabel: 'Comptes', icon: 'ti-users-group' },
-  { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings' },
+  { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', tourId: 'bottomnav-parametres' },
 ];
 
 function ShieldIcon() {
@@ -85,8 +84,6 @@ export default function Shell() {
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
     <div id="app">
-      <GuidedTour /> {/* <--- COMPOSANT AJOUTÉ ICI */}
-      
       <div className="topbar-row" style={{ background: 'var(--forest)', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
           <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
@@ -119,7 +116,7 @@ export default function Shell() {
       </div>
 
       <div id="layout">
-        <div id="sidebar">
+        <div id="sidebar" data-tour="sidebar">
           <SidebarMenu />
         </div>
         <div id="screen">
@@ -137,7 +134,12 @@ export default function Shell() {
             ? item.group.some((p) => location.pathname.startsWith(p))
             : (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
           return (
-            <NavLink key={item.to} to={item.to} className={`navlink${isActive ? ' active' : ''}`}>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={`navlink${isActive ? ' active' : ''}`}
+              data-tour={item.tourId}
+            >
               <i className={`ti ${item.icon}`} aria-hidden="true"></i>
               <span>{item.shortLabel}</span>
             </NavLink>
@@ -191,7 +193,14 @@ function SidebarMenu() {
   return (
     <>
       {SIDEBAR_ITEMS.map((item) => (
-        <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)}>
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          className="navlink"
+          style={({ isActive }) => sidebarLinkStyle(isActive)}
+          data-tour={item.tourId}
+        >
           <i className={`ti ${item.icon}`} style={{ fontSize: 18, color: '#fff' }} aria-hidden="true"></i>
           <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
           {item.countKey && counts[item.countKey] !== undefined && (
