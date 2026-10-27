@@ -11,6 +11,7 @@ import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { SkeletonLine } from './Skeleton.jsx';
+import HelpTooltip from './HelpTooltip.jsx'; // <--- IMPORT AJOUTÉ
 
 const PAIEMENT_TRANCHES = [
   { id: 'tranche1', label: '1ère tranche' },
@@ -293,7 +294,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Matricule (facultatif)</label>
+            <label style={labelStyle}>
+              Matricule (facultatif)
+              <HelpTooltip text="Laisse ce champ vide. EcoGès générera automatiquement un matricule unique pour cet élève." />
+            </label>
             <input value={matricule} onChange={(e) => setMatricule(e.target.value)} style={inputStyle} placeholder="Auto si vide" />
           </div>
           <div>
@@ -324,14 +328,20 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             <Dropdown value={classeId} onChange={setClasseId} disabled={!canEditEnrollment} options={classes.map((c) => ({ value: c.id, label: c.nom }))} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Écolage dû</label>
+            <label style={labelStyle}>
+              Écolage dû
+              <HelpTooltip text="C'est le montant total annuel que ce parent doit payer pour cette classe. Il est pré-rempli si la grille tarifaire est configurée." />
+            </label>
             <MoneyInput value={montantDu} onChange={(v) => { setMontantDuTouched(true); setMontantDu(v); }} disabled={!canEditEnrollment} style={{ ...inputStyle, opacity: canEditEnrollment ? 1 : 0.6 }} suffix="F CFA" />
           </div>
         </div>
 
         {!isEditing && <>
         <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 18 }}>
-          <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Paiement à l'inscription</p>
+          <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>
+            Paiement à l'inscription
+            <HelpTooltip text="Enregistre ici l'argent que le parent te donne physiquement aujourd'hui. Tu pourras enregistrer le reste de ses paiements plus tard dans l'onglet Argent." />
+          </p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui.</p>
 
           {fraisInscription > 0 && (
@@ -371,7 +381,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
         {!isEditing && canManageParents && (
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 4 }}>
-            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>Parent</p>
+            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>
+              Parent
+              <HelpTooltip text="Crée un code d'accès pour que le parent puisse consulter les notes et payer en ligne sans avoir de compte." />
+            </p>
             <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Pour que le parent puisse consulter la fiche de son enfant sans compte ni mot de passe.</p>
 
             <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
@@ -396,7 +409,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
                 </div>
                 <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
-                    <label style={labelStyle}>Lien de parenté</label>
+                    <label style={labelStyle}>
+                      Lien de parenté
+                      <HelpTooltip text="Permet de savoir qui contacter en priorité en cas d'urgence." />
+                    </label>
                     <Dropdown value={lienParente} onChange={setLienParente} options={LIENS_PARENTE.map(l => ({ value: l.id, label: l.label }))} style={inputStyle} />
                   </div>
                   <div>
@@ -444,4 +460,4 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 }
 
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 12 };
-const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
+const labelStyle = { display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
