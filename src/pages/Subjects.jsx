@@ -10,6 +10,7 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import { translateError } from '../lib/errors.js';
 
 function BookIcon() {
   return (
@@ -61,7 +62,7 @@ export default function Subjects() {
       },
       setData: setSubjects,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)),
       onSuccess: () => setError(''),
     });
     const [{ data: te }, { data: cl }] = await Promise.all([
@@ -79,22 +80,22 @@ export default function Subjects() {
   function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
 
   async function handleDeleteOne(s) {
-    if (!(await confirm(`Supprimer la matière ${s.nom} ?`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer la matière ${s.nom} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('subjects').delete().eq('id', s.id);
     if (deleteError) {
-      setError(deleteError.code === '23503' ? `Impossible de supprimer « ${s.nom} » : des notes existantes utilisent encore cette matière.` : deleteError.message);
+      setError(deleteError.code === '23503' ? `Impossible de supprimer « ${s.nom} » : des notes existantes utilisent encore cette matière.` : translateError(deleteError));
       return;
     }
     reload();
   }
 
   async function handleDeleteSelected() {
-    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} matière${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} matière${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('subjects').delete().in('id', selectedIds);
     setDeleting(false);
     if (deleteError) { 
-      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : certaines matières ont des notes associées." : deleteError.message); 
+      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : certaines matières ont des notes associées." : translateError(deleteError)); 
       return; 
     }
     exitSelectMode(); reload();
