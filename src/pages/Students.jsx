@@ -15,7 +15,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
-import { translateError } from '../lib/errors.js'; // <--- AJOUTÉ ICI (Ligne 18)
+import { translateError } from '../lib/errors.js';
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -121,7 +121,7 @@ export default function Students() {
       },
       setData: setStudents,
       setOffline,
-      onError: (err) => setError(translateError(err)), // <--- MODIFIÉ ICI
+      onError: (err) => setError(translateError(err)),
       onSuccess: () => setError(''),
     });
   }
@@ -149,6 +149,16 @@ export default function Students() {
       rows.push([s.full_name, s.matricule || '', s.sexe === 'F' ? 'F' : 'M', s.niveau, new Date(s.created_at).toLocaleDateString('fr-FR'), s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye), s.parent_phone || '']);
     });
     downloadCsv('eleves.csv', rows);
+  }
+
+  // --- FONCTION POUR TÉLÉCHARGER LE MODÈLE ---
+  function downloadTemplate() {
+    const rows = [
+      ['Nom', 'Classe', 'Matricule', 'Montant dû', 'Déjà payé (écolage)'],
+      ['KONE Aïcha', 'CM2', 'MAT-001', '150000', '50000'],
+      ['MENSAH Koffi', '6e A', '', '180000', '0']
+    ];
+    downloadCsv('Modele_Import_Eleves.csv', rows);
   }
 
   async function handleImportFile(e) {
@@ -255,7 +265,7 @@ export default function Students() {
     const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', { p_school_id: profile.school_id, p_school_year_id: activeYear.id, p_rows: importRows });
     setImporting(false);
     if (importError) { 
-      setImportMessage({ type: 'error', text: translateError(importError) }); // <--- MODIFIÉ ICI
+      setImportMessage({ type: 'error', text: translateError(importError) });
       return; 
     }
     setImportMessage({ type: 'success', text: `${importedCount} élève${importedCount > 1 ? 's' : ''} importé${importedCount > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
@@ -272,7 +282,7 @@ export default function Students() {
     const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
     setDeleting(false);
     if (deleteError) { 
-      setError(translateError(deleteError)); // <--- MODIFIÉ ICI
+      setError(translateError(deleteError));
       return; 
     }
     reload();
@@ -284,7 +294,7 @@ export default function Students() {
     const { error: deleteError } = await supabase.from('students').delete().in('id', selectedIds);
     setDeleting(false);
     if (deleteError) { 
-      setError(translateError(deleteError)); // <--- MODIFIÉ ICI
+      setError(translateError(deleteError));
       return; 
     }
     exitSelectMode(); reload();
@@ -301,6 +311,13 @@ export default function Students() {
         </p>
         <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}><i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter</button>
+          
+          {!isHistorical && (
+            <button onClick={downloadTemplate} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', display: 'inline-flex', alignItems: 'center' }}>
+              <i className="ti ti-download" style={{ fontSize: 14, marginRight: 6 }} aria-hidden="true"></i>Télécharger le modèle
+            </button>
+          )}
+
           {!isHistorical && (
             <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
               <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
