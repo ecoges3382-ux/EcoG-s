@@ -685,22 +685,31 @@ function Final() {
 }
 
 export default function Landing() {
-  // Sécurité de scroll : quand on quitte l'application connectée (qui bloque
-  // le défilement global pour sa propre interface), le navigateur peut garder
-  // le body verrouillé. On force ici le retour du défilement sur toutes les
-  // racines possibles (html, body, #root) dès qu'on arrive sur cette page.
+  // Correctif agressif pour le défilement
   useEffect(() => {
-    const elements = [document.documentElement, document.body, document.getElementById('root')].filter(Boolean);
-    const originalStyles = elements.map((el) => el.style.overflow);
+    // 1. Retirer la classe 'app-mode' qui bloque parfois le scroll
+    document.body.classList.remove('app-mode');
+    
+    // 2. Injecter du CSS avec !important pour forcer le scroll
+    const styleId = 'landing-scroll-fix';
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        html, body, #root {
+          overflow: auto !important;
+          height: auto !important;
+          position: static !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
 
-    elements.forEach((el) => {
-      el.style.overflow = 'auto';
-    });
-
+    // 3. Nettoyer l'élément <style> quand on quitte la page
     return () => {
-      elements.forEach((el, index) => {
-        el.style.overflow = originalStyles[index];
-      });
+      const el = document.getElementById(styleId);
+      if (el) el.remove();
     };
   }, []);
 
