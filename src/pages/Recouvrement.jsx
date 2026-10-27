@@ -11,6 +11,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
+import { usePageTour } from '../components/PageTour.jsx';
 
 const STATUT_RECOUVREMENT = {
   a_jour: { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -43,11 +44,8 @@ export default function Recouvrement() {
   const [inscriptionByStudent, setInscriptionByStudent] = useState(null);
   const [search, setSearch] = useState('');
   const [filterClasse, setFilterClasse] = useState('toutes');
+  const tour = usePageTour('recouvrement');
 
-  // Le filtre de statut vient de l'URL (?statut=…) — permet le drill-down
-  // depuis le Dashboard ("Reste à recouvrer" → ?statut=avec_solde). Changer
-  // le filtre met à jour l'URL, ce qui rend le lien partageable et permet
-  // au bouton "retour" du navigateur de revenir au filtre précédent.
   const [searchParams, setSearchParams] = useSearchParams();
   const filterStatut = searchParams.get('statut') || 'tous';
 
@@ -174,23 +172,27 @@ export default function Recouvrement() {
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {offline && <OfflineBanner />}
+      {tour.Runner}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-          Recouvrement
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+            Recouvrement
+          </p>
+          <tour.Button />
+        </div>
         <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
           Année scolaire {schoolYear.label}
         </span>
       </div>
 
-      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
+      <div data-tour="recouvrement-kpis" className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
         <TypeCard label="Droit d'écolage" du={totalEcolageDu} paye={totalEcolagePaye} reste={totalEcolageReste} taux={tauxEcolage} />
         <TypeCard label="Frais d'inscription" inscription paye={totalInscriptionPaye} count={nbInscriptionPayes} />
         <TypeCard label="Frais connexes" du={totalConnexeDu} paye={totalConnexePaye} reste={totalConnexeReste} taux={tauxConnexe} />
       </div>
 
-      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div data-tour="recouvrement-priority" className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <PriorityCard
           title="Priorité — Écolage"
           icon="ti-cash"
@@ -243,8 +245,7 @@ export default function Recouvrement() {
         </div>
       </div>
 
-      {/* Ajout de hide-scrollbar ici pour cacher la barre sous les boutons de filtres */}
-      <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
+      <div data-tour="recouvrement-filters" className="hide-scrollbar" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUT_FILTERS.map((f) => (
           <button
             key={f.id}
@@ -312,7 +313,7 @@ export default function Recouvrement() {
         </div>
       </div>
 
-      <div className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
+      <div data-tour="recouvrement-synthese" className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest)' }} aria-hidden="true"></i>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark)' }}>
