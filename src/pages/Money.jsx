@@ -17,6 +17,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import DatePicker from '../components/DatePicker.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -33,6 +34,38 @@ function PencilIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
+function MoneyIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="6" width="19" height="12" rx="1.8" /><circle cx="12" cy="12" r="2.5" />
+    </svg>
+  );
+}
+
+function ReceiptIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 3.5v17l3-2 3 2 3-2 3 2 3-2v-15z" /><path d="M9 8h6M9 12h6M9 16h4" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.3" /><path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" /><circle cx="17" cy="8.5" r="2.4" /><path d="M15.5 14c2.4.2 4.2 2.4 4.4 4.7" />
+    </svg>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18v2.5" /><path d="M3 7.5v9A2.5 2.5 0 0 0 5.5 19H19a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2H5.5A2.5 2.5 0 0 1 3 7.5z" /><circle cx="16.5" cy="13.5" r="1" />
     </svg>
   );
 }
@@ -97,6 +130,20 @@ function Overview() {
           <SkeletonCard /><SkeletonCard /><SkeletonCard />
         </div>
         <div className="card-bold"><SkeletonTableRows count={5} columns={5} /></div>
+      </div>
+    );
+  }
+
+  if (students.length === 0) {
+    return (
+      <div className="card-bold">
+        <EmptyState
+          icon={<UsersIcon />}
+          title="Aucun élève inscrit cette année"
+          subtitle="Pour suivre les paiements et les soldes, il faut d'abord inscrire des élèves dans l'année scolaire en cours."
+          actionLabel="Aller vers Élèves"
+          actionTo="/eleves"
+        />
       </div>
     );
   }
@@ -193,6 +240,20 @@ function FraisConnexes() {
   const { students, error, schoolYear } = useEnrollments();
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {translateError(error)}</p>;
   if (!students) return <div className="card-bold"><SkeletonTableRows count={5} columns={5} /></div>;
+
+  if (students.length === 0) {
+    return (
+      <div className="card-bold">
+        <EmptyState
+          icon={<UsersIcon />}
+          title="Aucun élève inscrit cette année"
+          subtitle="Les frais connexes s'affichent à partir des inscriptions. Commence par inscrire des élèves."
+          actionLabel="Aller vers Élèves"
+          actionTo="/eleves"
+        />
+      </div>
+    );
+  }
 
   const totalDu = students.reduce((a, s) => a + Number(s.frais_connexe_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
@@ -312,46 +373,67 @@ function Payments() {
         </button>
       )}
 
-      <div className="card-bold" style={{ overflow: 'hidden' }}>
-        {payments.map((p, i) => (
-          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
-            <div>
-              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
-              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
-                {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
-              </p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
-                  {trancheLabel(p.tranche)}
-                </span>
+      {payments.length === 0 ? (
+        <div className="card-bold">
+          {students.length === 0 ? (
+            <EmptyState
+              icon={<UsersIcon />}
+              title="Aucun élève inscrit cette année"
+              subtitle="Il faut d'abord inscrire au moins un élève avant de pouvoir enregistrer un paiement."
+              actionLabel="Aller vers Élèves"
+              actionTo="/eleves"
+            />
+          ) : (
+            <EmptyState
+              icon={<ReceiptIcon />}
+              title="Aucun paiement enregistré"
+              subtitle="Dès qu'un parent paie, enregistre-le ici — un reçu imprimable est généré automatiquement."
+              actionLabel={canManage ? 'Enregistrer un paiement' : undefined}
+              onAction={canManage ? () => setModalOpen(true) : undefined}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="card-bold" style={{ overflow: 'hidden' }}>
+          {payments.map((p, i) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+              <div>
+                <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
+                <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
+                  {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setReceiptPayment(p)}
-                title="Imprimer le reçu"
-                style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
-              >
-                <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
-              </button>
-              {canManage && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
+                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
+                    {trancheLabel(p.tranche)}
+                  </span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => handleDelete(p)}
-                  disabled={deleting}
-                  title="Supprimer ce paiement"
-                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                  onClick={() => setReceiptPayment(p)}
+                  title="Imprimer le reçu"
+                  style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
                 >
-                  <TrashIcon />
+                  <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
                 </button>
-              )}
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(p)}
+                    disabled={deleting}
+                    title="Supprimer ce paiement"
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        {payments.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré.</p>}
-      </div>
+          ))}
+        </div>
+      )}
 
       {modalOpen && schoolYear && (
         <NewPaymentModal
@@ -624,30 +706,39 @@ function Expenses() {
       </div>
 
       <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Dépenses récentes</p>
-      <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 24, maxWidth: 640 }}>
-        {expenses.map((d, i) => (
-          <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < expenses.length - 1 ? '1px solid var(--line)' : 'none' }}>
-            <div>
-              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{d.libelle}</p>
-              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{d.categorie}</p>
+      {expenses.length === 0 ? (
+        <div className="card-bold" style={{ marginBottom: 24, maxWidth: 640 }}>
+          <EmptyState
+            icon={<WalletIcon />}
+            title="Aucune dépense enregistrée"
+            subtitle="Utilise le formulaire ci-dessous pour enregistrer ta première dépense (fournitures, loyer, électricité…)."
+          />
+        </div>
+      ) : (
+        <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 24, maxWidth: 640 }}>
+          {expenses.map((d, i) => (
+            <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < expenses.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div>
+                <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{d.libelle}</p>
+                <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{d.categorie}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmtF(d.montant)}</p>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(d)}
+                    title="Supprimer"
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmtF(d.montant)}</p>
-              {canManage && (
-                <button
-                  type="button"
-                  onClick={() => handleDelete(d)}
-                  title="Supprimer"
-                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
-                >
-                  <TrashIcon />
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-        {expenses.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune dépense enregistrée.</p>}
-      </div>
+          ))}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <input value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Libellé" style={{ ...smallInput, flex: '2 1 160px' }} />
@@ -753,48 +844,67 @@ function Advances() {
         seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.
       </p>
 
-      <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 20 }}>
-        {advances.map((a, i) => (
-          <div key={a.id} style={{ padding: '13px 20px', borderBottom: i < advances.length - 1 ? '1px solid var(--line)' : 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <div>
-                <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
-                <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
+      {advances.length === 0 ? (
+        <div className="card-bold" style={{ marginBottom: 20 }}>
+          {staff.length === 0 ? (
+            <EmptyState
+              icon={<UsersIcon />}
+              title="Aucun membre du personnel enregistré"
+              subtitle="Les avances sur salaire se font pour les membres du personnel. Ajoute d'abord ton équipe."
+              actionLabel="Aller vers Personnel"
+              actionTo="/personnel"
+            />
+          ) : (
+            <EmptyState
+              icon={<MoneyIcon />}
+              title="Aucune demande d'avance"
+              subtitle="Les demandes d'avance sur salaire de ton équipe apparaîtront ici."
+            />
+          )}
+        </div>
+      ) : (
+        <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 20 }}>
+          {advances.map((a, i) => (
+            <div key={a.id} style={{ padding: '13px 20px', borderBottom: i < advances.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div>
+                  <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
+                  <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}{a.statut === 'approuvee' && Number(a.solde) > 0 ? ` (reste ${fmtF(a.solde)})` : ''}</span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}{a.statut === 'approuvee' && Number(a.solde) > 0 ? ` (reste ${fmtF(a.solde)})` : ''}</span>
-            </div>
-            {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)' }}>{a.motif}</p>}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <StatusBadge statut={a.statut} solde={a.solde} montant={a.montant} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
-                  <>
-                    <button onClick={() => decide(a.id, 'approuvee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>Approuver</button>
-                    <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>Refuser</button>
-                  </>
-                )}
-                {canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
-                  <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
-                    <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
-                  </button>
-                )}
-                
-                {canDecide && (
-                  <>
-                    <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-                      <PencilIcon />
+              {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)' }}>{a.motif}</p>}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <StatusBadge statut={a.statut} solde={a.solde} montant={a.montant} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
+                    <>
+                      <button onClick={() => decide(a.id, 'approuvee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>Approuver</button>
+                      <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>Refuser</button>
+                    </>
+                  )}
+                  {canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
+                    <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+                      <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
                     </button>
-                    <button onClick={() => handleDelete(a)} title="Supprimer cette avance" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-                      <TrashIcon />
-                    </button>
-                  </>
-                )}
+                  )}
+                  
+                  {canDecide && (
+                    <>
+                      <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                        <PencilIcon />
+                      </button>
+                      <button onClick={() => handleDelete(a)} title="Supprimer cette avance" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                        <TrashIcon />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-        {advances.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucune demande.</p>}
-      </div>
+          ))}
+        </div>
+      )}
 
       {staff.length > 0 ? (
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
