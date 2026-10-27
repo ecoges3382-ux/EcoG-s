@@ -11,6 +11,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OnboardingBanner from '../components/OnboardingBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
+import { usePageTour } from '../components/PageTour.jsx';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -20,6 +21,9 @@ export default function Dashboard() {
   const [attendance, setAttendance] = useState(null);
   const [classResults, setClassResults] = useState(null);
   const [offlineExtra, setOffline] = useState(false);
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const tour = usePageTour(isMobile ? 'welcome_mobile' : 'welcome_desktop');
 
   useEffect(() => {
     if (!schoolYear) return;
@@ -79,10 +83,14 @@ export default function Dashboard() {
 
   return (
     <div>
+      {tour.Runner}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 26, fontWeight: 600, color: 'var(--ink)' }}>
-          Tableau de bord
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 26, fontWeight: 600, color: 'var(--ink)' }}>
+            Tableau de bord
+          </p>
+          <tour.Button />
+        </div>
         <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
           Année scolaire {schoolYear.label}
         </span>
@@ -464,15 +472,6 @@ function ClassBreakdown({ students, attendance, classResults }) {
   );
 }
 
-// Section Personnel enrichie : en plus de la masse salariale versée et des
-// avances, on affiche maintenant :
-//  - le nombre de membres actifs couverts par au moins un versement (pour
-//    repérer les oublis de saisie, très fréquents en début d'année) ;
-//  - la masse salariale THÉORIQUE attendue depuis le début de l'année, en
-//    tenant compte des embauches en cours d'année (date_entree), pour
-//    comparer au réel et repérer les écarts ;
-//  - le total réellement décaissé pour le personnel (masse salariale +
-//    avances versées, avant remboursement), utile pour la trésorerie.
 function PersonnelSection({ schoolYear }) {
   const [data, setData] = useState(null);
 
@@ -488,7 +487,6 @@ function PersonnelSection({ schoolYear }) {
     ]).then(([{ data: staff }, { data: salaries }, { data: advances }, { data: expenses }]) => {
       if (cancelled) return;
 
-      // --- Début de l'année scolaire ---
       const today = new Date();
       let startDate;
       if (schoolYear.date_debut) {
@@ -496,10 +494,9 @@ function PersonnelSection({ schoolYear }) {
       } else {
         const match = schoolYear.label?.match(/^(\d{4})-(\d{4})$/);
         const startYear = match ? Number(match[1]) : today.getFullYear();
-        startDate = new Date(startYear, 8, 1); // septembre par défaut
+        startDate = new Date(startYear, 8, 1);
       }
 
-      // --- Nombre de mois écoulés (borné à 1 minimum) ---
       const monthsElapsed = Math.max(
         1,
         (today.getFullYear() - startDate.getFullYear()) * 12
@@ -507,10 +504,6 @@ function PersonnelSection({ schoolYear }) {
         + 1,
       );
 
-      // --- Masse salariale théorique : somme des salaires mensuels des
-      //     employés actifs × nombre de mois depuis leur entrée (ou depuis
-      //     le début d'année, selon ce qui est le plus tardif). Un employé
-      //     entré en cours d'année ne compte donc que depuis son entrée. ---
       const masseTheorique = (staff || []).reduce((sum, s) => {
         if (!s.salaire_mensuel) return sum;
         let empStart = startDate;
@@ -548,7 +541,6 @@ function PersonnelSection({ schoolYear }) {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
-  // --- Sous-textes contextuels ---
   const versementsLabel = data
     ? `${data.versementsDistincts} / ${data.effectifPersonnel} membres couverts${data.versementsDistincts < data.effectifPersonnel ? ' ⚠️' : ''}`
     : undefined;
@@ -764,9 +756,6 @@ function CompareTable({ currentYear, previousYear, currStudents, currAttendance,
   );
 }
 
-// Stat accepte un `to` optionnel : si fourni, la carte devient un lien vers
-// l'écran détail correspondant. `sub` = sous-texte (ex. "5 / 40 membres
-// couverts"). `subColor` permet de colorer ce sous-texte (rouge si alerte).
 function Stat({ label, value, color, sub, subColor, to }) {
   const content = (
     <>
