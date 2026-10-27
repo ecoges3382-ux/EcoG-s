@@ -15,6 +15,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { translateError } from '../lib/errors.js'; // <--- AJOUTÉ ICI (Ligne 18)
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -120,7 +121,7 @@ export default function Students() {
       },
       setData: setStudents,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)), // <--- MODIFIÉ ICI
       onSuccess: () => setError(''),
     });
   }
@@ -137,7 +138,7 @@ export default function Students() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolYear?.id]);
 
-  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur de chargement : {error}</p>;
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <div className="card-bold"><SkeletonRow count={6} /></div>;
 
   const filtered = classFilter === 'toutes' ? students : students.filter((s) => s.niveau === classFilter);
@@ -253,7 +254,10 @@ export default function Students() {
     }));
     const { data: importedCount, error: importError } = await supabase.rpc('import_students_csv', { p_school_id: profile.school_id, p_school_year_id: activeYear.id, p_rows: importRows });
     setImporting(false);
-    if (importError) { setImportMessage({ type: 'error', text: importError.message }); return; }
+    if (importError) { 
+      setImportMessage({ type: 'error', text: translateError(importError) }); // <--- MODIFIÉ ICI
+      return; 
+    }
     setImportMessage({ type: 'success', text: `${importedCount} élève${importedCount > 1 ? 's' : ''} importé${importedCount > 1 ? 's' : ''}${skipped ? `, ${skipped} ligne${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}` : ''}.` });
     reload();
   }
@@ -263,20 +267,26 @@ export default function Students() {
   function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
 
   async function handleDeleteOne(id, name) {
-    if (!(await confirm(`Supprimer définitivement ${name} ? Ses paiements, notes et présences seront aussi supprimés. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${name} ? Ses paiements, notes et présences seront aussi supprimés. Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('students').delete().eq('id', id);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (deleteError) { 
+      setError(translateError(deleteError)); // <--- MODIFIÉ ICI
+      return; 
+    }
     reload();
   }
 
   async function handleDeleteSelected() {
-    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} élève${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} élève${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('students').delete().in('id', selectedIds);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (deleteError) { 
+      setError(translateError(deleteError)); // <--- MODIFIÉ ICI
+      return; 
+    }
     exitSelectMode(); reload();
   }
 
@@ -334,7 +344,7 @@ export default function Students() {
         {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
       </p>
 
-      <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+      <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
         <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
