@@ -10,24 +10,15 @@ import SubjectModal from '../components/SubjectModal.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur'];
+
+// NOUVEL ORDRE : Classes -> Tarifs -> Matières -> Résumé (vers Élèves)
 const STEPS = [
   { id: 'classes', label: '1. Classes' },
-  { id: 'matieres', label: '2. Matières' },
-  { id: 'tarifs', label: '3. Tarifs' },
+  { id: 'tarifs', label: '2. Tarifs' },
+  { id: 'matieres', label: '3. Matières' },
   { id: 'resume', label: '4. Résumé' },
 ];
 
-// Assistant de configuration initiale d'une école toute neuve — jusqu'ici,
-// une fois son compte créé, le fondateur atterrissait directement sur un
-// tableau de bord vide sans aucune indication de ce qu'il fallait
-// configurer en premier (classes, matières, grille tarifaire), chacune sur
-// une page séparée découverte au hasard. Reprend le même schéma d'assistant
-// que PrepareSchoolYear.jsx (onglets en pilules, navigation libre entre
-// étapes) plutôt que d'inventer un nouveau patron d'interface. N'active
-// rien de spécial à la fin : contrairement à PrepareSchoolYear (qui bascule
-// une nouvelle année scolaire), ici les classes/matières/tarifs créés sont
-// déjà ceux de l'année en cours dès leur saisie — la dernière étape n'est
-// qu'un résumé qui renvoie au tableau de bord.
 export default function FirstTimeSetup() {
   const { profile } = useAuth();
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
@@ -73,9 +64,8 @@ export default function FirstTimeSetup() {
         Configuration initiale
       </p>
       <p style={{ margin: '0 0 22px', fontSize: 13, color: 'var(--muted)', maxWidth: 560 }}>
-        Trois choses à mettre en place pour démarrer : les classes, les matières, et le tarif
-        de chaque niveau. Chaque étape reste modifiable plus tard depuis son propre onglet
-        dans le menu.
+        Trois choses à mettre en place pour démarrer : les classes, les tarifs pour chaque classe, et les matières.
+        Une fois ces étapes terminées, vous pourrez inscrire vos premiers élèves.
       </p>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
@@ -83,8 +73,8 @@ export default function FirstTimeSetup() {
           <button key={s.id} onClick={() => setStep(s.id)} style={tabStyle(step === s.id)}>
             {s.label}
             {s.id === 'classes' && classes?.length > 0 && <DoneDot />}
-            {s.id === 'matieres' && subjects?.length > 0 && <DoneDot />}
             {s.id === 'tarifs' && feeCount > 0 && <DoneDot />}
+            {s.id === 'matieres' && subjects?.length > 0 && <DoneDot />}
           </button>
         ))}
       </div>
@@ -92,7 +82,7 @@ export default function FirstTimeSetup() {
       {step === 'classes' && (
         <SimpleListStep
           title="Classes"
-          hint="Au moins une classe est nécessaire avant de pouvoir configurer les matières et les tarifs."
+          hint="Au moins une classe est nécessaire avant de pouvoir configurer les tarifs et inscrire des élèves."
           items={classes}
           addLabel="Ajouter une classe"
           onAdd={() => setClassModalOpen(true)}
@@ -105,6 +95,16 @@ export default function FirstTimeSetup() {
           )}
           emptyText="Aucune classe pour l'instant."
         />
+      )}
+
+      {step === 'tarifs' && (
+        <div className="card-bold" style={{ padding: '18px 20px' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
+          <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
+            Montant attendu par niveau{schoolYear ? ` pour ${schoolYear.label}` : ''}. Une fois ces tarifs configurés, le montant dû se remplira automatiquement lors de l'inscription d'un élève.
+          </p>
+          <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage />
+        </div>
       )}
 
       {step === 'matieres' && (
@@ -123,16 +123,6 @@ export default function FirstTimeSetup() {
           )}
           emptyText="Aucune matière pour l'instant."
         />
-      )}
-
-      {step === 'tarifs' && (
-        <div className="card-bold" style={{ padding: '18px 20px' }}>
-          <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Grille tarifaire</p>
-          <p style={{ margin: '0 0 16px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-            Montant attendu par niveau{schoolYear ? ` pour ${schoolYear.label}` : ''}.
-          </p>
-          <FeeScheduleGrid schoolId={profile.school_id} schoolYear={schoolYear} canManage />
-        </div>
       )}
 
       {step === 'resume' && (
@@ -171,9 +161,6 @@ function tabStyle(active) {
   };
 }
 
-// Petit repère visuel (pas un blocage) : une étape déjà commencée reçoit un
-// point doré sur son onglet, pour guider sans jamais empêcher d'avancer
-// dans le désordre — même logique de navigation libre que PrepareSchoolYear.
 function DoneDot() {
   return <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', display: 'inline-block' }} aria-hidden="true" />;
 }
@@ -208,29 +195,46 @@ function SimpleListStep({ title, hint, items, addLabel, onAdd, renderItem, empty
 
 function ResumeStep({ classesCount, subjectsCount, feeCount }) {
   return (
-    <div className="card-bold" style={{ padding: '24px 22px', textAlign: 'center' }}>
-      <p style={{ margin: '0 0 18px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>
-        Où en est la configuration ?
-      </p>
-      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 22 }}>
-        <Stat label="Classes" value={classesCount} />
-        <Stat label="Matières" value={subjectsCount} />
-        <Stat label="Niveaux tarifés" value={feeCount} />
+    <div className="card-bold" style={{ padding: '30px 24px', textAlign: 'center', maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--forest-light)', color: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+        <i className="ti ti-rocket" style={{ fontSize: 32 }} aria-hidden="true"></i>
       </div>
+      <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 600, color: 'var(--ink)' }}>
+        Ton école est prête !
+      </p>
+      <p style={{ margin: '0 0 24px', fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+        Tu as configuré les bases. Il ne te reste plus qu'à inscrire tes premiers élèves pour commencer à utiliser EcoGès au quotidien.
+      </p>
+
+      <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 28 }}>
+        <Stat label="Classes" value={classesCount} />
+        <Stat label="Tarifs" value={feeCount} />
+        <Stat label="Matières" value={subjectsCount} />
+      </div>
+
       {(classesCount === 0 || feeCount === 0) && (
-        <p style={{ margin: '0 0 18px', fontSize: 12.5, color: 'var(--clay-dark)', lineHeight: 1.6 }}>
+        <p style={{ margin: '0 0 24px', fontSize: 12.5, color: 'var(--clay-dark)', lineHeight: 1.6, background: 'var(--gold-light)', padding: '12px', borderRadius: 10 }}>
           {classesCount === 0
             ? "Il manque encore au moins une classe pour pouvoir inscrire des élèves."
-            : "Pense à configurer le tarif d'au moins un niveau avant d'inscrire des élèves."}
+            : "Pense à configurer le tarif d'au moins un niveau pour que l'écolage se remplisse automatiquement."}
         </p>
       )}
-      <Link
-        to="/"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--forest)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 14, padding: '12px 24px', borderRadius: 'var(--radius)' }}
-      >
-        Aller au tableau de bord
-        <i className="ti ti-arrow-right" style={{ fontSize: 16 }} aria-hidden="true"></i>
-      </Link>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+        <Link
+          to="/eleves"
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--forest)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 14, padding: '12px 28px', borderRadius: 'var(--radius)', width: '100%', maxWidth: 320 }}
+        >
+          Inscrire mes premiers élèves
+          <i className="ti ti-arrow-right" style={{ fontSize: 16 }} aria-hidden="true"></i>
+        </Link>
+        <Link
+          to="/"
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', color: 'var(--muted)', textDecoration: 'none', fontWeight: 600, fontSize: 13, padding: '10px' }}
+        >
+          Aller au tableau de bord
+        </Link>
+      </div>
     </div>
   );
 }
