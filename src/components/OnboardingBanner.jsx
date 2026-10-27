@@ -16,18 +16,18 @@ export default function OnboardingBanner() {
     async function checkSetup() {
       const [
         { count: cClasses },
-        { count: cSubjects },
+        { count: cFees },
         { count: cStudents }
       ] = await Promise.all([
         supabase.from('classes').select('id', { count: 'exact', head: true }),
-        supabase.from('subjects').select('id', { count: 'exact', head: true }),
+        supabase.from('fee_schedules').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id),
         supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id)
       ]);
 
       if (!cancelled) {
         setCounts({
           classes: cClasses || 0,
-          subjects: cSubjects || 0,
+          fees: cFees || 0,
           students: cStudents || 0,
         });
       }
@@ -38,11 +38,29 @@ export default function OnboardingBanner() {
 
   if (!counts) return null;
 
-  // Définition des étapes
+  // --- C'EST ICI QUE L'ORDRE EST DÉFINI ---
   const steps = [
-    { id: 'classes', label: 'Créer une classe', path: '/classes', completed: counts.classes > 0 },
-    { id: 'matieres', label: 'Ajouter une matière', path: '/matieres', completed: counts.subjects > 0 },
-    { id: 'eleves', label: 'Inscrire un élève', path: '/eleves', completed: counts.students > 0 },
+    { 
+      id: 'classes', 
+      label: 'Créer une classe', 
+      path: '/classes', 
+      completed: counts.classes > 0,
+      desc: "Pour commencer, crée les classes de ton école (ex: CI, CP, CM2, 6e...). Tu pourras ensuite y inscrire tes élèves."
+    },
+    { 
+      id: 'fees', 
+      label: 'Configurer les tarifs', 
+      path: '/parametres', 
+      completed: counts.fees > 0,
+      desc: "Indique le prix de l'écolage pour chaque classe. Ainsi, le montant se remplira tout seul quand tu inscriras un élève."
+    },
+    { 
+      id: 'students', 
+      label: 'Inscrire un élève', 
+      path: '/eleves', 
+      completed: counts.students > 0,
+      desc: "C'est le moment d'inscrire ton premier élève ! Renseigne son nom, sa classe, et le montant de son écolage."
+    },
   ];
 
   const completedCount = steps.filter(s => s.completed).length;
@@ -77,9 +95,7 @@ export default function OnboardingBanner() {
           </div>
           
           <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6 }}>
-            {nextStep.id === 'classes' && "Pour commencer, crée les classes de ton école (ex: CI, CP, CM2, 6e...). Tu pourras ensuite y inscrire tes élèves."}
-            {nextStep.id === 'matieres' && "Ajoute les matières que tu enseignes. Cela te permettra plus tard de saisir les notes et d'imprimer les bulletins."}
-            {nextStep.id === 'eleves' && "C'est le moment d'inscrire ton premier élève ! Renseigne son nom, sa classe, et le montant de son écolage."}
+            {nextStep.desc}
           </p>
 
           <Link
