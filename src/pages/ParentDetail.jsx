@@ -9,6 +9,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
+import { translateError } from '../lib/errors.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -20,8 +21,6 @@ export default function ParentDetail() {
   const { profile } = useAuth();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [access, setAccess] = useState(null);
-  // La classe d'un élève est propre à l'année scolaire en cours
-  // (enrollments) — students ne garde que son identité.
   const [niveauById, setNiveauById] = useState({});
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
@@ -43,7 +42,7 @@ export default function ParentDetail() {
       },
       setData: setAccess,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)),
       isCancelled: () => cancelled,
     });
     return () => { cancelled = true; };
@@ -79,11 +78,11 @@ export default function ParentDetail() {
   }
 
   async function handleDelete() {
-    if (!(await confirm(`Supprimer définitivement l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement l'accès de ${access.full_name} ? Le lien qu'il a reçu cessera de fonctionner. Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', id);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (deleteError) { setError(translateError(deleteError)); return; }
     navigate('/parents');
   }
 
@@ -161,11 +160,6 @@ export default function ParentDetail() {
   );
 }
 
-// Envoi ponctuel, hors relance/annonce — passe par le même canal serveur
-// (whatsapp-send) que tout le reste : le frontend n'appelle jamais l'API
-// WhatsApp lui-même. Nécessite qu'un template "message individuel" (avec un
-// seul paramètre libre) soit configuré côté Paramètres → WhatsApp ; sinon
-// le serveur refuse l'envoi avec une erreur claire, jamais silencieusement.
 function IndividualMessage({ parentAccessId }) {
   const [contenu, setContenu] = useState('');
   const [sending, setSending] = useState(false);
