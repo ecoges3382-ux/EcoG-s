@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
+import { translateError } from '../lib/errors.js';
 
 function UsersGroupIcon() {
   return (
@@ -59,7 +60,7 @@ export default function Parents() {
       },
       setData: setParents,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)),
       onSuccess: () => setError(''),
     });
   }
@@ -96,20 +97,20 @@ export default function Parents() {
   }
 
   async function handleDeleteOne(id, name) {
-    if (!(await confirm(`Supprimer définitivement l'accès de ${name} ? Le lien qu'il a reçu cessera de fonctionner. Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement l'accès de ${name} ? Le lien qu'il a reçu cessera de fonctionner. Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('parent_access').delete().eq('id', id);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (deleteError) { setError(translateError(deleteError)); return; }
     reload();
   }
 
   async function handleDeleteSelected() {
-    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} accès parent${selectedIds.length > 1 ? 's' : ''} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} accès parent${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('parent_access').delete().in('id', selectedIds);
     setDeleting(false);
-    if (deleteError) { setError(deleteError.message); return; }
+    if (deleteError) { setError(translateError(deleteError)); return; }
     exitSelectMode();
     reload();
   }
