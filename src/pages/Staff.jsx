@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, fmtF, downloadCsv, sortClasses, stickyColStyle, stickyRightColStyle, stickyHeaderStyle } from '../lib/utils.js';
+import { initials, fmtF, downloadCsv, sortClasses, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -175,9 +175,9 @@ export default function Staff() {
       <SchoolTabs />
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-       <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-  Personnel
-</p>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+          Personnel
+        </p>
         {staff && (
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
             <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
@@ -235,7 +235,7 @@ export default function Staff() {
         </div>
       )}
       {staff && visibleStaff.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{ minWidth: selectMode ? 980 : 940 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
               {selectMode && <span></span>}
@@ -246,7 +246,7 @@ export default function Staff() {
               <span>Salaire</span>
               <span>Classe(s)</span>
               <span>Matière(s)</span>
-              {!selectMode && <span style={{ ...stickyRightColStyle('var(--forest-light)'), paddingRight: 20 }}></span>}
+              {!selectMode && <span></span>}
             </div>
             {visibleStaff.map((p, i) => {
               const salaireManquant = !showArchives && p.salaire_mensuel == null;
@@ -284,7 +284,7 @@ export default function Staff() {
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
                   </Link>
                   {!selectMode && (
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', ...stickyRightColStyle('var(--paper)'), paddingRight: 20 }}>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', paddingRight: 20 }}>
                       <button type="button" onClick={() => openEdit(p)} title="Modifier" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}><PencilIcon /></button>
                       {canDelete && (
                         <button type="button" onClick={() => handleArchiveOne(p.id, p.full_name, showArchives)} title={showArchives ? 'Réactiver' : 'Archiver'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer' }}>{showArchives ? <RestoreIcon /> : <ArchiveIcon />}</button>
