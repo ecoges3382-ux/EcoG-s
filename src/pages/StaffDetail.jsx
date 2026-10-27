@@ -12,6 +12,7 @@ import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
+import { translateError } from '../lib/errors.js';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -40,7 +41,7 @@ export default function StaffDetail() {
       },
       setData: setPerson,
       setOffline,
-      onError: (err) => setError(err.message),
+      onError: (err) => setError(translateError(err)),
       onSuccess: () => setError(''),
       isCancelled,
     });
@@ -61,7 +62,7 @@ export default function StaffDetail() {
       .eq('staff_id', id)
       .eq('school_year_id', schoolYear.id)
       .order('date', { ascending: false })
-      .then(({ data, error: e }) => { if (e) setError(e.message); else setSalaries(data || []); });
+      .then(({ data, error: e }) => { if (e) setError(translateError(e)); else setSalaries(data || []); });
   }
 
   useEffect(() => { reloadSalaries(); }, [id, schoolYear?.id]);
@@ -69,14 +70,14 @@ export default function StaffDetail() {
   useEffect(() => {
     let cancelled = false;
     supabase.from('salary_advances').select('*').eq('staff_id', id).order('created_at', { ascending: false })
-      .then(({ data, error: e }) => { if (cancelled) return; if (e) setError(e.message); else setAdvances(data || []); });
+      .then(({ data, error: e }) => { if (cancelled) return; if (e) setError(translateError(e)); else setAdvances(data || []); });
     return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
     let cancelled = false;
     supabase.from('subjects').select('nom').eq('enseignant_id', id).order('nom')
-      .then(({ data, error: e }) => { if (cancelled) return; if (e) setError(e.message); else setSubjects(data || []); });
+      .then(({ data, error: e }) => { if (cancelled) return; if (e) setError(translateError(e)); else setSubjects(data || []); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -87,27 +88,23 @@ export default function StaffDetail() {
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
   const isArchived = person.statut === 'inactif';
 
-  // Archiver ne supprime jamais rien — voir le commentaire de la migration
-  // "Personnel : statut, salaires, avances" (supabase/schema.sql) : un
-  // hard-delete aurait pu, avant ce chantier, emporter tout l'historique
-  // d'avances de la personne via la contrainte cascade (désormais restrict).
   async function handleArchiveToggle() {
     const next = isArchived ? 'actif' : 'inactif';
     if (next === 'inactif' && !(await confirm(`Archiver ${person.full_name} ? Son historique (avances, salaires versés) reste consultable.`, { confirmLabel: 'Archiver', danger: false }))) return;
     setArchiving(true);
     const { error: updateError } = await supabase.from('staff').update({ statut: next }).eq('id', id);
     setArchiving(false);
-    if (updateError) { setError(updateError.message); return; }
+    if (updateError) { setError(translateError(updateError)); return; }
     reloadPerson();
   }
 
   async function handleDelete() {
-    if (!(await confirm(`Supprimer définitivement ${person.full_name} de l'équipe ? Cette action est irréversible et impossible si un historique (avances, salaires, classe ou matière) est encore rattaché.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer définitivement ${person.full_name} de l'équipe ? Attention, tu ne pourras pas revenir en arrière. C'est impossible si un historique (avances, salaires, classe ou matière) est encore rattaché.`, { confirmLabel: 'Supprimer' }))) return;
     setArchiving(true);
     const { error: deleteError } = await supabase.from('staff').delete().eq('id', id);
     setArchiving(false);
     if (deleteError) {
-      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : un historique (avances, salaires, classe ou matière) est encore lié à cette personne." : deleteError.message);
+      setError(deleteError.message.includes('violates foreign key') ? "Impossible de supprimer : un historique (avances, salaires, classe ou matière) est encore lié à cette personne." : translateError(deleteError));
       return;
     }
     navigate('/personnel');
@@ -185,10 +182,6 @@ function Row({ label, value, topBorder }) {
   );
 }
 
-// Journal des salaires réellement versés — même principe que les paiements
-// d'écolage (Argent) : chaque versement est une ligne, jamais un solde
-// modifié à la main. Filtré sur l'année scolaire sélectionnée, comme le
-// reste des indicateurs annuels de l'appli.
 function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onChanged, createdBy }) {
   const showToast = useToast();
   const confirm = useConfirm();
@@ -202,13 +195,10 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
 
   const total = (salaries || []).reduce((a, s) => a + Number(s.montant), 0);
 
-  // Comme "payments", staff_salaries est un registre append-only voulu
-  // (pas de policy update côté base) : une erreur se corrige en
-  // supprimant la ligne fautive puis en en enregistrant une bonne.
   async function handleDelete(s) {
-    if (!(await confirm(`Supprimer ce versement de ${fmtF(s.montant)} (${s.mois}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer ce versement de ${fmtF(s.montant)} (${s.mois}) ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('staff_salaries').delete().eq('id', s.id);
-    if (deleteError) { setFormError(deleteError.message); return; }
+    if (deleteError) { setFormError(translateError(deleteError)); return; }
     showToast('Supprimé');
     onChanged();
   }
@@ -224,7 +214,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
       created_by: createdBy,
     });
     setSubmitting(false);
-    if (insertError) { setFormError(insertError.message); return; }
+    if (insertError) { setFormError(translateError(insertError)); return; }
     setMois(''); setMontant(''); setNote('');
     showToast('Enregistré');
     onChanged();
@@ -297,9 +287,6 @@ const ADVANCE_STATUS = {
   attente_fondateur: { label: 'Attente fondateur', bg: 'var(--amber-light)', fg: 'var(--amber)' },
 };
 
-// Résumé en lecture seule : l'approbation/refus reste centralisée dans
-// Argent → Avances sur salaire (même liste, même policy d'update), pour ne
-// jamais dupliquer cette logique à deux endroits.
 function AdvancesCard({ advances }) {
   if (!advances) return null;
   const enCours = advances.filter((a) => a.statut !== 'approuvee' && a.statut !== 'refusee');
