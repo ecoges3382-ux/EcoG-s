@@ -16,6 +16,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
+import { usePageTour } from '../components/PageTour.jsx';
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -78,6 +79,7 @@ export default function Students() {
   const [deleting, setDeleting] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
+  const tour = usePageTour('eleves');
 
   const gridCols = selectMode
     ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
@@ -151,7 +153,6 @@ export default function Students() {
     downloadCsv('eleves.csv', rows);
   }
 
-  // --- FONCTION POUR TÉLÉCHARGER LE MODÈLE ---
   function downloadTemplate() {
     const rows = [
       ['Nom', 'Classe', 'Matricule', 'Montant dû', 'Déjà payé (écolage)'],
@@ -305,11 +306,16 @@ export default function Students() {
       <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {offline && <OfflineBanner />}
+      {tour.Runner}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-          Élèves
-        </p>
-        <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+            Élèves
+          </p>
+          <tour.Button />
+        </div>
+        <div data-tour="students-actions" style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}><i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter</button>
           
           {!isHistorical && (
@@ -342,7 +348,7 @@ export default function Students() {
         <p style={{ margin: '0 0 16px', fontSize: '12.5px', fontWeight: 600, color: importMessage.type === 'error' ? 'var(--danger)' : 'var(--success)' }}>{importMessage.text}</p>
       )}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
+      <div data-tour="students-filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
         <button onClick={() => setClassFilter('toutes')} style={{ padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600, border: `1px solid ${classFilter === 'toutes' ? 'var(--forest)' : 'var(--line-strong)'}`, background: classFilter === 'toutes' ? 'var(--forest)' : 'var(--paper)', color: classFilter === 'toutes' ? '#fff' : 'var(--ink)' }}>
           Toutes <span style={{ opacity: 0.7 }}>{students.length}</span>
         </button>
@@ -361,7 +367,7 @@ export default function Students() {
         {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
       </p>
 
-      <div className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
+      <div data-tour="students-list" className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
         <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
