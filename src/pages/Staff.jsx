@@ -12,6 +12,7 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
+import { usePageTour } from '../components/PageTour.jsx';
 
 function IdBadgeIcon() {
   return (
@@ -71,6 +72,7 @@ export default function Staff() {
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
+  const tour = usePageTour('personnel');
   
   const gridCols = selectMode
     ? '28px 1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px'
@@ -175,12 +177,16 @@ export default function Staff() {
     <div>
       <SchoolTabs />
       {offline && <OfflineBanner />}
+      {tour.Runner}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
-        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
-          Personnel
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>
+            Personnel
+          </p>
+          <tour.Button />
+        </div>
         {staff && (
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+          <div data-tour="staff-actions" style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
             <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
               <i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter
             </button>
@@ -196,7 +202,7 @@ export default function Staff() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+      <div data-tour="staff-tabs" style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         <button onClick={() => setShowArchives(false)} style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${!showArchives ? 'var(--forest)' : 'var(--line-strong)'}`, background: !showArchives ? 'var(--forest)' : 'var(--paper)', color: !showArchives ? '#fff' : 'var(--ink)' }}>
           Actifs
         </button>
@@ -236,7 +242,7 @@ export default function Staff() {
         </div>
       )}
       {staff && visibleStaff.length > 0 && (
-        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+        <div data-tour="staff-list" className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
           <div style={{ minWidth: selectMode ? 980 : 940 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
               {selectMode && <span></span>}
