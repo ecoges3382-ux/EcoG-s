@@ -1,8 +1,5 @@
 // src/lib/tours.js
 
-// Chaque "tour" (visite guidée) est identifié par une clé.
-// Les étapes pointent vers un attribut data-tour="..." qu'on ajoutera
-// dans les pages (ex: data-tour="money-tabs").
 export const TOURS = {
   money: {
     label: 'Argent',
@@ -18,14 +15,87 @@ export const TOURS = {
         text: 'Attendu, encaissé, reste à recouvrer. Ils se recalculent à chaque paiement enregistré.',
       },
       {
-        target: 'money-add-payment',
-        title: 'Encaisser un paiement',
-        text: 'Le bouton qui enregistre tout : montant, tranche, mode. Un reçu imprimable est généré automatiquement.',
-      },
-      {
         target: 'money-list',
         title: 'Chaque élève, son solde',
         text: 'Clique sur un élève pour voir l\'historique complet. Un badge de statut t\'indique qui relancer en priorité.',
+      },
+    ],
+  },
+
+  recouvrement: {
+    label: 'Recouvrement',
+    steps: [
+      {
+        target: 'recouvrement-kpis',
+        title: 'Ce qui est attendu, ce qui est rentré',
+        text: 'Trois blocs : écolage, inscription, frais connexes. Chacun a son propre taux de recouvrement.',
+      },
+      {
+        target: 'recouvrement-priority',
+        title: 'Qui relancer en priorité',
+        text: 'Les élèves avec le plus gros solde et le plus en retard, classés automatiquement.',
+      },
+      {
+        target: 'recouvrement-filters',
+        title: 'Filtrer par situation',
+        text: 'À jour, à relancer, dans les délais, en moratoire — clique pour n\'afficher qu\'un type d\'élève.',
+      },
+      {
+        target: 'recouvrement-synthese',
+        title: 'La synthèse globale',
+        text: 'En bas de page : le total écolage + connexes additionné, pour la vue comptable.',
+      },
+    ],
+  },
+
+  notes: {
+    label: 'Notes',
+    steps: [
+      {
+        target: 'notes-filters',
+        title: 'Filtrer les notes',
+        text: 'Choisis une classe, puis un élève ou une matière précise. Chaque filtre restreint les suivants.',
+      },
+      {
+        target: 'notes-periods',
+        title: 'Un trimestre à la fois',
+        text: 'Interrogations, devoirs et examens du trimestre sélectionné seulement. « Tous » pour tout mélanger.',
+      },
+      {
+        target: 'notes-list',
+        title: 'Les notes saisies',
+        text: 'Groupées par type (interrogations, devoirs, examens). Clique sur une note pour la modifier.',
+      },
+      {
+        target: 'notes-rank',
+        title: 'Le classement',
+        text: 'Visible quand aucun élève n\'est sélectionné : tous les élèves de la classe classés par moyenne.',
+      },
+    ],
+  },
+
+  grades: {
+    label: 'Bulletins',
+    steps: [
+      {
+        target: 'grades-selectors',
+        title: 'Choisir un bulletin',
+        text: 'Classe, élève, période : le bulletin se reconstruit à chaque changement.',
+      },
+      {
+        target: 'grades-print',
+        title: 'Imprimer / PDF',
+        text: 'Génère un bulletin prêt à imprimer, avec en-tête d\'école et cachet.',
+      },
+      {
+        target: 'grades-sheet',
+        title: 'Le bulletin',
+        text: 'Moyennes par matière, pondérées par coefficient. Les notes manquantes affichent « — », jamais 0.',
+      },
+      {
+        target: 'grades-summary',
+        title: 'Moyenne et rang',
+        text: 'Moyenne générale de l\'élève et son rang dans la classe. Calculé sur la période sélectionnée.',
       },
     ],
   },
