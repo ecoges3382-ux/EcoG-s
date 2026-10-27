@@ -9,6 +9,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -16,6 +17,30 @@ import { usePageTour } from '../components/PageTour.jsx';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
   return p === 'annuel' ? 'Année complète' : p;
+}
+
+function UsersIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3.3" /><path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" /><circle cx="17" cy="8.5" r="2.4" /><path d="M15.5 14c2.4.2 4.2 2.4 4.4 4.7" />
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 5.5c0-1 .8-1.5 2-1.5h6v15H6c-1.2 0-2 .5-2 1.5V5.5z" /><path d="M20 5.5c0-1-.8-1.5-2-1.5h-6v15h6c1.2 0 2 .5 2 1.5V5.5z" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
 }
 
 export default function Grades() {
@@ -110,7 +135,19 @@ export default function Grades() {
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}
       {!error && grades === null && <div className="card-bold"><SkeletonTableRows count={5} columns={3} /></div>}
 
-      {grades !== null && (
+      {grades !== null && students.length === 0 && (
+        <div className="card-bold">
+          <EmptyState
+            icon={<UsersIcon />}
+            title="Aucun élève inscrit"
+            subtitle="Les bulletins se génèrent à partir des élèves inscrits. Commence par inscrire tes premiers élèves."
+            actionLabel="Aller vers Élèves"
+            actionTo="/eleves"
+          />
+        </div>
+      )}
+
+      {grades !== null && students.length > 0 && (
         <>
           <div data-tour="grades-selectors" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 22, alignItems: 'flex-end' }}>
             <div>
@@ -192,11 +229,29 @@ export default function Grades() {
                   ))}
                 </>
               )}
-              {lignes.length === 0 && <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>Aucune matière pour ce niveau.</p>}
+
+              {lignes.length === 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <EmptyState
+                    icon={<BookIcon />}
+                    title="Aucune matière pour cette classe"
+                    subtitle="Les bulletins ont besoin des matières enseignées. Ajoute-les d'abord dans « Matières »."
+                    actionLabel="Aller vers Matières"
+                    actionTo="/matieres"
+                  />
+                </div>
+              )}
+
               {lignes.length > 0 && moyenneGenerale == null && (
-                <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
-                  Aucune note enregistrée {annuel ? 'sur cette année' : 'pour cette période'} — aucune moyenne ne peut être calculée.
-                </p>
+                <div style={{ marginTop: 6 }}>
+                  <EmptyState
+                    icon={<PencilIcon />}
+                    title="Aucune note enregistrée"
+                    subtitle={`Aucune note pour ${annuel ? 'cette année' : 'cette période'} — impossible de calculer une moyenne. Saisis les notes de cet élève.`}
+                    actionLabel="Aller vers Notes"
+                    actionTo="/notes"
+                  />
+                </div>
               )}
 
               <div data-tour="grades-summary" style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -223,7 +278,15 @@ export default function Grades() {
               </div>
             </div>
           ) : (
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun élève dans ce niveau.</p>
+            <div className="card-bold">
+              <EmptyState
+                icon={<UsersIcon />}
+                title="Aucun élève dans cette classe"
+                subtitle="Change de classe ou inscris des élèves dans celle-ci pour voir leurs bulletins."
+                actionLabel="Aller vers Élèves"
+                actionTo="/eleves"
+              />
+            </div>
           )}
         </>
       )}
