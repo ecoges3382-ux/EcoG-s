@@ -153,8 +153,7 @@ export default function PlatformAdmin() {
   const [error, setError] = useState('');
   const [focusSchoolId, setFocusSchoolId] = useState(null);
 
-  // Fix de scroll : sur /admin, il n'y a pas de <Shell>, donc le body ou
-  // #root peut garder un overflow:hidden laissé par une page précédente.
+  // Fix de scroll ET fix de l'affichage mobile (les cartes école)
   useEffect(() => {
     const styleId = 'admin-scroll-fix';
     let styleEl = document.getElementById(styleId);
@@ -166,6 +165,25 @@ export default function PlatformAdmin() {
           overflow: auto !important;
           height: auto !important;
           position: static !important;
+        }
+        
+        /* --- CORRECTIF MOBILE POUR LA LISTE DES ÉCOLES --- */
+        @media (max-width: 640px) {
+          .admin-school-row {
+            flex-wrap: wrap !important;
+            align-items: flex-start !important;
+          }
+          .admin-school-content {
+            flex: 1 1 calc(100% - 80px) !important;
+            margin-top: 4px !important;
+          }
+          .admin-school-actions {
+            flex: 1 1 100% !important;
+            justify-content: flex-end !important;
+            padding-top: 12px !important;
+            margin-top: 6px !important;
+            border-top: 1px dashed rgba(0,0,0,0.1) !important;
+          }
         }
       `;
       document.head.appendChild(styleEl);
@@ -757,6 +775,7 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
               return (
                 <div
                   key={s.id}
+                  className="admin-school-row"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 14,
                     padding: '14px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--line)',
@@ -773,10 +792,10 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
                     style={{ cursor: 'pointer', flexShrink: 0 }}
                     aria-label={`Sélectionner ${s.name}`}
                   />
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark)', flexShrink: 0 }}>
+                  <div className="admin-school-avatar" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark)', flexShrink: 0 }}>
                     {(s.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG'}
                   </div>
-                  <div onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
+                  <div className="admin-school-content" onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{s.name}</p>
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
@@ -790,7 +809,7 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
                       {s.staffCount} compte{s.staffCount !== 1 ? 's' : ''} · {s.studentCount} élève{s.studentCount !== 1 ? 's' : ''} · créée le {new Date(s.created_at).toLocaleDateString('fr-FR')}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                  <div className="admin-school-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                     <StatutSwitch active={isActive} disabled={busy} onChange={() => handleQuickToggle(s)} />
                     <button
                       type="button"
