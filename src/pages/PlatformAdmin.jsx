@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { generateAccessCode, copyText } from '../lib/utils.js';
+import { generateAccessCode, copyText, downloadCsv } from '../lib/utils.js';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import Dropdown from '../components/Dropdown.jsx';
@@ -80,6 +80,14 @@ function TrendIcon() {
   );
 }
 
+function AlertIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3l9 16H3L12 3z" /><path d="M12 10v4" /><circle cx="12" cy="17" r=".5" fill="currentColor" />
+    </svg>
+  );
+}
+
 function SearchIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,12 +104,46 @@ function ChevronIcon() {
   );
 }
 
+function DownloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12" /><path d="M7 10l5 5 5-5" /><path d="M5 21h14" />
+    </svg>
+  );
+}
+
 const TABS = [
   { id: 'ecoles', label: 'Écoles' },
   { id: 'admins', label: 'Administrateurs' },
   { id: 'school-invites', label: 'Codes écoles' },
   { id: 'journal', label: "Journal d'activité" },
 ];
+
+// --- Logique métier : diagnostic de santé d'une école ---
+function healthIssues(school) {
+  const issues = [];
+  const now = Date.now();
+  const created = new Date(school.created_at).getTime();
+  const ageDays = Math.floor((now - created) / 86400000);
+
+  if ((school.studentCount || 0) === 0) {
+    issues.push({ key: 'no_students', label: 'Aucun élève', severity: 'high' });
+  }
+  if ((school.staffCount || 0) <= 1) {
+    issues.push({ key: 'solo_team', label: 'Équipe incomplète', severity: 'medium' });
+  }
+  if (school.statut === 'essai' && ageDays > 30) {
+    issues.push({ key: 'trial_stale', label: 'Essai stagnant', severity: 'medium' });
+  }
+  if ((school.statut === 'suspendu' || school.statut === 'resilie')) {
+    issues.push({ key: 'inactive', label: school.statut === 'suspendu' ? 'Suspendue' : 'Résiliée', severity: 'low' });
+  }
+  return issues;
+}
+
+function isSchoolHealthy(school) {
+  return healthIssues(school).length === 0;
+}
 
 export default function PlatformAdmin() {
   const { signOut, profile } = useAuth();
@@ -120,7 +162,6 @@ export default function PlatformAdmin() {
 
   useEffect(() => { reloadSchools(); }, []);
 
-  // Compteurs d'onglets (légers, chargés une fois)
   useEffect(() => {
     callPlatformAdmin({ action: 'list_admins' }).then(({ data }) => {
       if (data?.admins) setTabCounts((prev) => ({ ...prev, admins: data.admins.length }));
@@ -134,13 +175,9 @@ export default function PlatformAdmin() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--forest-dark)', padding: '28px 20px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 18, color: 'var(--forest-dark)' }}>
-              EG
-            </div>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 18, color: 'var(--forest-dark)' }}>EG</div>
             <div>
               <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: '#fff' }}>Administration</p>
               <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
@@ -156,9 +193,8 @@ export default function PlatformAdmin() {
           </button>
         </div>
 
-        {schools && <OverviewStats schools={schools} onStatClick={(statut) => { setTab('ecoles'); }} />}
+        {schools && <OverviewStats schools={schools} onStatClick={() => setTab('ecoles')} />}
 
-        {/* Tabs avec compteurs */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
           {TABS.map((t) => {
             let count = null;
@@ -180,11 +216,7 @@ export default function PlatformAdmin() {
               >
                 {t.label}
                 {count !== null && count !== undefined && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
-                    background: isActive ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)',
-                    color: isActive ? 'var(--forest-dark)' : 'rgba(255,255,255,0.75)',
-                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isActive ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)', color: isActive ? 'var(--forest-dark)' : 'rgba(255,255,255,0.75)' }}>
                     {count}
                   </span>
                 )}
@@ -225,29 +257,20 @@ function OverviewStats({ schools, onStatClick }) {
   debutMois.setDate(1);
   debutMois.setHours(0, 0, 0, 0);
   const nouvellesCeMois = schools.filter((s) => new Date(s.created_at) >= debutMois).length;
+  const aSurveiller = schools.filter((s) => !isSchoolHealthy(s) && s.statut !== 'resilie').length;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 22 }} className="desktop-grid-4">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 22 }} className="desktop-grid-4">
       <StatCard
         icon={<BuildingIcon />}
         accent="var(--gold)"
         label="Écoles actives"
         value={actives}
         sub={suspendues > 0 ? `${suspendues} suspendue${suspendues > 1 ? 's' : ''} ou résiliée${suspendues > 1 ? 's' : ''}` : 'Tout va bien'}
-        onClick={() => onStatClick('actif')}
+        onClick={onStatClick}
       />
-      <StatCard
-        icon={<UsersIcon />}
-        accent="#3DDC97"
-        label="Élèves (toutes écoles)"
-        value={totalEleves}
-      />
-      <StatCard
-        icon={<IdIcon />}
-        accent="#EBCB82"
-        label="Comptes personnel"
-        value={totalPersonnel}
-      />
+      <StatCard icon={<UsersIcon />} accent="#3DDC97" label="Élèves (toutes écoles)" value={totalEleves} />
+      <StatCard icon={<IdIcon />} accent="#EBCB82" label="Comptes personnel" value={totalPersonnel} />
       <StatCard
         icon={<TrendIcon />}
         accent="#7FE0B0"
@@ -255,32 +278,41 @@ function OverviewStats({ schools, onStatClick }) {
         value={nouvellesCeMois}
         sub={nouvellesCeMois > 0 ? `+${nouvellesCeMois} ce mois-ci` : 'Aucune ce mois'}
       />
+      <StatCard
+        icon={<AlertIcon />}
+        accent="#FCA5A5"
+        label="À surveiller"
+        value={aSurveiller}
+        sub={aSurveiller > 0 ? 'Écoles qui ont besoin d\'attention' : 'Tout est sain'}
+        highlight={aSurveiller > 0}
+        onClick={onStatClick}
+      />
     </div>
   );
 }
 
-function StatCard({ icon, accent, label, value, sub, onClick }) {
+function StatCard({ icon, accent, label, value, sub, onClick, highlight }) {
   const isClickable = !!onClick;
   return (
     <div
       onClick={onClick}
       style={{
         padding: '16px 18px',
-        background: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: highlight ? 'rgba(252,165,165,0.08)' : 'rgba(255,255,255,0.06)',
+        border: `1px solid ${highlight ? 'rgba(252,165,165,0.3)' : 'rgba(255,255,255,0.1)'}`,
         borderRadius: 12,
         cursor: isClickable ? 'pointer' : 'default',
         transition: 'background 0.2s, transform 0.2s',
       }}
-      onMouseEnter={(e) => { if (isClickable) e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
-      onMouseLeave={(e) => { if (isClickable) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+      onMouseEnter={(e) => { if (isClickable) e.currentTarget.style.background = highlight ? 'rgba(252,165,165,0.12)' : 'rgba(255,255,255,0.09)'; }}
+      onMouseLeave={(e) => { if (isClickable) e.currentTarget.style.background = highlight ? 'rgba(252,165,165,0.08)' : 'rgba(255,255,255,0.06)'; }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <div style={{ color: accent, display: 'flex' }}>{icon}</div>
         <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
       </div>
       <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 700, color: '#fff' }}>{value}</p>
-      {sub && <p style={{ margin: '4px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{sub}</p>}
+      {sub && <p style={{ margin: '4px 0 0', fontSize: 11, color: highlight ? '#FCA5A5' : 'rgba(255,255,255,0.5)' }}>{sub}</p>}
     </div>
   );
 }
@@ -289,6 +321,7 @@ const SORTS = [
   { id: 'recent', label: 'Plus récentes' },
   { id: 'nom', label: 'Nom (A→Z)' },
   { id: 'effectif', label: 'Effectif (élèves)' },
+  { id: 'sante', label: 'Priorité (à surveiller)' },
 ];
 
 const STATUT_FILTERS = [
@@ -297,9 +330,12 @@ const STATUT_FILTERS = [
   { id: 'essai', label: 'En essai' },
   { id: 'suspendu', label: 'Suspendues' },
   { id: 'resilie', label: 'Résiliées' },
+  { id: 'sante', label: 'À surveiller' },
 ];
 
 function EcolesTab({ schools, reload }) {
+  const showToast = useToast();
+  const confirm = useConfirm();
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('recent');
   const [filterStatut, setFilterStatut] = useState('tous');
@@ -307,6 +343,8 @@ function EcolesTab({ schools, reload }) {
   const [busyRowId, setBusyRowId] = useState(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [rowError, setRowError] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function handleQuickToggle(school) {
     setRowError('');
@@ -330,8 +368,11 @@ function EcolesTab({ schools, reload }) {
 
   const counts = useMemo(() => {
     if (!schools) return {};
-    const c = { tous: schools.length, actif: 0, essai: 0, suspendu: 0, resilie: 0 };
-    schools.forEach((s) => { if (c[s.statut] !== undefined) c[s.statut]++; });
+    const c = { tous: schools.length, actif: 0, essai: 0, suspendu: 0, resilie: 0, sante: 0 };
+    schools.forEach((s) => {
+      if (c[s.statut] !== undefined) c[s.statut]++;
+      if (!isSchoolHealthy(s) && s.statut !== 'resilie') c.sante++;
+    });
     return c;
   }, [schools]);
 
@@ -339,11 +380,16 @@ function EcolesTab({ schools, reload }) {
     if (!schools) return [];
     const term = search.trim().toLowerCase();
     let list = schools;
-    if (filterStatut !== 'tous') list = list.filter((s) => s.statut === filterStatut);
+    if (filterStatut === 'sante') {
+      list = list.filter((s) => !isSchoolHealthy(s) && s.statut !== 'resilie');
+    } else if (filterStatut !== 'tous') {
+      list = list.filter((s) => s.statut === filterStatut);
+    }
     if (term) list = list.filter((s) => s.name.toLowerCase().includes(term));
     list = [...list];
     if (sort === 'nom') list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === 'effectif') list.sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0));
+    else if (sort === 'sante') list.sort((a, b) => healthIssues(b).length - healthIssues(a).length);
     else list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return list;
   }, [schools, search, sort, filterStatut]);
@@ -352,21 +398,98 @@ function EcolesTab({ schools, reload }) {
 
   const detailSchool = schools.find((s) => s.id === detailId) || null;
 
+  function exportCsv() {
+    const rows = [['Nom', 'Statut', 'Date création', 'Nb élèves', 'Nb personnel', 'Note administrative', 'Alertes']];
+    filtered.forEach((s) => {
+      const issues = healthIssues(s).map((i) => i.label).join(' / ');
+      rows.push([
+        s.name,
+        STATUT_LABELS[s.statut]?.label || s.statut,
+        new Date(s.created_at).toLocaleDateString('fr-FR'),
+        s.studentCount || 0,
+        s.staffCount || 0,
+        s.note_administrative || '',
+        issues,
+      ]);
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(`ecoles-${date}.csv`, rows);
+    showToast(`${filtered.length} école${filtered.length > 1 ? 's' : ''} exportée${filtered.length > 1 ? 's' : ''}`);
+  }
+
+  function toggleSelected(id) {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((prev) => {
+      const ids = filtered.map((s) => s.id);
+      return ids.every((id) => prev.includes(id)) ? [] : ids;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds([]);
+  }
+
+  async function bulkChangeStatut(nextStatut) {
+    const targets = filtered.filter((s) => selectedIds.includes(s.id));
+    if (targets.length === 0) return;
+    const label = nextStatut === 'suspendu' ? 'Suspendre' : 'Réactiver';
+    if (!(await confirm(`${label} ${targets.length} école${targets.length > 1 ? 's' : ''} ?`, { confirmLabel: label, danger: false }))) return;
+    setBulkBusy(true);
+    setRowError('');
+    let failed = 0;
+    for (const s of targets) {
+      const { error: err } = await callPlatformAdmin({ action: 'set_statut', schoolId: s.id, statut: nextStatut });
+      if (err) failed++;
+    }
+    setBulkBusy(false);
+    setSelectedIds([]);
+    if (failed > 0) setRowError(`${failed} école${failed > 1 ? 's' : ''} n'ont pas pu être mises à jour.`);
+    else showToast(`${targets.length} école${targets.length > 1 ? 's' : ''} ${nextStatut === 'suspendu' ? 'suspendue' + (targets.length > 1 ? 's' : '') : 'réactivée' + (targets.length > 1 ? 's' : '')}`);
+    reload();
+  }
+
+  async function bulkExportSelection() {
+    const targets = filtered.filter((s) => selectedIds.includes(s.id));
+    if (targets.length === 0) return;
+    const rows = [['Nom', 'Statut', 'Date création', 'Nb élèves', 'Nb personnel', 'Note administrative', 'Alertes']];
+    targets.forEach((s) => {
+      const issues = healthIssues(s).map((i) => i.label).join(' / ');
+      rows.push([
+        s.name,
+        STATUT_LABELS[s.statut]?.label || s.statut,
+        new Date(s.created_at).toLocaleDateString('fr-FR'),
+        s.studentCount || 0,
+        s.staffCount || 0,
+        s.note_administrative || '',
+        issues,
+      ]);
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(`ecoles-selection-${date}.csv`, rows);
+    showToast(`${targets.length} école${targets.length > 1 ? 's' : ''} exportée${targets.length > 1 ? 's' : ''}`);
+  }
+
+  const allSelected = filtered.length > 0 && filtered.every((s) => selectedIds.includes(s.id));
+  const hasSelection = selectedIds.length > 0;
+
   return (
     <div>
-      {/* Filtres par statut */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUT_FILTERS.map((f) => {
           const isActive = filterStatut === f.id;
+          const isWarn = f.id === 'sante' && (counts.sante || 0) > 0;
           return (
             <button
               key={f.id}
               onClick={() => setFilterStatut(f.id)}
               style={{
                 padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                border: `1px solid ${isActive ? 'var(--gold)' : 'rgba(255,255,255,0.2)'}`,
-                background: isActive ? 'var(--gold)' : 'rgba(255,255,255,0.06)',
-                color: isActive ? 'var(--forest-dark)' : 'rgba(255,255,255,0.85)',
+                border: `1px solid ${isActive ? (isWarn ? '#FCA5A5' : 'var(--gold)') : 'rgba(255,255,255,0.2)'}`,
+                background: isActive ? (isWarn ? '#FCA5A5' : 'var(--gold)') : (isWarn ? 'rgba(252,165,165,0.1)' : 'rgba(255,255,255,0.06)'),
+                color: isActive ? 'var(--forest-dark)' : (isWarn ? '#FCA5A5' : 'rgba(255,255,255,0.85)'),
               }}
             >
               {f.label}
@@ -376,7 +499,6 @@ function EcolesTab({ schools, reload }) {
         })}
       </div>
 
-      {/* Recherche + tri */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '2 1 220px' }}>
           <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)' }}>
@@ -398,6 +520,19 @@ function EcolesTab({ schools, reload }) {
           style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', fontSize: 13 }}
           wrapperStyle={{ flex: '1 1 160px', width: 'auto' }}
         />
+        <button
+          onClick={exportCsv}
+          disabled={filtered.length === 0}
+          title="Exporter les écoles affichées"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '9px 14px', borderRadius: 9, fontSize: 13, fontWeight: 600,
+            border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fff',
+            cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', opacity: filtered.length === 0 ? 0.5 : 1,
+          }}
+        >
+          <DownloadIcon /> Exporter CSV
+        </button>
       </div>
 
       {rowError && <p style={{ color: '#ffb4a8', marginBottom: 10, fontWeight: 600, fontSize: 12.5 }}>{rowError}</p>}
@@ -410,75 +545,160 @@ function EcolesTab({ schools, reload }) {
       )}
 
       {filtered.length > 0 && (
-        <div style={{ background: 'var(--paper)', borderRadius: 12, overflow: 'hidden' }}>
-          {filtered.map((s, i) => {
-            const st = STATUT_LABELS[s.statut] || STATUT_LABELS.actif;
-            const canDelete = s.statut === 'suspendu' || s.statut === 'resilie';
-            const isActive = s.statut !== 'suspendu';
-            const busy = busyRowId === s.id;
-            return (
-              <div
-                key={s.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 14,
-                  padding: '14px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--line)',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#FAF8F4'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark)', flexShrink: 0 }}>
-                  {(s.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG'}
-                </div>
-                <div onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{s.name}</p>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '0 4px' }}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAllVisible}
+              style={{ cursor: 'pointer' }}
+              aria-label="Tout sélectionner"
+            />
+            <p style={{ margin: 0, fontSize: 11.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
+              {hasSelection ? `${selectedIds.length} sélectionnée${selectedIds.length > 1 ? 's' : ''}` : 'Tout sélectionner'}
+            </p>
+          </div>
+          <div style={{ background: 'var(--paper)', borderRadius: 12, overflow: 'hidden' }}>
+            {filtered.map((s, i) => {
+              const st = STATUT_LABELS[s.statut] || STATUT_LABELS.actif;
+              const canDelete = s.statut === 'suspendu' || s.statut === 'resilie';
+              const isActive = s.statut !== 'suspendu';
+              const busy = busyRowId === s.id;
+              const issues = healthIssues(s);
+              const isSelected = selectedIds.includes(s.id);
+              const isSick = issues.length > 0 && s.statut !== 'resilie';
+              return (
+                <div
+                  key={s.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 14,
+                    padding: '14px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--line)',
+                    transition: 'background 0.15s',
+                    background: isSelected ? 'rgba(212,168,73,0.06)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#FAF8F4'; }}
+                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelected(s.id)}
+                    style={{ cursor: 'pointer', flexShrink: 0 }}
+                    aria-label={`Sélectionner ${s.name}`}
+                  />
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark)', flexShrink: 0 }}>
+                    {(s.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG'}
                   </div>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-                    {s.staffCount} compte{s.staffCount !== 1 ? 's' : ''} · {s.studentCount} élève{s.studentCount !== 1 ? 's' : ''} · créée le {new Date(s.created_at).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                  <StatutSwitch active={isActive} disabled={busy} onChange={() => handleQuickToggle(s)} />
-                  <button
-                    type="button"
-                    onClick={() => setDetailId(s.id)}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, borderRadius: 8, border: 'none', background: 'rgba(15,76,58,0.08)', color: 'var(--forest)', cursor: 'pointer' }}
-                    title="Voir le détail"
-                  >
-                    <ChevronIcon />
-                  </button>
-                  {confirmingDeleteId === s.id ? (
-                    <>
-                      <button type="button" onClick={() => setConfirmingDeleteId(null)} title="Annuler" style={iconBtnStyle('var(--muted)')}>
-                        <i className="ti ti-x" aria-hidden="true"></i>
-                      </button>
-                      <button type="button" onClick={() => handleQuickDelete(s)} disabled={busy} title="Confirmer" style={iconBtnStyle('var(--danger)')}>
-                        <i className="ti ti-check" aria-hidden="true"></i>
-                      </button>
-                    </>
-                  ) : (
+                  <div onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{s.name}</p>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
+                      {isSick && issues.slice(0, 2).map((iss) => (
+                        <span key={iss.key} title={iss.label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: iss.severity === 'high' ? '#FBE3DF' : '#FEF3E2', color: iss.severity === 'high' ? '#B33B2A' : '#B4670E' }}>
+                          {iss.label}
+                        </span>
+                      ))}
+                    </div>
+                    <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>
+                      {s.staffCount} compte{s.staffCount !== 1 ? 's' : ''} · {s.studentCount} élève{s.studentCount !== 1 ? 's' : ''} · créée le {new Date(s.created_at).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <StatutSwitch active={isActive} disabled={busy} onChange={() => handleQuickToggle(s)} />
                     <button
                       type="button"
-                      onClick={() => (canDelete ? setConfirmingDeleteId(s.id) : null)}
-                      disabled={!canDelete || busy}
-                      title={canDelete ? 'Supprimer définitivement' : "Suspends d'abord cette école."}
-                      style={{ ...iconBtnStyle(canDelete ? 'var(--danger)' : 'var(--line-strong)'), cursor: canDelete ? 'pointer' : 'not-allowed', opacity: canDelete ? 1 : 0.4 }}
+                      onClick={() => setDetailId(s.id)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, borderRadius: 8, border: 'none', background: 'rgba(15,76,58,0.08)', color: 'var(--forest)', cursor: 'pointer' }}
+                      title="Voir le détail"
                     >
-                      <TrashIcon />
+                      <ChevronIcon />
                     </button>
-                  )}
+                    {confirmingDeleteId === s.id ? (
+                      <>
+                        <button type="button" onClick={() => setConfirmingDeleteId(null)} title="Annuler" style={iconBtnStyle('var(--muted)')}>
+                          <i className="ti ti-x" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" onClick={() => handleQuickDelete(s)} disabled={busy} title="Confirmer" style={iconBtnStyle('var(--danger)')}>
+                          <i className="ti ti-check" aria-hidden="true"></i>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => (canDelete ? setConfirmingDeleteId(s.id) : null)}
+                        disabled={!canDelete || busy}
+                        title={canDelete ? 'Supprimer définitivement' : "Suspends d'abord cette école."}
+                        style={{ ...iconBtnStyle(canDelete ? 'var(--danger)' : 'var(--line-strong)'), cursor: canDelete ? 'pointer' : 'not-allowed', opacity: canDelete ? 1 : 0.4 }}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {detailSchool && (
         <SchoolDetailModal school={detailSchool} onClose={() => setDetailId(null)} onChanged={() => { reload(); }} />
       )}
+
+      {hasSelection && (
+        <BulkBar
+          count={selectedIds.length}
+          onClear={clearSelection}
+          onSuspend={() => bulkChangeStatut('suspendu')}
+          onActivate={() => bulkChangeStatut('actif')}
+          onExport={bulkExportSelection}
+          busy={bulkBusy}
+        />
+      )}
+    </div>
+  );
+}
+
+function BulkBar({ count, onClear, onSuspend, onActivate, onExport, busy }) {
+  return (
+    <div style={{
+      position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 24, zIndex: 9999,
+      display: 'flex', alignItems: 'center', gap: 6, padding: 6, borderRadius: 30,
+      background: 'var(--forest-dark)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+      color: '#fff', maxWidth: '95vw', flexWrap: 'nowrap',
+    }}>
+      <button
+        type="button"
+        onClick={onClear}
+        style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}
+      >
+        ANNULER
+      </button>
+      <span style={{ minWidth: 22, textAlign: 'center', color: 'var(--gold)', fontWeight: 800, fontSize: 14 }}>{count}</span>
+      <button
+        type="button"
+        onClick={onActivate}
+        disabled={busy}
+        style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--success)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}
+      >
+        RÉACTIVER
+      </button>
+      <button
+        type="button"
+        onClick={onSuspend}
+        disabled={busy}
+        style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--amber)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}
+      >
+        SUSPENDRE
+      </button>
+      <button
+        type="button"
+        onClick={onExport}
+        disabled={busy}
+        style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--gold)', color: 'var(--forest-dark)', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}
+      >
+        EXPORTER
+      </button>
     </div>
   );
 }
@@ -531,6 +751,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
 
   const st = STATUT_LABELS[school.statut] || STATUT_LABELS.actif;
   const canDelete = school.statut === 'suspendu' || school.statut === 'resilie';
+  const issues = healthIssues(school);
 
   async function handleSetStatut(statut) {
     setBusyId('statut');
@@ -579,7 +800,6 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 620, width: '100%', padding: 26 }}>
-        {/* En-tête modal */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 14, color: 'var(--forest-dark)' }}>
@@ -593,7 +813,19 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Sous-onglets */}
+        {issues.length > 0 && (
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 9, background: '#FEF3E2', border: '1px solid #FCA5A5' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 700, color: '#8F4620', textTransform: 'uppercase', letterSpacing: '0.03em' }}>À surveiller</p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {issues.map((iss) => (
+                <span key={iss.key} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#fff', color: '#8F4620' }}>
+                  {iss.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 6, marginTop: 18, marginBottom: 16, borderBottom: '1px solid var(--line)' }}>
           {[
             { id: 'infos', label: 'Infos & actions' },
@@ -626,7 +858,6 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
 
         {tab === 'infos' && (
           <>
-            {/* Cartes infos */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
               <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '12px 14px' }}>
                 <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark)', fontWeight: 600, textTransform: 'uppercase' }}>Élèves</p>
@@ -641,7 +872,6 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
             <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Créée le</p>
             <p style={{ margin: '0 0 20px', fontSize: 13.5, fontWeight: 600 }}>{new Date(school.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
-            {/* Note admin */}
             <div style={{ marginBottom: 20 }}>
               <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Note administrative</p>
               {editingNote ? (
@@ -666,7 +896,6 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
               )}
             </div>
 
-            {/* Actions */}
             <p style={{ margin: '0 0 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Actions</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {school.statut !== 'suspendu' ? (
@@ -742,13 +971,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <input readOnly value={link.url} onFocus={(e) => e.target.select()} style={{ flex: '1 1 220px', padding: '7px 9px', borderRadius: 7, border: '1px solid var(--line-strong)', fontSize: 11.5, color: 'var(--ink)' }} />
-                  <button
-                    type="button"
-                    onClick={() => copyWithToast(link.url, showToast)}
-                    style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '7px 12px' }}
-                  >
-                    Copier
-                  </button>
+                  <button type="button" onClick={() => copyWithToast(link.url, showToast)} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '7px 12px' }}>Copier</button>
                 </div>
               </div>
             )}
