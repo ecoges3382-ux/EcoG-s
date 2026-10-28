@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES } from '../lib/utils.js';
+import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES, supportWhatsappLink } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
@@ -11,7 +11,8 @@ import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { SkeletonLine } from './Skeleton.jsx';
-import HelpTooltip from './HelpTooltip.jsx'; // <--- IMPORT AJOUTÉ
+import HelpTooltip from './HelpTooltip.jsx';
+import { canAddStudent, getPlanLabel, getPlan } from '../lib/plan.js';
 
 const PAIEMENT_TRANCHES = [
   { id: 'tranche1', label: '1ère tranche' },
@@ -28,11 +29,18 @@ const LIENS_PARENTE = [
   { id: 'autre', label: 'Autre' },
 ];
 
-export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
+export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, plan = 'decouverte', studentsCount = 0, onClose, onCreated }) {
   const showToast = useToast();
   const isEditing = !!student;
   const canEditEnrollment = !isEditing || !isHistorical;
-  
+
+  // Vérification du quota : seulement si on CRÉE un nouvel élève (pas en
+  // modification). Si on est déjà à la limite, on affiche un écran bloquant
+  // au lieu du formulaire.
+  const quotaReached = !isEditing && !canAddStudent(plan, studentsCount);
+  const planLabel = getPlanLabel(plan);
+  const quota = getPlan(plan).maxStudents;
+
   const [studentNom, setStudentNom] = useState(student?.nom || '');
   const [studentPrenom, setStudentPrenom] = useState(student?.prenom || '');
   const [matricule, setMatricule] = useState(student?.matricule || '');
@@ -116,6 +124,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (quotaReached) { setError(`Limite du plan ${planLabel} atteinte (${quota} élèves).`); return; }
     if (!studentNom.trim()) { setError('Le nom est obligatoire.'); return; }
     if (canManageParents && parentMode === 'existing' && !existingParentId) { setError('Choisis un parent existant, ou choisis « Nouveau parent ».'); return; }
     setSubmitting(true);
@@ -222,6 +231,38 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   function copyLink() {
     const url = `${window.location.origin}/parent-access?code=${result.code}`;
     navigator.clipboard.writeText(url).then(() => setCopied(true));
+  }
+
+  // Écran bloquant : quota atteint
+  if (quotaReached) {
+    const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} élèves). Pouvez-vous me donner les prochaines étapes ?`;
+    return createPortal(
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', padding: 26, textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--danger-light)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <i className="ti ti-lock" style={{ fontSize: 26 }} aria-hidden="true"></i>
+          </div>
+          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Limite du plan atteinte</p>
+          <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Votre plan <strong>{planLabel}</strong> permet <strong>{quota} élèves maximum</strong>.<br />
+            Vous en avez déjà <strong>{studentsCount}</strong>. Passez au plan supérieur pour inscrire de nouveaux élèves.
+          </p>
+          <a
+            href={supportWhatsappLink(upgradeMessage)}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}
+          >
+            <i className="ti ti-brand-whatsapp" style={{ fontSize: 15, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
+            Passer au plan supérieur
+          </a>
+          <button type="button" onClick={onClose} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>
+            Fermer
+          </button>
+        </div>
+      </div>,
+      document.body
+    );
   }
 
   if (classes.length === 0) {
