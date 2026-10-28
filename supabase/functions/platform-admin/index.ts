@@ -1,7 +1,6 @@
 // Edge Function : administration de la plateforme (écoles, personnel de
 // support, journal d'activité, administrateurs de la plateforme), réservée
-// aux comptes listés dans la table "platform_admins" — indépendant du rôle
-// "fondateur", qui lui ne donne accès qu'à une seule école.
+// aux comptes listés dans la table "platform_admins".
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
@@ -68,6 +67,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
 
     const STATUTS = ['essai', 'actif', 'suspendu', 'resilie'];
+    const PLANS = ['decouverte', 'essentiel', 'standard', 'premium'];
 
     // ---------- Écoles ----------
 
@@ -79,6 +79,17 @@ Deno.serve(async (req) => {
       const { error: updateError } = await adminClient.from('schools').update({ statut }).eq('id', schoolId);
       if (updateError) throw new Error(updateError.message);
       await logAction(adminClient, user.id, 'set_statut', { schoolId, details: `Nouveau statut : ${statut}` });
+      return jsonResponse({ ok: true });
+    }
+
+    if (body.action === 'set_plan') {
+      const { schoolId, plan } = body;
+      if (!schoolId) throw new Error('schoolId manquant.');
+      if (!PLANS.includes(plan)) throw new Error('Plan invalide.');
+
+      const { error: updateError } = await adminClient.from('schools').update({ plan }).eq('id', schoolId);
+      if (updateError) throw new Error(updateError.message);
+      await logAction(adminClient, user.id, 'set_plan', { schoolId, details: `Nouveau plan : ${plan}` });
       return jsonResponse({ ok: true });
     }
 
@@ -118,7 +129,7 @@ Deno.serve(async (req) => {
       if (staffError) throw new Error(staffError.message);
 
       if ((staffProfiles || []).some((p) => p.id === user.id)) {
-        throw new Error("Ton propre compte fait partie du personnel de cette école — la supprimer supprimerait aussi ton compte (et ton statut d'administrateur de la plateforme, qui en dépend). Retire d'abord ton profil de cette école, ou demande à un autre administrateur de supprimer cette école.");
+        throw new Error("Ton propre compte fait partie du personnel de cette école — la supprimer supprimerait aussi ton compte.");
       }
 
       for (const p of staffProfiles || []) {
@@ -148,11 +159,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ staff: staff || [] });
     }
 
-    // ---------- Recherche globale (NOUVEAU) ----------
-    // Cherche dans les écoles, le personnel et les parents. Limité à 10
-    // résultats par catégorie pour la performance. Les 3 requêtes sont
-    // séparées (nom / email / téléphone) pour éviter les injections SQL
-    // via le paramètre `or` de PostgREST.
+    // ---------- Recherche globale ----------
     if (body.action === 'search_users') {
       const q = String(body.query || '').trim();
       if (q.length < 2) throw new Error('La recherche doit contenir au moins 2 caractères.');
@@ -167,7 +174,7 @@ Deno.serve(async (req) => {
         parentsByPhone,
         parentsByCode,
       ] = await Promise.all([
-        adminClient.from('schools').select('id, name, statut').ilike('name', like).limit(10),
+        adminClient.from('schools').select('id, name, statut, plan').ilike('name', like).limit(10),
         adminClient.from('profiles').select('id, full_name, role, email, phone, school_id, schools(id, name)').ilike('full_name', like).limit(10),
         adminClient.from('profiles').select('id, full_name, role, email, phone, school_id, schools(id, name)').ilike('email', like).limit(10),
         adminClient.from('profiles').select('id, full_name, role, email, phone, school_id, schools(id, name)').ilike('phone', like).limit(10),
@@ -176,15 +183,15 @@ Deno.serve(async (req) => {
         adminClient.from('parent_access').select('id, full_name, phone, code, school_id, schools(id, name)').ilike('code', like).limit(10),
       ]);
 
-      const staffMap = new Map<string, any>();
+      const staffMap = new Map<string, unknown>();
       [staffByName, staffByEmail, staffByPhone].forEach(({ data }) => {
-        (data || []).forEach((s: any) => staffMap.set(s.id, s));
+        (data || []).forEach((s: { id: string }) => staffMap.set(s.id, s));
       });
       const staff = [...staffMap.values()];
 
-      const parentsMap = new Map<string, any>();
+      const parentsMap = new Map<string, unknown>();
       [parentsByName, parentsByPhone, parentsByCode].forEach(({ data }) => {
-        (data || []).forEach((p: any) => parentsMap.set(p.id, p));
+        (data || []).forEach((p: { id: string }) => parentsMap.set(p.id, p));
       });
       const parents = [...parentsMap.values()];
 
@@ -196,7 +203,6 @@ Deno.serve(async (req) => {
     }
 
     // ---------- Support : impersonate / reset password ----------
-
     if (body.action === 'impersonate' || body.action === 'reset_password') {
       const { schoolId, profileId } = body;
       if (!schoolId || !profileId) throw new Error('Paramètres manquants.');
@@ -209,7 +215,7 @@ Deno.serve(async (req) => {
       if (targetErr) throw new Error(targetErr.message);
       if (!target || target.school_id !== schoolId) throw new Error('Compte introuvable pour cette école.');
       if (!target.email) {
-        throw new Error("Ce compte n'a pas d'adresse e-mail enregistrée : impossible de générer un lien (seuls les comptes créés avec un e-mail le permettent).");
+        throw new Error("Ce compte n'a pas d'adresse e-mail enregistrée : impossible de générer un lien.");
       }
 
       const linkType = body.action === 'impersonate' ? 'magiclink' : 'recovery';
@@ -229,8 +235,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ link: linkData.properties.action_link });
     }
 
-    // ---------- Administrateurs de la plateforme ----------
-
+    // ---------- Administrateurs ----------
     if (body.action === 'list_admins') {
       const { data: admins, error: adminsErr } = await adminClient
         .from('platform_admins')
@@ -252,7 +257,7 @@ Deno.serve(async (req) => {
       const { data: targetUserId, error: rpcError } = await adminClient.rpc('find_user_id_by_email', { p_email: email });
       if (rpcError) throw new Error(rpcError.message);
       if (!targetUserId) {
-        throw new Error("Aucun compte EcoGès avec cet e-mail. La personne doit d'abord avoir un compte (ex. fondateur d'une école) avant de pouvoir devenir administratrice de la plateforme.");
+        throw new Error("Aucun compte EcoGès avec cet e-mail.");
       }
 
       const { error: insertError } = await adminClient.from('platform_admins').insert({ user_id: targetUserId });
@@ -278,8 +283,7 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true });
     }
 
-    // ---------- Journal d'activité ----------
-
+    // ---------- Journal ----------
     if (body.action === 'list_actions') {
       const { data: actions, error: actionsErr } = await adminClient
         .from('platform_admin_actions')
@@ -302,7 +306,7 @@ Deno.serve(async (req) => {
     // action par défaut : "list"
     const { data: schools, error: schoolsError } = await adminClient
       .from('schools')
-      .select('id, name, color, logo_url, created_at, statut, note_administrative')
+      .select('id, name, color, logo_url, created_at, statut, plan, note_administrative')
       .order('created_at', { ascending: false });
     if (schoolsError) throw new Error(schoolsError.message);
 
