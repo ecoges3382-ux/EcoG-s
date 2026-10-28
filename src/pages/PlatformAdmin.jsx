@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
@@ -152,6 +152,7 @@ export default function PlatformAdmin() {
   const [schools, setSchools] = useState(null);
   const [tabCounts, setTabCounts] = useState({ admins: null, invites: null });
   const [error, setError] = useState('');
+  const [focusSchoolId, setFocusSchoolId] = useState(null);
 
   async function reloadSchools() {
     setError('');
@@ -172,10 +173,15 @@ export default function PlatformAdmin() {
 
   const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
+  function handleSelectSchool(schoolId) {
+    setTab('ecoles');
+    setFocusSchoolId(schoolId);
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--forest-dark)', padding: '28px 20px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 18, color: 'var(--forest-dark)' }}>EG</div>
             <div>
@@ -192,6 +198,8 @@ export default function PlatformAdmin() {
             Se déconnecter
           </button>
         </div>
+
+        <GlobalSearchBar onSelectSchool={handleSelectSchool} />
 
         {schools && <OverviewStats schools={schools} onStatClick={() => setTab('ecoles')} />}
 
@@ -227,7 +235,14 @@ export default function PlatformAdmin() {
 
         {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
 
-        {tab === 'ecoles' && <EcolesTab schools={schools} reload={reloadSchools} />}
+        {tab === 'ecoles' && (
+          <EcolesTab
+            schools={schools}
+            reload={reloadSchools}
+            focusSchoolId={focusSchoolId}
+            onClearFocus={() => setFocusSchoolId(null)}
+          />
+        )}
         {tab === 'admins' && <AdminsTab onChanged={() => {
           callPlatformAdmin({ action: 'list_admins' }).then(({ data }) => {
             if (data?.admins) setTabCounts((prev) => ({ ...prev, admins: data.admins.length }));
@@ -242,6 +257,150 @@ export default function PlatformAdmin() {
     </div>
   );
 }
+
+// --- Nouvelle barre de recherche globale ---
+function GlobalSearchBar({ onSelectSchool }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!query || query.trim().length < 2) {
+      setResults(null);
+      setLoading(false);
+      return undefined;
+    }
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      const { data, error: err } = await callPlatformAdmin({ action: 'search_users', query: query.trim() });
+      setLoading(false);
+      if (!err) setResults(data);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    function onClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  const hasResults = results && ((results.schools?.length || 0) + (results.staff?.length || 0) + (results.parents?.length || 0) > 0);
+  const showPanel = open && query.trim().length >= 2;
+
+  function handleSelect(id) {
+    onSelectSchool(id);
+    setOpen(false);
+    setQuery('');
+    setResults(null);
+  }
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', marginBottom: 20 }}>
+      <div style={{ position: 'relative' }}>
+        <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', pointerEvents: 'none' }}>
+          <SearchIcon />
+        </span>
+        <input
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Rechercher un utilisateur, une école, un e-mail, un téléphone…"
+          style={{
+            width: '100%',
+            padding: '11px 40px',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.25)',
+            background: 'rgba(255,255,255,0.08)',
+            color: '#fff',
+            fontSize: 13.5,
+            boxSizing: 'border-box',
+          }}
+        />
+        {query && (
+          <button
+            onClick={() => { setQuery(''); setResults(null); setOpen(false); }}
+            aria-label="Effacer la recherche"
+            style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}
+          >×</button>
+        )}
+      </div>
+
+      {showPanel && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 4px)',
+          left: 0,
+          right: 0,
+          background: 'var(--paper)',
+          borderRadius: 10,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+          maxHeight: 400,
+          overflowY: 'auto',
+          zIndex: 20,
+        }}>
+          {loading && <p style={{ padding: 16, margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Recherche…</p>}
+          {!loading && !hasResults && (
+            <p style={{ padding: 16, margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucun résultat pour « {query} ».</p>
+          )}
+          {!loading && hasResults && (
+            <>
+              {results.schools?.length > 0 && (
+                <div>
+                  <p style={{ margin: 0, padding: '10px 14px 4px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Écoles</p>
+                  {results.schools.map((s) => (
+                    <button key={s.id} type="button" onClick={() => handleSelect(s.id)} style={searchItemStyle}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                      {s.statut && <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>Statut : {STATUT_LABELS[s.statut]?.label || s.statut}</div>}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {results.staff?.length > 0 && (
+                <div>
+                  <p style={{ margin: 0, padding: '10px 14px 4px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Personnel</p>
+                  {results.staff.map((p) => (
+                    <button key={p.id} type="button" onClick={() => handleSelect(p.school_id)} style={searchItemStyle}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{p.full_name} <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 11.5 }}>· {ROLE_LABELS[p.role] || p.role}</span></div>
+                      <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{p.email || p.phone || '—'} · {p.schools?.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {results.parents?.length > 0 && (
+                <div>
+                  <p style={{ margin: 0, padding: '10px 14px 4px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parents</p>
+                  {results.parents.map((p) => (
+                    <button key={p.id} type="button" onClick={() => handleSelect(p.school_id)} style={searchItemStyle}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{p.full_name}</div>
+                      <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>{p.phone || '—'} · Code {p.code} · {p.schools?.name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const searchItemStyle = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  padding: '10px 14px',
+  border: 'none',
+  background: 'none',
+  cursor: 'pointer',
+  color: 'var(--ink)',
+  borderBottom: '1px solid var(--line)',
+};
 
 async function copyWithToast(text, showToast) {
   if (await copyText(text)) showToast('Copié');
@@ -333,7 +492,7 @@ const STATUT_FILTERS = [
   { id: 'sante', label: 'À surveiller' },
 ];
 
-function EcolesTab({ schools, reload }) {
+function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
   const showToast = useToast();
   const confirm = useConfirm();
   const [search, setSearch] = useState('');
@@ -345,6 +504,13 @@ function EcolesTab({ schools, reload }) {
   const [rowError, setRowError] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+
+  useEffect(() => {
+    if (focusSchoolId) {
+      setDetailId(focusSchoolId);
+      onClearFocus?.();
+    }
+  }, [focusSchoolId]);
 
   async function handleQuickToggle(school) {
     setRowError('');
