@@ -2,26 +2,6 @@
 // support, journal d'activité, administrateurs de la plateforme), réservée
 // aux comptes listés dans la table "platform_admins" — indépendant du rôle
 // "fondateur", qui lui ne donne accès qu'à une seule école.
-//
-// Pourquoi une fonction serveur : lister toutes les écoles et calculer
-// leurs effectifs exige de contourner les règles RLS (normalement chaque
-// école ne voit que ses propres données) ; supprimer une école exige aussi
-// de supprimer les comptes Supabase Auth de son personnel ; générer un lien
-// de connexion/réinitialisation pour un compte exige l'API Admin Auth. Tout
-// ça nécessite la clé "service_role", qui ne doit jamais atteindre le
-// navigateur.
-//
-// Le statut ('essai'/'actif'/'suspendu'/'resilie', voir supabase/schema.sql)
-// n'est pas qu'une étiquette d'affichage : current_school_id() refuse tout
-// accès applicatif dès qu'une école est suspendue/résiliée, donc "set_statut"
-// coupe réellement l'école, immédiatement, pas seulement dans cette UI. La
-// suppression définitive ("delete") est donc réservée à une école déjà
-// suspendue/résiliée — revérifié ici, jamais seulement côté frontend.
-//
-// Chaque action qui change quelque chose (statut, note, suppression,
-// connexion à la place d'un compte, réinitialisation de mot de passe, ajout/
-// retrait d'un administrateur) écrit une ligne dans platform_admin_actions —
-// jamais d'action silencieuse depuis cet écran.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
@@ -120,9 +100,6 @@ Deno.serve(async (req) => {
       const { schoolId } = body;
       if (!schoolId) throw new Error('schoolId manquant.');
 
-      // Suppression définitive réservée à une école déjà suspendue/résiliée
-      // — jamais un raccourci direct depuis "actif"/"essai". Revérifié ici
-      // côté serveur, jamais seulement côté interface (voir PlatformAdmin.jsx).
       const { data: school, error: schoolError } = await adminClient
         .from('schools')
         .select('statut, name')
@@ -134,33 +111,20 @@ Deno.serve(async (req) => {
         throw new Error("Cette école doit d'abord être suspendue avant de pouvoir être supprimée définitivement.");
       }
 
-      // Comptes du personnel de cette école : on les supprime un par un via
-      // l'API Auth (ça supprime aussi leur ligne "profiles" en cascade),
-      // avant de supprimer l'école elle-même (qui entraîne en cascade tout
-      // le reste : élèves, paiements, classes, accès parents, etc.).
       const { data: staffProfiles, error: staffError } = await adminClient
         .from('profiles')
         .select('id')
         .eq('school_id', schoolId);
       if (staffError) throw new Error(staffError.message);
 
-      // Filet de sécurité : platform_admins.user_id référence auth.users(id)
-      // ON DELETE CASCADE — supprimer le compte Auth d'un administrateur de
-      // la plateforme (parce qu'il est aussi personnel de cette école, ex.
-      // un compte créé via "Créer une école" avant d'être promu admin)
-      // supprimerait donc AUSSI sa ligne platform_admins, l'excluant
-      // possiblement lui-même (ou un collègue) de la plateforme sans
-      // confirmation explicite de ce risque précis.
       if ((staffProfiles || []).some((p) => p.id === user.id)) {
-        throw new Error("Ton propre compte fait partie du personnel de cette école — la supprimer supprimerait aussi ton compte (et ton statut d'administrateur de la plateforme, qui en dépend). Retire d'abord ton profil de cette école (delete from profiles where id = '...'), ou demande à un autre administrateur de supprimer cette école.");
+        throw new Error("Ton propre compte fait partie du personnel de cette école — la supprimer supprimerait aussi ton compte (et ton statut d'administrateur de la plateforme, qui en dépend). Retire d'abord ton profil de cette école, ou demande à un autre administrateur de supprimer cette école.");
       }
 
       for (const p of staffProfiles || []) {
         await adminClient.auth.admin.deleteUser(p.id);
       }
 
-      // Le journal garde une trace même de cette école désormais supprimée
-      // (school_id passera à NULL via on delete set null, school_name reste).
       await logAction(adminClient, user.id, 'delete', {
         schoolId,
         details: `École supprimée définitivement (${(staffProfiles || []).length} compte(s) personnel supprimé(s))`,
@@ -172,8 +136,6 @@ Deno.serve(async (req) => {
       return jsonResponse({ ok: true });
     }
 
-    // Détail d'une école : liste de son personnel, pour la fiche détail et
-    // pour choisir un compte à impersonner / réinitialiser ci-dessous.
     if (body.action === 'school_detail') {
       const { schoolId } = body;
       if (!schoolId) throw new Error('schoolId manquant.');
@@ -186,7 +148,54 @@ Deno.serve(async (req) => {
       return jsonResponse({ staff: staff || [] });
     }
 
-    // ---------- Support : connexion à la place d'un compte, mot de passe ----------
+    // ---------- Recherche globale (NOUVEAU) ----------
+    // Cherche dans les écoles, le personnel et les parents. Limité à 10
+    // résultats par catégorie pour la performance. Les 3 requêtes sont
+    // séparées (nom / email / téléphone) pour éviter les injections SQL
+    // via le paramètre `or` de PostgREST.
+    if (body.action === 'search_users') {
+      const q = String(body.query || '').trim();
+      if (q.length < 2) throw new Error('La recherche doit contenir au moins 2 caractères.');
+      const like = `%${q}%`;
+
+      const [
+        schoolsRes,
+        staffByName,
+        staffByEmail,
+        staffByPhone,
+        parentsByName,
+        parentsByPhone,
+        parentsByCode,
+      ] = await Promise.all([
+        adminClient.from('schools').select('id, name, statut').ilike('name', like).limit(10),
+        adminClient.from('profiles').select('id, full_name, role, email, phone, school_id, schools(id, name)').ilike('full_name', like).limit(10),
+        adminClient.from('profiles').select('id, full_name, role, email, phone, school_id, schools(id, name)').ilike('email', like).limit(10),
+        adminClient.from('profiles').select('id, full_name, role, email, phone, school_id, schools(id, name)').ilike('phone', like).limit(10),
+        adminClient.from('parent_access').select('id, full_name, phone, code, school_id, schools(id, name)').ilike('full_name', like).limit(10),
+        adminClient.from('parent_access').select('id, full_name, phone, code, school_id, schools(id, name)').ilike('phone', like).limit(10),
+        adminClient.from('parent_access').select('id, full_name, phone, code, school_id, schools(id, name)').ilike('code', like).limit(10),
+      ]);
+
+      const staffMap = new Map<string, any>();
+      [staffByName, staffByEmail, staffByPhone].forEach(({ data }) => {
+        (data || []).forEach((s: any) => staffMap.set(s.id, s));
+      });
+      const staff = [...staffMap.values()];
+
+      const parentsMap = new Map<string, any>();
+      [parentsByName, parentsByPhone, parentsByCode].forEach(({ data }) => {
+        (data || []).forEach((p: any) => parentsMap.set(p.id, p));
+      });
+      const parents = [...parentsMap.values()];
+
+      return jsonResponse({
+        schools: schoolsRes.data || [],
+        staff,
+        parents,
+      });
+    }
+
+    // ---------- Support : impersonate / reset password ----------
 
     if (body.action === 'impersonate' || body.action === 'reset_password') {
       const { schoolId, profileId } = body;
@@ -315,14 +324,6 @@ Deno.serve(async (req) => {
     const studentCounts: Record<string, number> = {};
     for (const s of students || []) studentCounts[s.school_id] = (studentCounts[s.school_id] || 0) + 1;
 
-    // Une "école" dont TOUT le personnel est administrateur de la
-    // plateforme n'est pas une vraie école cliente — c'est l'artefact d'un
-    // compte admin créé via "Créer une école" (seul moyen de créer un
-    // compte avec mot de passe dans l'appli). Elle n'apparaît plus ici : ni
-    // interrupteur suspendre/réactiver, ni corbeille, pour ne jamais
-    // exposer par erreur une action qui toucherait au compte admin
-    // lui-même. Une vraie école reste affichée normalement même si l'un de
-    // ses membres est par ailleurs administrateur de la plateforme.
     const result = (schools || [])
       .filter((s) => {
         const staffIds = staffIdsBySchool[s.id] || [];
