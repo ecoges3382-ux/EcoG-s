@@ -8,11 +8,13 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import PlanLocked from '../components/PlanLocked.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
+import { hasFeature, getPlanLabel, featurePlanRequired } from '../lib/plan.js';
 
 function IdBadgeIcon() {
   return (
@@ -73,7 +75,10 @@ export default function Staff() {
   const [showArchives, setShowArchives] = useState(false);
   const canDelete = CAN_DELETE_ROLES.includes(profile.role);
   const tour = usePageTour('personnel');
-  
+
+  const plan = profile?.schools?.plan || 'decouverte';
+  const hasPersonnel = hasFeature(plan, 'personnel');
+
   const gridCols = selectMode
     ? '28px 1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px'
     : '1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px';
@@ -109,12 +114,27 @@ export default function Staff() {
   }
 
   useEffect(() => {
+    if (!hasPersonnel) return;
     reload();
     supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
       setClasses(sortClasses(data || []));
     });
     reloadSubjects();
-  }, []);
+  }, [hasPersonnel]);
+
+  if (!hasPersonnel) {
+    return (
+      <div>
+        <SchoolTabs />
+        <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Personnel</p>
+        <PlanLocked
+          currentPlanLabel={getPlanLabel(plan)}
+          requiredPlanLabel={featurePlanRequired('personnel')}
+          featureDescription="la gestion du personnel (enseignants, secrétaires, salaires, avances)"
+        />
+      </div>
+    );
+  }
 
   function openEdit(p) {
     setEditingStaff(p);
