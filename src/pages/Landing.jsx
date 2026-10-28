@@ -950,7 +950,6 @@ function PlanCard({ plan, period, index }) {
         {plan.name}
       </p>
 
-      {/* Prix */}
       <div style={{ minHeight: 78, marginBottom: 14 }}>
         {isGratuit ? (
           <>
@@ -978,12 +977,10 @@ function PlanCard({ plan, period, index }) {
         )}
       </div>
 
-      {/* Tagline */}
       <p style={{ margin: '0 0 20px', fontSize: 12.5, lineHeight: 1.55, color: mutedColor, minHeight: 40 }}>
         {plan.tagline}
       </p>
 
-      {/* CTA */}
       {isGratuit ? (
         <Link
           to="/inscription"
@@ -1035,7 +1032,6 @@ function PlanCard({ plan, period, index }) {
         </a>
       )}
 
-      {/* Features */}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {plan.features.map((f, fi) => {
           if (f.header) {
@@ -1121,13 +1117,37 @@ function Final() {
 }
 
 export default function Landing() {
-  // Sécurité pour le défilement
+  // Fix de scroll AGRESSIF pour la page publique :
+  // 1. Retire la classe 'app-mode' (héritée du Shell connecté)
+  // 2. Injecte un <style> avec !important sur html, body, #root
+  // 3. Force aussi display:block et position:static pour éviter tout conflit
   useEffect(() => {
-    const elements = [document.documentElement, document.body, document.getElementById('root')].filter(Boolean);
-    const originalStyles = elements.map((el) => el.style.overflow);
-    elements.forEach((el) => { el.style.overflow = 'auto'; });
+    document.body.classList.remove('app-mode');
+
+    const styleId = 'landing-scroll-fix';
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        html, body, #root {
+          overflow: auto !important;
+          overflow-y: auto !important;
+          height: auto !important;
+          min-height: 100vh !important;
+          position: static !important;
+          display: block !important;
+        }
+        html {
+          scroll-behavior: auto !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
     return () => {
-      elements.forEach((el, index) => { el.style.overflow = originalStyles[index]; });
+      const el = document.getElementById(styleId);
+      if (el) el.remove();
     };
   }, []);
 
