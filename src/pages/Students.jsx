@@ -17,6 +17,8 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
+import { canAddStudent, getPlanLabel, studentQuotaLabel, featurePlanRequired, getPlan } from '../lib/plan.js';
+import { supportWhatsappLink } from '../lib/utils.js';
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -80,6 +82,13 @@ export default function Students() {
   const canDelete = CAN_DELETE_ROLES.includes(profile.role) && !isHistorical;
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
   const tour = usePageTour('eleves');
+
+  const plan = profile?.schools?.plan || 'decouverte';
+  const planLabel = getPlanLabel(plan);
+  const quota = getPlan(plan).maxStudents;
+  const studentCount = students?.length || 0;
+  const quotaReached = !canAddStudent(plan, studentCount);
+  const quotaWarning = quota !== Infinity && studentCount >= Math.floor(quota * 0.8);
 
   const gridCols = selectMode
     ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
@@ -251,6 +260,18 @@ export default function Students() {
         soldeConnexe: idx.soldeConnexe !== -1 ? Number(r[idx.soldeConnexe]) || 0 : 0,
       });
     });
+
+    // Vérification du quota AVANT d'importer
+    if (quota !== Infinity) {
+      const disponible = quota - studentCount;
+      if (toInsertStudents.length > disponible) {
+        setImportMessage({
+          type: 'error',
+          text: `Votre plan ${planLabel} permet ${quota} élèves maximum. Vous en avez déjà ${studentCount}, il reste donc ${disponible} place${disponible > 1 ? 's' : ''}. Le fichier contient ${toInsertStudents.length} élèves à importer. Réduis le fichier ou passe au plan supérieur.`,
+        });
+        return;
+      }
+    }
     
     if (toInsertStudents.length === 0) {
       setImportMessage({ type: 'error', text: `Aucun élève importé. Vérifie que les noms de classes dans ton fichier correspondent exactement aux classes créées dans EcoGès (${(classes || []).map((c) => c.nom).join(', ') || 'aucune classe'}).` });
@@ -301,6 +322,8 @@ export default function Students() {
     exitSelectMode(); reload();
   }
 
+  const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} élèves). Pouvez-vous me donner les prochaines étapes ?`;
+
   return (
     <div>
       <SchoolTabs />
@@ -325,14 +348,14 @@ export default function Students() {
           )}
 
           {!isHistorical && (
-            <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: (importing || quotaReached) ? 'not-allowed' : 'pointer', opacity: (importing || quotaReached) ? 0.5 : 1 }} title={quotaReached ? `Limite du plan ${planLabel} atteinte (${quota} élèves)` : undefined}>
               <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
               {importing ? 'Import…' : 'Importer'}
-              <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
+              <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={handleImportFile} disabled={importing || quotaReached} style={{ display: 'none' }} />
             </label>
           )}
           {!isHistorical && (
-            <button onClick={() => { setEditingStudent(null); setModalOpen(true); }} disabled={classes === null || !activeYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !activeYear ? 0.7 : 1 }}>
+            <button onClick={() => { setEditingStudent(null); setModalOpen(true); }} disabled={classes === null || !activeYear || quotaReached} title={quotaReached ? `Limite du plan ${planLabel} atteinte (${quota} élèves)` : undefined} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: (classes === null || !activeYear || quotaReached) ? 0.5 : 1, cursor: quotaReached ? 'not-allowed' : 'pointer' }}>
               <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
             </button>
           )}
@@ -344,8 +367,40 @@ export default function Students() {
         </div>
       </div>
 
+      {/* Bandeau quota */}
+      {!isHistorical && (quotaWarning || quotaReached) && (
+        <div className="card-bold" style={{ padding: '12px 16px', marginBottom: 14, background: quotaReached ? 'var(--danger-light)' : 'var(--amber-light)', borderColor: quotaReached ? 'var(--danger)' : 'var(--amber)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: '1 1 300px' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
+              <div>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)' }}>
+                  {quotaReached
+                    ? `Limite atteinte — ${studentCount} / ${quota} élèves (plan ${planLabel})`
+                    : `Vous approchez de la limite — ${studentCount} / ${quota} élèves (plan ${planLabel})`}
+                </p>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)', lineHeight: 1.5 }}>
+                  {quotaReached
+                    ? 'Vous ne pouvez plus inscrire de nouveaux élèves. Passez à un plan supérieur pour continuer.'
+                    : `Il vous reste ${quota - studentCount} place${(quota - studentCount) > 1 ? 's' : ''} avant la limite de votre plan.`}
+                </p>
+              </div>
+            </div>
+            <a
+              href={supportWhatsappLink(upgradeMessage)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: quotaReached ? 'var(--danger)' : 'var(--clay)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap' }}
+            >
+              <i className="ti ti-brand-whatsapp" style={{ fontSize: 14 }} aria-hidden="true"></i>
+              Passer au plan supérieur
+            </a>
+          </div>
+        </div>
+      )}
+
       {importMessage && (
-        <p style={{ margin: '0 0 16px', fontSize: '12.5px', fontWeight: 600, color: importMessage.type === 'error' ? 'var(--danger)' : 'var(--success)' }}>{importMessage.text}</p>
+        <p style={{ margin: '0 0 16px', fontSize: '12.5px', fontWeight: 600, color: importMessage.type === 'error' ? 'var(--danger)' : 'var(--success)', lineHeight: 1.5 }}>{importMessage.text}</p>
       )}
 
       <div data-tour="students-filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
@@ -365,6 +420,7 @@ export default function Students() {
 
       <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
         {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
+        {quota !== Infinity && <span style={{ marginLeft: 8 }}>· {studentCount} / {quota} (plan {planLabel})</span>}
       </p>
 
       <div data-tour="students-list" className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
@@ -429,7 +485,7 @@ export default function Students() {
           })}
           {filtered.length === 0 && (
             classFilter === 'toutes'
-              ? <EmptyState icon={<UsersIcon />} title="Aucun élève inscrit" subtitle="Ajoute ton premier élève pour commencer à suivre sa scolarité et ses paiements." actionLabel={!isHistorical ? 'Inscrire un élève' : undefined} onAction={!isHistorical ? () => { setEditingStudent(null); setModalOpen(true); } : undefined} />
+              ? <EmptyState icon={<UsersIcon />} title="Aucun élève inscrit" subtitle="Ajoute ton premier élève pour commencer à suivre sa scolarité et ses paiements." actionLabel={!isHistorical && !quotaReached ? 'Inscrire un élève' : undefined} onAction={(!isHistorical && !quotaReached) ? () => { setEditingStudent(null); setModalOpen(true); } : undefined} />
               : <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève dans cette classe.</p>
           )}
         </div>
@@ -454,6 +510,8 @@ export default function Students() {
           canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
           student={editingStudent}
           isHistorical={isHistorical}
+          plan={plan}
+          studentsCount={studentCount}
           onClose={() => { setModalOpen(false); setEditingStudent(null); }}
           onCreated={() => { setModalOpen(false); setEditingStudent(null); reload(); }}
         />
