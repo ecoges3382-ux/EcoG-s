@@ -7,6 +7,10 @@ import { Wordmark } from '../components/Logo.jsx';
 const WA_HELLO = supportWhatsappLink('Bonjour, je souhaite en savoir plus sur EcoGès pour mon école.');
 const WA_QUOTE = supportWhatsappLink('Bonjour, je souhaite recevoir un devis pour EcoGès.');
 
+const WA_PLAN = (planName, price) => supportWhatsappLink(
+  `Bonjour, je souhaite souscrire au plan ${planName} d'EcoGès (${price}). Pouvez-vous me donner les prochaines étapes ?`
+);
+
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
@@ -640,23 +644,455 @@ function Steps() {
   );
 }
 
+/* ============================================================
+   SECTION TARIFS
+   ============================================================ */
+
+const PLANS = [
+  {
+    id: 'decouverte',
+    name: 'Découverte',
+    tagline: 'Pour tester EcoGès sans engagement.',
+    mensuel: null,
+    annuel: null,
+    highlight: false,
+    badge: null,
+    ctaLabel: 'Commencer gratuitement',
+    ctaType: 'link',
+    features: [
+      { label: "Jusqu'à 60 élèves", included: true },
+      { label: '2 comptes (fondateur + directeur)', included: true },
+      { label: 'Élèves, Argent, Notes, Bulletins', included: true },
+      { label: 'Présences et annonces', included: true },
+      { label: 'Reçus et bulletins imprimables', included: true },
+      { label: 'Portail parent', included: false },
+      { label: 'Personnel, salaires et avances', included: false },
+      { label: 'Rapports & exports avancés', included: false },
+    ],
+  },
+  {
+    id: 'essentiel',
+    name: 'Essentiel',
+    tagline: "Tout ce qu'il faut pour gérer une école jusqu'à 200 élèves.",
+    mensuel: 8000,
+    annuel: 80000,
+    highlight: true,
+    badge: '⭐ Le plus choisi',
+    ctaLabel: 'Choisir Essentiel',
+    ctaType: 'whatsapp',
+    features: [
+      { label: "Jusqu'à 200 élèves", included: true },
+      { label: '10 comptes (équipe complète)', included: true },
+      { label: 'Tout Découverte, plus :', included: true, header: true },
+      { label: 'Portail parent pour les familles', included: true },
+      { label: 'Personnel, salaires et avances', included: true },
+      { label: 'Emploi du temps', included: true },
+      { label: 'Documents partagés', included: true },
+      { label: 'Rapports & exports Excel', included: true },
+    ],
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    tagline: 'Pour les écoles qui grandissent et veulent tout piloter.',
+    mensuel: 15000,
+    annuel: 150000,
+    highlight: false,
+    badge: null,
+    ctaLabel: 'Choisir Standard',
+    ctaType: 'whatsapp',
+    features: [
+      { label: "Jusqu'à 500 élèves", included: true },
+      { label: 'Comptes illimités', included: true },
+      { label: 'Tout Essentiel, plus :', included: true, header: true },
+      { label: "Passage d'année scolaire assisté", included: true },
+      { label: 'Rôles personnalisés (censeur…)', included: true },
+      { label: 'Formation en visio (1h offerte)', included: true },
+      { label: 'Support prioritaire sous 24h', included: true },
+    ],
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    tagline: 'Pour les grandes écoles et les groupes scolaires.',
+    mensuel: 25000,
+    annuel: 250000,
+    highlight: false,
+    badge: null,
+    ctaLabel: 'Choisir Premium',
+    ctaType: 'whatsapp',
+    features: [
+      { label: 'Élèves illimités', included: true },
+      { label: 'Comptes illimités', included: true },
+      { label: 'Tout Standard, plus :', included: true, header: true },
+      { label: 'Support prioritaire sous 4h', included: true },
+      { label: 'Formation en visio (2 sessions/an)', included: true },
+      { label: 'Accompagnement à l\'import de vos données', included: true },
+      { label: 'Multi-campus (sur devis)', included: true },
+    ],
+  },
+];
+
+function fmtPrice(n) {
+  return Number(n).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ');
+}
+
 function Price() {
+  const [period, setPeriod] = useState('annuel');
+
   return (
-    <section id="tarifs" className="lp-section" style={{ paddingTop: 20 }}>
+    <section id="tarifs" className="lp-section" style={{ background: 'var(--cream)' }}>
       <div className="lp-wrap">
-        <InView className="lp-price lp-reveal" threshold={0.3}>
-          <p className="lp-eyebrow" style={{ justifyContent: 'center' }}>Tarifs</p>
-          <div className="lp-price-big">Sur devis</div>
-          <p className="lp-sub" style={{ margin: '0 auto 30px', maxWidth: 480 }}>
-            Le tarif dépend de la taille et des besoins de votre école. Écrivez-nous pour recevoir un devis personnalisé, sans engagement.
+        <InView threshold={0.3} style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto 34px' }}>
+          <p className="lp-eyebrow lp-reveal" style={{ justifyContent: 'center' }}>Tarifs</p>
+          <h2 className="lp-h2"><Words text="Un tarif simple. Adapté à votre école." step={55} /></h2>
+          <p className="lp-sub lp-reveal" style={{ margin: '0 auto', '--d': '400ms' }}>
+            Pas de surprise. Pas de frais cachés. Vous savez exactement ce que vous payez, et pour quoi.
           </p>
-          <div className="lp-ctas" style={{ justifyContent: 'center' }}>
-            <a className="lp-btn lp-btn-dark" href={WA_QUOTE} target="_blank" rel="noreferrer">{I.whatsapp(19)}Demander un devis</a>
-            <a className="lp-btn lp-btn-line" href={supportMailLink('Demande de devis EcoGès')}>{I.mail(18)}Nous écrire</a>
+        </InView>
+
+        {/* Toggle Mensuel / Annuel */}
+        <InView threshold={0.3} style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              background: 'var(--paper)',
+              border: '1px solid var(--line-strong)',
+              borderRadius: 999,
+              padding: 4,
+              gap: 2,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPeriod('mensuel')}
+              style={{
+                padding: '10px 22px',
+                borderRadius: 999,
+                fontSize: 13.5,
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                background: period === 'mensuel' ? 'var(--forest)' : 'transparent',
+                color: period === 'mensuel' ? '#fff' : 'var(--ink)',
+                transition: 'all 0.2s',
+              }}
+            >
+              Mensuel
+            </button>
+            <button
+              type="button"
+              onClick={() => setPeriod('annuel')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 22px',
+                borderRadius: 999,
+                fontSize: 13.5,
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+                background: period === 'annuel' ? 'var(--forest)' : 'transparent',
+                color: period === 'annuel' ? '#fff' : 'var(--ink)',
+                transition: 'all 0.2s',
+              }}
+            >
+              Annuel
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: 999,
+                  background: 'var(--lp-gold)',
+                  color: 'var(--forest-dark)',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                2 MOIS OFFERTS
+              </span>
+            </button>
           </div>
+        </InView>
+
+        {/* Grille de cartes */}
+        <InView
+          threshold={0.15}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 18,
+            maxWidth: 1180,
+            margin: '0 auto',
+          }}
+        >
+          {PLANS.map((plan, i) => (
+            <PlanCard key={plan.id} plan={plan} period={period} index={i} />
+          ))}
+        </InView>
+
+        {/* Bandeau Prix Fondateur */}
+        <InView
+          threshold={0.3}
+          style={{
+            marginTop: 32,
+            maxWidth: 760,
+            margin: '32px auto 0',
+            padding: '18px 22px',
+            borderRadius: 16,
+            background: 'var(--gold-light)',
+            border: '1px dashed var(--lp-gold)',
+            textAlign: 'center',
+          }}
+        >
+          <p style={{ margin: '0 0 4px', fontSize: 13.5, fontWeight: 800, color: 'var(--clay-dark)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            🎉 Offre de lancement
+          </p>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>
+            Les <strong>10 premières écoles</strong> bénéficient de <strong>-20 % à vie</strong> sur tous les plans :<br />
+            Essentiel à <strong>64 000 F/an</strong> · Standard à <strong>120 000 F/an</strong> · Premium à <strong>200 000 F/an</strong>.
+          </p>
+        </InView>
+
+        {/* Réassurance */}
+        <InView
+          threshold={0.3}
+          style={{
+            marginTop: 40,
+            maxWidth: 780,
+            margin: '40px auto 0',
+            textAlign: 'center',
+            fontSize: 13.5,
+            color: 'var(--muted)',
+            lineHeight: 1.7,
+          }}
+        >
+          <p style={{ margin: '0 0 10px' }}>
+            <strong style={{ color: 'var(--ink)' }}>Paiement annuel ou mensuel.</strong>{' '}
+            Pas de prélèvement automatique. Vous recevez une facture, vous payez par virement ou Mobile Money, votre espace s'active immédiatement.
+          </p>
+          <p style={{ margin: 0 }}>
+            <strong style={{ color: 'var(--ink)' }}>Vous hésitez ?</strong>{' '}
+            <a href={WA_QUOTE} target="_blank" rel="noreferrer" style={{ color: 'var(--forest)', fontWeight: 700, textDecoration: 'none' }}>
+              Écrivez-nous sur WhatsApp
+            </a>{' '}
+            — on vous aide à choisir en 5 minutes.
+          </p>
         </InView>
       </div>
     </section>
+  );
+}
+
+function PlanCard({ plan, period, index }) {
+  const isGratuit = plan.id === 'decouverte';
+  const price = period === 'annuel' ? plan.annuel : plan.mensuel;
+  const isHighlight = plan.highlight;
+  const bgColor = isHighlight ? 'var(--forest)' : 'var(--paper)';
+  const textColor = isHighlight ? '#fff' : 'var(--ink)';
+  const mutedColor = isHighlight ? 'rgba(255,255,255,0.7)' : 'var(--muted)';
+  const borderColor = isHighlight ? 'var(--lp-gold)' : 'var(--line-strong)';
+  const checkColor = isHighlight ? 'var(--lp-gold-soft)' : 'var(--forest)';
+
+  const mensuelEquiv = period === 'annuel' && plan.mensuel
+    ? Math.round(plan.annuel / 12)
+    : null;
+
+  const ctaHref = plan.ctaType === 'whatsapp'
+    ? WA_PLAN(plan.name, isGratuit ? 'gratuit' : `${price.toLocaleString('fr-FR')} F/${period === 'annuel' ? 'an' : 'mois'}`)
+    : null;
+
+  return (
+    <div
+      className="lp-reveal"
+      style={{
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: isHighlight ? '34px 26px 26px' : '28px 24px',
+        borderRadius: 24,
+        background: bgColor,
+        border: `1px solid ${borderColor}`,
+        color: textColor,
+        boxShadow: isHighlight
+          ? '0 30px 60px -25px rgba(15, 76, 58, 0.45), 0 0 0 1px var(--lp-gold) inset'
+          : '0 10px 30px -20px rgba(0,0,0,0.15)',
+        transition: 'transform 0.3s var(--lp-ease)',
+        '--d': `${index * 80}ms`,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+    >
+      {plan.badge && (
+        <span
+          style={{
+            position: 'absolute',
+            top: -14,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '6px 14px',
+            borderRadius: 999,
+            background: 'var(--lp-gold)',
+            color: 'var(--forest-dark)',
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 6px 20px -6px rgba(212, 168, 73, 0.8)',
+          }}
+        >
+          {plan.badge}
+        </span>
+      )}
+
+      <p style={{ margin: '0 0 10px', fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: textColor }}>
+        {plan.name}
+      </p>
+
+      {/* Prix */}
+      <div style={{ minHeight: 78, marginBottom: 14 }}>
+        {isGratuit ? (
+          <>
+            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 40, fontWeight: 700, lineHeight: 1, color: textColor }}>
+              Gratuit
+            </p>
+            <p style={{ margin: '6px 0 0', fontSize: 12.5, color: mutedColor, fontWeight: 600 }}>
+              Pour toujours · pas d'essai qui expire
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: textColor, letterSpacing: '-0.02em' }}>
+              {fmtPrice(price)} <span style={{ fontSize: 16, fontWeight: 600, opacity: 0.65 }}>F</span>
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: mutedColor, fontWeight: 600 }}>
+              {period === 'annuel' ? '/ an' : '/ mois'}
+              {mensuelEquiv != null && (
+                <span style={{ marginLeft: 8, color: isHighlight ? 'var(--lp-gold-soft)' : 'var(--forest)', fontWeight: 700 }}>
+                  soit {fmtPrice(mensuelEquiv)} F/mois
+                </span>
+              )}
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Tagline */}
+      <p style={{ margin: '0 0 20px', fontSize: 12.5, lineHeight: 1.55, color: mutedColor, minHeight: 40 }}>
+        {plan.tagline}
+      </p>
+
+      {/* CTA */}
+      {isGratuit ? (
+        <Link
+          to="/inscription"
+          className="lp-btn"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: 46,
+            borderRadius: 12,
+            background: 'var(--forest)',
+            color: '#fff',
+            textDecoration: 'none',
+            fontSize: 14,
+            fontWeight: 700,
+            marginBottom: 20,
+            gap: 6,
+          }}
+        >
+          {plan.ctaLabel}
+          {I.arrow(14)}
+        </Link>
+      ) : (
+        <a
+          href={ctaHref}
+          target="_blank"
+          rel="noreferrer"
+          className="lp-btn"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: 46,
+            borderRadius: 12,
+            background: isHighlight ? 'var(--lp-gold)' : 'var(--forest)',
+            color: isHighlight ? 'var(--forest-dark)' : '#fff',
+            textDecoration: 'none',
+            fontSize: 14,
+            fontWeight: 700,
+            marginBottom: 20,
+            gap: 6,
+            boxShadow: isHighlight ? '0 12px 28px -10px rgba(212, 168, 73, 0.8)' : 'none',
+          }}
+        >
+          {I.whatsapp(15)}
+          {plan.ctaLabel}
+        </a>
+      )}
+
+      {/* Features */}
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {plan.features.map((f, fi) => {
+          if (f.header) {
+            return (
+              <li
+                key={fi}
+                style={{
+                  marginTop: 4,
+                  marginBottom: 2,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: mutedColor,
+                }}
+              >
+                {f.label}
+              </li>
+            );
+          }
+          return (
+            <li
+              key={fi}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10,
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: f.included ? textColor : mutedColor,
+                opacity: f.included ? 1 : 0.55,
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  marginTop: 1,
+                  background: f.included
+                    ? (isHighlight ? 'rgba(212, 168, 73, 0.2)' : 'var(--forest-light)')
+                    : (isHighlight ? 'rgba(255,255,255,0.08)' : '#F0EDE5'),
+                  color: f.included ? checkColor : (isHighlight ? 'rgba(255,255,255,0.5)' : 'var(--line-strong)'),
+                }}
+              >
+                {f.included ? I.check(11) : I.x(10)}
+              </span>
+              <span>{f.label}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -685,31 +1121,13 @@ function Final() {
 }
 
 export default function Landing() {
-  // Correctif agressif pour le défilement
+  // Sécurité pour le défilement
   useEffect(() => {
-    // 1. Retirer la classe 'app-mode' qui bloque parfois le scroll
-    document.body.classList.remove('app-mode');
-    
-    // 2. Injecter du CSS avec !important pour forcer le scroll
-    const styleId = 'landing-scroll-fix';
-    let styleEl = document.getElementById(styleId);
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = styleId;
-      styleEl.innerHTML = `
-        html, body, #root {
-          overflow: auto !important;
-          height: auto !important;
-          position: static !important;
-        }
-      `;
-      document.head.appendChild(styleEl);
-    }
-
-    // 3. Nettoyer l'élément <style> quand on quitte la page
+    const elements = [document.documentElement, document.body, document.getElementById('root')].filter(Boolean);
+    const originalStyles = elements.map((el) => el.style.overflow);
+    elements.forEach((el) => { el.style.overflow = 'auto'; });
     return () => {
-      const el = document.getElementById(styleId);
-      if (el) el.remove();
+      elements.forEach((el, index) => { el.style.overflow = originalStyles[index]; });
     };
   }, []);
 
