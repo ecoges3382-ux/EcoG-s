@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, ROLES, generateAccessCode, displayName, sortByRole } from '../lib/utils.js';
+import { initials, ROLES, generateAccessCode, displayName, sortByRole, supportWhatsappLink } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
@@ -13,10 +13,8 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow, SkeletonLine } from '../components/Skeleton.jsx';
+import { canAddStaffAccount, getPlanLabel, staffQuotaLabel, getPlan } from '../lib/plan.js';
 
-// La classe d'un élève est propre à l'année scolaire en cours
-// (enrollments) — students ne garde que son identité. Utilisé par les deux
-// modales ci-dessous (nouveau lien parent / modification des enfants liés).
 function useStudentsForLinking(schoolYearId) {
   const [students, setStudents] = useState(null);
   useEffect(() => {
@@ -37,16 +35,13 @@ function useStudentsForLinking(schoolYearId) {
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
-// supabase-js ne remplit pas `data` quand la fonction répond en erreur (code
-// non-2xx) : il faut relire le corps de la réponse via fnError.context pour
-// récupérer le vrai message, sinon on n'a que "non-2xx status code".
 async function describeFunctionError(fnError) {
   if (!fnError) return null;
   try {
     const body = await fnError.context.json();
     if (body?.error) return body.error;
   } catch {
-    // corps non lisible en JSON : on retombe sur le message générique
+    // corps non lisible en JSON
   }
   return fnError.message;
 }
@@ -87,7 +82,14 @@ function StaffAccounts() {
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuForId, setMenuForId] = useState(null);
-  const [editing, setEditing] = useState(null); // { account, field }
+  const [editing, setEditing] = useState(null);
+
+  const plan = profile?.schools?.plan || 'decouverte';
+  const planLabel = getPlanLabel(plan);
+  const quota = getPlan(plan).maxStaffAccounts;
+  const accountCount = accounts?.length || 0;
+  const quotaReached = !canAddStaffAccount(plan, accountCount);
+  const quotaWarning = quota !== Infinity && accountCount >= Math.max(1, Math.floor(quota * 0.8));
 
   async function reload() {
     await guardedFetch({
@@ -128,26 +130,54 @@ function StaffAccounts() {
     );
   }
 
+  const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} comptes utilisateurs). Pouvez-vous me donner les prochaines étapes ?`;
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Directeur, secrétaire, enseignant — chacun avec son propre e-mail et mot de passe.</p>
-        <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0 }}>
+        <button onClick={() => setModalOpen(true)} disabled={quotaReached} title={quotaReached ? `Limite du plan ${planLabel} atteinte (${quota} comptes)` : undefined} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0, opacity: quotaReached ? 0.5 : 1, cursor: quotaReached ? 'not-allowed' : 'pointer' }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouveau compte
         </button>
       </div>
+
+      {/* Bandeau quota */}
+      {(quotaWarning || quotaReached) && (
+        <div className="card-bold" style={{ padding: '12px 16px', marginBottom: 14, background: quotaReached ? 'var(--danger-light)' : 'var(--amber-light)', borderColor: quotaReached ? 'var(--danger)' : 'var(--amber)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: '1 1 300px' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
+              <div>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)' }}>
+                  {quotaReached
+                    ? `Limite atteinte — ${accountCount} / ${quota} comptes (plan ${planLabel})`
+                    : `Vous approchez de la limite — ${accountCount} / ${quota} comptes (plan ${planLabel})`}
+                </p>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)', lineHeight: 1.5 }}>
+                  {quotaReached
+                    ? 'Vous ne pouvez plus créer de nouveau compte. Passez à un plan supérieur pour continuer.'
+                    : `Il vous reste ${quota - accountCount} compte${(quota - accountCount) > 1 ? 's' : ''} disponible${(quota - accountCount) > 1 ? 's' : ''}.`}
+                </p>
+              </div>
+            </div>
+            <a
+              href={supportWhatsappLink(upgradeMessage)}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: quotaReached ? 'var(--danger)' : 'var(--clay)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap' }}
+            >
+              <i className="ti ti-brand-whatsapp" style={{ fontSize: 14 }} aria-hidden="true"></i>
+              Passer au plan supérieur
+            </a>
+          </div>
+        </div>
+      )}
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {offline && <OfflineBanner />}
       {!accounts && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
       {accounts && (
-        // Pas d'overflow ici, ni X ni Y : dès qu'un seul axe est autre que
-        // "visible", le CSS force l'autre à "auto" (quirk du spec), ce qui
-        // recadrait le petit menu déroulant de chaque ligne à l'intérieur
-        // de cette carte au lieu de le laisser flotter par-dessus la suite
-        // de la page — border-radius suffit déjà à garder les coins
-        // propres, aucun enfant ici n'a de fond bord-à-bord à découper.
         <div className="card-bold">
           {accounts.map((a, i) => (
             <AccountRow
@@ -171,6 +201,8 @@ function StaffAccounts() {
 
       {modalOpen && (
         <NewStaffAccountModal
+          plan={plan}
+          accountCount={accountCount}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
         />
@@ -189,7 +221,7 @@ function StaffAccounts() {
   );
 }
 
-function NewStaffAccountModal({ onClose, onCreated }) {
+function NewStaffAccountModal({ plan, accountCount, onClose, onCreated }) {
   const showToast = useToast();
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState(CREATABLE_STAFF_ROLES[0]);
@@ -199,6 +231,36 @@ function NewStaffAccountModal({ onClose, onCreated }) {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const quotaReached = !canAddStaffAccount(plan, accountCount);
+
+  if (quotaReached) {
+    const planLabel = getPlanLabel(plan);
+    const quota = getPlan(plan).maxStaffAccounts;
+    const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} comptes utilisateurs). Pouvez-vous me donner les prochaines étapes ?`;
+    return (
+      <ModalShell title="Limite atteinte" onClose={onClose}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--danger-light)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <i className="ti ti-lock" style={{ fontSize: 26 }} aria-hidden="true"></i>
+          </div>
+          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600 }}>Plus de place disponible</p>
+          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Votre plan <strong>{planLabel}</strong> permet <strong>{quota} comptes</strong>. Vous les avez tous utilisés.
+          </p>
+          <a
+            href={supportWhatsappLink(upgradeMessage)}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none' }}
+          >
+            <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
+            Passer au plan supérieur
+          </a>
+        </div>
+      </ModalShell>
+    );
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -250,6 +312,8 @@ function NewStaffAccountModal({ onClose, onCreated }) {
   );
 }
 
+// ... le reste du fichier (ParentAccessTab, ModalShell, etc.) reste identique
+
 function ParentAccessTab() {
   const showToast = useToast();
   const confirm = useConfirm();
@@ -261,8 +325,8 @@ function ParentAccessTab() {
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [menuForId, setMenuForId] = useState(null);
-  const [editingStudents, setEditingStudents] = useState(null); // access
-  const [editingInfo, setEditingInfo] = useState(null); // access
+  const [editingStudents, setEditingStudents] = useState(null);
+  const [editingInfo, setEditingInfo] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
   async function reload() {
@@ -428,7 +492,6 @@ function NewParentAccessModal({ onClose, onCreated }) {
       }).select().single();
       if (!insertError) { created = data; break; }
       if (insertError.code !== '23505') { setSubmitting(false); setError(insertError.message); return; }
-      // sinon collision de code (extrêmement rare) : on retente avec un nouveau
     }
     if (!created) { setSubmitting(false); setError('Impossible de générer un code unique, réessaie.'); return; }
 
@@ -540,9 +603,6 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
   );
 }
 
-// Un parent peut changer de numéro ou d'adresse e-mail — contrairement aux
-// enfants rattachés (modale ci-dessus), ces informations n'ont jamais été
-// modifiables après la création de l'accès.
 function EditParentAccessInfoModal({ access, onClose, onSaved }) {
   const showToast = useToast();
   const [nom, setNom] = useState(access.nom || '');
@@ -670,8 +730,6 @@ function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onEditInfo
   );
 }
 
-// Ligne de compte partagée (personnel/parent) : nom cliquable et roue
-// dentée ouvrent le même petit menu d'actions, ancré à l'extrême droite.
 function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen, onToggleMenu, onCloseMenu, onSelectField, canDelete, onDelete, badge }) {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
@@ -811,10 +869,6 @@ function EditFieldModal({ account, field, functionName, onClose, onSaved }) {
 }
 
 function ModalShell({ title, onClose, children }) {
-  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
-  // le contexte d'empilement créé par l'animation de transition de page
-  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
-  // et la barre de navigation du bas au lieu de les recouvrir.
   return createPortal(
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
@@ -866,7 +920,4 @@ function TrashIcon() {
 
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 12 };
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
-// Zone de clic élargie (min. 36px) : les icônes seules (17px) sont trop
-// petites à toucher précisément sur mobile, d'où l'impression que le bouton
-// « ne répond pas » alors qu'il suffit de rater le clic de quelques pixels.
 const iconButtonStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, background: 'none', border: 'none', cursor: 'pointer' };
