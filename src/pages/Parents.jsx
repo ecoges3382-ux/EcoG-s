@@ -7,10 +7,12 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import PlanLocked from '../components/PlanLocked.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
+import { hasFeature, getPlanLabel, featurePlanRequired } from '../lib/plan.js';
 
 function UsersGroupIcon() {
   return (
@@ -47,6 +49,10 @@ export default function Parents() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
+  const plan = profile?.schools?.plan || 'decouverte';
+  const hasParentAccess = hasFeature(plan, 'parent_portal');
+  const canViewRole = MANAGER_ROLES.includes(profile.role);
+
   async function reload() {
     await guardedFetch({
       cacheKey: `parents_${profile.school_id}`,
@@ -66,11 +72,25 @@ export default function Parents() {
   }
 
   useEffect(() => {
-    if (!MANAGER_ROLES.includes(profile.role)) return;
+    if (!canViewRole || !hasParentAccess) return;
     reload();
-  }, [profile.role]);
+  }, [profile.role, hasParentAccess]);
 
-  if (!MANAGER_ROLES.includes(profile.role)) {
+  if (!hasParentAccess) {
+    return (
+      <div>
+        <SchoolTabs />
+        <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Parents</p>
+        <PlanLocked
+          currentPlanLabel={getPlanLabel(plan)}
+          requiredPlanLabel={featurePlanRequired('parent_portal')}
+          featureDescription="le portail parents (consultation des notes et paiements par les familles)"
+        />
+      </div>
+    );
+  }
+
+  if (!canViewRole) {
     return (
       <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
         <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
