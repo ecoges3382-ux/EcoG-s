@@ -8,23 +8,24 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
+import { hasFeature } from '../lib/plan.js';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', tourId: 'sidebar-recouvrement' },
   { to: '/eleves', label: 'Élèves', icon: 'ti-users', countKey: 'students', tourId: 'sidebar-eleves' },
-  { to: '/parents', label: 'Parents', icon: 'ti-users-group', countKey: 'parents' },
-  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', countKey: 'staff' },
+  { to: '/parents', label: 'Parents', icon: 'ti-users-group', countKey: 'parents', feature: 'parent_portal' },
+  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', countKey: 'staff', feature: 'personnel' },
   { to: '/classes', label: 'Classes', icon: 'ti-building', countKey: 'classes' },
   { to: '/matieres', label: 'Matières', icon: 'ti-book-2', countKey: 'subjects' },
   { to: '/notes', label: 'Notes', icon: 'ti-pencil' },
   { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate' },
-  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time' },
+  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time', feature: 'schedule' },
   { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check' },
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
-  { to: '/documents', label: 'Documents', icon: 'ti-file' },
-  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar' },
+  { to: '/documents', label: 'Documents', icon: 'ti-file', feature: 'documents' },
+  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', feature: 'advanced_reports' },
   { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', tourId: 'sidebar-parametres' },
   { to: '/comptes', label: 'Comptes', icon: 'ti-users-group' },
 ];
@@ -70,6 +71,7 @@ export default function Shell() {
   const location = useLocation();
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
+  const plan = profile?.schools?.plan || 'decouverte';
 
   useEffect(() => {
     document.body.classList.add('app-mode');
@@ -117,7 +119,7 @@ export default function Shell() {
 
       <div id="layout">
         <div id="sidebar" data-tour="sidebar">
-          <SidebarMenu />
+          <SidebarMenu plan={plan} />
         </div>
         <div id="screen">
           <div key={location.pathname} className="page-transition">
@@ -151,7 +153,7 @@ export default function Shell() {
   );
 }
 
-function SidebarMenu() {
+function SidebarMenu({ plan }) {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile?.school_id);
   const [counts, setCounts] = useState({});
@@ -190,9 +192,15 @@ function SidebarMenu() {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
+  // Filtrer selon le plan : seules les entrées dont la feature
+  // est incluse apparaissent dans le menu.
+  const visibleItems = SIDEBAR_ITEMS.filter(
+    (item) => !item.feature || hasFeature(plan, item.feature)
+  );
+
   return (
     <>
-      {SIDEBAR_ITEMS.map((item) => (
+      {visibleItems.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
