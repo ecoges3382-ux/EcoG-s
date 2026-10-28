@@ -119,7 +119,6 @@ const TABS = [
   { id: 'journal', label: "Journal d'activité" },
 ];
 
-// --- Logique métier : diagnostic de santé d'une école ---
 function healthIssues(school) {
   const issues = [];
   const now = Date.now();
@@ -153,6 +152,29 @@ export default function PlatformAdmin() {
   const [tabCounts, setTabCounts] = useState({ admins: null, invites: null });
   const [error, setError] = useState('');
   const [focusSchoolId, setFocusSchoolId] = useState(null);
+
+  // Fix de scroll : sur /admin, il n'y a pas de <Shell>, donc le body ou
+  // #root peut garder un overflow:hidden laissé par une page précédente.
+  useEffect(() => {
+    const styleId = 'admin-scroll-fix';
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        html, body, #root {
+          overflow: auto !important;
+          height: auto !important;
+          position: static !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+    return () => {
+      const el = document.getElementById(styleId);
+      if (el) el.remove();
+    };
+  }, []);
 
   async function reloadSchools() {
     setError('');
@@ -258,7 +280,6 @@ export default function PlatformAdmin() {
   );
 }
 
-// --- Nouvelle barre de recherche globale ---
 function GlobalSearchBar({ onSelectSchool }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
