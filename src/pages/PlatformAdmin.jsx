@@ -34,10 +34,25 @@ const STATUT_LABELS = {
   resilie: { label: 'Résilié', bg: '#FBE3DF', fg: '#B33B2A' },
 };
 
+const PLAN_LABELS = {
+  decouverte: { label: 'Découverte', bg: '#F0EDE5', fg: '#5C6E65' },
+  essentiel: { label: 'Essentiel', bg: '#E4EEE9', fg: '#0F4C3A' },
+  standard: { label: 'Standard', bg: '#FBF1DD', fg: '#A5680E' },
+  premium: { label: 'Premium', bg: '#F0E4FA', fg: '#6B2E9E' },
+};
+
+const PLAN_OPTIONS = [
+  { value: 'decouverte', label: 'Découverte — Gratuit (60 élèves)' },
+  { value: 'essentiel', label: 'Essentiel — 80 000 F/an (200 élèves)' },
+  { value: 'standard', label: 'Standard — 150 000 F/an (500 élèves)' },
+  { value: 'premium', label: 'Premium — 250 000 F/an (illimité)' },
+];
+
 const ROLE_LABELS = { fondateur: 'Fondateur', directeur: 'Directeur', secretaire: 'Secrétaire', enseignant: 'Enseignant' };
 
 const ACTION_LABELS = {
   set_statut: 'Changement de statut',
+  set_plan: 'Changement de plan',
   set_note: 'Note modifiée',
   delete: 'École supprimée',
   impersonate: 'Connexion à la place d’un compte',
@@ -153,7 +168,6 @@ export default function PlatformAdmin() {
   const [error, setError] = useState('');
   const [focusSchoolId, setFocusSchoolId] = useState(null);
 
-  // Fix de scroll ET fix de l'affichage mobile (les cartes école)
   useEffect(() => {
     const styleId = 'admin-scroll-fix';
     let styleEl = document.getElementById(styleId);
@@ -166,8 +180,6 @@ export default function PlatformAdmin() {
           height: auto !important;
           position: static !important;
         }
-        
-        /* --- CORRECTIF MOBILE POUR LA LISTE DES ÉCOLES --- */
         @media (max-width: 640px) {
           .admin-school-row {
             flex-wrap: wrap !important;
@@ -394,7 +406,12 @@ function GlobalSearchBar({ onSelectSchool }) {
                   {results.schools.map((s) => (
                     <button key={s.id} type="button" onClick={() => handleSelect(s.id)} style={searchItemStyle}>
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                      {s.statut && <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>Statut : {STATUT_LABELS[s.statut]?.label || s.statut}</div>}
+                      {s.statut && (
+                        <div style={{ color: 'var(--muted)', fontSize: 11.5 }}>
+                          {STATUT_LABELS[s.statut]?.label || s.statut}
+                          {s.plan && ` · ${PLAN_LABELS[s.plan]?.label || s.plan}`}
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -537,6 +554,7 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('recent');
   const [filterStatut, setFilterStatut] = useState('tous');
+  const [filterPlan, setFilterPlan] = useState('tous');
   const [detailId, setDetailId] = useState(null);
   const [busyRowId, setBusyRowId] = useState(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
@@ -590,6 +608,9 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
     } else if (filterStatut !== 'tous') {
       list = list.filter((s) => s.statut === filterStatut);
     }
+    if (filterPlan !== 'tous') {
+      list = list.filter((s) => s.plan === filterPlan);
+    }
     if (term) list = list.filter((s) => s.name.toLowerCase().includes(term));
     list = [...list];
     if (sort === 'nom') list.sort((a, b) => a.name.localeCompare(b.name));
@@ -597,18 +618,19 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
     else if (sort === 'sante') list.sort((a, b) => healthIssues(b).length - healthIssues(a).length);
     else list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return list;
-  }, [schools, search, sort, filterStatut]);
+  }, [schools, search, sort, filterStatut, filterPlan]);
 
   if (!schools) return <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 4 }}><SkeletonRow count={6} avatar={false} /></div>;
 
   const detailSchool = schools.find((s) => s.id === detailId) || null;
 
   function exportCsv() {
-    const rows = [['Nom', 'Statut', 'Date création', 'Nb élèves', 'Nb personnel', 'Note administrative', 'Alertes']];
+    const rows = [['Nom', 'Plan', 'Statut', 'Date création', 'Nb élèves', 'Nb personnel', 'Note administrative', 'Alertes']];
     filtered.forEach((s) => {
       const issues = healthIssues(s).map((i) => i.label).join(' / ');
       rows.push([
         s.name,
+        PLAN_LABELS[s.plan]?.label || s.plan || '—',
         STATUT_LABELS[s.statut]?.label || s.statut,
         new Date(s.created_at).toLocaleDateString('fr-FR'),
         s.studentCount || 0,
@@ -659,11 +681,12 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
   async function bulkExportSelection() {
     const targets = filtered.filter((s) => selectedIds.includes(s.id));
     if (targets.length === 0) return;
-    const rows = [['Nom', 'Statut', 'Date création', 'Nb élèves', 'Nb personnel', 'Note administrative', 'Alertes']];
+    const rows = [['Nom', 'Plan', 'Statut', 'Date création', 'Nb élèves', 'Nb personnel', 'Note administrative', 'Alertes']];
     targets.forEach((s) => {
       const issues = healthIssues(s).map((i) => i.label).join(' / ');
       rows.push([
         s.name,
+        PLAN_LABELS[s.plan]?.label || s.plan || '—',
         STATUT_LABELS[s.statut]?.label || s.statut,
         new Date(s.created_at).toLocaleDateString('fr-FR'),
         s.studentCount || 0,
@@ -717,6 +740,21 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
           />
         </div>
         <Dropdown
+          value={filterPlan}
+          onChange={setFilterPlan}
+          options={[
+            { value: 'tous', label: 'Tous les plans' },
+            { value: 'decouverte', label: 'Découverte' },
+            { value: 'essentiel', label: 'Essentiel' },
+            { value: 'standard', label: 'Standard' },
+            { value: 'premium', label: 'Premium' },
+          ]}
+          textColor="#fff"
+          chevronColor="rgba(255,255,255,0.75)"
+          style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', fontSize: 13 }}
+          wrapperStyle={{ flex: '1 1 140px', width: 'auto' }}
+        />
+        <Dropdown
           value={sort}
           onChange={setSort}
           options={SORTS.map((s) => ({ value: s.id, label: s.label }))}
@@ -744,8 +782,8 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
 
       {filtered.length === 0 && (
         <EmptySchoolsState
-          hasFilter={filterStatut !== 'tous' || search.trim() !== ''}
-          onReset={() => { setFilterStatut('tous'); setSearch(''); }}
+          hasFilter={filterStatut !== 'tous' || filterPlan !== 'tous' || search.trim() !== ''}
+          onReset={() => { setFilterStatut('tous'); setFilterPlan('tous'); setSearch(''); }}
         />
       )}
 
@@ -766,6 +804,7 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
           <div style={{ background: 'var(--paper)', borderRadius: 12, overflow: 'hidden' }}>
             {filtered.map((s, i) => {
               const st = STATUT_LABELS[s.statut] || STATUT_LABELS.actif;
+              const pl = PLAN_LABELS[s.plan] || PLAN_LABELS.decouverte;
               const canDelete = s.statut === 'suspendu' || s.statut === 'resilie';
               const isActive = s.statut !== 'suspendu';
               const busy = busyRowId === s.id;
@@ -792,7 +831,6 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
                     style={{ cursor: 'pointer', flexShrink: 0 }}
                     aria-label={`Sélectionner ${s.name}`}
                   />
-                  {/* LOGO / INITIALES dans la liste */}
                   <div className="admin-school-avatar" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
                     {s.logo_url ? (
                       <img src={s.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -803,6 +841,7 @@ function EcolesTab({ schools, reload, focusSchoolId, onClearFocus }) {
                   <div className="admin-school-content" onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{s.name}</p>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: pl.bg, color: pl.fg }}>{pl.label}</span>
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
                       {isSick && issues.slice(0, 2).map((iss) => (
                         <span key={iss.key} title={iss.label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: iss.severity === 'high' ? '#FBE3DF' : '#FEF3E2', color: iss.severity === 'high' ? '#B33B2A' : '#B4670E' }}>
@@ -950,6 +989,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
   const [link, setLink] = useState(null);
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState(school.note_administrative || '');
+  const [planDraft, setPlanDraft] = useState(school.plan || 'decouverte');
 
   async function loadStaff() {
     setError('');
@@ -961,8 +1001,10 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
   useEffect(() => { loadStaff(); }, [school.id]);
 
   const st = STATUT_LABELS[school.statut] || STATUT_LABELS.actif;
+  const pl = PLAN_LABELS[school.plan] || PLAN_LABELS.decouverte;
   const canDelete = school.statut === 'suspendu' || school.statut === 'resilie';
   const issues = healthIssues(school);
+  const planDirty = planDraft !== (school.plan || 'decouverte');
 
   async function handleSetStatut(statut) {
     setBusyId('statut');
@@ -972,6 +1014,16 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
     if (err) { setError(err); return; }
     onChanged();
     onClose();
+  }
+
+  async function handleSetPlan() {
+    setBusyId('plan');
+    setError('');
+    const { error: err } = await callPlatformAdmin({ action: 'set_plan', schoolId: school.id, plan: planDraft });
+    setBusyId(null);
+    if (err) { setError(err); return; }
+    showToast('Plan mis à jour');
+    onChanged();
   }
 
   async function handleDelete() {
@@ -1013,7 +1065,6 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
       <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 620, width: '100%', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* LOGO / INITIALES dans le modal */}
             <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 14, color: 'var(--forest-dark)', overflow: 'hidden', flexShrink: 0 }}>
               {school.logo_url ? (
                 <img src={school.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1023,7 +1074,10 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
             </div>
             <div>
               <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{school.name}</p>
-              <span style={{ display: 'inline-block', marginTop: 4, fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
+              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: pl.bg, color: pl.fg }}>{pl.label}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
+              </div>
             </div>
           </div>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -1088,6 +1142,43 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
             <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Créée le</p>
             <p style={{ margin: '0 0 20px', fontSize: 13.5, fontWeight: 600 }}>{new Date(school.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
+            {/* Sélecteur de plan */}
+            <div style={{ marginBottom: 20, padding: '14px 16px', borderRadius: 12, background: 'var(--forest-light)', border: '1px solid var(--forest)' }}>
+              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                Plan souscrit
+              </p>
+              <Dropdown
+                value={planDraft}
+                onChange={setPlanDraft}
+                options={PLAN_OPTIONS}
+                style={{ marginBottom: 10 }}
+              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleSetPlan}
+                  disabled={!planDirty || busyId === 'plan'}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: planDirty ? 'var(--forest)' : 'var(--line)',
+                    color: planDirty ? '#fff' : 'var(--muted)',
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    cursor: planDirty ? 'pointer' : 'default',
+                  }}
+                >
+                  {busyId === 'plan' ? 'Enregistrement…' : 'Mettre à jour le plan'}
+                </button>
+                {planDirty && (
+                  <span style={{ fontSize: 11.5, color: 'var(--clay-dark)', fontWeight: 600 }}>
+                    Non enregistré
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div style={{ marginBottom: 20 }}>
               <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Note administrative</p>
               {editingNote ? (
@@ -1112,7 +1203,7 @@ function SchoolDetailModal({ school, onClose, onChanged }) {
               )}
             </div>
 
-            <p style={{ margin: '0 0 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Actions</p>
+            <p style={{ margin: '0 0 10px', fontSize: 11, color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Statut</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {school.statut !== 'suspendu' ? (
                 <button type="button" onClick={() => handleSetStatut('suspendu')} disabled={busyId === 'statut'} style={btnStyle('var(--amber)')}>Suspendre</button>
@@ -1246,12 +1337,13 @@ function SchoolInvitesTab({ onChanged }) {
   const [creating, setCreating] = useState(false);
   const [newInvite, setNewInvite] = useState(null);
   const [revokingId, setRevokingId] = useState(null);
+  const [planDraft, setPlanDraft] = useState('essentiel');
 
   async function reload() {
     setError('');
     const { data, error: loadError } = await supabase
       .from('school_signup_invites')
-      .select('id, code, created_at, expires_at, used_at, used_by')
+      .select('id, code, created_at, expires_at, used_at, used_by, plan')
       .order('created_at', { ascending: false });
     if (loadError) { setError(loadError.message); return; }
     setInvites(data || []);
@@ -1265,10 +1357,14 @@ function SchoolInvitesTab({ onChanged }) {
     setError('');
     setNewInvite(null);
     const code = generateAccessCode(12);
-    const { error: insertError } = await supabase.from('school_signup_invites').insert({ code, created_by: profile?.id });
+    const { error: insertError } = await supabase.from('school_signup_invites').insert({
+      code,
+      created_by: profile?.id,
+      plan: planDraft,
+    });
     setCreating(false);
     if (insertError) { setError(insertError.message); return; }
-    setNewInvite({ code });
+    setNewInvite({ code, plan: planDraft });
     await reload();
     onChanged?.();
   }
@@ -1289,11 +1385,14 @@ function SchoolInvitesTab({ onChanged }) {
       {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
       <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Invitations pour créer une école</p>
       <p style={{ margin: '0 0 12px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
-        Chaque code est individuel, utilisable une seule fois et valable 7 jours. Communique-le directement à la personne invitée.
+        Chaque code est individuel, utilisable une seule fois et valable 7 jours. Choisis le plan commercial
+        correspondant à l'école invitée. Communique-le directement à la personne.
       </p>
       {newInvite && (
         <div style={{ padding: '14px 16px', background: 'var(--gold-light)', border: '1px solid var(--gold)', borderRadius: 12, marginBottom: 14 }}>
-          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>Code à transmettre à la personne invitée</p>
+          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>
+            Code à transmettre — Plan : {PLAN_LABELS[newInvite.plan]?.label || newInvite.plan}
+          </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink)' }}>{newInvite.code}</p>
             <button type="button" onClick={() => copyWithToast(newInvite.code, showToast)} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', fontSize: 11.5, padding: '6px 11px' }}>Copier</button>
@@ -1301,6 +1400,15 @@ function SchoolInvitesTab({ onChanged }) {
         </div>
       )}
       <form onSubmit={handleCreate} style={{ padding: '16px 18px', background: 'var(--paper)', borderRadius: 12, marginBottom: 18 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+          Plan commercial de l'école invitée
+        </label>
+        <Dropdown
+          value={planDraft}
+          onChange={setPlanDraft}
+          options={PLAN_OPTIONS}
+          style={{ marginBottom: 12, maxWidth: 400 }}
+        />
         <button type="submit" disabled={creating} style={{ ...btnStyle('var(--forest)'), background: 'var(--forest)', color: '#fff', opacity: creating ? 0.7 : 1 }}>
           {creating ? 'Génération…' : 'Générer un code individuel'}
         </button>
@@ -1317,10 +1425,15 @@ function SchoolInvitesTab({ onChanged }) {
           {invites.map((inv, i) => {
             const expired = new Date(inv.expires_at) < new Date();
             const status = inv.used_at ? 'Utilisé' : expired ? 'Expiré' : 'Disponible';
+            const pl = PLAN_LABELS[inv.plan] || PLAN_LABELS.decouverte;
             return (
               <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: i === invites.length - 1 ? 'none' : '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--serif)', letterSpacing: '0.06em' }}>{inv.code} <span style={{ fontFamily: 'inherit', letterSpacing: 0, fontWeight: 400, color: 'var(--muted)' }}>· {status}</span></p>
+                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, fontFamily: 'var(--serif)', letterSpacing: '0.06em' }}>
+                    {inv.code}
+                    <span style={{ marginLeft: 10, fontFamily: 'inherit', letterSpacing: 0, fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: pl.bg, color: pl.fg }}>{pl.label}</span>
+                    <span style={{ marginLeft: 8, fontFamily: 'inherit', letterSpacing: 0, fontWeight: 400, color: 'var(--muted)' }}>· {status}</span>
+                  </p>
                   <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>Créé le {new Date(inv.created_at).toLocaleDateString('fr-FR')} · expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}</p>
                 </div>
                 {!inv.used_at && !expired && (
