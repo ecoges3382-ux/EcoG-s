@@ -2,6 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Wordmark } from '../components/Logo.jsx';
 
+function ArrowUpIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+    </svg>
+  );
+}
+
 function ScrollToTopButton() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -35,13 +44,12 @@ function ScrollToTopButton() {
         justifyContent: 'center',
       }}
     >
-      <i className="ti ti-arrow-up" style={{ fontSize: 20 }} aria-hidden="true"></i>
+      <ArrowUpIcon />
     </button>
   );
 }
 
 export default function Confidentialite() {
-  // Fix de scroll — même mécanisme que Landing.jsx et CGU.jsx.
   useEffect(() => {
     document.body.classList.remove('app-mode');
     const styleId = 'confid-scroll-fix';
