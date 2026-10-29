@@ -33,10 +33,6 @@ export default function Attendance() {
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState('appel');
 
-  // La classe d'un élève est propre à l'année scolaire sélectionnée
-  // (enrollments) — students ne garde que son identité. Un ancien élève
-  // qui n'est plus inscrit cette année n'apparaît jamais ici, même s'il
-  // existe encore dans la table students.
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -71,10 +67,6 @@ export default function Attendance() {
     setLoadingRecords(true);
     setSaved(false);
     const ids = studentsInNiveau.map((s) => s.id);
-    // school_year_id est nécessaire ici (pas seulement school_id/date) : la
-    // contrainte d'unicité porte sur (student_id, school_year_id, date) —
-    // un redoublant ou un élève réinscrit une autre année pourrait sinon
-    // faire remonter le statut d'une année différente pour la même date.
     supabase
       .from('attendance_records')
       .select('student_id, statut')
@@ -96,10 +88,6 @@ export default function Attendance() {
     const rows = studentsInNiveau.map((s) => ({
       school_id: profile.school_id, school_year_id: schoolYear.id, student_id: s.id, date, statut: statuts[s.id] || 'present',
     }));
-    // upsert sur (student_id, school_year_id, date) : une nouvelle saisie
-    // pour une date déjà enregistrée corrige la ligne existante, ne crée
-    // jamais de doublon — sûr même en cas de double clic ou de nouvel
-    // enregistrement après rafraîchissement.
     const { error: upsertError } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'student_id,school_year_id,date' });
     setSaving(false);
     if (upsertError) setError(upsertError.message);
@@ -164,7 +152,8 @@ export default function Attendance() {
             </button>
           </div>
 
-          <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 18, opacity: loadingRecords ? 0.6 : 1 }}>
+          {/* AJOUT DU SCROLL INTERNE SUR LA LISTE */}
+          <div className="card-bold" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 380px)', marginBottom: 18, opacity: loadingRecords ? 0.6 : 1 }}>
             {studentsInNiveau.map((s, i) => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < studentsInNiveau.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -220,7 +209,6 @@ function AttendanceStats({ schoolYear, niveaux, students }) {
 
   useEffect(() => {
     if (!niveaux.includes(niveau)) setNiveau(niveaux[0]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [niveaux]);
 
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
@@ -244,14 +232,11 @@ function AttendanceStats({ schoolYear, niveaux, students }) {
       .lte('date', end)
       .in('student_id', ids)
       .then(({ data }) => setRecords(data || []));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schoolYear?.id, niveau, start, end]);
+  }, [schoolYear?.id, niveau, start, end, studentsInNiveau]);
 
   const counts = { present: 0, absent: 0, retard: 0 };
   (records || []).forEach((r) => { counts[r.statut] = (counts[r.statut] || 0) + 1; });
   const total = (records || []).length;
-  // "Retard" reste une présence physique — le taux de présence compte
-  // présent + retard, distinct du taux de ponctualité.
   const tauxPresence = total > 0 ? Math.round(((counts.present + counts.retard) / total) * 100) : null;
 
   return (
