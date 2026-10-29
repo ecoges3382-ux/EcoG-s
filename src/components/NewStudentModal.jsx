@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES, supportWhatsappLink } from '../lib/utils.js';
@@ -12,6 +11,7 @@ import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { SkeletonLine } from './Skeleton.jsx';
 import HelpTooltip from './HelpTooltip.jsx';
+import ModalContainer from './ModalContainer.jsx';
 import { canAddStudent, getPlanLabel, getPlan } from '../lib/plan.js';
 
 const PAIEMENT_TRANCHES = [
@@ -34,9 +34,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const isEditing = !!student;
   const canEditEnrollment = !isEditing || !isHistorical;
 
-  // Vérification du quota : seulement si on CRÉE un nouvel élève (pas en
-  // modification). Si on est déjà à la limite, on affiche un écran bloquant
-  // au lieu du formulaire.
   const quotaReached = !isEditing && !canAddStudent(plan, studentsCount);
   const planLabel = getPlanLabel(plan);
   const quota = getPlan(plan).maxStudents;
@@ -48,7 +45,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [sexe, setSexe] = useState(student?.sexe || 'M');
   const [nationalite, setNationalite] = useState(student?.nationalite || 'Béninoise');
   const [adresse, setAdresse] = useState(student?.adresse || '');
-  
+
   const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
   const [typeInscription, setTypeInscription] = useState('nouveau');
   const [montantDu, setMontantDu] = useState(student?.montant_du ?? 0);
@@ -233,12 +230,11 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     navigator.clipboard.writeText(url).then(() => setCopied(true));
   }
 
-  // Écran bloquant : quota atteint
   if (quotaReached) {
     const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} élèves). Pouvez-vous me donner les prochaines étapes ?`;
-    return createPortal(
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', padding: 26, textAlign: 'center' }}>
+    return (
+      <ModalContainer onClose={onClose} maxWidth={440}>
+        <div style={{ padding: 26, textAlign: 'center' }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--danger-light)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <i className="ti ti-lock" style={{ fontSize: 26 }} aria-hidden="true"></i>
           </div>
@@ -260,43 +256,40 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             Fermer
           </button>
         </div>
-      </div>,
-      document.body
+      </ModalContainer>
     );
   }
 
   if (classes.length === 0) {
-    return createPortal(
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
+    return (
+      <ModalContainer onClose={onClose} maxWidth={420}>
+        <div style={{ padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Aucune classe créée</p>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Il faut d'abord créer au moins une classe (CI, CP, 6e A…) avant de pouvoir y inscrire un élève.</p>
           <Link to="/classes" onClick={onClose} style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}>Aller créer une classe</Link>
           <button type="button" onClick={onClose} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
         </div>
-      </div>,
-      document.body
+      </ModalContainer>
     );
   }
 
   if (result) {
-    return createPortal(
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
+    return (
+      <ModalContainer onClose={onCreated} maxWidth={420}>
+        <div style={{ padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Élève inscrit</p>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Code d'accès du parent — à lui transmettre pour qu'il consulte la fiche de son enfant.</p>
           <p style={{ margin: '0 0 18px', fontFamily: 'monospace', fontSize: 24, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '12px', borderRadius: 10 }}>{result.code}</p>
           <button type="button" onClick={copyLink} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px', marginBottom: 10 }}>{copied ? 'Lien copié !' : 'Copier le lien à envoyer'}</button>
           <button type="button" onClick={onCreated} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}>Terminé</button>
         </div>
-      </div>,
-      document.body
+      </ModalContainer>
     );
   }
 
-  return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={480}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? 'Modifier les informations de l’élève' : "Inscription d'un élève"}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -495,8 +488,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
