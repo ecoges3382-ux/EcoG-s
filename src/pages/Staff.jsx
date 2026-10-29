@@ -65,6 +65,7 @@ export default function Staff() {
   const [staff, setStaff] = useState(null);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [advancesByStaff, setAdvancesByStaff] = useState({});
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -79,9 +80,10 @@ export default function Staff() {
   const plan = profile?.schools?.plan || 'decouverte';
   const hasPersonnel = hasFeature(plan, 'personnel');
 
+  // Grille : Nom | Matricule | Rôle | Niveau | Salaire | Avance | Reste | Classe(s) | Matière(s) | Actions
   const gridCols = selectMode
-    ? '28px 1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px'
-    : '1.5fr 0.7fr 0.85fr 1fr 1.1fr 1.2fr 1.2fr 132px';
+    ? '28px 1.5fr 0.65fr 0.8fr 0.9fr 1fr 0.95fr 0.95fr 1.1fr 1.1fr 132px'
+    : '1.5fr 0.65fr 0.8fr 0.9fr 1fr 0.95fr 0.95fr 1.1fr 1.1fr 132px';
 
   async function reload() {
     await guardedFetch({
@@ -98,6 +100,24 @@ export default function Staff() {
     });
   }
 
+  async function reloadAdvances() {
+    const { data } = await supabase
+      .from('salary_advances')
+      .select('staff_id, solde, montant, statut')
+      .eq('school_id', profile.school_id)
+      .neq('statut', 'refusee');
+    if (data) {
+      const map = {};
+      data.forEach((a) => {
+        const solde = Number(a.solde) || 0;
+        if (solde > 0) {
+          map[a.staff_id] = (map[a.staff_id] || 0) + solde;
+        }
+      });
+      setAdvancesByStaff(map);
+    }
+  }
+
   const visibleStaff = (staff || []).filter((p) => (showArchives ? p.statut === 'inactif' : (p.statut || 'actif') === 'actif'));
   const actifsSansSalaire = visibleStaff.filter((p) => !showArchives && p.salaire_mensuel == null);
   const nbActifs = showArchives ? 0 : visibleStaff.length;
@@ -105,6 +125,15 @@ export default function Staff() {
 
   function subjectsFor(staffId) {
     return subjects.filter((s) => s.enseignant_id === staffId).map((s) => s.nom);
+  }
+
+  function avanceFor(staffId) {
+    return advancesByStaff[staffId] || 0;
+  }
+
+  function resteFor(p) {
+    if (p.salaire_mensuel == null) return null;
+    return Number(p.salaire_mensuel) - avanceFor(p.id);
   }
 
   function reloadSubjects() {
@@ -116,6 +145,7 @@ export default function Staff() {
   useEffect(() => {
     if (!hasPersonnel) return;
     reload();
+    reloadAdvances();
     supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
       setClasses(sortClasses(data || []));
     });
@@ -142,9 +172,21 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
+    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', 'Avance sur salaire', 'Reste', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
     visibleStaff.forEach((p) => {
-      rows.push([p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '', p.salaire_mensuel != null ? p.salaire_mensuel : '', p.date_entree || '', (p.classes || []).join(' / '), subjectsFor(p.id).join(' / '), p.phone || '', p.email || '']);
+      const avance = avanceFor(p.id);
+      const reste = resteFor(p);
+      rows.push([
+        p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '',
+        p.salaire_mensuel != null ? p.salaire_mensuel : '',
+        avance,
+        reste != null ? reste : '',
+        p.date_entree || '',
+        (p.classes || []).join(' / '),
+        subjectsFor(p.id).join(' / '),
+        p.phone || '',
+        p.email || '',
+      ]);
     });
     downloadCsv('personnel.csv', rows);
   }
@@ -263,7 +305,7 @@ export default function Staff() {
       )}
       {staff && visibleStaff.length > 0 && (
         <div data-tour="staff-list" className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
-          <div style={{ minWidth: selectMode ? 980 : 940 }}>
+          <div style={{ minWidth: selectMode ? 1180 : 1140 }}>
             <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
               {selectMode && <span></span>}
               <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Nom</span>
@@ -271,12 +313,16 @@ export default function Staff() {
               <span>Rôle</span>
               <span>Niveau</span>
               <span>Salaire</span>
+              <span>Avance</span>
+              <span>Reste</span>
               <span>Classe(s)</span>
               <span>Matière(s)</span>
               {!selectMode && <span></span>}
             </div>
             {visibleStaff.map((p, i) => {
               const salaireManquant = !showArchives && p.salaire_mensuel == null;
+              const avance = avanceFor(p.id);
+              const reste = resteFor(p);
               return (
                 <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '14px 20px' : '14px 20px 14px 0', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
                   {selectMode && (
@@ -307,6 +353,12 @@ export default function Staff() {
                         <span style={{ color: 'var(--muted)' }}>—</span>
                       )}
                     </span>
+                    <span style={{ fontSize: 13, fontWeight: avance > 0 ? 600 : 400, color: avance > 0 ? 'var(--amber)' : 'var(--muted)' }}>
+                      {fmtF(avance)}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: reste == null ? 'var(--muted)' : (reste < 0 ? 'var(--danger)' : 'var(--success)') }}>
+                      {reste == null ? '—' : fmtF(reste)}
+                    </span>
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
                   </Link>
@@ -333,7 +385,7 @@ export default function Staff() {
       )}
 
       {modalOpen && (
-        <NewStaffModal schoolId={profile.school_id} existingStaff={staff || []} availableClasses={classes} availableSubjects={subjects} editing={editingStaff} onClose={() => { setModalOpen(false); setEditingStaff(null); }} onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); reloadSubjects(); }} />
+        <NewStaffModal schoolId={profile.school_id} existingStaff={staff || []} availableClasses={classes} availableSubjects={subjects} editing={editingStaff} onClose={() => { setModalOpen(false); setEditingStaff(null); }} onSaved={() => { setModalOpen(false); setEditingStaff(null); reload(); reloadSubjects(); reloadAdvances(); }} />
       )}
     </div>
   );
