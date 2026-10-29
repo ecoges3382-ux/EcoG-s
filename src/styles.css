@@ -218,3 +218,20 @@ body.app-mode .page-title { color: #fff !important; }
   .no-print { display: none !important; }
   #sidebar, #bottomnav, .topbar-row { display: none !important; }
 }
+/* ============================================================
+   FIX : bas de page coupé par la bottomnav + la barre Safari iOS
+   ============================================================ */
+@media (max-width: 780px) {
+  /* 140px couvre : bottomnav (~70px) + barre Safari portrait (~50px) + safe area (~20px) */
+  #screen {
+    padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  html, body {
+    scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Les pages avec un tableau scrollable interne (Élèves, Personnel) */
+  .card-bold[data-tour="students-list"],
+  .card-bold[data-tour="staff-list"] {
+    max-height: calc(100vh - 360px) !important;
+  }
+}
