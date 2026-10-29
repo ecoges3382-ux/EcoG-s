@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, stickyColStyle, downloadCsv, TYPES_FRAIS } from '../lib/utils.js';
@@ -167,6 +168,13 @@ export default function Recouvrement() {
     downloadCsv(`recouvrement-${schoolYear.label.replace(/\s+/g, '_')}.csv`, [header, ...lines]);
   }
 
+  // --- Préparation des données pour le graphique en anneau ---
+  const pieData = [
+    { name: 'Payé en totalité', value: nbAJour, color: 'var(--success)' },
+    { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant').length, color: 'var(--amber)' },
+    { name: 'Impayé / En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
+  ].filter(d => d.value > 0);
+
   return (
     <div>
       <SchoolTabs />
@@ -184,6 +192,74 @@ export default function Recouvrement() {
         <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
           Année scolaire {schoolYear.label}
         </span>
+      </div>
+
+      {/* --- Section Graphique de Répartition --- */}
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 18, marginBottom: 24 }}>
+        <div className="card-bold" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Répartition des élèves</p>
+          <div style={{ width: '100%', height: 200 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={5}
+                  dataKey="value"
+                  labelLine={false}
+                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                  stroke="none"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value, name) => [`${value} élèves`, name]}
+                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ textAlign: 'center', marginTop: -110, pointerEvents: 'none' }}>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)' }}>{enrichis.length}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Élèves</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 20 }}>
+            {pieData.map((d) => (
+              <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{d.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card-bold" style={{ padding: '20px' }}>
+          <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Aperçu des montants</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ background: 'var(--forest-light)', padding: '16px', borderRadius: 12 }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Taux de recouvrement global</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 32, fontWeight: 700, color: tauxGlobal >= 75 ? 'var(--success)' : tauxGlobal >= 50 ? 'var(--amber)' : 'var(--danger)' }}>{tauxGlobal}%</p>
+            </div>
+            <div style={{ background: 'var(--danger-light)', padding: '16px', borderRadius: 12 }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Reste à recouvrer</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(totalReste)}</p>
+            </div>
+            <div style={{ background: 'var(--success-light)', padding: '16px', borderRadius: 12 }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Total encaissé</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totalEncaisse)}</p>
+            </div>
+            <div style={{ background: 'var(--forest-light)', padding: '16px', borderRadius: 12 }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Attendu total</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700 }}>{fmtF(totalAttendu)}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div data-tour="recouvrement-kpis" className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
