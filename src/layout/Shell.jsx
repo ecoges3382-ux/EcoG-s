@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES, supportWhatsappLink } from '../lib/utils.js';
 import { applySchoolColor, resetSchoolColor } from '../lib/theme.js';
@@ -71,7 +71,7 @@ export default function Shell() {
   const location = useLocation();
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
-  const plan = profile?.schools?.plan || 'decouverte';
+  const [plan, setPlan] = useState(null);
 
   useEffect(() => {
     document.body.classList.add('app-mode');
@@ -82,6 +82,20 @@ export default function Shell() {
     applySchoolColor(profile?.schools?.color);
     return () => resetSchoolColor();
   }, [profile?.schools?.color]);
+
+  useEffect(() => {
+    if (!profile?.school_id) return;
+    let cancelled = false;
+    supabase
+      .from('schools')
+      .select('plan')
+      .eq('id', profile.school_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setPlan(data?.plan || 'decouverte');
+      });
+    return () => { cancelled = true; };
+  }, [profile?.school_id]);
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
@@ -108,9 +122,11 @@ export default function Shell() {
             <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
             <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
           </div>
-          <a href={supportWhatsappLink("Bonjour, j'ai besoin d'aide sur EcoGès.")} target="_blank" rel="noreferrer" title="Besoin d'aide ? Discuter sur WhatsApp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0 }}>
+          
+          <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
             <HelpIcon />
-          </a>
+          </Link>
+
           <button onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}>
             <span aria-hidden="true">⏻</span> <span className="logout-label">Se déconnecter</span>
           </button>
@@ -192,10 +208,8 @@ function SidebarMenu({ plan }) {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
-  // Filtrer selon le plan : seules les entrées dont la feature
-  // est incluse apparaissent dans le menu.
   const visibleItems = SIDEBAR_ITEMS.filter(
-    (item) => !item.feature || hasFeature(plan, item.feature)
+    (item) => !item.feature || plan === null || hasFeature(plan, item.feature)
   );
 
   return (
