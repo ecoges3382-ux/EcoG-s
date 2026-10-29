@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { 
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
+  LineChart, Line, PieChart, Pie, Cell, Legend 
+} from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, todayIso, downloadCsv, stickyColStyle } from '../lib/utils.js';
@@ -103,8 +107,11 @@ export default function Dashboard() {
       {!isHistorical && <OnboardingBanner />}
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
-
-      <TrendsSection schoolYear={schoolYear} attendance={attendance} />
+      
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18, marginBottom: 28 }}>
+        <TrendsSection schoolYear={schoolYear} attendance={attendance} />
+        <DemographicsSection students={students} />
+      </div>
 
       <ClassBreakdown students={students} attendance={attendance} classResults={classResults} />
 
@@ -140,7 +147,7 @@ function YearKpis({ students, attendance, classResults }) {
     <>
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 18 }}>
         <Link to="/recouvrement" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir le recouvrement détaillé">
-          <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff', cursor: 'pointer' }}>
+          <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff', cursor: 'pointer', height: '100%' }}>
             <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement</p>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
               <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}>{tauxRecouv}%</p>
@@ -152,9 +159,9 @@ function YearKpis({ students, attendance, classResults }) {
           </div>
         </Link>
         <Link to="/eleves" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir la liste des élèves">
-          <div className="card-bold stat-in" style={{ padding: '22px 24px', cursor: 'pointer' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif</p>
-            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 30, fontWeight: 700 }}>{students.length}</p>
+          <div className="card-bold stat-in" style={{ padding: '22px 24px', cursor: 'pointer', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif global</p>
+            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 38, fontWeight: 700 }}>{students.length}</p>
             <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>élève{students.length > 1 ? 's' : ''} inscrit{students.length > 1 ? 's' : ''}</p>
           </div>
         </Link>
@@ -235,162 +242,158 @@ function TrendsSection({ schoolYear, attendance }) {
   const months = buildSchoolYearMonths(schoolYear);
 
   const paymentsData = months.map((m) => ({
-    label: m.label,
+    name: m.label,
     value: (payments || [])
       .filter((p) => p.date && p.date.startsWith(m.key))
       .reduce((a, p) => a + Number(p.montant), 0),
   }));
-  const totalPayments = paymentsData.reduce((a, d) => a + d.value, 0);
-  const avgPayments = months.length > 0 ? totalPayments / months.length : 0;
-
+  
   const presenceData = months.map((m) => {
     const records = (attendance || []).filter((r) => r.date && r.date.startsWith(m.key));
-    if (records.length === 0) return { label: m.label, value: 0, hasData: false };
+    if (records.length === 0) return { name: m.label, value: 0, hasData: false };
     const presents = records.filter((r) => r.statut === 'present' || r.statut === 'retard').length;
-    return { label: m.label, value: Math.round((presents / records.length) * 100), hasData: true };
+    return { name: m.label, value: Math.round((presents / records.length) * 100), hasData: true };
   });
-  const monthsWithData = presenceData.filter((d) => d.hasData);
-  const avgPresence = monthsWithData.length > 0
-    ? Math.round(monthsWithData.reduce((a, d) => a + d.value, 0) / monthsWithData.length)
-    : 0;
+
+  const CustomTooltip = ({ active, payload, label, isCurrency }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div style={{ background: 'var(--ink)', padding: '8px 12px', borderRadius: 8, color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{label}</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
+            {isCurrency ? fmtF(payload[0].value) : `${payload[0].value}%`}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
-    <div style={{ marginBottom: 28 }}>
-      <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>
-        Tendances mensuelles
-      </p>
-      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <TrendChart
-          title="Encaissements par mois"
-          subtitle={totalPayments > 0
-            ? `Total ${fmtF(totalPayments)} · moyenne ${fmtF(Math.round(avgPayments))}/mois`
-            : 'Aucun paiement sur cette période'}
-          icon="ti-trending-up"
-          color="#0F4C3A"
-          colorLight="#1F8A62"
-          data={paymentsData}
-          formatValue={(v) => fmtF(v)}
-          emptyMessage="Aucun paiement enregistré pour cette année."
-        />
-        <TrendChart
-          title="Taux de présence par mois"
-          subtitle={monthsWithData.length > 0
-            ? `Moyenne ${avgPresence}% sur ${monthsWithData.length} mois`
-            : 'Aucun appel enregistré sur cette période'}
-          icon="ti-chart-line"
-          color="#D4A849"
-          colorLight="#EBCB82"
-          data={presenceData.map((d) => ({ label: d.label, value: d.value }))}
-          formatValue={(v) => (v > 0 ? `${v}%` : '—')}
-          emptyMessage="Aucun appel enregistré pour cette année."
-          maxValue={100}
-        />
+    <div className="card-bold" style={{ padding: '20px 24px', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Tendances mensuelles</p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Encaissements et présences</p>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest)' }}>Encaissements</p>
+        <div style={{ width: '100%', height: 180 }}>
+          <ResponsiveContainer>
+            <AreaChart data={paymentsData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorPayments" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--forest)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--forest)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} tickFormatter={(val) => val > 1000 ? `${val / 1000}k` : val} />
+              <Tooltip content={<CustomTooltip isCurrency={true} />} />
+              <Area type="monotone" dataKey="value" stroke="var(--forest)" strokeWidth={3} fillOpacity={1} fill="url(#colorPayments)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div>
+        <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--gold)' }}>Taux de présence (%)</p>
+        <div style={{ width: '100%', height: 150 }}>
+          <ResponsiveContainer>
+            <LineChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} domain={[0, 100]} />
+              <Tooltip content={<CustomTooltip isCurrency={false} />} />
+              <Line type="monotone" dataKey="value" stroke="var(--gold)" strokeWidth={3} dot={{ r: 4, fill: 'var(--gold)', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
 }
 
-function TrendChart({ title, subtitle, icon, color, colorLight, data, formatValue, emptyMessage, maxValue }) {
-  const [hoverIdx, setHoverIdx] = useState(null);
-  const hasAny = (data || []).some((d) => d.value > 0);
+function DemographicsSection({ students }) {
+  const boys = students.filter((s) => s.sexe === 'M').length;
+  const girls = students.filter((s) => s.sexe === 'F').length;
+  const other = students.length - boys - girls;
 
-  if (!hasAny) {
+  const data = [
+    { name: 'Garçons', value: boys, color: '#4A90E2' },
+    { name: 'Filles', value: girls, color: '#E26D8A' },
+  ];
+  if (other > 0) data.push({ name: 'Non renseigné', value: other, color: 'var(--muted)' });
+
+  const total = students.length;
+
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if (percent < 0.05) return null;
     return (
-      <div className="card-bold" style={{ padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{title}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>{subtitle}</p>
-          </div>
-          <i className={`ti ${icon}`} style={{ fontSize: 22, color }} aria-hidden="true"></i>
-        </div>
-        <div style={{ padding: '32px 0', textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', fontStyle: 'italic' }}>{emptyMessage}</p>
-        </div>
-      </div>
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
     );
-  }
-
-  const max = maxValue || Math.max(...(data || []).map((d) => d.value), 1);
-  const count = (data || []).length || 1;
-  const chartHeight = 130;
+  };
 
   return (
-    <div className="card-bold" style={{ padding: '18px 20px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{title}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>{subtitle}</p>
-        </div>
-        <i className={`ti ${icon}`} style={{ fontSize: 22, color, flexShrink: 0 }} aria-hidden="true"></i>
+    <div className="card-bold" style={{ padding: '20px 24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ marginBottom: 10 }}>
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Répartition Filles / Garçons</p>
+        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Démographie de l'école</p>
       </div>
-
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: Math.max(4, 24 / count), height: chartHeight + 24 }}>
-        {(data || []).map((d, i) => {
-          const pct = max > 0 ? Math.min(d.value / max, 1) : 0;
-          const barHeight = Math.max(pct * chartHeight, d.value > 0 ? 4 : 2);
-          const isHover = hoverIdx === i;
-          const isFuture = d.value === 0 && max > 0;
-          return (
-            <div
-              key={`${d.label}-${i}`}
-              onMouseEnter={() => setHoverIdx(i)}
-              onMouseLeave={() => setHoverIdx(null)}
-              onTouchStart={() => setHoverIdx(i)}
-              style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', position: 'relative', cursor: 'pointer' }}
-            >
-              {isHover && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: barHeight + 12,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'var(--ink)',
-                  color: '#fff',
-                  padding: '3px 8px',
-                  borderRadius: 6,
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                  zIndex: 5,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                }}>
-                  {formatValue(d.value)}
-                </div>
-              )}
-              <div style={{
-                width: '100%',
-                height: barHeight,
-                background: isHover
-                  ? `linear-gradient(180deg, ${colorLight} 0%, ${color} 100%)`
-                  : isFuture
-                    ? 'var(--line)'
-                    : `linear-gradient(180deg, ${color} 0%, ${colorLight} 100%)`,
-                borderRadius: '6px 6px 2px 2px',
-                minHeight: 2,
-                transition: 'height 0.4s ease, background 0.15s',
-              }} />
+      
+      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
+        {total === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={90}
+                  paddingAngle={4}
+                  dataKey="value"
+                  labelLine={false}
+                  label={renderCustomizedLabel}
+                  stroke="none"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value) => [`${value} élèves`, '']}
+                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{total}</p>
+              <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Élèves</p>
             </div>
-          );
-        })}
+          </>
+        )}
       </div>
 
-      <div style={{ display: 'flex', gap: Math.max(4, 24 / count), marginTop: 6 }}>
-        {(data || []).map((d, i) => (
-          <p
-            key={`lbl-${d.label}-${i}`}
-            style={{
-              flex: 1,
-              margin: 0,
-              textAlign: 'center',
-              fontSize: 10,
-              fontWeight: 600,
-              color: hoverIdx === i ? 'var(--ink)' : 'var(--muted)',
-              transition: 'color 0.15s',
-            }}
-          >
-            {d.label}
-          </p>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10 }}>
+        {data.map((d) => (
+          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
+          </div>
         ))}
       </div>
     </div>
