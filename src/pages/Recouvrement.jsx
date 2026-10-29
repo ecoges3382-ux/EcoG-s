@@ -267,11 +267,12 @@ export default function Recouvrement() {
         ))}
       </div>
 
-      {/* AJOUT DU SCROLL INTERNE ICI */}
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 820 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 1 }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span>
+          {/* L'en-tête a maintenant un z-index plus élevé (10) pour passer au-dessus des lignes */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
+            {/* La première colonne de l'en-tête a un z-index encore plus élevé (11) */}
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11 }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
             <span>Connexes</span>
