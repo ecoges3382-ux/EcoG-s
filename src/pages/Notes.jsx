@@ -195,11 +195,11 @@ export default function Notes() {
           {grades && (
             <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
               
-              {/* AJOUT DU SCROLL INTERNE SUR LA LISTE DES NOTES */}
               <div data-tour="notes-list" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', paddingRight: 4 }}>
                 {groupesParType.map((groupe) => (
                   <div key={groupe.id} className="card-bold" style={{ overflow: 'hidden', marginBottom: 16 }}>
-                    <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 1 }}>
+                    {/* CORRECTION ICI : zIndex: 10 et background opaque */}
+                    <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
                       <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)' }}>{groupe.items.length}</span>
                     </div>
@@ -244,7 +244,8 @@ export default function Notes() {
 
               {eleveId === 'Tout' && (
                 <div data-tour="notes-rank" className="card-bold" style={{ padding: '16px 18px', maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)', position: 'sticky', top: 0, background: 'var(--paper)', zIndex: 1, paddingBottom: 4 }}>
+                  {/* CORRECTION ICI : zIndex: 10, background opaque et paddingTop */}
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)', position: 'sticky', top: 0, background: 'var(--paper)', zIndex: 10, paddingTop: 4, paddingBottom: 8 }}>
                     Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
                   </p>
                   {classement.map((c, i) => (
