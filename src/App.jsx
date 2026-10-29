@@ -39,6 +39,7 @@ const Accounts = lazy(() => import('./pages/Accounts.jsx'));
 const FirstTimeSetup = lazy(() => import('./pages/FirstTimeSetup.jsx'));
 const CGU = lazy(() => import('./pages/CGU.jsx'));
 const Confidentialite = lazy(() => import('./pages/Confidentialite.jsx'));
+const Aide = lazy(() => import('./pages/Aide.jsx'));
 
 function SetupNeeded() {
   return (
@@ -136,6 +137,7 @@ function RoleRouter() {
         <Route path="parametres/whatsapp" element={<SettingsWhatsApp />} />
         <Route path="premiers-pas" element={<FirstTimeSetup />} />
         <Route path="comptes" element={<Accounts />} />
+        <Route path="aide" element={<Aide />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
