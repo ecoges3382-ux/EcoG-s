@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
@@ -17,10 +16,10 @@ import Dropdown from '../components/Dropdown.jsx';
 import DatePicker from '../components/DatePicker.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
-import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
+import ModalContainer from '../components/ModalContainer.jsx';
 
 function TrashIcon() {
   return (
@@ -34,38 +33,6 @@ function PencilIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
-    </svg>
-  );
-}
-
-function MoneyIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2.5" y="6" width="19" height="12" rx="1.8" /><circle cx="12" cy="12" r="2.5" />
-    </svg>
-  );
-}
-
-function ReceiptIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 3.5v17l3-2 3 2 3-2 3 2 3-2v-15z" /><path d="M9 8h6M9 12h6M9 16h4" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="9" cy="8" r="3.3" /><path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" /><circle cx="17" cy="8.5" r="2.4" /><path d="M15.5 14c2.4.2 4.2 2.4 4.4 4.7" />
-    </svg>
-  );
-}
-
-function WalletIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H18v2.5" /><path d="M3 7.5v9A2.5 2.5 0 0 0 5.5 19H19a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2H5.5A2.5 2.5 0 0 1 3 7.5z" /><circle cx="16.5" cy="13.5" r="1" />
     </svg>
   );
 }
@@ -368,7 +335,7 @@ function Payments() {
       </div>
 
       {canManage && (
-        <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ marginBottom: 18, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
+        <button data-tour="money-add-payment" onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ marginBottom: 18, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Enregistrer un paiement
         </button>
       )}
@@ -533,12 +500,9 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
   }
 
   if (students.length === 0) {
-    return createPortal(
-      <div
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      >
-        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
+    return (
+      <ModalContainer onClose={onClose} maxWidth={420}>
+        <div style={{ padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Aucun élève inscrit</p>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
             Il faut d'abord inscrire au moins un élève avant de pouvoir enregistrer un paiement.
@@ -558,17 +522,13 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
             Annuler
           </button>
         </div>
-      </div>,
-      document.body
+      </ModalContainer>
     );
   }
 
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 460, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={460}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Nouveau paiement</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -627,8 +587,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
@@ -981,12 +940,9 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
     onSaved();
   }
 
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={440}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Modifier l'avance</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -1014,8 +970,7 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
