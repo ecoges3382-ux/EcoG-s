@@ -267,9 +267,10 @@ export default function Recouvrement() {
         ))}
       </div>
 
-      <div className="card-bold" style={{ overflowX: 'auto' }}>
+      {/* AJOUT DU SCROLL INTERNE ICI */}
+      <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 820 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 1 }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
