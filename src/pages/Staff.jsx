@@ -111,7 +111,13 @@ export default function Staff() {
       data.forEach((a) => {
         const solde = Number(a.solde) || 0;
         if (solde > 0) {
-          map[a.staff_id] = (map[a.staff_id] || 0) + solde;
+          if (!map[a.staff_id]) map[a.staff_id] = { affiche: 0, deduit: 0, enAttente: 0 };
+          map[a.staff_id].affiche += solde;
+          if (a.statut === 'approuvee') {
+            map[a.staff_id].deduit += solde;
+          } else {
+            map[a.staff_id].enAttente += solde;
+          }
         }
       });
       setAdvancesByStaff(map);
@@ -128,12 +134,20 @@ export default function Staff() {
   }
 
   function avanceFor(staffId) {
-    return advancesByStaff[staffId] || 0;
+    return advancesByStaff[staffId]?.affiche || 0;
+  }
+
+  function avanceDeduiteFor(staffId) {
+    return advancesByStaff[staffId]?.deduit || 0;
+  }
+
+  function avanceEnAttenteFor(staffId) {
+    return advancesByStaff[staffId]?.enAttente || 0;
   }
 
   function resteFor(p) {
     if (p.salaire_mensuel == null) return null;
-    return Number(p.salaire_mensuel) - avanceFor(p.id);
+    return Number(p.salaire_mensuel) - avanceDeduiteFor(p.id);
   }
 
   function reloadSubjects() {
@@ -172,14 +186,23 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', 'Avance sur salaire', 'Reste', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
+    const rows = [[
+      'Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études",
+      'Salaire mensuel',
+      'Avance approuvée (déduite)',
+      'Avance en attente (non déduite)',
+      'Reste à percevoir',
+      "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail',
+    ]];
     visibleStaff.forEach((p) => {
-      const avance = avanceFor(p.id);
+      const deduit = avanceDeduiteFor(p.id);
+      const enAttente = avanceEnAttenteFor(p.id);
       const reste = resteFor(p);
       rows.push([
         p.full_name, p.matricule || '', p.statut === 'inactif' ? 'Archivé' : 'Actif', p.role, p.niveau_etudes || '',
         p.salaire_mensuel != null ? p.salaire_mensuel : '',
-        avance,
+        deduit,
+        enAttente,
         reste != null ? reste : '',
         p.date_entree || '',
         (p.classes || []).join(' / '),
@@ -322,6 +345,7 @@ export default function Staff() {
             {visibleStaff.map((p, i) => {
               const salaireManquant = !showArchives && p.salaire_mensuel == null;
               const avance = avanceFor(p.id);
+              const avanceEnAttente = avanceEnAttenteFor(p.id);
               const reste = resteFor(p);
               return (
                 <div key={p.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '14px 20px' : '14px 20px 14px 0', alignItems: 'center', borderBottom: i < visibleStaff.length - 1 ? '1px solid var(--line)' : 'none' }}>
@@ -355,6 +379,14 @@ export default function Staff() {
                     </span>
                     <span style={{ fontSize: 13, fontWeight: avance > 0 ? 600 : 400, color: avance > 0 ? 'var(--amber)' : 'var(--muted)' }}>
                       {fmtF(avance)}
+                      {avanceEnAttente > 0 && (
+                        <span
+                          title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`}
+                          style={{ color: 'var(--clay-dark)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}
+                        >
+                          *
+                        </span>
+                      )}
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: reste == null ? 'var(--muted)' : (reste < 0 ? 'var(--danger)' : 'var(--success)') }}>
                       {reste == null ? '—' : fmtF(reste)}
