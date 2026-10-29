@@ -269,9 +269,7 @@ export default function Recouvrement() {
 
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 820 }}>
-          {/* L'en-tête a maintenant un z-index plus élevé (10) pour passer au-dessus des lignes */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
-            {/* La première colonne de l'en-tête a un z-index encore plus élevé (11) */}
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11 }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
@@ -387,10 +385,9 @@ function TypeCard({ label, du, paye, reste, taux, inscription, count }) {
 function PriorityCard({ title, icon, accent, accentDark, accentLight, students, getReste, totalReste }) {
   const enRetard = students.filter((s) => s.enRetard);
   const aJour = students.length - enRetard.length;
-  const top = students.slice(0, 8);
 
   return (
-    <div className="card-bold" style={{ padding: '16px 18px' }}>
+    <div className="card-bold" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', maxHeight: 400 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <i className={`ti ${icon}`} style={{ fontSize: 18, color: accent }} aria-hidden="true"></i>
@@ -412,20 +409,20 @@ function PriorityCard({ title, icon, accent, accentDark, accentLight, students, 
       </p>
 
       {students.length === 0 ? (
-        <p style={{ margin: 0, padding: '14px 0', fontSize: 12.5, color: 'var(--success)', fontWeight: 600, textAlign: 'center' }}>
+        <p style={{ margin: 'auto 0', padding: '14px 0', fontSize: 12.5, color: 'var(--success)', fontWeight: 600, textAlign: 'center' }}>
           <i className="ti ti-check" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
           Tout est à jour
         </p>
       ) : (
-        <div style={{ borderTop: '1px solid var(--line)', paddingTop: 4 }}>
-          {top.map((s, i) => (
+        <div style={{ borderTop: '1px solid var(--line)', overflowY: 'auto', flex: 1, paddingRight: 4 }}>
+          {students.map((s, i) => (
             <Link
               key={s.id}
               to={`/eleves/${s.id}`}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '8px 0', textDecoration: 'none', color: 'inherit',
-                borderBottom: i < top.length - 1 ? '1px solid var(--line)' : 'none', gap: 8,
+                borderBottom: i < students.length - 1 ? '1px solid var(--line)' : 'none', gap: 8,
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -446,11 +443,6 @@ function PriorityCard({ title, icon, accent, accentDark, accentLight, students, 
               </div>
             </Link>
           ))}
-          {students.length > top.length && (
-            <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center', fontStyle: 'italic' }}>
-              + {students.length - top.length} autre{students.length - top.length > 1 ? 's' : ''} — voir le détail ci-dessous
-            </p>
-          )}
         </div>
       )}
     </div>
