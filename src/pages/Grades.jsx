@@ -9,7 +9,6 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
-import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -19,28 +18,14 @@ function periodeLabel(p) {
   return p === 'annuel' ? 'Année complète' : p;
 }
 
-function UsersIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="9" cy="8" r="3.3" /><path d="M2.8 20c0-3.4 2.8-6 6.2-6s6.2 2.6 6.2 6" /><circle cx="17" cy="8.5" r="2.4" /><path d="M15.5 14c2.4.2 4.2 2.4 4.4 4.7" />
-    </svg>
-  );
-}
-
-function BookIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 5.5c0-1 .8-1.5 2-1.5h6v15H6c-1.2 0-2 .5-2 1.5V5.5z" /><path d="M20 5.5c0-1-.8-1.5-2-1.5h-6v15h6c1.2 0 2 .5 2 1.5V5.5z" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
-    </svg>
-  );
+function getMention(moyenne) {
+  if (moyenne == null) return '—';
+  if (moyenne >= 18) return 'Excellent';
+  if (moyenne >= 16) return 'Très bien';
+  if (moyenne >= 14) return 'Bien';
+  if (moyenne >= 12) return 'Assez bien';
+  if (moyenne >= 10) return 'Passable';
+  return 'Insuffisant';
 }
 
 export default function Grades() {
@@ -55,6 +40,15 @@ export default function Grades() {
   const [studentId, setStudentId] = useState('');
   const [periode, setPeriode] = useState('Trimestre 1');
   const tour = usePageTour('grades');
+
+  // Appréciations générales
+  const [appreciations, setAppreciations] = useState([]);
+  const [editing, setEditing] = useState(false);
+  const [draftAppreciation, setDraftAppreciation] = useState('');
+  const [draftDecision, setDraftDecision] = useState('');
+  const [savingAppreciation, setSavingAppreciation] = useState(false);
+
+  const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
 
   useEffect(() => {
     if (!schoolYear) return;
@@ -87,6 +81,18 @@ export default function Grades() {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
+  // Chargement des appréciations
+  async function loadAppreciations() {
+    if (!schoolYear) return;
+    const { data } = await supabase
+      .from('report_card_appreciations')
+      .select('*')
+      .eq('school_year_id', schoolYear.id);
+    setAppreciations(data || []);
+  }
+
+  useEffect(() => { loadAppreciations(); }, [schoolYear?.id]);
+
   const niveaux = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const studentsInNiveau = students.filter((s) => s.niveau === niveau);
 
@@ -95,6 +101,13 @@ export default function Grades() {
       setStudentId(studentsInNiveau[0].id);
     }
   }, [niveau, students]);
+
+  // Annule l'édition quand on change d'élève ou de période
+  useEffect(() => {
+    setEditing(false);
+    setDraftAppreciation('');
+    setDraftDecision('');
+  }, [studentId, periode]);
 
   const student = students.find((s) => s.id === studentId);
   const subjectsForNiveau = subjects.filter((su) => !su.niveau || su.niveau === niveau);
@@ -120,6 +133,49 @@ export default function Grades() {
     ? computeRang(subjectsForNiveau, grades || [], studentsInNiveau.map((s) => s.id), studentId, annuel ? 'annuel' : periode)
     : null;
 
+  // Moyenne de la classe : on calcule la moyenne générale de chaque élève
+  // de la classe sur la période, puis on fait la moyenne de ces moyennes
+  // (uniquement pour ceux qui ont au moins une note).
+  const moyenneClasse = useMemo(() => {
+    if (!studentsInNiveau.length) return null;
+    const moyennes = studentsInNiveau
+      .map((s) => {
+        if (annuel) return annualMoyenneGenerale(subjectsForNiveau, grades || [], s.id);
+        return periodeMoyenneGenerale(subjectsForNiveau, grades || [], s.id, periode);
+      })
+      .filter((m) => m != null);
+    if (!moyennes.length) return null;
+    return moyennes.reduce((a, b) => a + b, 0) / moyennes.length;
+  }, [studentsInNiveau, subjectsForNiveau, grades, periode, annuel]);
+
+  // Récupère l'appréciation courante pour l'élève et la période
+  const currentAppreciation = appreciations.find(
+    (a) => a.student_id === studentId && a.periode === periode
+  );
+  const appreciationText = currentAppreciation?.appreciation || '';
+  const decisionText = currentAppreciation?.decision || '';
+
+  async function handleSaveAppreciation() {
+    if (!studentId || !schoolYear) return;
+    setSavingAppreciation(true);
+    setError('');
+    const payload = {
+      school_id: profile.school_id,
+      school_year_id: schoolYear.id,
+      student_id: studentId,
+      periode: periode,
+      appreciation: draftAppreciation.trim() || null,
+      decision: periode === 'annuel' ? (draftDecision.trim() || null) : null,
+    };
+    const { error: saveError } = await supabase
+      .from('report_card_appreciations')
+      .upsert(payload, { onConflict: 'school_year_id,student_id,periode' });
+    setSavingAppreciation(false);
+    if (saveError) { setError(saveError.message); return; }
+    setEditing(false);
+    await loadAppreciations();
+  }
+
   return (
     <div>
       <SchoolTabs />
@@ -135,19 +191,7 @@ export default function Grades() {
       {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}
       {!error && grades === null && <div className="card-bold"><SkeletonTableRows count={5} columns={3} /></div>}
 
-      {grades !== null && students.length === 0 && (
-        <div className="card-bold">
-          <EmptyState
-            icon={<UsersIcon />}
-            title="Aucun élève inscrit"
-            subtitle="Les bulletins se génèrent à partir des élèves inscrits. Commence par inscrire tes premiers élèves."
-            actionLabel="Aller vers Élèves"
-            actionTo="/eleves"
-          />
-        </div>
-      )}
-
-      {grades !== null && students.length > 0 && (
+      {grades !== null && (
         <>
           <div data-tour="grades-selectors" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 22, alignItems: 'flex-end' }}>
             <div>
@@ -229,29 +273,11 @@ export default function Grades() {
                   ))}
                 </>
               )}
-
-              {lignes.length === 0 && (
-                <div style={{ marginTop: 6 }}>
-                  <EmptyState
-                    icon={<BookIcon />}
-                    title="Aucune matière pour cette classe"
-                    subtitle="Les bulletins ont besoin des matières enseignées. Ajoute-les d'abord dans « Matières »."
-                    actionLabel="Aller vers Matières"
-                    actionTo="/matieres"
-                  />
-                </div>
-              )}
-
+              {lignes.length === 0 && <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>Aucune matière pour ce niveau.</p>}
               {lignes.length > 0 && moyenneGenerale == null && (
-                <div style={{ marginTop: 6 }}>
-                  <EmptyState
-                    icon={<PencilIcon />}
-                    title="Aucune note enregistrée"
-                    subtitle={`Aucune note pour ${annuel ? 'cette année' : 'cette période'} — impossible de calculer une moyenne. Saisis les notes de cet élève.`}
-                    actionLabel="Aller vers Notes"
-                    actionTo="/notes"
-                  />
-                </div>
+                <p style={{ padding: '14px 0', color: 'var(--muted)', fontSize: 13 }}>
+                  Aucune note enregistrée {annuel ? 'sur cette année' : 'pour cette période'} — aucune moyenne ne peut être calculée.
+                </p>
               )}
 
               <div data-tour="grades-summary" style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -272,21 +298,93 @@ export default function Grades() {
                 </div>
               </div>
 
+              {/* Effectif + Moyenne classe + Mention */}
+              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '10px 14px' }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '11px', fontWeight: 600, color: 'var(--muted)' }}>Effectif</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{studentsInNiveau.length} élèves</p>
+                </div>
+                <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '10px 14px' }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '11px', fontWeight: 600, color: 'var(--muted)' }}>Moyenne de la classe</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{moyenneClasse != null ? `${moyenneClasse.toFixed(2)} / 20` : '—'}</p>
+                </div>
+                <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '10px 14px' }}>
+                  <p style={{ margin: '0 0 3px', fontSize: '11px', fontWeight: 600, color: 'var(--muted)' }}>Mention</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{getMention(moyenneGenerale)}</p>
+                </div>
+              </div>
+
+              {/* Appréciation et décision */}
+              <div style={{ marginTop: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Appréciation et décision</p>
+                  {canManage && !editing && (
+                    <button
+                      type="button"
+                      className="no-print"
+                      onClick={() => { setEditing(true); setDraftAppreciation(appreciationText); setDraftDecision(decisionText); }}
+                      style={{ fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+                    >
+                      Modifier
+                    </button>
+                  )}
+                </div>
+                {!editing ? (
+                  <>
+                    <p style={{ margin: '0 0 8px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>
+                      {appreciationText || 'Aucune appréciation enregistrée pour cette période.'}
+                    </p>
+                    {annuel && (
+                      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>
+                        Décision de passage : {decisionText || 'À définir.'}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="no-print">
+                    <textarea
+                      value={draftAppreciation}
+                      onChange={(e) => setDraftAppreciation(e.target.value)}
+                      placeholder="Appréciation générale du conseil (ex: Élève sérieux, travail régulier...)"
+                      rows={3}
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 8, resize: 'vertical' }}
+                    />
+                    {annuel && (
+                      <input
+                        value={draftDecision}
+                        onChange={(e) => setDraftDecision(e.target.value)}
+                        placeholder="Décision de passage (ex: Passe en classe supérieure, Redouble...)"
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 8 }}
+                      />
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(false)}
+                        style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveAppreciation}
+                        disabled={savingAppreciation}
+                        style={{ fontSize: 12.5, fontWeight: 600, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', cursor: 'pointer', opacity: savingAppreciation ? 0.7 : 1 }}
+                      >
+                        {savingAppreciation ? 'Enregistrement…' : 'Enregistrer'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 30, fontSize: 12, color: 'var(--muted)' }}>
                 <span>Signature de l'enseignant</span>
                 <span>Cachet de l'école — Le directeur</span>
               </div>
             </div>
           ) : (
-            <div className="card-bold">
-              <EmptyState
-                icon={<UsersIcon />}
-                title="Aucun élève dans cette classe"
-                subtitle="Change de classe ou inscris des élèves dans celle-ci pour voir leurs bulletins."
-                actionLabel="Aller vers Élèves"
-                actionTo="/eleves"
-              />
-            </div>
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun élève dans ce niveau.</p>
           )}
         </>
       )}
