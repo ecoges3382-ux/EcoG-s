@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
-  LineChart, Line, PieChart, Pie, Cell, Legend 
+  PieChart, Pie, Cell 
 } from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
@@ -108,7 +108,7 @@ export default function Dashboard() {
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
       
-      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18, marginBottom: 28 }}>
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 18, marginBottom: 28 }}>
         <TrendsSection schoolYear={schoolYear} attendance={attendance} />
         <DemographicsSection students={students} />
       </div>
@@ -303,13 +303,19 @@ function TrendsSection({ schoolYear, attendance }) {
         <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--gold)' }}>Taux de présence (%)</p>
         <div style={{ width: '100%', height: 150 }}>
           <ResponsiveContainer>
-            <LineChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorPresence" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--gold)" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="var(--gold)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
               <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} domain={[0, 100]} />
               <Tooltip content={<CustomTooltip isCurrency={false} />} />
-              <Line type="monotone" dataKey="value" stroke="var(--gold)" strokeWidth={3} dot={{ r: 4, fill: 'var(--gold)', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-            </LineChart>
+              <Area type="monotone" dataKey="value" stroke="var(--gold)" strokeWidth={3} fillOpacity={1} fill="url(#colorPresence)" />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -387,7 +393,7 @@ function DemographicsSection({ students }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, flexWrap: 'wrap' }}>
         {data.map((d) => (
           <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
