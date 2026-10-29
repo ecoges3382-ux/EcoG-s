@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, ROLES, generateAccessCode, displayName, sortByRole, supportWhatsappLink } from '../lib/utils.js';
+import { initials, ROLES, generateAccessCode, displayName, sortByRole } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
 import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../components/PhoneInput.jsx';
@@ -13,7 +12,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow, SkeletonLine } from '../components/Skeleton.jsx';
-import { canAddStaffAccount, getPlanLabel, staffQuotaLabel, getPlan } from '../lib/plan.js';
+import ModalContainer from '../components/ModalContainer.jsx';
 
 function useStudentsForLinking(schoolYearId) {
   const [students, setStudents] = useState(null);
@@ -84,13 +83,6 @@ function StaffAccounts() {
   const [menuForId, setMenuForId] = useState(null);
   const [editing, setEditing] = useState(null);
 
-  const plan = profile?.schools?.plan || 'decouverte';
-  const planLabel = getPlanLabel(plan);
-  const quota = getPlan(plan).maxStaffAccounts;
-  const accountCount = accounts?.length || 0;
-  const quotaReached = !canAddStaffAccount(plan, accountCount);
-  const quotaWarning = quota !== Infinity && accountCount >= Math.max(1, Math.floor(quota * 0.8));
-
   async function reload() {
     await guardedFetch({
       cacheKey: `staff_accounts_${profile.school_id}`,
@@ -130,48 +122,14 @@ function StaffAccounts() {
     );
   }
 
-  const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} comptes utilisateurs). Pouvez-vous me donner les prochaines étapes ?`;
-
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Directeur, secrétaire, enseignant — chacun avec son propre e-mail et mot de passe.</p>
-        <button onClick={() => setModalOpen(true)} disabled={quotaReached} title={quotaReached ? `Limite du plan ${planLabel} atteinte (${quota} comptes)` : undefined} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0, opacity: quotaReached ? 0.5 : 1, cursor: quotaReached ? 'not-allowed' : 'pointer' }}>
+        <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0 }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouveau compte
         </button>
       </div>
-
-      {/* Bandeau quota */}
-      {(quotaWarning || quotaReached) && (
-        <div className="card-bold" style={{ padding: '12px 16px', marginBottom: 14, background: quotaReached ? 'var(--danger-light)' : 'var(--amber-light)', borderColor: quotaReached ? 'var(--danger)' : 'var(--amber)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: '1 1 300px' }}>
-              <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
-              <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)' }}>
-                  {quotaReached
-                    ? `Limite atteinte — ${accountCount} / ${quota} comptes (plan ${planLabel})`
-                    : `Vous approchez de la limite — ${accountCount} / ${quota} comptes (plan ${planLabel})`}
-                </p>
-                <p style={{ margin: '3px 0 0', fontSize: 12, color: quotaReached ? 'var(--danger)' : 'var(--clay-dark)', lineHeight: 1.5 }}>
-                  {quotaReached
-                    ? 'Vous ne pouvez plus créer de nouveau compte. Passez à un plan supérieur pour continuer.'
-                    : `Il vous reste ${quota - accountCount} compte${(quota - accountCount) > 1 ? 's' : ''} disponible${(quota - accountCount) > 1 ? 's' : ''}.`}
-                </p>
-              </div>
-            </div>
-            <a
-              href={supportWhatsappLink(upgradeMessage)}
-              target="_blank"
-              rel="noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, background: quotaReached ? 'var(--danger)' : 'var(--clay)', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 12.5, whiteSpace: 'nowrap' }}
-            >
-              <i className="ti ti-brand-whatsapp" style={{ fontSize: 14 }} aria-hidden="true"></i>
-              Passer au plan supérieur
-            </a>
-          </div>
-        </div>
-      )}
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
       {offline && <OfflineBanner />}
@@ -201,8 +159,6 @@ function StaffAccounts() {
 
       {modalOpen && (
         <NewStaffAccountModal
-          plan={plan}
-          accountCount={accountCount}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
         />
@@ -221,7 +177,7 @@ function StaffAccounts() {
   );
 }
 
-function NewStaffAccountModal({ plan, accountCount, onClose, onCreated }) {
+function NewStaffAccountModal({ onClose, onCreated }) {
   const showToast = useToast();
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState(CREATABLE_STAFF_ROLES[0]);
@@ -231,36 +187,6 @@ function NewStaffAccountModal({ plan, accountCount, onClose, onCreated }) {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const quotaReached = !canAddStaffAccount(plan, accountCount);
-
-  if (quotaReached) {
-    const planLabel = getPlanLabel(plan);
-    const quota = getPlan(plan).maxStaffAccounts;
-    const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} comptes utilisateurs). Pouvez-vous me donner les prochaines étapes ?`;
-    return (
-      <ModalShell title="Limite atteinte" onClose={onClose}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--danger-light)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <i className="ti ti-lock" style={{ fontSize: 26 }} aria-hidden="true"></i>
-          </div>
-          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600 }}>Plus de place disponible</p>
-          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Votre plan <strong>{planLabel}</strong> permet <strong>{quota} comptes</strong>. Vous les avez tous utilisés.
-          </p>
-          <a
-            href={supportWhatsappLink(upgradeMessage)}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none' }}
-          >
-            <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
-            Passer au plan supérieur
-          </a>
-        </div>
-      </ModalShell>
-    );
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -311,8 +237,6 @@ function NewStaffAccountModal({ plan, accountCount, onClose, onCreated }) {
     </ModalShell>
   );
 }
-
-// ... le reste du fichier (ParentAccessTab, ModalShell, etc.) reste identique
 
 function ParentAccessTab() {
   const showToast = useToast();
@@ -869,20 +793,16 @@ function EditFieldModal({ account, field, functionName, onClose, onSaved }) {
 }
 
 function ModalShell({ title, onClose, children }) {
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={440}>
+      <div style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{title}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
         {children}
       </div>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
