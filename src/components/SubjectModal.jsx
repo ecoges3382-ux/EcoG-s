@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
+import ModalContainer from './ModalContainer.jsx';
 
-// Extrait de Subjects.jsx pour être réutilisable ailleurs (voir
-// src/pages/FirstTimeSetup.jsx, l'assistant de configuration initiale
-// d'une nouvelle école) sans dupliquer le formulaire de création/édition.
 export default function SubjectModal({ schoolId, teachers, classes, editing, onClose, onSaved }) {
   const showToast = useToast();
   const [nom, setNom] = useState(editing?.nom || '');
@@ -42,16 +39,9 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
     onSaved();
   }
 
-  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
-  // le contexte d'empilement créé par l'animation de transition de page
-  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
-  // et la barre de navigation du bas au lieu de les recouvrir.
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={440}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier la matière' : 'Nouvelle matière'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -93,8 +83,7 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
