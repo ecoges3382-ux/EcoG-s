@@ -17,7 +17,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import DatePicker from '../components/DatePicker.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
-import EmptyState from '../components/EmptyState.jsx'; // 👈 L'import qui manquait
+import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -122,6 +122,14 @@ function useEnrollments() {
 function Overview() {
   const { students, error, offline, schoolYear } = useEnrollments();
   const [search, setSearch] = useState('');
+  
+  // Optimisation : Debounce de la recherche (attend 300ms après la dernière frappe)
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {translateError(error)}</p>;
   if (!students) {
     return (
@@ -164,7 +172,7 @@ function Overview() {
   const nbAJour = enrichis.length - avecReste.length;
 
   const filtered = enrichis
-    .filter((s) => !search.trim() || s.full_name.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((s) => !debouncedSearch.trim() || s.full_name.toLowerCase().includes(debouncedSearch.trim().toLowerCase()))
     .sort((a, b) => b.reste - a.reste);
 
   function statutOf(s) {
@@ -328,7 +336,14 @@ function Payments() {
       cacheKey: `payments_${schoolYear.id}`,
       hasData: payments !== null,
       load: async () => {
-        const { data, error: payError } = await supabase.from('payments').select('*, students ( full_name )').eq('school_year_id', schoolYear.id).order('date', { ascending: false }).order('created_at', { ascending: false });
+        // Optimisation : limité à 100 pour ne pas surcharger la page
+        const { data, error: payError } = await supabase
+          .from('payments')
+          .select('*, students ( full_name )')
+          .eq('school_year_id', schoolYear.id)
+          .order('date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(100);
         return payError ? { error: payError } : { data };
       },
       setData: setPayments,
@@ -362,8 +377,8 @@ function Payments() {
     <div>
       {offline && <OfflineBanner />}
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 22 }}>
-        <Stat label="Total encaissé" value={fmtF(totalEncaisse)} color="var(--success)" />
-        <Stat label="Nb paiements" value={payments.length} />
+        <Stat label="Total encaissé (100 derniers)" value={fmtF(totalEncaisse)} color="var(--success)" />
+        <Stat label="Nb paiements (affichés)" value={payments.length} />
         <Stat label="Paiements partiels" value={partiels} color="var(--amber)" />
       </div>
 
