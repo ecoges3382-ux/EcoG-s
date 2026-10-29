@@ -1,7 +1,72 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Wordmark } from '../components/Logo.jsx';
 
+function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  if (!visible) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label="Remonter en haut"
+      title="Remonter en haut"
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        right: 24,
+        zIndex: 40,
+        width: 48,
+        height: 48,
+        borderRadius: '50%',
+        border: 'none',
+        background: 'var(--forest)',
+        color: '#fff',
+        cursor: 'pointer',
+        boxShadow: '0 6px 20px rgba(15,76,58,0.35)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <i className="ti ti-arrow-up" style={{ fontSize: 20 }} aria-hidden="true"></i>
+    </button>
+  );
+}
+
 export default function Confidentialite() {
+  // Fix de scroll — même mécanisme que Landing.jsx et CGU.jsx.
+  useEffect(() => {
+    document.body.classList.remove('app-mode');
+    const styleId = 'confid-scroll-fix';
+    let styleEl = document.getElementById(styleId);
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.innerHTML = `
+        html, body, #root {
+          overflow: auto !important;
+          overflow-y: auto !important;
+          height: auto !important;
+          min-height: 100vh !important;
+          position: static !important;
+          display: block !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+    return () => {
+      const el = document.getElementById(styleId);
+      if (el) el.remove();
+    };
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', padding: '40px 20px' }}>
       <div style={{ maxWidth: 780, margin: '0 auto' }}>
@@ -96,6 +161,7 @@ export default function Confidentialite() {
           <Link to="/cgu" style={{ color: 'var(--forest)', fontWeight: 600 }}>Conditions d'utilisation</Link>
         </p>
       </div>
+      <ScrollToTopButton />
     </div>
   );
 }
