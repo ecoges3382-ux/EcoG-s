@@ -71,7 +71,9 @@ export default function Shell() {
   const location = useLocation();
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
-  const [plan, setPlan] = useState(null);
+  // Le plan vient directement de profile.schools.plan (chargé par AuthProvider
+  // via SELECT schools(id, name, ..., plan)). Pas de requête supplémentaire.
+  const plan = profile?.schools?.plan || 'decouverte';
 
   useEffect(() => {
     document.body.classList.add('app-mode');
@@ -82,20 +84,6 @@ export default function Shell() {
     applySchoolColor(profile?.schools?.color);
     return () => resetSchoolColor();
   }, [profile?.schools?.color]);
-
-  useEffect(() => {
-    if (!profile?.school_id) return;
-    let cancelled = false;
-    supabase
-      .from('schools')
-      .select('plan')
-      .eq('id', profile.school_id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled) setPlan(data?.plan || 'decouverte');
-      });
-    return () => { cancelled = true; };
-  }, [profile?.school_id]);
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
@@ -209,7 +197,7 @@ function SidebarMenu({ plan }) {
   }, [schoolYear?.id]);
 
   const visibleItems = SIDEBAR_ITEMS.filter(
-    (item) => !item.feature || plan === null || hasFeature(plan, item.feature)
+    (item) => !item.feature || hasFeature(plan, item.feature)
   );
 
   return (
