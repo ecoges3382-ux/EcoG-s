@@ -1,13 +1,10 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { NIVEAUX } from '../lib/utils.js';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
+import ModalContainer from './ModalContainer.jsx';
 
-// Extrait de Classes.jsx pour être réutilisable ailleurs (voir
-// src/pages/FirstTimeSetup.jsx, l'assistant de configuration initiale
-// d'une nouvelle école) sans dupliquer le formulaire de création/édition.
 export default function ClassModal({ schoolId, teachers, editing, onClose, onSaved }) {
   const showToast = useToast();
   const [niveau, setNiveau] = useState(editing?.niveau || NIVEAUX[0]);
@@ -42,16 +39,9 @@ export default function ClassModal({ schoolId, teachers, editing, onClose, onSav
     onSaved();
   }
 
-  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
-  // le contexte d'empilement créé par l'animation de transition de page
-  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
-  // et la barre de navigation du bas au lieu de les recouvrir.
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 460, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={460}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier la classe' : 'Nouvelle classe'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -99,8 +89,7 @@ export default function ClassModal({ schoolId, teachers, editing, onClose, onSav
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
