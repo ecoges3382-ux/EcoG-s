@@ -6,14 +6,6 @@ import Landing from './pages/Landing.jsx';
 import Shell from './layout/Shell.jsx';
 import { SkeletonScreen } from './components/Skeleton.jsx';
 
-// Landing (vitrine publique) et Shell (ossature de l'app une fois connecté)
-// restent en import direct : ce sont les deux seuls écrans garantis de
-// s'afficher au tout premier chargement, quel que soit le profil de la
-// personne qui arrive. Chaque page derrière — accessible seulement après
-// authentification ou navigation explicite — est chargée à la demande
-// (un fichier JS par page) plutôt que rapatriée en un seul gros paquet dès
-// le départ, pour que le premier chargement de l'app ne paie jamais pour
-// des écrans que la session en cours ne visitera peut-être jamais.
 const Login = lazy(() => import('./pages/Login.jsx'));
 const SignUp = lazy(() => import('./pages/SignUp.jsx'));
 const AdminSignUp = lazy(() => import('./pages/AdminSignUp.jsx'));
@@ -45,6 +37,8 @@ const Money = lazy(() => import('./pages/Money.jsx'));
 const Recouvrement = lazy(() => import('./pages/Recouvrement.jsx'));
 const Accounts = lazy(() => import('./pages/Accounts.jsx'));
 const FirstTimeSetup = lazy(() => import('./pages/FirstTimeSetup.jsx'));
+const CGU = lazy(() => import('./pages/CGU.jsx'));
+const Confidentialite = lazy(() => import('./pages/Confidentialite.jsx'));
 
 function SetupNeeded() {
   return (
@@ -97,8 +91,6 @@ function RequireAuth({ children }) {
   return children;
 }
 
-// Indépendant de RequireAuth : un administrateur de la plateforme n'a pas
-// forcément de profil d'école (RequireAuth le bloquerait sur ce critère).
 function RequirePlatformAdmin({ children }) {
   const { user, isPlatformAdmin, adminLoading } = useAuth();
   if (adminLoading) {
@@ -160,12 +152,10 @@ export default function App() {
           <Route path="/inscription" element={<RedirectIfAuthed><SignUp /></RedirectIfAuthed>} />
           <Route path="/inscription-administrateur" element={<RedirectIfAuthed><AdminSignUp /></RedirectIfAuthed>} />
           <Route path="/mot-de-passe-oublie" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
-          {/* Pas de RedirectIfAuthed ici : Supabase pose une session "recovery"
-              dès l'arrivée sur ce lien, RedirectIfAuthed la prendrait pour une
-              connexion normale et renverrait vers "/" avant que la personne
-              ait pu choisir son nouveau mot de passe. */}
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
           <Route path="/parent-access" element={<ParentAccess />} />
+          <Route path="/cgu" element={<CGU />} />
+          <Route path="/confidentialite" element={<Confidentialite />} />
           <Route
             path="/admin"
             element={
