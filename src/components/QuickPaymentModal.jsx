@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, MODES, TRANCHES, TYPES_FRAIS } from '../lib/utils.js';
@@ -9,6 +8,7 @@ import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { useToast } from './Toast.jsx';
 import { translateError } from '../lib/errors.js';
+import ModalContainer from './ModalContainer.jsx';
 
 export default function QuickPaymentModal({ student, onClose, onSaved }) {
   const showToast = useToast();
@@ -26,19 +26,19 @@ export default function QuickPaymentModal({ student, onClose, onSaved }) {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!montant) { setError('Le montant est obligatoire.'); return; }
-    
+
     setSubmitting(true);
     setError('');
-    
+
     const { error: insertError } = await supabase.from('payments').insert({
-      school_id: profile.school_id, 
+      school_id: profile.school_id,
       school_year_id: student.school_year_id,
-      student_id: student.id, 
-      type_frais: typeFrais, 
-      montant: Number(montant), 
-      mode, 
-      tranche, 
-      date, 
+      student_id: student.id,
+      type_frais: typeFrais,
+      montant: Number(montant),
+      mode,
+      tranche,
+      date,
       note: note.trim() || null,
       idempotency_key: idempotencyKey,
     });
@@ -49,9 +49,9 @@ export default function QuickPaymentModal({ student, onClose, onSaved }) {
     onSaved();
   }
 
-  return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={440}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Encaisser un paiement</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -104,8 +104,7 @@ export default function QuickPaymentModal({ student, onClose, onSaved }) {
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
