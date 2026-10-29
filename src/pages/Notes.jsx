@@ -195,10 +195,10 @@ export default function Notes() {
           {grades && (
             <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
               
-              <div data-tour="notes-list" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto', paddingRight: 4 }}>
+              {/* TABLEAU 1 : LISTE DES NOTES (Le scroll est maintenant interne à la carte) */}
+              <div data-tour="notes-list" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
                 {groupesParType.map((groupe) => (
-                  <div key={groupe.id} className="card-bold" style={{ overflow: 'hidden', marginBottom: 16 }}>
-                    {/* CORRECTION ICI : zIndex: 10 et background opaque */}
+                  <div key={groupe.id}>
                     <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
                       <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)' }}>{groupe.items.length}</span>
@@ -236,25 +236,29 @@ export default function Notes() {
                   </div>
                 ))}
                 {groupesParType.length === 0 && (
-                  <div className="card-bold" style={{ padding: 20 }}>
+                  <div style={{ padding: 20 }}>
                     <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.</p>
                   </div>
                 )}
               </div>
 
+              {/* TABLEAU 2 : CLASSEMENT (L'en-tête a maintenant exactement le même format) */}
               {eleveId === 'Tout' && (
-                <div data-tour="notes-rank" className="card-bold" style={{ padding: '16px 18px', maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
-                  {/* CORRECTION ICI : zIndex: 10, background opaque et paddingTop */}
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--ink)', position: 'sticky', top: 0, background: 'var(--paper)', zIndex: 10, paddingTop: 4, paddingBottom: 8 }}>
-                    Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
-                  </p>
-                  {classement.map((c, i) => (
-                    <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                      <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
-                    </div>
-                  ))}
-                  {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>—</p>}
+                <div data-tour="notes-rank" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
+                  <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                      Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
+                    </p>
+                  </div>
+                  <div style={{ padding: '8px 18px' }}>
+                    {classement.map((c, i) => (
+                      <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
+                        <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
+                      </div>
+                    ))}
+                    {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '12px 0' }}>—</p>}
+                  </div>
                 </div>
               )}
             </div>
