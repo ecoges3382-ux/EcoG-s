@@ -14,10 +14,6 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 
-// Publication/modification/archivage réservés à fondateur/directeur/
-// secrétaire — même périmètre que les autres actions administratives de
-// l'appli (Comptes, Argent). Un enseignant peut lire les annonces mais
-// n'en publie plus (imposé aussi côté RLS, pas seulement ici).
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 const STATUT_LABELS = {
@@ -48,12 +44,8 @@ export default function Announce() {
   const [offline, setOffline] = useState(false);
   const [filtre, setFiltre] = useState('actives');
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState(null); // annonce en cours d'édition, ou null
+  const [editing, setEditing] = useState(null);
 
-  // Les classes proposées comme cible sont celles qui ont des élèves
-  // inscrits dans l'année active (une annonce se crée toujours pour
-  // l'année active, jamais pour une année consultée en historique) —
-  // jamais une liste générique.
   async function reloadClasses() {
     if (!activeYear) return;
     const { data } = await supabase.from('enrollments').select('classes ( id, nom )').eq('school_year_id', activeYear.id);
@@ -62,10 +54,6 @@ export default function Announce() {
     setClasses([...map.entries()].map(([id, nom]) => ({ id, nom })).sort((a, b) => a.nom.localeCompare(b.nom)));
   }
 
-  // Une annonce ciblée sur une classe de 2025-2026 ne doit jamais
-  // apparaître comme concernant "la même classe" en 2026-2027 : on
-  // n'affiche que les annonces de l'année consultée, plus celles qui sont
-  // globales/permanentes (school_year_id nul), toujours visibles.
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
@@ -104,8 +92,12 @@ export default function Announce() {
     reload();
   }
 
+  // Message de confirmation adapté au statut réel (brouillon / archivée /
+  // publiée) — supprimer un brouillon ou une archive est irréversible, mais
+  // le libellé "brouillon" appliqué à une annonce archivée était trompeur.
   async function handleDelete(item) {
-    if (!(await confirm('Supprimer définitivement ce brouillon ?', { confirmLabel: 'Supprimer' }))) return;
+    const label = item.statut === 'brouillon' ? 'ce brouillon' : item.statut === 'archivee' ? 'cette annonce archivée' : 'cette annonce';
+    if (!(await confirm(`Supprimer définitivement ${label} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('announcements').delete().eq('id', item.id);
     if (deleteError) { setError(deleteError.message); return; }
     reload();
@@ -365,7 +357,10 @@ function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
             </>
           )}
           {a.statut === 'archivee' && (
-            <button onClick={() => onSetStatut('publiee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Republier</button>
+            <>
+              <button onClick={() => onSetStatut('publiee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Republier</button>
+              <button onClick={onDelete} style={actionBtnStyle('var(--paper)', 'var(--danger)', true)}>Supprimer</button>
+            </>
           )}
         </div>
       )}
