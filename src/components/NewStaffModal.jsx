@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
@@ -8,6 +7,7 @@ import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
+import ModalContainer from './ModalContainer.jsx';
 
 const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
@@ -64,8 +64,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
       photo_url: photoUrl || null,
     };
-    // Le matricule identifie durablement la personne — on ne le recalcule
-    // jamais après coup, seulement à la création.
     const { data: savedRow, error: saveError } = editing
       ? await supabase.from('staff').update(payload).eq('id', editing.id).select('id').single()
       : await supabase.from('staff').insert({ school_id: schoolId, matricule: nextMatricule(existingStaff, role), ...payload }).select('id').single();
@@ -75,8 +73,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       return;
     }
 
-    // Un rôle non-enseignant ne peut porter aucune matière : si le rôle
-    // vient de changer, on relâche tout ce qui était encore attribué.
     const selectedIds = role === 'Enseignant' ? subjectIds : [];
     const staffId = savedRow.id;
     const toAssign = selectedIds;
@@ -94,16 +90,9 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     onSaved();
   }
 
-  // Portal vers document.body : sans lui, ce modal se retrouve piégé dans
-  // le contexte d'empilement créé par l'animation de transition de page
-  // (.page-transition, voir Shell.jsx), et passe derrière la barre du haut
-  // et la barre de navigation du bas au lieu de les recouvrir.
-  return createPortal(
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+  return (
+    <ModalContainer onClose={onClose} maxWidth={480}>
+      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier le membre du personnel' : 'Nouveau membre du personnel'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -185,7 +174,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           <Field label="Téléphone">
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
           </Field>
-          <Field label="E-mail" last>
+          <Field label="E-mail">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           </Field>
         </div>
@@ -214,8 +203,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </button>
         </div>
       </form>
-    </div>,
-    document.body
+    </ModalContainer>
   );
 }
 
