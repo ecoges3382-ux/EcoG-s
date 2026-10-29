@@ -45,6 +45,7 @@ export default function Announce() {
   const [filtre, setFiltre] = useState('actives');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   async function reloadClasses() {
     if (!activeYear) return;
@@ -92,14 +93,26 @@ export default function Announce() {
     reload();
   }
 
-  // Message de confirmation adapté au statut réel (brouillon / archivée /
-  // publiée) — supprimer un brouillon ou une archive est irréversible, mais
-  // le libellé "brouillon" appliqué à une annonce archivée était trompeur.
+  // Supabase renvoie error: null même quand la policy RLS bloque la
+  // suppression — il faut donc vérifier que des lignes ont bien été
+  // supprimées (.select('id') renvoie les lignes effacées, ou [] si
+  // la RLS a bloqué silencieusement).
   async function handleDelete(item) {
     const label = item.statut === 'brouillon' ? 'ce brouillon' : item.statut === 'archivee' ? 'cette annonce archivée' : 'cette annonce';
     if (!(await confirm(`Supprimer définitivement ${label} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
-    const { error: deleteError } = await supabase.from('announcements').delete().eq('id', item.id);
+    setDeletingId(item.id);
+    setError('');
+    const { data: deleted, error: deleteError } = await supabase
+      .from('announcements')
+      .delete()
+      .eq('id', item.id)
+      .select('id');
+    setDeletingId(null);
     if (deleteError) { setError(deleteError.message); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée. La policy RLS de la table announcements bloque probablement cette action — vérifie dans Supabase (Dashboard → Authentication → Policies) qu'une policy autorise bien le DELETE pour ton rôle.");
+      return;
+    }
     reload();
   }
 
@@ -136,7 +149,7 @@ export default function Announce() {
         </p>
       )}
 
-      {error && <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>}
+      {error && <p style={{ color: 'var(--danger)', marginBottom: 12, fontWeight: 600 }}>Erreur : {error}</p>}
       {!error && !items && <div className="card-bold"><SkeletonRow count={3} avatar={false} /></div>}
 
       {items && (
@@ -167,6 +180,7 @@ export default function Announce() {
                 a={a}
                 isLast={i === filtered.length - 1}
                 canManage={canManage}
+                deleting={deletingId === a.id}
                 onEdit={() => setEditing(a)}
                 onSetStatut={(statut) => setStatut(a, statut)}
                 onDelete={() => handleDelete(a)}
@@ -300,7 +314,7 @@ function timeAgo(dateStr) {
   return `Il y a ${days} jours`;
 }
 
-function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
+function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDelete }) {
   const confirm = useConfirm();
   const cibleLabel = a.portee === 'Une classe' ? (a.classes?.nom || a.classe_cible || 'Classe') : a.portee;
   const expiree = a.date_expiration && a.date_expiration < todayIso() && a.statut === 'publiee';
@@ -343,7 +357,9 @@ function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
             <>
               <button onClick={() => onSetStatut('publiee')} style={actionBtnStyle('var(--forest)', '#fff')}>Publier</button>
               <button onClick={onEdit} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Modifier</button>
-              <button onClick={onDelete} style={actionBtnStyle('var(--paper)', 'var(--danger)', true)}>Supprimer</button>
+              <button onClick={onDelete} disabled={deleting} style={actionBtnStyle('var(--paper)', 'var(--danger)', true)}>
+                {deleting ? 'Suppression…' : 'Supprimer'}
+              </button>
             </>
           )}
           {a.statut === 'publiee' && (
@@ -359,7 +375,9 @@ function AnnounceRow({ a, isLast, canManage, onEdit, onSetStatut, onDelete }) {
           {a.statut === 'archivee' && (
             <>
               <button onClick={() => onSetStatut('publiee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Republier</button>
-              <button onClick={onDelete} style={actionBtnStyle('var(--paper)', 'var(--danger)', true)}>Supprimer</button>
+              <button onClick={onDelete} disabled={deleting} style={actionBtnStyle('var(--paper)', 'var(--danger)', true)}>
+                {deleting ? 'Suppression…' : 'Supprimer'}
+              </button>
             </>
           )}
         </div>
