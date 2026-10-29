@@ -644,10 +644,6 @@ function Steps() {
   );
 }
 
-/* ============================================================
-   SECTION TARIFS
-   ============================================================ */
-
 const PLANS = [
   {
     id: 'decouverte',
@@ -751,7 +747,6 @@ function Price() {
           </p>
         </InView>
 
-        {/* Toggle Mensuel / Annuel */}
         <InView threshold={0.3} style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
           <div
             style={{
@@ -816,7 +811,6 @@ function Price() {
           </div>
         </InView>
 
-        {/* Grille de cartes */}
         <InView
           threshold={0.15}
           style={{
@@ -832,7 +826,6 @@ function Price() {
           ))}
         </InView>
 
-        {/* Bandeau Prix Fondateur */}
         <InView
           threshold={0.3}
           style={{
@@ -855,7 +848,6 @@ function Price() {
           </p>
         </InView>
 
-        {/* Réassurance */}
         <InView
           threshold={0.3}
           style={{
@@ -1117,13 +1109,8 @@ function Final() {
 }
 
 export default function Landing() {
-  // Fix de scroll AGRESSIF pour la page publique :
-  // 1. Retire la classe 'app-mode' (héritée du Shell connecté)
-  // 2. Injecte un <style> avec !important sur html, body, #root
-  // 3. Force aussi display:block et position:static pour éviter tout conflit
   useEffect(() => {
     document.body.classList.remove('app-mode');
-
     const styleId = 'landing-scroll-fix';
     let styleEl = document.getElementById(styleId);
     if (!styleEl) {
@@ -1144,7 +1131,6 @@ export default function Landing() {
       `;
       document.head.appendChild(styleEl);
     }
-
     return () => {
       const el = document.getElementById(styleId);
       if (el) el.remove();
@@ -1169,6 +1155,8 @@ export default function Landing() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
             <a href={supportMailLink('Contact EcoGès')}>{SUPPORT_EMAIL}</a>
             <a href={WA_HELLO} target="_blank" rel="noreferrer">{SUPPORT_WHATSAPP_DISPLAY}</a>
+            <Link to="/cgu">CGU</Link>
+            <Link to="/confidentialite">Confidentialité</Link>
             <Link to="/connexion">Se connecter</Link>
           </div>
         </div>
