@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -19,6 +20,22 @@ function FileIcon() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire', 'enseignant'];
 
 export default function Documents() {
@@ -32,6 +49,11 @@ export default function Documents() {
   const [titre, setTitre] = useState('');
   const [uploading, setUploading] = useState(false);
   const [openingId, setOpeningId] = useState(null);
+  
+  // États pour la modification
+  const [editingDoc, setEditingDoc] = useState(null);
+  const [editTitre, setEditTitre] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   async function reload() {
     await guardedFetch({
@@ -69,9 +91,6 @@ export default function Documents() {
       setError(uploadError.message);
       return;
     }
-    // Bucket privé (voir supabase/schema.sql) : on garde le chemin de
-    // stockage, pas d'URL publique — l'ouverture du document génère une
-    // URL signée à la demande (voir openDocument), valable quelques minutes.
     const { error: insertError } = await supabase.from('documents').insert({
       school_id: profile.school_id, titre: titre.trim(), storage_path: path, uploaded_by: profile.full_name,
     });
@@ -83,28 +102,32 @@ export default function Documents() {
   }
 
   async function handleDelete(doc) {
-    if (!(await confirm(`Supprimer « ${doc.titre} » ?`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer « ${doc.titre} » ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('documents').delete().eq('id', doc.id);
     if (deleteError) setError(deleteError.message);
     else reload();
   }
 
-  // URL signée générée à la demande (bucket privé) : repose sur la session
-  // de l'utilisateur déjà connecté, donc soumise à la policy de lecture par
-  // école du bucket "documents" (voir supabase/schema.sql) — un membre
-  // d'une autre école ne peut pas en obtenir une, même en connaissant le
-  // chemin de stockage. Repli sur l'ancien file_url pour d'éventuelles
-  // fiches créées avant cette migration si jamais storage_path est absent.
+  async function handleEditSubmit(e) {
+    e.preventDefault();
+    if (!editTitre.trim()) return;
+    setEditSaving(true);
+    const { error } = await supabase.from('documents').update({ titre: editTitre.trim() }).eq('id', editingDoc.id);
+    setEditSaving(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setEditingDoc(null);
+    showToast('Modifié');
+    reload();
+  }
+
   async function openDocument(doc) {
     if (!doc.storage_path) {
       if (doc.file_url) window.open(doc.file_url, '_blank', 'noopener');
       return;
     }
-    // L'onglet doit s'ouvrir tout de suite, dans le même geste que le
-    // clic — sinon Safari (et certains autres navigateurs) bloque
-    // silencieusement une fenêtre ouverte après un await, sans aucun
-    // message d'erreur visible. On l'ouvre vide puis on le redirige une
-    // fois l'URL signée obtenue.
     const tab = window.open('', '_blank');
     if (tab) tab.opener = null;
     setOpeningId(doc.id);
@@ -163,10 +186,24 @@ export default function Documents() {
                   <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{d.uploaded_by || '—'} · {new Date(d.created_at).toLocaleDateString('fr-FR')}</p>
                 </div>
               </button>
+              
               {canManage && (
-                <button onClick={() => handleDelete(d)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', flexShrink: 0 }} title="Supprimer">
-                  <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                </button>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button 
+                    onClick={() => { setEditingDoc(d); setEditTitre(d.titre); }} 
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4, display: 'flex' }} 
+                    title="Modifier le titre"
+                  >
+                    <PencilIcon />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(d)} 
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: 4, display: 'flex' }} 
+                    title="Supprimer"
+                  >
+                    <TrashIcon />
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -178,6 +215,38 @@ export default function Documents() {
             />
           )}
         </div>
+      )}
+
+      {/* Fenêtre modale pour modifier le titre */}
+      {editingDoc && createPortal(
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingDoc(null); }}
+        >
+          <form onSubmit={handleEditSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 400, width: '100%', padding: 26 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Modifier le document</p>
+              <button type="button" onClick={() => setEditingDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Titre du document</label>
+            <input
+              value={editTitre}
+              onChange={(e) => setEditTitre(e.target.value)}
+              placeholder="Titre"
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 20 }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" onClick={() => setEditingDoc(null)} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
+              <button type="submit" disabled={editSaving || !editTitre.trim()} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: (editSaving || !editTitre.trim()) ? 0.7 : 1 }}>
+                {editSaving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body
       )}
     </div>
   );
