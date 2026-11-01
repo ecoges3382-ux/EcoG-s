@@ -130,7 +130,7 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
             style={{ ...inputStyle, marginBottom: 18 }}
           />
         ) : (
-          <div style={{ border: '1px solid var(--line-strong)', borderRadius: 9, padding: '10px 12px', marginBottom: 18, maxHeight: 160, overflowY: 'auto' }}>
+          <div style={{ border: '1px solid var(--line-strong)', borderRadius: 9, padding: '10px 12px', marginBottom: 18, maxHeight: 180, overflowY: 'auto' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontWeight: 600 }}>
               <input 
                 type="checkbox" 
@@ -141,12 +141,11 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
             </label>
             <div style={{ height: 1, background: 'var(--line)', margin: '6px 0' }} />
             {classes.map((c) => (
-              <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: isAllLevels ? 'default' : 'pointer', opacity: isAllLevels ? 0.5 : 1 }}>
+              <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
                 <input 
                   type="checkbox" 
                   checked={selectedNiveaux.includes(c.nom)} 
                   onChange={() => toggleNiveau(c.nom)}
-                  disabled={isAllLevels}
                 />
                 {c.nom}
               </label>
