@@ -51,7 +51,8 @@ export function PageTourRunner({ pageKey, onClose }) {
   }, [step, stepIndex, tour]);
 
   function finish() {
-    onCloseRef.current(false);
+    // On marque TOUJOURS comme vu quand l'utilisateur ferme manuellement
+    onCloseRef.current(true);
   }
 
   function next() {
