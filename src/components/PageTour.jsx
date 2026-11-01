@@ -184,7 +184,14 @@ export function usePageTour(pageKey) {
   useEffect(() => {
     if (!userId) return undefined;
     if (hasSeenTour(pageKey, userId)) return undefined;
-    const timer = setTimeout(() => setActive(true), 800);
+    
+    const timer = setTimeout(() => {
+      setActive(true);
+      // LA CORRECTION EST ICI : on marque comme vu dès que ça s'affiche
+      // pour éviter que ça revienne si l'utilisateur navigue ailleurs sans fermer
+      markTourSeen(pageKey, userId);
+    }, 800);
+    
     return () => clearTimeout(timer);
   }, [pageKey, userId]);
 
