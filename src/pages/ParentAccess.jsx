@@ -42,15 +42,6 @@ export default function ParentAccess() {
   const [offline, setOffline] = useState(false);
   const detailRequestId = useRef(0);
 
-  // 🔥 CORRECTION : Débloquer le scroll pour cette page publique
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'auto';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, []);
-
   async function loadSummary(theCode) {
     setLoading(true);
     setError('');
@@ -150,8 +141,8 @@ export default function ParentAccess() {
   // --- Écran 1 : saisie du code ---
   if (!summary) {
     return (
-      <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 20px 60px', background: 'var(--cream)' }}>
-        <div style={{ width: '100%', maxWidth: 380 }}>
+      <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ width: '100%', maxWidth: 380, paddingBottom: 40 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <Monogram size={56} style={{ margin: '0 auto 16px' }} />
             <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Espace parent</p>
@@ -185,8 +176,8 @@ export default function ParentAccess() {
   if (selectedId) {
     const student = summary.students.find((s) => s.id === selectedId);
     return (
-      <div style={{ minHeight: '100dvh', background: 'var(--cream)', padding: '20px 16px 80px' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 100px' }}>
           <button
             onClick={backToList}
             style={{ background: 'none', border: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: 13, cursor: 'pointer', marginBottom: 16, padding: 0 }}
@@ -218,8 +209,8 @@ export default function ParentAccess() {
 
   // --- Écran 2 : accueil parent (liste des enfants) ---
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--cream)', padding: '20px 16px 80px' }}>
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+    <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)' }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 100px' }}>
         {offline && <OfflineBanner />}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 600 }}>Bonjour, {summary.full_name}</p>
