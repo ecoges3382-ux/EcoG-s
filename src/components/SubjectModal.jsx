@@ -24,23 +24,15 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
 
-  // 1. Calculer la position du menu quand on l'ouvre
+  // 1. Calculer la position du menu quand on l'ouvre (toujours vers le bas)
   function toggleDropdown() {
     if (!dropdownOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const menuHeight = 260; // Hauteur estimée du menu (liste + bouton OK)
-      
-      // Si on n'a pas assez de place en bas, on ouvre vers le haut
-      const openUpward = spaceBelow < menuHeight;
-      
       setMenuStyle({
         position: 'fixed',
+        top: rect.bottom + 4, // Toujours vers le bas
         left: rect.left,
         width: rect.width,
-        ...(openUpward 
-          ? { bottom: window.innerHeight - rect.top + 4 } 
-          : { top: rect.bottom + 4 }),
         zIndex: 9999,
         background: 'var(--paper)', 
         border: '1px solid var(--line-strong)', 
@@ -67,16 +59,7 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 3. Fermer le menu si on scrolle (sauf si on scrolle DANS le menu)
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    function handleScroll(e) {
-      if (menuRef.current && menuRef.current.contains(e.target)) return;
-      setDropdownOpen(false);
-    }
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, [dropdownOpen]);
+  // (J'ai supprimé le useEffect qui fermait le menu au scroll)
 
   function toggleNiveau(nomClasse) {
     if (nomClasse === '') {
@@ -137,9 +120,11 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   }
 
   const isAllLevels = selectedNiveaux.includes('');
+  
+  // 3. Affichage des noms de classes sélectionnées dans le bouton
   const labelAffichage = isAllLevels 
     ? 'Tous niveaux' 
-    : `${selectedNiveaux.length} classe${selectedNiveaux.length > 1 ? 's' : ''} sélectionnée${selectedNiveaux.length > 1 ? 's' : ''}`;
+    : selectedNiveaux.join(', ');
 
   return createPortal(
     <div
