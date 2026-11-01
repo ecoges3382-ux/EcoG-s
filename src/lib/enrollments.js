@@ -27,7 +27,7 @@ export function useEnrollmentsForYear(schoolYear) {
         const [{ data, error: e }, { data: fees }] = await Promise.all([
           supabase
             .from('enrollments')
-            .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url )')
+            .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )')
             .eq('school_year_id', schoolYear.id),
           supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
         ]);
@@ -40,6 +40,7 @@ export function useEnrollmentsForYear(schoolYear) {
             full_name: en.students.full_name,
             matricule: en.students.matricule,
             photo_url: en.students.photo_url,
+            sexe: en.students.sexe,
             niveau: en.classes?.nom || '—',
             classeId: en.classe_id,
             classeNiveau: en.classes?.niveau || null,
