@@ -12,27 +12,42 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // États pour la sélection multiple
   const [selectedNiveaux, setSelectedNiveaux] = useState(() => {
     if (editing) return [editing.niveau || ''];
-    return ['']; // Par défaut : "Tous niveaux"
+    return [''];
   });
   
-  // États pour le menu déroulant
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState({});
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
 
-  // 1. Calculer la position du menu quand on l'ouvre (toujours vers le bas)
   function toggleDropdown() {
     if (!dropdownOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
+      
+      // On estime la hauteur idéale du menu (en-tête "Tous" + liste + bouton OK)
+      const idealHeight = 280; 
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // S'il y a plus de place en bas qu'en haut, on ouvre en bas. Sinon en haut.
+      const openUpward = spaceBelow < idealHeight && spaceAbove > spaceBelow;
+      
+      // On calcule la hauteur max disponible pour que le menu ne dépasse jamais l'écran
+      const maxHeight = openUpward 
+        ? Math.min(idealHeight, spaceAbove - 10) 
+        : Math.min(idealHeight, spaceBelow - 10);
+
       setMenuStyle({
         position: 'fixed',
-        top: rect.bottom + 4, // Toujours vers le bas
         left: rect.left,
         width: rect.width,
+        // Calcul du positionnement
+        ...(openUpward 
+          ? { bottom: window.innerHeight - rect.top + 4 } 
+          : { top: rect.bottom + 4 }),
+        maxHeight: maxHeight, // Empêche le menu de dépasser l'écran
         zIndex: 9999,
         background: 'var(--paper)', 
         border: '1px solid var(--line-strong)', 
@@ -45,7 +60,7 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
     setDropdownOpen(!dropdownOpen);
   }
 
-  // 2. Fermer le menu si on clique en dehors
+  // Fermer si on clique en dehors (sans se soucier du scroll)
   useEffect(() => {
     function handleClickOutside(event) {
       if (
@@ -58,8 +73,6 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // (J'ai supprimé le useEffect qui fermait le menu au scroll)
 
   function toggleNiveau(nomClasse) {
     if (nomClasse === '') {
@@ -120,11 +133,7 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   }
 
   const isAllLevels = selectedNiveaux.includes('');
-  
-  // 3. Affichage des noms de classes sélectionnées dans le bouton
-  const labelAffichage = isAllLevels 
-    ? 'Tous niveaux' 
-    : selectedNiveaux.join(', ');
+  const labelAffichage = isAllLevels ? 'Tous niveaux' : selectedNiveaux.join(', ');
 
   return createPortal(
     <div
@@ -169,7 +178,6 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
           />
         ) : (
           <div style={{ marginBottom: 18 }}>
-            {/* Bouton déclencheur */}
             <button
               type="button"
               ref={buttonRef}
@@ -180,16 +188,16 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer'
               }}
             >
-              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 8 }}>
                 {labelAffichage}
               </span>
-              <i className="ti ti-chevron-down" style={{ fontSize: 14 }} aria-hidden="true"></i>
+              <i className="ti ti-chevron-down" style={{ fontSize: 14, flexShrink: 0 }} aria-hidden="true"></i>
             </button>
 
-            {/* Menu déroulant via Portal pour ne pas être coupé */}
             {dropdownOpen && createPortal(
               <div ref={menuRef} style={menuStyle}>
-                <div style={{ maxHeight: 200, overflowY: 'auto', padding: '8px 12px' }}>
+                {/* Liste des classes avec scroll interne */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', minHeight: 50 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', fontWeight: 600 }}>
                     <input type="checkbox" checked={isAllLevels} onChange={() => toggleNiveau('')} />
                     Tous niveaux
@@ -206,7 +214,8 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
                     </label>
                   ))}
                 </div>
-                <div style={{ borderTop: '1px solid var(--line)', padding: 8, textAlign: 'right' }}>
+                {/* Le bouton OK reste toujours visible en bas du menu */}
+                <div style={{ borderTop: '1px solid var(--line)', padding: 8, textAlign: 'right', flexShrink: 0 }}>
                   <button
                     type="button"
                     onClick={() => setDropdownOpen(false)}
