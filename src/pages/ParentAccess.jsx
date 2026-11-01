@@ -42,8 +42,7 @@ export default function ParentAccess() {
   const [offline, setOffline] = useState(false);
   const detailRequestId = useRef(0);
 
-  // 🔥 CORRECTION 1 : Forcer le scroll du body quand on est sur cette page publique.
-  // L'application principale (le dashboard) bloque souvent le scroll global.
+  // 🔥 CORRECTION : Débloquer le scroll pour cette page publique
   useEffect(() => {
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'auto';
@@ -258,4 +257,336 @@ export default function ParentAccess() {
   );
 }
 
-// ... (Le reste des composants ChildCard, ChildDetail, YearSelector, Stat, Section, EcheanceBadge restent EXACTEMENT identiques)
+function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
+  const feeSchedule = (feeSchedules || []).find((f) => f.niveau === s.classe_niveau) || null;
+  const echeances = schoolYear ? computeEcheances(toCalcEnrollment(s), schoolYear, feeSchedule) : [];
+  const enRetard = echeances.some((e) => e.enRetard);
+  const reste = Number(s.montant_du) - Number(s.montant_paye);
+
+  let badge = null;
+  if (s.has_arrangement) badge = { label: 'Arrangement', bg: '#F0EDE5', fg: 'var(--muted)' };
+  else if (enRetard) badge = { label: 'À relancer', bg: 'var(--danger-light)', fg: 'var(--danger)' };
+  else if (reste > 0) badge = { label: `${fmtF(reste)} dû`, bg: 'var(--amber-light)', fg: 'var(--amber)' };
+  else badge = { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
+
+  const alertes = (s.absences_recentes || 0) + (s.retards_recents || 0);
+
+  return (
+    <button
+      onClick={onClick}
+      className="card-bold"
+      style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left', width: '100%', gap: 10, flexWrap: 'wrap' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden', flexShrink: 0 }}>
+          {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: '0 0 2px', fontSize: 14.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.full_name}</p>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>
+            {s.niveau || '—'}{alertes > 0 ? ` · ${alertes} absence${alertes > 1 ? 's' : ''}/retard${alertes > 1 ? 's' : ''} (30j)` : ''}
+          </p>
+        </div>
+      </div>
+      <span style={{ background: badge.bg, color: badge.fg, fontSize: 11.5, fontWeight: 700, padding: '4px 11px', borderRadius: 20, whiteSpace: 'nowrap' }}>{badge.label}</span>
+    </button>
+  );
+}
+
+function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
+  const { student, school, school_year: schoolYear, enrollment, years, payments, attendance, grades, subjects, rangs, announcements } = detail;
+  const isHistorical = schoolYear && years?.length && !schoolYear.is_current;
+  const annuel = periode === 'annuel';
+  const [receiptPayment, setReceiptPayment] = useState(null);
+  const [showStatement, setShowStatement] = useState(false);
+
+  if (!enrollment) {
+    return (
+      <>
+        {years?.length > 1 && <YearSelector years={years} current={schoolYear?.id} onChange={onChangeYear} />}
+        <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune inscription pour cette année scolaire.</p>
+      </>
+    );
+  }
+
+  const reste = Number(enrollment.montant_du) - Number(enrollment.montant_paye);
+  const resteFrais = Number(enrollment.frais_connexe_du) - Number(enrollment.frais_connexe_paye);
+  const echeances = computeEcheances(toCalcEnrollment(enrollment), schoolYear, detail.fee_schedule);
+
+  const lignes = (subjects || []).map((su) => (
+    annuel
+      ? { ...su, t1: subjectPeriodeMoyenne(grades, student.id, su.id, 'Trimestre 1'), t2: subjectPeriodeMoyenne(grades, student.id, su.id, 'Trimestre 2'), t3: subjectPeriodeMoyenne(grades, student.id, su.id, 'Trimestre 3'), moyenne: subjectAnnualMoyenne(grades, student.id, su.id) }
+      : { ...su, moyenne: subjectPeriodeMoyenne(grades, student.id, su.id, periode) }
+  ));
+  const moyenneGenerale = annuel ? annualMoyenneGenerale(subjects, grades, student.id) : periodeMoyenneGenerale(subjects, grades, student.id, periode);
+  const rang = rangs?.[periode] || null;
+
+  const nbAbsences = (attendance || []).filter((a) => a.statut === 'absent').length;
+  const nbRetards = (attendance || []).filter((a) => a.statut === 'retard').length;
+  const nbPresent = (attendance || []).filter((a) => a.statut === 'present').length;
+  const totalAppels = (attendance || []).length;
+  const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
+  const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 15);
+
+  return (
+    <>
+      {years?.length > 1 && <YearSelector years={years} current={schoolYear?.id} onChange={onChangeYear} />}
+      {isHistorical && (
+        <p style={{ margin: '0 0 16px', fontSize: 12, fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 9 }}>
+          Année scolaire antérieure — consultation de l'historique {schoolYear.label}.
+        </p>
+      )}
+      {(enrollment.statut === 'redouble' || enrollment.statut === 'parti') && (
+        <p style={{ margin: '0 0 16px', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
+          Statut d'inscription : {enrollment.statut === 'redouble' ? 'Redouble cette classe' : "N'est plus inscrit à l'école"}
+        </p>
+      )}
+
+      <Section title="Situation financière">
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 12 }}>
+          <Stat label="Reste à payer (écolage)" value={fmtF(reste)} color={reste > 0 ? 'var(--danger)' : 'var(--success)'} />
+          <Stat label="Reste (frais connexes)" value={fmtF(resteFrais)} color={resteFrais > 0 ? 'var(--amber)' : 'var(--success)'} />
+        </div>
+        {enrollment.has_arrangement && (
+          <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
+            Un arrangement de paiement est en cours pour cet élève — contacte le secrétariat pour le détail.
+          </p>
+        )}
+        {echeances.length > 0 && (
+          <div className="card-bold" style={{ overflow: 'hidden' }}>
+            {echeances.map((ec, i) => (
+              <div key={ec.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{ec.label}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                    {fmtF(ec.montant)}{ec.dateLimite ? ` · avant le ${new Date(ec.dateLimite).toLocaleDateString('fr-FR')}` : ''}
+                  </p>
+                </div>
+                <EcheanceBadge statut={ec.statut} montantPaye={ec.montantPaye} montantRestant={ec.montantRestant} />
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowStatement(true)}
+          style={{ marginTop: 12, fontSize: 11.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+        >
+          <i className="ti ti-file-invoice" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
+          Imprimer la situation financière
+        </button>
+      </Section>
+
+      <Section title="Paiements enregistrés">
+        <div className="card-bold" style={{ overflow: 'hidden' }}>
+          {(payments || []).slice(0, 10).map((p, i) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+              <div>
+                <span style={{ fontSize: 13 }}>{new Date(p.date).toLocaleDateString('fr-FR')}</span>
+                <span style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 8 }}>{trancheLabel(p.tranche)}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</span>
+                <button
+                  type="button"
+                  onClick={() => setReceiptPayment(p)}
+                  title="Imprimer le reçu"
+                  style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                >
+                  <i className="ti ti-receipt" style={{ fontSize: 16 }} aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          ))}
+          {(payments || []).length === 0 && <p style={{ padding: '14px 18px', color: 'var(--muted)', fontSize: 13 }}>Aucun paiement enregistré.</p>}
+        </div>
+      </Section>
+
+      <Section title="Bulletin">
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          {PERIODE_OPTIONS.map((p) => (
+            <button
+              key={p} onClick={() => setPeriode(p)}
+              style={{ padding: '6px 12px', borderRadius: 20, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${periode === p ? 'var(--forest)' : 'var(--line-strong)'}`, background: periode === p ? 'var(--forest)' : 'var(--paper)', color: periode === p ? '#fff' : 'var(--ink)' }}
+            >
+              {periodeLabel(p)}
+            </button>
+          ))}
+          <button
+            onClick={() => printDocument(`bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}`)}
+            style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--clay)', color: '#fff', cursor: 'pointer' }}
+          >
+            <i className="ti ti-printer" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Imprimer
+          </button>
+        </div>
+
+        <div className="card-bold print-sheet" style={{ padding: '18px 20px', overflow: 'hidden' }}>
+          <DocumentHeader
+            school={school}
+            title="Bulletin scolaire"
+            subtitle={`${periodeLabel(periode)} · Année scolaire ${schoolYear?.label || ''}`}
+          />
+          <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600 }}>
+            {student.full_name} · {enrollment.classe?.nom || '—'}
+          </p>
+          {lignes.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune matière pour cette classe.</p>}
+          {lignes.length > 0 && (
+            annuel ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.5fr 0.5fr 0.5fr 0.6fr', padding: '0 0 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  <span>Matière</span><span>T1</span><span>T2</span><span>T3</span><span>Annuelle</span>
+                </div>
+                {lignes.map((l) => (
+                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.5fr 0.5fr 0.5fr 0.6fr', padding: '8px 0', borderTop: '1px solid var(--line)', fontSize: 12.5, alignItems: 'center' }}>
+                    <span>{l.nom}</span>
+                    <span style={{ color: 'var(--muted)' }}>{l.t1 != null ? l.t1.toFixed(2) : '—'}</span>
+                    <span style={{ color: 'var(--muted)' }}>{l.t2 != null ? l.t2.toFixed(2) : '—'}</span>
+                    <span style={{ color: 'var(--muted)' }}>{l.t3 != null ? l.t3.toFixed(2) : '—'}</span>
+                    <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr', padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  <span>Matière</span><span>Moyenne /20</span><span>Appréciation</span>
+                </div>
+                {lignes.map((l) => (
+                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13, alignItems: 'center' }}>
+                    <span>{l.nom}</span>
+                    <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                    <span style={{ color: 'var(--muted)' }}>{appreciation(l.moyenne) || '—'}</span>
+                  </div>
+                ))}
+              </>
+            )
+          )}
+
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 180px', background: 'var(--forest-light)', borderRadius: 10, padding: '12px 16px' }}>
+              <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--forest-dark)' }}>Moyenne générale</p>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--forest-dark)' }}>{moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}</p>
+            </div>
+            <div style={{ flex: '1 1 140px', background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '12px 16px' }}>
+              <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>Rang</p>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{rang ? `${rang.rang}${rang.rang === 1 ? 'er' : 'e'} / ${rang.total}` : 'Non classé'}</p>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Présences">
+        {totalAppels === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun appel enregistré pour cette année.</p>
+        ) : (
+          <>
+            <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
+              <Stat label="Absences" value={nbAbsences} color="var(--danger)" />
+              <Stat label="Retards" value={nbRetards} color="var(--amber)" />
+              <Stat label="Taux de présence" value={`${tauxPresence}%`} color="var(--success)" />
+            </div>
+            {absencesEtRetards.length > 0 && (
+              <div className="card-bold" style={{ overflow: 'hidden' }}>
+                {absencesEtRetards.map((a, i) => (
+                  <div key={`${a.date}-${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                    <span style={{ fontSize: 13 }}>{new Date(a.date).toLocaleDateString('fr-FR')}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.statut === 'absent' ? 'var(--danger-light)' : 'var(--amber-light)', color: a.statut === 'absent' ? 'var(--danger)' : 'var(--amber)' }}>
+                      {a.statut === 'absent' ? 'Absent' : 'Retard'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </Section>
+
+      {announcements?.length > 0 && (
+        <Section title="Annonces">
+          <div className="card-bold" style={{ overflow: 'hidden' }}>
+            {announcements.map((a, i) => (
+              <div key={a.id} style={{ padding: '12px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                <p style={{ margin: '0 0 3px', fontSize: 13.5, fontWeight: 600 }}>{a.titre}</p>
+                {a.contenu && <p style={{ margin: '0 0 5px', fontSize: 12.5, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{a.contenu}</p>}
+                <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{a.auteur} · {a.role}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {receiptPayment && (
+        <PaymentReceipt
+          payment={receiptPayment}
+          studentName={student.full_name}
+          classeNom={enrollment.classe?.nom}
+          schoolYearLabel={schoolYear?.label}
+          school={school}
+          montantDu={enrollment.montant_du}
+          montantPaye={enrollment.montant_paye}
+          onClose={() => setReceiptPayment(null)}
+        />
+      )}
+
+      {showStatement && (
+        <FinancialStatement
+          studentName={student.full_name}
+          classeNom={enrollment.classe?.nom}
+          schoolYearLabel={schoolYear?.label}
+          montantDu={Number(enrollment.montant_du || 0)}
+          montantPaye={Number(enrollment.montant_paye || 0)}
+          resteFrais={resteFrais}
+          echeances={echeances}
+          payments={payments}
+          school={school}
+          onClose={() => setShowStatement(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function YearSelector({ years, current, onChange }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Année scolaire</label>
+      <Dropdown
+        value={current || ''}
+        onChange={onChange}
+        options={years.map((y) => ({ value: y.id, label: `${y.label}${y.is_current ? ' (en cours)' : ''}` }))}
+        style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600 }}
+        wrapperStyle={{ width: 'auto', minWidth: 180 }}
+      />
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div className="card-bold" style={{ padding: '14px 16px' }}>
+      <p style={{ margin: '0 0 4px', fontSize: 11.5, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 700, color }}>{value}</p>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <p style={{ margin: '0 0 10px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function EcheanceBadge({ statut, montantPaye, montantRestant }) {
+  const map = {
+    payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
+    partielle: { label: `Partielle · ${fmtF(montantPaye)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
+    impayee: { label: `Impayée · reste ${fmtF(montantRestant)}`, bg: 'var(--danger-light)', fg: 'var(--danger)' },
+  };
+  const s = map[statut] || map.impayee;
+  return (
+    <span style={{ background: s.bg, color: s.fg, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>{s.label}</span>
+  );
+}
