@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { useToast } from './Toast.jsx';
@@ -12,25 +12,34 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // État pour gérer la sélection multiple
+  // État pour la sélection multiple
   const [selectedNiveaux, setSelectedNiveaux] = useState(() => {
     if (editing) return [editing.niveau || ''];
     return ['']; // Par défaut : "Tous niveaux"
   });
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Fermer le menu si on clique en dehors
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function toggleNiveau(nomClasse) {
     if (nomClasse === '') {
-      // Si on clique sur "Tous niveaux", on réinitialise tout
       setSelectedNiveaux(['']);
       return;
     }
     
     setSelectedNiveaux((prev) => {
-      // Si "Tous niveaux" était sélectionné, on le retire
       const filtered = prev.filter(n => n !== '');
-      
       if (filtered.includes(nomClasse)) {
-        // Si on décoche le dernier élément, on revient à "Tous niveaux"
         const next = filtered.filter(n => n !== nomClasse);
         return next.length === 0 ? [''] : next;
       } else {
@@ -58,20 +67,17 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
     let saveError = null;
 
     if (editing) {
-      // Modification : on met à jour la seule ligne existante
       const { error: err } = await supabase
         .from('subjects')
         .update({ ...basePayload, niveau: selectedNiveaux[0] || null })
         .eq('id', editing.id);
       saveError = err;
     } else {
-      // Création : on insère une ligne pour chaque niveau sélectionné
       const payloads = selectedNiveaux.map((niv) => ({
         school_id: schoolId,
         ...basePayload,
         niveau: niv || null,
       }));
-      
       const { error: err } = await supabase.from('subjects').insert(payloads);
       saveError = err;
     }
@@ -86,6 +92,9 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   }
 
   const isAllLevels = selectedNiveaux.includes('');
+  const labelAffichage = isAllLevels 
+    ? 'Tous niveaux' 
+    : `${selectedNiveaux.length} classe${selectedNiveaux.length > 1 ? 's' : ''} sélectionnée${selectedNiveaux.length > 1 ? 's' : ''}`;
 
   return createPortal(
     <div
@@ -119,7 +128,6 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
           </div>
         </div>
 
-        {/* Sélection du niveau : soit simple (édition), soit multiple (création) */}
         <label style={labelStyle}>Niveau(x) concerné(s)</label>
         
         {editing ? (
@@ -130,26 +138,58 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
             style={{ ...inputStyle, marginBottom: 18 }}
           />
         ) : (
-          <div style={{ border: '1px solid var(--line-strong)', borderRadius: 9, padding: '10px 12px', marginBottom: 18, maxHeight: 180, overflowY: 'auto' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontWeight: 600 }}>
-              <input 
-                type="checkbox" 
-                checked={isAllLevels} 
-                onChange={() => toggleNiveau('')} 
-              />
-              Tous niveaux
-            </label>
-            <div style={{ height: 1, background: 'var(--line)', margin: '6px 0' }} />
-            {classes.map((c) => (
-              <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={selectedNiveaux.includes(c.nom)} 
-                  onChange={() => toggleNiveau(c.nom)}
-                />
-                {c.nom}
-              </label>
-            ))}
+          <div style={{ position: 'relative', marginBottom: 18 }} ref={dropdownRef}>
+            {/* Bouton qui affiche la sélection actuelle */}
+            <button
+              type="button"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)',
+                background: 'var(--paper)', color: 'var(--ink)', fontSize: 14, textAlign: 'left',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer'
+              }}
+            >
+              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {labelAffichage}
+              </span>
+              <i className="ti ti-chevron-down" style={{ fontSize: 14 }} aria-hidden="true"></i>
+            </button>
+
+            {/* Panneau déroulant */}
+            {dropdownOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 9,
+                marginTop: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column'
+              }}>
+                <div style={{ maxHeight: 200, overflowY: 'auto', padding: '8px 12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', fontWeight: 600 }}>
+                    <input type="checkbox" checked={isAllLevels} onChange={() => toggleNiveau('')} />
+                    Tous niveaux
+                  </label>
+                  <div style={{ height: 1, background: 'var(--line)', margin: '4px 0' }} />
+                  {classes.map((c) => (
+                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedNiveaux.includes(c.nom)} 
+                        onChange={() => toggleNiveau(c.nom)}
+                      />
+                      {c.nom}
+                    </label>
+                  ))}
+                </div>
+                <div style={{ borderTop: '1px solid var(--line)', padding: 8, textAlign: 'right' }}>
+                  <button
+                    type="button"
+                    onClick={() => setDropdownOpen(false)}
+                    style={{ background: 'var(--forest)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
