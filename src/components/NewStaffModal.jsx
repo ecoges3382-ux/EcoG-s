@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
 import { displayName } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
@@ -7,14 +8,115 @@ import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
-import ModalContainer from './ModalContainer.jsx';
 
-const ROLES = ['Enseignant', 'Secrétaire', 'Directeur', 'Fondateur'];
-const PREFIXES = { Enseignant: 'ENS', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
+const ROLES = ['Enseignant', 'Censeur', 'Secrétaire', 'Directeur', 'Fondateur'];
+const PREFIXES = { Enseignant: 'ENS', Censeur: 'CEN', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
 
 function nextMatricule(existingStaff, role) {
   const count = existingStaff.filter((p) => p.role === role).length + 1;
   return `${PREFIXES[role] || 'PER'}-${String(count).padStart(4, '0')}`;
+}
+
+// Composant réutilisable pour la sélection multiple (Classes / Matières)
+function MultiSelect({ label, options, selectedIds, onChange, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState({});
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const idealHeight = 250;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const openUpward = spaceBelow < idealHeight && spaceAbove > spaceBelow;
+      const maxHeight = openUpward ? Math.min(idealHeight, spaceAbove - 10) : Math.min(idealHeight, spaceBelow - 10);
+
+      setMenuStyle({
+        position: 'fixed',
+        left: rect.left,
+        width: rect.width,
+        ...(openUpward ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+        maxHeight,
+        zIndex: 9999,
+        background: 'var(--paper)',
+        border: '1px solid var(--line-strong)',
+        borderRadius: 9,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        display: 'flex',
+        flexDirection: 'column'
+      });
+    }
+    setOpen(!open);
+  }
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target) && btnRef.current && !btnRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function toggleValue(val) {
+    if (selectedIds.includes(val)) onChange(selectedIds.filter((v) => v !== val));
+    else onChange([...selectedIds, val]);
+  }
+
+  const selectedLabels = options.filter(o => selectedIds.includes(o.value)).map(o => o.label);
+  const displayText = selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder;
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>{label}</label>
+      <button
+        type="button"
+        ref={btnRef}
+        onClick={toggle}
+        style={{
+          width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)',
+          background: 'var(--paper)', color: selectedLabels.length > 0 ? 'var(--ink)' : 'var(--muted)', fontSize: 14, textAlign: 'left',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer'
+        }}
+      >
+        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 8 }}>
+          {displayText}
+        </span>
+        <i className="ti ti-chevron-down" style={{ fontSize: 14, flexShrink: 0 }} aria-hidden="true"></i>
+      </button>
+
+      {open && createPortal(
+        <div ref={menuRef} style={menuStyle}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px', minHeight: 50 }}>
+            {options.map((opt) => (
+              <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', fontSize: 13.5 }}>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(opt.value)}
+                  onChange={() => toggleValue(opt.value)}
+                />
+                {opt.label}
+              </label>
+            ))}
+            {options.length === 0 && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucun élément disponible.</p>}
+          </div>
+          <div style={{ borderTop: '1px solid var(--line)', padding: 8, textAlign: 'right', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={{ background: 'var(--forest)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              OK
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 }
 
 export default function NewStaffModal({ schoolId, existingStaff, availableClasses, availableSubjects, editing, onClose, onSaved }) {
@@ -23,10 +125,19 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [prenom, setPrenom] = useState(editing?.prenom || '');
   const [role, setRole] = useState(editing?.role || ROLES[0]);
   const [niveauEtudes, setNiveauEtudes] = useState(editing?.niveau_etudes || '');
+  
+  // Gestion de l'attribution
   const [classNames, setClassNames] = useState(editing?.classes || []);
   const [subjectIds, setSubjectIds] = useState(
     editing ? availableSubjects.filter((s) => s.enseignant_id === editing.id).map((s) => s.id) : [],
   );
+  
+  // État pour la case à cocher (initialisé à true si la personne a déjà des classes/matières)
+  const [dispenseCours, setDispenseCours] = useState(() => {
+    if (editing?.role === 'Enseignant') return true;
+    return (editing?.classes?.length > 0) || availableSubjects.some((s) => s.enseignant_id === editing?.id);
+  });
+
   const [phone, setPhone] = useState(editing?.phone || '');
   const [email, setEmail] = useState(editing?.email || '');
   const [dateEntree, setDateEntree] = useState(editing?.date_entree || '');
@@ -34,14 +145,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [photoUrl, setPhotoUrl] = useState(editing?.photo_url || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  function toggleClass(nomClasse) {
-    setClassNames((prev) => (prev.includes(nomClasse) ? prev.filter((c) => c !== nomClasse) : [...prev, nomClasse]));
-  }
-
-  function toggleSubject(id) {
-    setSubjectIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -51,36 +154,44 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     }
     setSubmitting(true);
     setError('');
+
+    // On ne garde les classes et matières que si c'est un enseignant ou si la case est cochée
+    const finalClasses = (role === 'Enseignant' || dispenseCours) ? classNames : [];
+    const finalSubjectIds = (role === 'Enseignant' || dispenseCours) ? subjectIds : [];
+
     const payload = {
       full_name: displayName(nom.trim(), prenom.trim()),
       nom: nom.trim(),
       prenom: prenom.trim(),
       role,
       niveau_etudes: niveauEtudes.trim(),
-      classes: classNames,
+      classes: finalClasses,
       phone: phone.trim(),
       email: email.trim(),
       date_entree: dateEntree || null,
       salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
       photo_url: photoUrl || null,
     };
+
     const { data: savedRow, error: saveError } = editing
       ? await supabase.from('staff').update(payload).eq('id', editing.id).select('id').single()
       : await supabase.from('staff').insert({ school_id: schoolId, matricule: nextMatricule(existingStaff, role), ...payload }).select('id').single();
+    
     if (saveError) {
       setSubmitting(false);
       setError(saveError.message);
       return;
     }
 
-    const selectedIds = role === 'Enseignant' ? subjectIds : [];
     const staffId = savedRow.id;
-    const toAssign = selectedIds;
-    const toRelease = availableSubjects.filter((s) => s.enseignant_id === staffId && !selectedIds.includes(s.id)).map((s) => s.id);
+    const toAssign = finalSubjectIds;
+    const toRelease = availableSubjects.filter((s) => s.enseignant_id === staffId && !finalSubjectIds.includes(s.id)).map((s) => s.id);
+    
     const [{ error: assignError }, { error: releaseError }] = await Promise.all([
       toAssign.length ? supabase.from('subjects').update({ enseignant_id: staffId }).in('id', toAssign) : Promise.resolve({}),
       toRelease.length ? supabase.from('subjects').update({ enseignant_id: null }).in('id', toRelease) : Promise.resolve({}),
     ]);
+    
     setSubmitting(false);
     if (assignError || releaseError) {
       setError((assignError || releaseError).message);
@@ -90,9 +201,14 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     onSaved();
   }
 
-  return (
-    <ModalContainer onClose={onClose} maxWidth={480}>
-      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
+  const showAttribution = role === 'Enseignant' || dispenseCours;
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier le membre du personnel' : 'Nouveau membre du personnel'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -116,65 +232,46 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </Field>
         </div>
 
-        <Field label="Classe(s) attribuée(s)">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
-            {availableClasses.length === 0 && (
-              <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucune classe créée pour l'instant.</p>
-            )}
-            {availableClasses.map((c) => {
-              const active = classNames.includes(c.nom);
-              return (
-                <button
-                  type="button"
-                  key={c.id}
-                  onClick={() => toggleClass(c.nom)}
-                  style={{
-                    padding: '6px 13px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${active ? 'var(--forest)' : 'var(--line-strong)'}`,
-                    background: active ? 'var(--forest)' : 'var(--paper)',
-                    color: active ? '#fff' : 'var(--ink)',
-                  }}
-                >
-                  {c.nom}
-                </button>
-              );
-            })}
+        {/* Case à cocher pour les non-enseignants */}
+        {role !== 'Enseignant' && (
+          <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--forest-light)', borderRadius: 9 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: 'var(--forest-dark)' }}>
+              <input 
+                type="checkbox" 
+                checked={dispenseCours} 
+                onChange={(e) => setDispenseCours(e.target.checked)} 
+              />
+              Ce membre dispense des cours
+            </label>
           </div>
-        </Field>
+        )}
 
-        {role === 'Enseignant' && (
-          <Field label="Matière(s) enseignée(s)">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 12 }}>
-              {availableSubjects.length === 0 && (
-                <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucune matière créée pour l'instant.</p>
-              )}
-              {availableSubjects.map((s) => {
-                const active = subjectIds.includes(s.id);
-                return (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => toggleSubject(s.id)}
-                    style={{
-                      padding: '6px 13px', borderRadius: 20, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                      border: `1px solid ${active ? 'var(--forest)' : 'var(--line-strong)'}`,
-                      background: active ? 'var(--forest)' : 'var(--paper)',
-                      color: active ? '#fff' : 'var(--ink)',
-                    }}
-                  >
-                    {s.nom}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
+        {/* Section d'attribution (visible si Enseignant ou si la case est cochée) */}
+        {showAttribution && (
+          <>
+            <MultiSelect 
+              label="Classe(s) attribuée(s)" 
+              options={availableClasses.map(c => ({ value: c.nom, label: c.nom }))} 
+              selectedIds={classNames} 
+              onChange={setClassNames} 
+              placeholder="Sélectionner des classes…" 
+            />
+
+            <MultiSelect 
+              label="Matière(s) enseignée(s)" 
+              options={availableSubjects.map(s => ({ value: s.id, label: s.nom }))} 
+              selectedIds={subjectIds} 
+              onChange={setSubjectIds} 
+              placeholder="Sélectionner des matières…" 
+            />
+          </>
         )}
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Téléphone">
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
           </Field>
-          <Field label="E-mail">
+          <Field label="E-mail" last>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           </Field>
         </div>
@@ -203,7 +300,8 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </button>
         </div>
       </form>
-    </ModalContainer>
+    </div>,
+    document.body
   );
 }
 
