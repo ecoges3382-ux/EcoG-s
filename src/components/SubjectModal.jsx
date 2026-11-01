@@ -12,31 +12,77 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // État pour la sélection multiple
+  // États pour la sélection multiple
   const [selectedNiveaux, setSelectedNiveaux] = useState(() => {
     if (editing) return [editing.niveau || ''];
     return ['']; // Par défaut : "Tous niveaux"
   });
+  
+  // États pour le menu déroulant
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [menuStyle, setMenuStyle] = useState({});
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
 
-  // Fermer le menu si on clique en dehors
+  // 1. Calculer la position du menu quand on l'ouvre
+  function toggleDropdown() {
+    if (!dropdownOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const menuHeight = 260; // Hauteur estimée du menu (liste + bouton OK)
+      
+      // Si on n'a pas assez de place en bas, on ouvre vers le haut
+      const openUpward = spaceBelow < menuHeight;
+      
+      setMenuStyle({
+        position: 'fixed',
+        left: rect.left,
+        width: rect.width,
+        ...(openUpward 
+          ? { bottom: window.innerHeight - rect.top + 4 } 
+          : { top: rect.bottom + 4 }),
+        zIndex: 9999,
+        background: 'var(--paper)', 
+        border: '1px solid var(--line-strong)', 
+        borderRadius: 9, 
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)', 
+        display: 'flex', 
+        flexDirection: 'column'
+      });
+    }
+    setDropdownOpen(!dropdownOpen);
+  }
+
+  // 2. Fermer le menu si on clique en dehors
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        menuRef.current && !menuRef.current.contains(event.target) &&
+        buttonRef.current && !buttonRef.current.contains(event.target)
+      ) {
         setDropdownOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // 3. Fermer le menu si on scrolle (sauf si on scrolle DANS le menu)
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleScroll(e) {
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setDropdownOpen(false);
+    }
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [dropdownOpen]);
 
   function toggleNiveau(nomClasse) {
     if (nomClasse === '') {
       setSelectedNiveaux(['']);
       return;
     }
-    
     setSelectedNiveaux((prev) => {
       const filtered = prev.filter(n => n !== '');
       if (filtered.includes(nomClasse)) {
@@ -54,7 +100,6 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
       setError('Le nom de la matière est obligatoire.');
       return;
     }
-    
     setSubmitting(true);
     setError('');
     
@@ -138,11 +183,12 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
             style={{ ...inputStyle, marginBottom: 18 }}
           />
         ) : (
-          <div style={{ position: 'relative', marginBottom: 18 }} ref={dropdownRef}>
-            {/* Bouton qui affiche la sélection actuelle */}
+          <div style={{ marginBottom: 18 }}>
+            {/* Bouton déclencheur */}
             <button
               type="button"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
+              ref={buttonRef}
+              onClick={toggleDropdown}
               style={{
                 width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)',
                 background: 'var(--paper)', color: 'var(--ink)', fontSize: 14, textAlign: 'left',
@@ -155,13 +201,9 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
               <i className="ti ti-chevron-down" style={{ fontSize: 14 }} aria-hidden="true"></i>
             </button>
 
-            {/* Panneau déroulant */}
-            {dropdownOpen && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 9,
-                marginTop: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column'
-              }}>
+            {/* Menu déroulant via Portal pour ne pas être coupé */}
+            {dropdownOpen && createPortal(
+              <div ref={menuRef} style={menuStyle}>
                 <div style={{ maxHeight: 200, overflowY: 'auto', padding: '8px 12px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', fontWeight: 600 }}>
                     <input type="checkbox" checked={isAllLevels} onChange={() => toggleNiveau('')} />
@@ -188,7 +230,8 @@ export default function SubjectModal({ schoolId, teachers, classes, editing, onC
                     OK
                   </button>
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         )}
