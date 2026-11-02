@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
+  PieChart, Pie, Cell
+} from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel, stickyColStyle } from '../lib/utils.js';
@@ -77,6 +80,7 @@ const TABS = [
   { id: 'paiements', label: 'Paiements' },
   { id: 'depenses', label: 'Dépenses' },
   { id: 'avances', label: 'Avances sur salaire' },
+  { id: 'bilan', label: 'Bilan financier' }, // 👈 NOUVEL ONGLET
 ];
 
 export default function Money() {
@@ -93,7 +97,6 @@ export default function Money() {
       {tour.Runner}
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       
-      {/* Masquage de la barre de défilement horizontale (hide-scrollbar) tout en gardant le scroll */}
       <div 
         data-tour="money-tabs" 
         className="hide-scrollbar"
@@ -123,6 +126,7 @@ export default function Money() {
       {tab === 'paiements' && <Payments />}
       {tab === 'depenses' && <Expenses />}
       {tab === 'avances' && <Advances />}
+      {tab === 'bilan' && <BilanFinancier />}
     </div>
   );
 }
@@ -395,7 +399,6 @@ function Payments() {
       onSuccess: () => setError(''),
     });
     
-    // On récupère les élèves avec leur niveau de classe et les frais connexes
     const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom, niveau ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
       .map((e) => ({
@@ -410,7 +413,6 @@ function Payments() {
       }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name)));
 
-    // On récupère la grille tarifaire
     const { data: fs } = await supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id);
     setFeeSchedules(fs || []);
   }
@@ -558,20 +560,16 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
   const [error, setError] = useState('');
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
-  // Élève sélectionné et sa grille tarifaire
   const currentStudent = students.find((s) => s.id === studentId);
   const currentFeeSchedule = currentStudent && feeSchedules ? feeSchedules.find((f) => f.niveau === currentStudent.classeNiveau) : null;
   
-  // Restes par type de frais
   const resteEcolage = currentStudent ? (Number(currentStudent.montant_du) - Number(currentStudent.montant_paye)) : 0;
   const resteConnexe = currentStudent ? (Number(currentStudent.frais_connexe_du) - Number(currentStudent.frais_connexe_paye)) : 0;
 
-  // 🎯 Détection "déjà tout payé" selon le type de frais
   let dejaPaye = false;
   if (typeFrais === 'scolarite' && resteEcolage <= 0) dejaPaye = true;
   if (typeFrais === 'connexe' && resteConnexe <= 0) dejaPaye = true;
 
-  // 🎯 Logique d'auto-remplissage du montant
   useEffect(() => {
     if (!currentFeeSchedule) return;
 
@@ -647,7 +645,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     onCreated();
   }
 
-  // Déterminer si le champ montant doit être modifiable
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
   const canSubmit = !dejaPaye && !submitting && students.length > 0 && montant !== '';
 
@@ -704,7 +701,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           </div>
         </div>
 
-        {/* 🎯 Affichage du total */}
         {currentStudent && (
           <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -720,7 +716,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           </div>
         )}
 
-        {/* 🎯 Alerte "déjà payé" */}
         {dejaPaye && (
           <div style={{ background: 'var(--amber-light)', border: '1px solid var(--amber)', borderRadius: 9, padding: '10px 14px', marginBottom: 14 }}>
             <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
@@ -1200,3 +1195,197 @@ function Stat({ label, value, color }) {
 }
 
 const smallInput = { padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)' };
+
+
+// ==========================================
+// NOUVEAU COMPOSANT : BILAN FINANCIER
+// ==========================================
+function BilanFinancier() {
+  const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [
+          { data: payments, error: pErr },
+          { data: salaries, error: sErr },
+          { data: advances, error: aErr },
+          { data: expenses, error: eErr }
+        ] = await Promise.all([
+          supabase.from('payments').select('type_frais, montant').eq('school_year_id', schoolYear.id),
+          supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
+          supabase.from('salary_advances').select('montant').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
+          supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id)
+        ]);
+
+        if (pErr) throw pErr;
+        if (sErr) throw sErr;
+        if (aErr) throw aErr;
+        if (eErr) throw eErr;
+
+        // 1. Calcul des Revenus
+        const ecolage = (payments || []).filter(p => p.type_frais === 'scolarite').reduce((a, p) => a + Number(p.montant), 0);
+        const connexe = (payments || []).filter(p => p.type_frais === 'connexe').reduce((a, p) => a + Number(p.montant), 0);
+        const inscription = (payments || []).filter(p => p.type_frais === 'inscription').reduce((a, p) => a + Number(p.montant), 0);
+        const totalRevenus = ecolage + connexe + inscription;
+
+        // 2. Calcul des Charges
+        const salairesPayes = (salaries || []).reduce((a, s) => a + Number(s.montant), 0);
+        const avancesPayees = (advances || []).reduce((a, a) => a + Number(a.montant), 0);
+        const autresDepenses = (expenses || []).reduce((a, e) => a + Number(e.montant), 0);
+        const totalCharges = salairesPayes + avancesPayees + autresDepenses;
+
+        // 3. Résultat Net
+        const resultatNet = totalRevenus - totalCharges;
+
+        if (!cancelled) {
+          setData({
+            ecolage, connexe, inscription, totalRevenus,
+            salairesPayes, avancesPayees, autresDepenses, totalCharges,
+            resultatNet
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setError(translateError(err));
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
+
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!data || !schoolYear) {
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold"><SkeletonTableRows count={5} columns={4} /></div>
+      </div>
+    );
+  }
+
+  const pieRevenusData = [
+    { name: 'Écolage', value: data.ecolage, color: 'var(--forest)' },
+    { name: 'Connexes', value: data.connexe, color: 'var(--clay)' },
+    { name: 'Inscriptions', value: data.inscription, color: 'var(--gold)' },
+  ].filter(d => d.value > 0);
+
+  const pieChargesData = [
+    { name: 'Salaires', value: data.salairesPayes, color: '#4A90E2' },
+    { name: 'Avances', value: data.avancesPayees, color: '#E26D8A' },
+    { name: 'Autres dépenses', value: data.autresDepenses, color: 'var(--muted)' },
+  ].filter(d => d.value > 0);
+
+  return (
+    <div>
+      <div className="card-bold" style={{ padding: '20px 24px', marginBottom: 24, background: 'var(--forest)', color: '#fff', borderColor: 'var(--forest)' }}>
+        <p style={{ margin: '0 0 6px', fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Résultat net de l'école — {schoolYear.label}</p>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, color: data.resultatNet >= 0 ? '#fff' : '#FFC0C0' }}>
+            {fmtF(data.resultatNet)}
+          </p>
+          <span style={{ fontSize: 14, fontWeight: 600, color: data.resultatNet >= 0 ? 'var(--gold)' : '#FFC0C0' }}>
+            {data.resultatNet >= 0 ? 'Bénéfice' : 'Déficit'}
+          </span>
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
+          Revenus totaux : {fmtF(data.totalRevenus)} — Charges totales : {fmtF(data.totalCharges)}
+        </p>
+      </div>
+
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
+        {/* BLOC REVENUS */}
+        <div className="card-bold" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-trending-up" style={{ fontSize: 20, color: 'var(--success)' }} aria-hidden="true"></i>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Revenus encaissés</p>
+          </div>
+          
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Droit d'écolage</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.ecolage)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Frais connexes</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.connexe)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Inscriptions / Réinscriptions</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.inscription)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>TOTAL REVENUS</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>{fmtF(data.totalRevenus)}</span>
+            </div>
+          </div>
+
+          {pieRevenusData.length > 0 && (
+            <div style={{ height: 180, marginTop: 10 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={pieRevenusData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                    {pieRevenusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* BLOC CHARGES */}
+        <div className="card-bold" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-trending-down" style={{ fontSize: 20, color: 'var(--danger)' }} aria-hidden="true"></i>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Charges décaissées</p>
+          </div>
+          
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Salaires versés</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.salairesPayes)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Avances sur salaire</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.avancesPayees)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Autres dépenses</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.autresDepenses)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>TOTAL CHARGES</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(data.totalCharges)}</span>
+            </div>
+          </div>
+
+          {pieChargesData.length > 0 && (
+            <div style={{ height: 180, marginTop: 10 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={pieChargesData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} stroke="#fff" strokeWidth={2}>
+                    {pieChargesData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
