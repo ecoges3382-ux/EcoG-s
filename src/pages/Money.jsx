@@ -339,6 +339,7 @@ function Payments() {
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
   const [students, setStudents] = useState([]);
+  const [feeSchedules, setFeeSchedules] = useState([]);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -379,10 +380,16 @@ function Payments() {
       onError: (e) => setError(translateError(e)),
       onSuccess: () => setError(''),
     });
-    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
+    
+    // On récupère les élèves avec leur niveau de classe (pour faire le lien avec la grille tarifaire)
+    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom, niveau ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
-      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—', montant_du: e.montant_du, montant_paye: e.montant_paye }))
+      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—', classeNiveau: e.classes?.niveau, montant_du: e.montant_du, montant_paye: e.montant_paye }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name)));
+
+    // On récupère la grille tarifaire
+    const { data: fs } = await supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id);
+    setFeeSchedules(fs || []);
   }
   useEffect(() => { reload(); }, [schoolYear?.id]);
 
@@ -483,6 +490,7 @@ function Payments() {
           schoolId={profile.school_id}
           schoolYearId={schoolYear.id}
           students={students}
+          feeSchedules={feeSchedules}
           onClose={() => setModalOpen(false)}
           onCreated={() => { setModalOpen(false); reload(); }}
         />
@@ -504,7 +512,7 @@ function Payments() {
   );
 }
 
-function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated }) {
+function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClose, onCreated }) {
   const showToast = useToast();
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const [classeFilter, setClasseFilter] = useState(classes[0] || '');
@@ -516,6 +524,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     const first = students.find((s) => s.niveau === niveau);
     setStudentId(first?.id || '');
   }
+  
   const [typeFrais, setTypeFrais] = useState('scolarite');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
@@ -525,6 +534,34 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+
+  // Élève sélectionné et sa grille tarifaire
+  const currentStudent = students.find((s) => s.id === studentId);
+  const currentFeeSchedule = currentStudent && feeSchedules ? feeSchedules.find((f) => f.niveau === currentStudent.classeNiveau) : null;
+  const reste = currentStudent ? (Number(currentStudent.montant_du) - Number(currentStudent.montant_paye)) : 0;
+
+  // 🎯 Logique d'auto-remplissage du montant
+  useEffect(() => {
+    if (!currentFeeSchedule) return;
+
+    let amount = '';
+    if (typeFrais === 'scolarite') {
+      if (tranche === 'tranche1') amount = currentFeeSchedule.montant_tranche1;
+      else if (tranche === 'tranche2') amount = currentFeeSchedule.montant_tranche2;
+      else if (tranche === 'tranche3') amount = currentFeeSchedule.montant_tranche3;
+      else if (tranche === 'complet') amount = currentFeeSchedule.montant_scolarite;
+    } else if (typeFrais === 'connexe') {
+      if (tranche === 'complet') amount = currentFeeSchedule.montant_connexe;
+    } else if (typeFrais === 'inscription') {
+      if (tranche === 'complet') amount = currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription;
+    }
+
+    if (amount !== '' && amount !== null && amount !== undefined && tranche !== 'autre') {
+      setMontant(String(amount));
+    } else if (tranche === 'autre' || typeFrais === 'autre') {
+      setMontant('');
+    }
+  }, [typeFrais, tranche, currentFeeSchedule]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -574,6 +611,9 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
     showToast('Enregistré');
     onCreated();
   }
+
+  // Déterminer si le champ montant doit être modifiable
+  const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
 
   if (students.length === 0) {
     return createPortal(
@@ -628,6 +668,20 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
         </div>
 
+        {/* 🎯 Affichage du total */}
+        {currentStudent && (
+          <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Total dû : {fmtF(currentStudent.montant_du)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Déjà payé : {fmtF(currentStudent.montant_paye)}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Reste à payer</p>
+              <p style={{ margin: '2px 0 0', fontSize: 16, fontWeight: 700, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(reste)}</p>
+            </div>
+          </div>
+        )}
+
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Type de frais</label>
@@ -635,7 +689,16 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
           </div>
           <div>
             <label style={modalLabelStyle}>Montant</label>
-            <MoneyInput value={montant} onChange={setMontant} style={modalInputStyle} suffix="F CFA" />
+            <div style={{ position: 'relative' }}>
+              <MoneyInput 
+                value={montant} 
+                onChange={setMontant} 
+                style={{ ...modalInputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }} 
+                suffix="F CFA" 
+                disabled={!isMontantEditable} 
+              />
+            </div>
+            {!isMontantEditable && <p style={{ margin: '-8px 0 10px', fontSize: 10.5, color: 'var(--muted)' }}>Calculé automatiquement selon la grille tarifaire</p>}
           </div>
         </div>
 
@@ -645,7 +708,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, onClose, onCreated 
             <Dropdown value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m.id, label: m.label }))} style={modalInputStyle} />
           </div>
           <div>
-            <label style={modalLabelStyle}>Tranche</label>
+            <label style={modalLabelStyle}>Tranche / Type</label>
             <Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} />
           </div>
         </div>
