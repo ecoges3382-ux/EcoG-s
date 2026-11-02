@@ -987,7 +987,6 @@ function SalairesSection() {
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Les avances approuvées sont automatiquement déduites du reste à payer.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* 🎯 AJOUT DE whiteSpace: 'nowrap' ICI */}
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Mois :</label>
           <Dropdown value={mois} onChange={setMois} options={monthOptions} style={{ width: 200 }} />
         </div>
@@ -1466,7 +1465,7 @@ const smallInput = { padding: '10px 12px', borderRadius: 9, border: '1px solid v
 
 
 // ==========================================
-// COMPOSANT : BILAN FINANCIER
+// COMPOSANT : BILAN FINANCIER (avec Donuts)
 // ==========================================
 function BilanFinancier() {
   const { profile } = useAuth();
@@ -1552,6 +1551,20 @@ function BilanFinancier() {
     { name: 'Autres dépenses', value: data.autresDepenses, color: 'var(--muted)' },
   ].filter(d => d.value > 0);
 
+  // 🎯 Fonction pour afficher le pourcentage dans le Donut
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if (percent < 0.05) return null;
+    return (
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   return (
     <div>
       <div className="card-bold" style={{ padding: '20px 24px', marginBottom: 24, background: 'var(--forest)', color: '#fff', borderColor: 'var(--forest)' }}>
@@ -1570,7 +1583,8 @@ function BilanFinancier() {
       </div>
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
-        <div className="card-bold" style={{ padding: '20px 24px' }}>
+        {/* BLOC REVENUS */}
+        <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-up" style={{ fontSize: 20, color: 'var(--success)' }} aria-hidden="true"></i>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Revenus encaissés</p>
@@ -1595,23 +1609,56 @@ function BilanFinancier() {
             </div>
           </div>
 
-          {pieRevenusData.length > 0 && (
-            <div style={{ height: 180, marginTop: 10 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={pieRevenusData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} stroke="#fff" strokeWidth={2}>
-                    {pieRevenusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: 10, position: 'relative' }}>
+            {pieRevenusData.length > 0 && (
+              <>
+                <div style={{ height: 200, width: '100%' }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie 
+                        data={pieRevenusData} 
+                        dataKey="value" 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={60} 
+                        outerRadius={85} 
+                        paddingAngle={2} 
+                        stroke="#ffffff" 
+                        strokeWidth={2}
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                      >
+                        {pieRevenusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* 🎯 TEXTE AU CENTRE DU DONUT */}
+                <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
+                    {fmtF(data.totalRevenus).replace(' F CFA', '')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
+                </div>
+                {/* LÉGENDE */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                  {pieRevenusData.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="card-bold" style={{ padding: '20px 24px' }}>
+        {/* BLOC CHARGES */}
+        <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-down" style={{ fontSize: 20, color: 'var(--danger)' }} aria-hidden="true"></i>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Charges décaissées</p>
@@ -1636,20 +1683,52 @@ function BilanFinancier() {
             </div>
           </div>
 
-          {pieChargesData.length > 0 && (
-            <div style={{ height: 180, marginTop: 10 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={pieChargesData} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} stroke="#fff" strokeWidth={2}>
-                    {pieChargesData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: 10, position: 'relative' }}>
+            {pieChargesData.length > 0 && (
+              <>
+                <div style={{ height: 200, width: '100%' }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie 
+                        data={pieChargesData} 
+                        dataKey="value" 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={60} 
+                        outerRadius={85} 
+                        paddingAngle={2} 
+                        stroke="#ffffff" 
+                        strokeWidth={2}
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                      >
+                        {pieChargesData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* 🎯 TEXTE AU CENTRE DU DONUT */}
+                <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
+                    {fmtF(data.totalCharges).replace(' F CFA', '')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
+                </div>
+                {/* LÉGENDE */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                  {pieChargesData.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
