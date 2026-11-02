@@ -219,23 +219,37 @@ function buildMonthsForChart(schoolYear) {
 
 function TrendsSection({ schoolYear, attendance }) {
   const [payments, setPayments] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
+    
+    // On affiche les données dans la console pour comprendre
+    console.log("Chargement des paiements pour l'année:", schoolYear.id);
+
     guardedFetch({
-      cacheKey: `dashboard_monthly_payments_${schoolYear.id}`,
+      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v2`, // Cache bypass
       hasData: false,
       load: async () => {
         const { data, error: e } = await supabase
           .from('payments')
           .select('date, montant')
           .eq('school_year_id', schoolYear.id);
-        return e ? { error: e } : { data: data || [] };
+        
+        if (e) {
+          console.error("Erreur Supabase paiements:", e);
+          return { error: e };
+        }
+        
+        console.log("Paiements récupérés du serveur:", data);
+        return { data: data || [] };
       },
       setData: setPayments,
+      onError: (err) => setLoadError(err),
       isCancelled: () => cancelled,
     });
+    
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
@@ -293,7 +307,15 @@ function TrendsSection({ schoolYear, attendance }) {
             Encaissements {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
           </p>
           
-          {totalPayments === 0 ? (
+          {loadError ? (
+             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--danger-light)', borderRadius: 8 }}>
+               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--danger)', fontWeight: 600 }}>Erreur de chargement : {loadError.message}</p>
+             </div>
+          ) : payments === null ? (
+             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Chargement des données…</p>
+             </div>
+          ) : totalPayments === 0 ? (
             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--line)', borderRadius: 8 }}>
               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun paiement enregistré sur cette période.</p>
             </div>
@@ -322,7 +344,11 @@ function TrendsSection({ schoolYear, attendance }) {
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--gold)' }}>
             Taux de présence (%)
           </p>
-          {monthsWithData.length === 0 ? (
+          {attendance === null ? (
+             <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Chargement…</p>
+             </div>
+          ) : monthsWithData.length === 0 ? (
             <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--line)', borderRadius: 8 }}>
               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun appel enregistré sur cette période.</p>
             </div>
