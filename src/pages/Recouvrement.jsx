@@ -11,7 +11,6 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
-import SchoolTabs from '../layout/SchoolTabs.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
 
 const STATUT_RECOUVREMENT = {
@@ -85,7 +84,6 @@ export default function Recouvrement() {
   if (!students || inscriptionByStudent === null) {
     return (
       <div>
-        <SchoolTabs />
         {isHistorical && <HistoricalYearBanner year={schoolYear} />}
         <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
           <SkeletonCard /><SkeletonCard /><SkeletonCard />
@@ -177,7 +175,6 @@ export default function Recouvrement() {
 
   return (
     <div>
-      <SchoolTabs />
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {offline && <OfflineBanner />}
       {tour.Runner}
