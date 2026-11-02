@@ -22,6 +22,7 @@ import DatePicker from '../components/DatePicker.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import SelectionBar from '../components/SelectionBar.jsx'; // 🔥 NOUVEL IMPORT
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -378,6 +379,29 @@ function Payments() {
   const [modalOpen, setModalOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  
+  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
+  function toggleAllVisible() { setSelectedIds((prev) => { const ids = payments.map((p) => p.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} paiement${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { data: deleted, error: deleteError } = await supabase.from('payments').delete().in('id', selectedIds).select('id');
+    setDeleting(false);
+    if (deleteError) { setError(translateError(deleteError)); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table payments).");
+      return;
+    }
+    showToast(`${selectedIds.length} supprimé(s)`);
+    exitSelectMode();
+    reload();
+  }
 
   async function handleDelete(p) {
     if (!(await confirm(`Supprimer ce paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'cet élève'} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
@@ -457,11 +481,18 @@ function Payments() {
         <Stat label="Paiements partiels" value={partiels} color="var(--amber)" />
       </div>
 
-      {canManage && (
-        <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ marginBottom: 18, fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
-          <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Enregistrer un paiement
-        </button>
-      )}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+        {canManage && !selectMode && (
+          <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
+            <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Enregistrer un paiement
+          </button>
+        )}
+        {canManage && payments.length > 0 && !selectMode && (
+          <button onClick={() => setSelectMode(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            Sélectionner
+          </button>
+        )}
+      </div>
 
       {payments.length === 0 ? (
         <div className="card-bold">
@@ -487,11 +518,16 @@ function Payments() {
         <div className="card-bold" style={{ overflow: 'hidden', maxHeight: '70vh', overflowY: 'auto' }}>
           {payments.map((p, i) => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
-              <div>
-                <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
-                <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
-                  {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
-                </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {selectMode && (
+                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                )}
+                <div>
+                  <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
+                    {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ textAlign: 'right' }}>
@@ -500,29 +536,44 @@ function Payments() {
                     {trancheLabel(p.tranche)}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setReceiptPayment(p)}
-                  title="Imprimer le reçu"
-                  style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
-                >
-                  <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
-                </button>
-                {canManage && (
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(p)}
-                    disabled={deleting}
-                    title="Supprimer ce paiement"
-                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
-                  >
-                    <TrashIcon />
-                  </button>
+                {!selectMode && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptPayment(p)}
+                      title="Imprimer le reçu"
+                      style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                    >
+                      <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
+                    </button>
+                    {canManage && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p)}
+                        disabled={deleting}
+                        title="Supprimer ce paiement"
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+                      >
+                        <TrashIcon />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {selectMode && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={payments.length > 0 && payments.every((p) => selectedIds.includes(p.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
       )}
 
       {modalOpen && schoolYear && (
@@ -816,6 +867,30 @@ function Expenses() {
   const [montant, setMontant] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
+  function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
+  function toggleAllVisible() { setSelectedIds((prev) => { const ids = expenses.map((d) => d.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} dépense${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { data: deleted, error: deleteError } = await supabase.from('expenses').delete().in('id', selectedIds).select('id');
+    setDeleting(false);
+    if (deleteError) { setError(translateError(deleteError)); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée (probablement bloquée par une policy RLS sur la table expenses).");
+      return;
+    }
+    showToast(`${selectedIds.length} supprimée(s)`);
+    exitSelectMode();
+    reload();
+  }
+
   function reload() {
     if (!schoolYear) return;
     guardedFetch({
@@ -872,7 +947,15 @@ function Expenses() {
         <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(total)}</p>
       </div>
 
-      <p className="page-title" style={{ margin: '0 0 12px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Dépenses récentes</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Dépenses récentes</p>
+        {canManage && expenses.length > 0 && !selectMode && (
+          <button onClick={() => setSelectMode(true)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '7px 13px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            Sélectionner
+          </button>
+        )}
+      </div>
+
       {expenses.length === 0 ? (
         <div className="card-bold" style={{ marginBottom: 24, maxWidth: 640 }}>
           <EmptyState
@@ -885,13 +968,18 @@ function Expenses() {
         <div className="card-bold" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 400px)', marginBottom: 24, maxWidth: 640 }}>
           {expenses.map((d, i) => (
             <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < expenses.length - 1 ? '1px solid var(--line)' : 'none' }}>
-              <div>
-                <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{d.libelle}</p>
-                <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{d.categorie}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {selectMode && (
+                  <input type="checkbox" checked={selectedIds.includes(d.id)} onChange={() => toggleOne(d.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                )}
+                <div>
+                  <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{d.libelle}</p>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{d.categorie}</p>
+                </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{fmtF(d.montant)}</p>
-                {canManage && (
+                {canManage && !selectMode && (
                   <button
                     type="button"
                     onClick={() => handleDelete(d)}
@@ -907,7 +995,18 @@ function Expenses() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {selectMode && expenses.length > 0 && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={expenses.every((d) => selectedIds.includes(d.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
+
+      <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 24 }}>
         <input value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder="Libellé" style={{ ...smallInput, flex: '2 1 160px' }} />
         <input value={categorie} onChange={(e) => setCategorie(e.target.value)} placeholder="Catégorie" style={{ ...smallInput, flex: '1 1 120px' }} />
         <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ ...smallInput, flex: '1 1 120px' }} />
@@ -925,7 +1024,7 @@ function Expenses() {
 function SalairesSection() {
   const { profile } = useAuth();
   const showToast = useToast();
-  const confirm = useConfirm(); // 🔥 AJOUT ICI
+  const confirm = useConfirm(); 
   const [mois, setMois] = useState(generateMonthOptions()[0].value);
   const [salaries, setSalaries] = useState(null);
   const [advances, setAdvances] = useState([]);
@@ -933,6 +1032,30 @@ function SalairesSection() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [error, setError] = useState('');
+
+  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
+  function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
+  function toggleAllVisible() { setSelectedIds((prev) => { const ids = salaries.map((s) => s.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} paiement${selectedIds.length > 1 ? 's' : ''} de salaire ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { data: deleted, error: deleteError } = await supabase.from('staff_salaries').delete().in('id', selectedIds).select('id');
+    setDeleting(false);
+    if (deleteError) { setError(deleteError.message); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table staff_salaries.");
+      return;
+    }
+    showToast(`${selectedIds.length} supprimé(s)`);
+    exitSelectMode();
+    reloadSalaries();
+  }
 
   const monthOptions = generateMonthOptions();
   const COLONNES_SALAIRES = '1.5fr 1.2fr 1.2fr 1.2fr 1.2fr 110px';
@@ -973,7 +1096,6 @@ function SalairesSection() {
     setStaff(st || []);
   }
 
-  // 🔥 AJOUT : FONCTION DE SUPPRESSION DU SALAIRE
   async function handleDeleteSalaire(id, nomMembre, montant) {
     if (!(await confirm(`Supprimer le paiement de ${fmtF(montant)} pour ${nomMembre} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
 
@@ -1088,33 +1210,58 @@ function SalairesSection() {
         </div>
       </div>
 
-      <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Paiements enregistrés pour {monthOptions.find(m => m.value === mois)?.label}</p>
-      <div className="card-bold" style={{ overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Paiements enregistrés pour {monthOptions.find(m => m.value === mois)?.label}</p>
+        {salaries && salaries.length > 0 && !selectMode && (
+          <button onClick={() => setSelectMode(true)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '7px 13px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            Sélectionner
+          </button>
+        )}
+      </div>
+
+      <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 24 }}>
         {salaries === null && <SkeletonRow count={2} />}
         {salaries && salaries.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement de salaire ce mois-ci.</p>}
         {salaries && salaries.map((s, i) => (
-          // 🔥 AJOUT : Le bouton corbeille à côté du montant
           <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{s.staff?.full_name}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
-                {new Date(s.date).toLocaleDateString('fr-FR')} · {s.mode}{s.note ? ` · ${s.note}` : ''}
-              </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {selectMode && (
+                <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+              )}
+              <div>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{s.staff?.full_name}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                  {new Date(s.date).toLocaleDateString('fr-FR')} · {s.mode}{s.note ? ` · ${s.note}` : ''}
+                </p>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{fmtF(s.montant)}</span>
-              <button
-                type="button"
-                onClick={() => handleDeleteSalaire(s.id, s.staff?.full_name || 'ce membre', s.montant)}
-                title="Supprimer ce paiement"
-                style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
-              >
-                <TrashIcon />
-              </button>
+              {!selectMode && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSalaire(s.id, s.staff?.full_name || 'ce membre', s.montant)}
+                  title="Supprimer ce paiement"
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                >
+                  <TrashIcon />
+                </button>
+              )}
             </div>
           </div>
         ))}
       </div>
+
+      {selectMode && salaries && salaries.length > 0 && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={salaries.every((s) => selectedIds.includes(s.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
 
       {modalOpen && selectedStaff && (
         <PayerSalaireModal
@@ -1220,6 +1367,30 @@ function Advances() {
   const [submitting, setSubmitting] = useState(false);
   const [editingAdvance, setEditingAdvance] = useState(null);
 
+  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
+  function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
+  function toggleAllVisible() { setSelectedIds((prev) => { const ids = advances.map((a) => a.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} avance${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { data: deleted, error: deleteError } = await supabase.from('salary_advances').delete().in('id', selectedIds).select('id');
+    setDeleting(false);
+    if (deleteError) { setError(translateError(deleteError)); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table salary_advances.");
+      return;
+    }
+    showToast(`${selectedIds.length} supprimée(s)`);
+    exitSelectMode();
+    reload();
+  }
+
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
@@ -1292,10 +1463,17 @@ function Advances() {
   return (
     <div>
       {offline && <OfflineBanner />}
-      <p style={{ margin: '0 0 14px', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6 }}>
-        Le fondateur et le directeur peuvent approuver, refuser, modifier ou supprimer une demande. Les autres rôles peuvent
-        seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6, maxWidth: 600 }}>
+          Le fondateur et le directeur peuvent approuver, refuser, modifier ou supprimer une demande. Les autres rôles peuvent
+          seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.
+        </p>
+        {canDecide && advances.length > 0 && !selectMode && (
+          <button onClick={() => setSelectMode(true)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '7px 13px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            Sélectionner
+          </button>
+        )}
+      </div>
 
       {advances.length === 0 ? (
         <div className="card-bold" style={{ marginBottom: 20 }}>
@@ -1320,29 +1498,34 @@ function Advances() {
           {advances.map((a, i) => (
             <div key={a.id} style={{ padding: '13px 20px', borderBottom: i < advances.length - 1 ? '1px solid var(--line)' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <div>
-                  <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
-                  <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {canDecide && selectMode && (
+                    <input type="checkbox" checked={selectedIds.includes(a.id)} onChange={() => toggleOne(a.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                  )}
+                  <div>
+                    <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
+                    <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
+                  </div>
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}{a.statut === 'approuvee' && Number(a.solde) > 0 ? ` (reste ${fmtF(a.solde)})` : ''}</span>
               </div>
-              {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)' }}>{a.motif}</p>}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)', paddingLeft: selectMode ? 28 : 0 }}>{a.motif}</p>}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingLeft: selectMode ? 28 : 0 }}>
                 <StatusBadge statut={a.statut} solde={a.solde} montant={a.montant} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
+                  {!selectMode && canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
                     <>
                       <button onClick={() => decide(a.id, 'approuvee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>Approuver</button>
                       <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>Refuser</button>
                     </>
                   )}
-                  {canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
+                  {!selectMode && canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
                     <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
                       <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
                     </button>
                   )}
                   
-                  {canDecide && (
+                  {!selectMode && canDecide && (
                     <>
                       <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
                         <PencilIcon />
@@ -1359,8 +1542,19 @@ function Advances() {
         </div>
       )}
 
+      {selectMode && advances.length > 0 && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={advances.every((a) => selectedIds.includes(a.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
+
       {staff.length > 0 ? (
-        <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 24 }}>
           <Dropdown
             value={staffId}
             onChange={setStaffId}
@@ -1375,7 +1569,7 @@ function Advances() {
           </button>
         </form>
       ) : (
-        <p className="card-bold" style={{ padding: '18px 20px', margin: 0, fontSize: 13, color: 'var(--muted)' }}>
+        <p className="card-bold" style={{ padding: '18px 20px', margin: 0, fontSize: 13, color: 'var(--muted)', marginTop: 24 }}>
           Aucun membre du personnel enregistré pour l'instant. Ajoute d'abord des membres dans l'onglet{' '}
           <Link to="/personnel" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Personnel</Link>{' '}
           pour pouvoir soumettre une demande d'avance sur salaire.
