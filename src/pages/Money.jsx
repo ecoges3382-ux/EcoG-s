@@ -80,7 +80,7 @@ const TABS = [
   { id: 'paiements', label: 'Paiements' },
   { id: 'depenses', label: 'Dépenses' },
   { id: 'avances', label: 'Avances sur salaire' },
-  { id: 'bilan', label: 'Bilan financier' }, // 👈 NOUVEL ONGLET
+  { id: 'bilan', label: 'Bilan financier' },
 ];
 
 export default function Money() {
@@ -1198,7 +1198,7 @@ const smallInput = { padding: '10px 12px', borderRadius: 9, border: '1px solid v
 
 
 // ==========================================
-// NOUVEAU COMPOSANT : BILAN FINANCIER
+// COMPOSANT : BILAN FINANCIER (CORRIGÉ)
 // ==========================================
 function BilanFinancier() {
   const { profile } = useAuth();
@@ -1230,15 +1230,15 @@ function BilanFinancier() {
         if (eErr) throw eErr;
 
         // 1. Calcul des Revenus
-        const ecolage = (payments || []).filter(p => p.type_frais === 'scolarite').reduce((a, p) => a + Number(p.montant), 0);
-        const connexe = (payments || []).filter(p => p.type_frais === 'connexe').reduce((a, p) => a + Number(p.montant), 0);
-        const inscription = (payments || []).filter(p => p.type_frais === 'inscription').reduce((a, p) => a + Number(p.montant), 0);
+        const ecolage = (payments || []).filter(p => p.type_frais === 'scolarite').reduce((acc, p) => acc + Number(p.montant), 0);
+        const connexe = (payments || []).filter(p => p.type_frais === 'connexe').reduce((acc, p) => acc + Number(p.montant), 0);
+        const inscription = (payments || []).filter(p => p.type_frais === 'inscription').reduce((acc, p) => acc + Number(p.montant), 0);
         const totalRevenus = ecolage + connexe + inscription;
 
-        // 2. Calcul des Charges
-        const salairesPayes = (salaries || []).reduce((a, s) => a + Number(s.montant), 0);
-        const avancesPayees = (advances || []).reduce((a, a) => a + Number(a.montant), 0);
-        const autresDepenses = (expenses || []).reduce((a, e) => a + Number(e.montant), 0);
+        // 2. Calcul des Charges (CORRIGÉ : acc et item)
+        const salairesPayes = (salaries || []).reduce((acc, item) => acc + Number(item.montant), 0);
+        const avancesPayees = (advances || []).reduce((acc, item) => acc + Number(item.montant), 0);
+        const autresDepenses = (expenses || []).reduce((acc, item) => acc + Number(item.montant), 0);
         const totalCharges = salairesPayes + avancesPayees + autresDepenses;
 
         // 3. Résultat Net
