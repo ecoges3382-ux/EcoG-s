@@ -2,16 +2,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
 import { guardedFetch } from './offlineCache.js';
 
-// Source unique pour "la liste des élèves inscrits pour une année scolaire,
-// avec leur situation financière" — Argent, Tableau de bord et Rapports
-// appelaient jusqu'ici chacun leur propre variante de la même requête
-// enrollments+fee_schedules. Un seul chargement, une seule forme de donnée,
-// jamais un deuxième calcul du dû/payé/reste pour le même indicateur.
-//
-// Le dû/payé et la classe d'un élève sont propres à l'année scolaire
-// (table enrollments) — students ne garde que son identité, donc un ancien
-// élève non réinscrit n'apparaît jamais ici, même s'il existe encore dans
-// "students".
 export function useEnrollmentsForYear(schoolYear) {
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
@@ -22,12 +12,12 @@ export function useEnrollmentsForYear(schoolYear) {
     let cancelled = false;
     guardedFetch({
       cacheKey: `enrollments_${schoolYear.id}`,
-      hasData: false, // ré-hydrate à chaque changement d'année consultée
+      hasData: false,
       load: async () => {
         const [{ data, error: e }, { data: fees }] = await Promise.all([
           supabase
             .from('enrollments')
-            .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )')
+            .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )')
             .eq('school_year_id', schoolYear.id),
           supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
         ]);
@@ -50,6 +40,13 @@ export function useEnrollmentsForYear(schoolYear) {
             frais_connexe_du: en.frais_connexe_du,
             frais_connexe_paye: en.frais_connexe_paye,
             note_arrangement: en.note_arrangement,
+            moratoire_actif: en.moratoire_actif,
+            moratoire_montant_convenu: en.moratoire_montant_convenu,
+            moratoire_nb_mensualites: en.moratoire_nb_mensualites,
+            moratoire_date_debut: en.moratoire_date_debut,
+            moratoire_date_fin: en.moratoire_date_fin,
+            moratoire_motif: en.moratoire_motif,
+            moratoire_prochaine_echeance: en.moratoire_prochaine_echeance,
             statut: en.statut,
           })),
         };
