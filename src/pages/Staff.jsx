@@ -460,7 +460,7 @@ export default function Staff() {
 }
 
 // ==========================================
-// COMPOSANT : GESTION DES SALAIRES (CORRIGÉ)
+// COMPOSANT : GESTION DES SALAIRES
 // ==========================================
 function SalairesSection({ staff }) {
   const { profile } = useAuth();
@@ -472,8 +472,6 @@ function SalairesSection({ staff }) {
   const [error, setError] = useState('');
 
   const monthOptions = generateMonthOptions();
-
-  // Largeur min et colonnes pour que ce soit aéré et scrollable sur mobile
   const COLONNES_SALAIRES = '2fr 1.2fr 1.2fr 1.2fr 110px';
 
   async function reloadSalaries() {
@@ -512,7 +510,6 @@ function SalairesSection({ staff }) {
 
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
 
-      {/* Tableau avec scroll horizontal et première colonne sticky */}
       <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 24 }}>
         <div style={{ minWidth: 760 }}>
           <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
@@ -532,33 +529,39 @@ function SalairesSection({ staff }) {
               const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((a, s) => a + Number(s.montant), 0);
               const prevu = Number(p.salaire_mensuel) || 0;
               const reste = prevu - paye;
+              
+              // 🎯 Condition : est-ce que c'est déjà payé (ou plus) ?
+              const estPaye = prevu > 0 && reste <= 0;
+
               return (
                 <div key={p.id} style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '14px 20px 14px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
-                  {/* Colonne 1 (Sticky) */}
                   <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>
                     <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
                     <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
                   </div>
-                  
-                  {/* Colonne 2 */}
                   <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
-                  
-                  {/* Colonne 3 */}
                   <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>{fmtF(paye)}</span>
-                  
-                  {/* Colonne 4 */}
                   <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
                     {prevu > 0 ? fmtF(reste) : '—'}
                   </span>
                   
-                  {/* Colonne 5 (Actions) */}
                   <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 20 }}>
                     <button
                       onClick={() => { setSelectedStaff(p); setModalOpen(true); }}
-                      disabled={prevu <= 0}
-                      style={{ fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', cursor: prevu <= 0 ? 'default' : 'pointer', opacity: prevu <= 0 ? 0.5 : 1 }}
+                      disabled={prevu <= 0 || estPaye}
+                      style={{ 
+                        fontSize: 11.5, 
+                        fontWeight: 600, 
+                        padding: '6px 12px', 
+                        borderRadius: 8, 
+                        border: 'none', 
+                        background: estPaye ? 'var(--line)' : 'var(--forest)', 
+                        color: estPaye ? 'var(--muted)' : '#fff', 
+                        cursor: (prevu <= 0 || estPaye) ? 'default' : 'pointer', 
+                        opacity: (prevu <= 0 || estPaye) ? 0.7 : 1 
+                      }}
                     >
-                      Payer
+                      {estPaye ? 'Payé' : 'Payer'}
                     </button>
                   </div>
                 </div>
