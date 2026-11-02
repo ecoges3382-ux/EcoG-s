@@ -344,7 +344,7 @@ export default function Recouvrement() {
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 820 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11 }}>Élève</span>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11, background: 'var(--forest-light)' }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
             <span>Connexes</span>
@@ -359,7 +359,7 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                <div style={{ ...stickyColStyle('var(--row-bg)'), paddingLeft: 20 }}>
+                <div style={{ ...stickyColStyle('var(--row-bg, var(--paper, #ffffff))'), paddingLeft: 20, background: 'var(--row-bg, var(--paper, #ffffff))' }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
