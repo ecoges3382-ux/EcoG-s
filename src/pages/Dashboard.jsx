@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   PieChart, Pie, Cell 
 } from 'recharts';
 import { supabase } from '../lib/supabase.js';
@@ -189,28 +189,21 @@ function YearKpis({ students, attendance, classResults }) {
 
 const MONTH_LABELS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
-function buildMonthsForChart(schoolYear, payments) {
+function buildMonthsForChart(schoolYear) {
   const today = new Date();
+  let startDate;
   
-  let startDate = null;
   if (schoolYear?.date_debut) {
     startDate = new Date(schoolYear.date_debut);
-  } else if (payments && payments.length > 0) {
-    const dates = payments.map(p => p.date).filter(Boolean).sort();
-    if (dates.length > 0) startDate = new Date(dates[0]);
-  }
-  if (!startDate) {
+  } else {
+    // Par défaut, on commence en Septembre de l'année de début de l'année scolaire
     const match = schoolYear?.label?.match(/^(\d{4})-(\d{4})$/);
     const startYear = match ? Number(match[1]) : today.getFullYear();
-    startDate = new Date(startYear, 8, 1);
+    startDate = new Date(startYear, 8, 1); 
   }
 
-  let endDate = today;
-  if (payments && payments.length > 0) {
-    const dates = payments.map(p => p.date).filter(Boolean).sort();
-    const lastPayment = dates.length > 0 ? new Date(dates[dates.length - 1]) : null;
-    if (lastPayment && lastPayment > endDate) endDate = lastPayment;
-  }
+  // On va jusqu'au mois actuel
+  const endDate = today;
 
   const months = [];
   let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
@@ -249,12 +242,9 @@ function TrendsSection({ schoolYear, attendance, students }) {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
-  // 🎯 FALLBACK : Si la table "payments" est vide, on utilise les montants
-  // des inscriptions (enrollments) pour afficher au moins les totaux.
+  // Fallback si la table "payments" est vide
   const dataToUse = useMemo(() => {
     if (payments && payments.length > 0) return payments;
-    
-    // Fallback : On génère une fausse "date" de paiement basée sur la date d'inscription
     return (students || []).map(s => {
       const totalPaye = Number(s.montant_paye) + Number(s.frais_connexe_paye);
       if (totalPaye <= 0) return null;
@@ -267,7 +257,7 @@ function TrendsSection({ schoolYear, attendance, students }) {
 
   if (!schoolYear) return null;
 
-  const months = buildMonthsForChart(schoolYear, dataToUse);
+  const months = buildMonthsForChart(schoolYear);
 
   const paymentsData = months.map((m) => ({
     name: m.label,
@@ -313,7 +303,7 @@ function TrendsSection({ schoolYear, attendance, students }) {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         
-        {/* GRAPHIQUE ENCAISSEMENTS */}
+        {/* GRAPHIQUE ENCAISSEMENTS (BARRES) */}
         <div style={{ marginBottom: 24 }}>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest)' }}>
             Encaissements {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
@@ -326,25 +316,19 @@ function TrendsSection({ schoolYear, attendance, students }) {
           ) : (
             <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
-                <AreaChart data={paymentsData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorPayments" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--forest)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--forest)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                <BarChart data={paymentsData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} tickFormatter={(val) => val > 1000 ? `${val / 1000}k` : val} />
-                  <Tooltip content={<CustomTooltip isCurrency={true} />} />
-                  <Area type="monotone" dataKey="value" stroke="var(--forest)" strokeWidth={3} fillOpacity={1} fill="url(#colorPayments)" />
-                </AreaChart>
+                  <Tooltip content={<CustomTooltip isCurrency={true} />} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                  <Bar dataKey="value" fill="var(--forest)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}
         </div>
 
-        {/* GRAPHIQUE PRÉSENCES */}
+        {/* GRAPHIQUE PRÉSENCES (BARRES) */}
         <div>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--gold)' }}>
             Taux de présence (%)
@@ -356,19 +340,13 @@ function TrendsSection({ schoolYear, attendance, students }) {
           ) : (
             <div style={{ width: '100%', height: 150 }}>
               <ResponsiveContainer>
-                <AreaChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorPresence" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--gold)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--gold)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                <BarChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} domain={[0, 100]} />
-                  <Tooltip content={<CustomTooltip isCurrency={false} />} />
-                  <Area type="monotone" dataKey="value" stroke="var(--gold)" strokeWidth={3} fillOpacity={1} fill="url(#colorPresence)" />
-                </AreaChart>
+                  <Tooltip content={<CustomTooltip isCurrency={false} />} cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
+                  <Bar dataKey="value" fill="var(--gold)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           )}
