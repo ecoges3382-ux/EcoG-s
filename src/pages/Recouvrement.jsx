@@ -19,6 +19,7 @@ const STATUT_RECOUVREMENT = {
   dans_les_delais: { label: 'Dans les délais', bg: 'var(--amber-light)', fg: 'var(--amber)' },
   solde_restant: { label: 'Solde restant', bg: 'var(--amber-light)', fg: 'var(--amber)' },
   moratoire: { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' },
+  moratoire_expirant: { label: 'Moratoire (fin proche)', bg: 'var(--amber-light)', fg: 'var(--amber)' },
 };
 
 const STATUT_FILTERS = [
@@ -29,6 +30,7 @@ const STATUT_FILTERS = [
   { id: 'dans_les_delais', label: 'Dans les délais' },
   { id: 'solde_restant', label: 'Solde restant' },
   { id: 'moratoire', label: 'Moratoire' },
+  { id: 'moratoire_expirant', label: 'Moratoire (fin proche)' },
 ];
 
 function matchStatut(s, statut) {
@@ -103,7 +105,8 @@ export default function Recouvrement() {
     const inscriptionPaye = inscriptionByStudent[s.id] || 0;
     const relance = computeRelance(s, schoolYear, s.feeSchedule);
     let statutKey;
-    if (relance.moratoire) statutKey = 'moratoire';
+    if (relance.moratoireExpirant) statutKey = 'moratoire_expirant';
+    else if (relance.moratoire) statutKey = 'moratoire';
     else if (resteEcolage <= 0 && resteConnexe <= 0) statutKey = 'a_jour';
     else if (calendrierConfigure) statutKey = (relance.relance || relance.relanceConnexe) ? 'a_relancer' : 'dans_les_delais';
     else statutKey = 'solde_restant';
@@ -166,10 +169,9 @@ export default function Recouvrement() {
     downloadCsv(`recouvrement-${schoolYear.label.replace(/\s+/g, '_')}.csv`, [header, ...lines]);
   }
 
-  // --- Préparation des données pour le graphique en anneau ---
   const pieData = [
     { name: 'Payé en totalité', value: nbAJour, color: 'var(--success)' },
-    { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant').length, color: 'var(--amber)' },
+    { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant' || s.statutKey === 'moratoire' || s.statutKey === 'moratoire_expirant').length, color: 'var(--amber)' },
     { name: 'Impayé / En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
   ].filter(d => d.value > 0);
 
@@ -191,7 +193,6 @@ export default function Recouvrement() {
         </span>
       </div>
 
-      {/* --- Section Graphique de Répartition --- */}
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 18, marginBottom: 24 }}>
         <div className="card-bold" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Répartition des élèves</p>
