@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES, supportWhatsappLink } from '../lib/utils.js';
+import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import PhoneInput, { COUNTRIES, composePhone } from './PhoneInput.jsx';
@@ -11,8 +12,6 @@ import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { SkeletonLine } from './Skeleton.jsx';
 import HelpTooltip from './HelpTooltip.jsx';
-import ModalContainer from './ModalContainer.jsx';
-import { canAddStudent, getPlanLabel, getPlan } from '../lib/plan.js';
 
 const PAIEMENT_TRANCHES = [
   { id: 'tranche1', label: '1ère tranche' },
@@ -29,15 +28,11 @@ const LIENS_PARENTE = [
   { id: 'autre', label: 'Autre' },
 ];
 
-export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, plan = 'decouverte', studentsCount = 0, onClose, onCreated }) {
+export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
   const showToast = useToast();
   const isEditing = !!student;
   const canEditEnrollment = !isEditing || !isHistorical;
-
-  const quotaReached = !isEditing && !canAddStudent(plan, studentsCount);
-  const planLabel = getPlanLabel(plan);
-  const quota = getPlan(plan).maxStudents;
-
+  
   const [studentNom, setStudentNom] = useState(student?.nom || '');
   const [studentPrenom, setStudentPrenom] = useState(student?.prenom || '');
   const [matricule, setMatricule] = useState(student?.matricule || '');
@@ -45,7 +40,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [sexe, setSexe] = useState(student?.sexe || 'M');
   const [nationalite, setNationalite] = useState(student?.nationalite || 'Béninoise');
   const [adresse, setAdresse] = useState(student?.adresse || '');
-
+  
   const [classeId, setClasseId] = useState(student?.classe_id || classes[0]?.id || '');
   const [typeInscription, setTypeInscription] = useState('nouveau');
   const [montantDu, setMontantDu] = useState(student?.montant_du ?? 0);
@@ -61,11 +56,20 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [paiementMode, setPaiementMode] = useState(MODES[0].id);
 
   const selectedClasse = classes.find((c) => c.id === classeId);
-  const fraisInscription = selectedClasse ? Number(feeSchedules[selectedClasse.niveau]?.montant_inscription) || 0 : 0;
+
+  // 🔥 NOUVEAU : calcul dynamique des frais d'inscription selon le type choisi
+  const fraisInscription = selectedClasse
+    ? (typeInscription === 'reinscription'
+        ? Number(feeSchedules[selectedClasse.niveau]?.montant_reinscription) || 0
+        : Number(feeSchedules[selectedClasse.niveau]?.montant_inscription) || 0)
+    : 0;
+
+  // Libellé dynamique du bloc frais
+  const libelleFrais = typeInscription === 'reinscription' ? "Frais de réinscription" : "Frais d'inscription";
 
   useEffect(() => {
     if (!schoolYearId) return;
-    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe, montant_inscription, montant_tranche1, montant_tranche2, montant_tranche3').eq('school_year_id', schoolYearId).then(({ data }) => {
+    supabase.from('fee_schedules').select('niveau, montant_scolarite, montant_connexe, montant_inscription, montant_reinscription, montant_tranche1, montant_tranche2, montant_tranche3').eq('school_year_id', schoolYearId).then(({ data }) => {
       const map = {};
       (data || []).forEach((f) => { map[f.niveau] = f; });
       setFeeSchedules(map);
@@ -121,7 +125,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (quotaReached) { setError(`Limite du plan ${planLabel} atteinte (${quota} élèves).`); return; }
     if (!studentNom.trim()) { setError('Le nom est obligatoire.'); return; }
     if (canManageParents && parentMode === 'existing' && !existingParentId) { setError('Choisis un parent existant, ou choisis « Nouveau parent ».'); return; }
     setSubmitting(true);
@@ -230,66 +233,38 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     navigator.clipboard.writeText(url).then(() => setCopied(true));
   }
 
-  if (quotaReached) {
-    const upgradeMessage = `Bonjour, je souhaite passer au plan supérieur d'EcoGès car j'ai atteint la limite de mon plan ${planLabel} (${quota} élèves). Pouvez-vous me donner les prochaines étapes ?`;
-    return (
-      <ModalContainer onClose={onClose} maxWidth={440}>
-        <div style={{ padding: 26, textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--danger-light)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <i className="ti ti-lock" style={{ fontSize: 26 }} aria-hidden="true"></i>
-          </div>
-          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Limite du plan atteinte</p>
-          <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            Votre plan <strong>{planLabel}</strong> permet <strong>{quota} élèves maximum</strong>.<br />
-            Vous en avez déjà <strong>{studentsCount}</strong>. Passez au plan supérieur pour inscrire de nouveaux élèves.
-          </p>
-          <a
-            href={supportWhatsappLink(upgradeMessage)}
-            target="_blank"
-            rel="noreferrer"
-            style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}
-          >
-            <i className="ti ti-brand-whatsapp" style={{ fontSize: 15, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
-            Passer au plan supérieur
-          </a>
-          <button type="button" onClick={onClose} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>
-            Fermer
-          </button>
-        </div>
-      </ModalContainer>
-    );
-  }
-
   if (classes.length === 0) {
-    return (
-      <ModalContainer onClose={onClose} maxWidth={420}>
-        <div style={{ padding: 26, textAlign: 'center' }}>
+    return createPortal(
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Aucune classe créée</p>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Il faut d'abord créer au moins une classe (CI, CP, 6e A…) avant de pouvoir y inscrire un élève.</p>
           <Link to="/classes" onClick={onClose} style={{ display: 'block', width: '100%', boxSizing: 'border-box', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', textDecoration: 'none', marginBottom: 10 }}>Aller créer une classe</Link>
           <button type="button" onClick={onClose} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
         </div>
-      </ModalContainer>
+      </div>,
+      document.body
     );
   }
 
   if (result) {
-    return (
-      <ModalContainer onClose={onCreated} maxWidth={420}>
-        <div style={{ padding: 26, textAlign: 'center' }}>
+    return createPortal(
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
           <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Élève inscrit</p>
           <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Code d'accès du parent — à lui transmettre pour qu'il consulte la fiche de son enfant.</p>
           <p style={{ margin: '0 0 18px', fontFamily: 'monospace', fontSize: 24, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '12px', borderRadius: 10 }}>{result.code}</p>
           <button type="button" onClick={copyLink} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px', marginBottom: 10 }}>{copied ? 'Lien copié !' : 'Copier le lien à envoyer'}</button>
           <button type="button" onClick={onCreated} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}>Terminé</button>
         </div>
-      </ModalContainer>
+      </div>,
+      document.body
     );
   }
 
-  return (
-    <ModalContainer onClose={onClose} maxWidth={480}>
-      <form onSubmit={handleSubmit} style={{ padding: 26 }}>
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? 'Modifier les informations de l’élève' : "Inscription d'un élève"}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
@@ -378,13 +353,28 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui.</p>
 
+          {/* 🔥 Bloc frais d'inscription dynamique */}
           {fraisInscription > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--forest-light)', marginBottom: 14 }}>
               <div>
-                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--forest-dark)' }}>Frais d'inscription (nouvel élève)</p>
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>Montant fixe, encaissé avec l'inscription</p>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--forest-dark)' }}>{libelleFrais}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>
+                  Montant fixe, encaissé avec l'inscription
+                </p>
               </div>
               <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--forest-dark)' }}>{fmtF(fraisInscription)}</p>
+            </div>
+          )}
+
+          {/* Si le type est réinscription mais aucun montant de réinscription n'est configuré */}
+          {typeInscription === 'reinscription' && fraisInscription === 0 && selectedClasse && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--amber-light)', marginBottom: 14 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--clay-dark)' }}>Frais de réinscription non configurés</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>
+                  Va dans Paramètres → Grille tarifaire pour définir ce montant.
+                </p>
+              </div>
             </div>
           )}
 
@@ -488,7 +478,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </button>
         </div>
       </form>
-    </ModalContainer>
+    </div>,
+    document.body
   );
 }
 
