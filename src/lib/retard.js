@@ -107,16 +107,117 @@ export function computeEcheances(enrollment, schoolYear, feeSchedule) {
   return echeances;
 }
 
+// Nombre de jours avant la fin du moratoire à partir duquel on considère
+// qu'il faut relancer (option E). Modifiable ici pour toute l'app.
+export const MORATOIRE_ALERTE_JOURS = 7;
+
+// Détecte si un moratoire est actif, en tenant compte à la fois de
+// l'ancien système (note_arrangement) et du nouveau (moratoire_actif).
+function hasMoratoireActif(enrollment) {
+  if (!enrollment) return false;
+  if (enrollment.moratoire_actif === true) return true;
+  if (enrollment.note_arrangement && enrollment.note_arrangement.trim() !== '') return true;
+  return false;
+}
+
+// Résumé texte du moratoire, utilisé pour l'historique (D) et l'affichage.
+export function resumeMoratoire(enrollment) {
+  if (!enrollment) return 'Aucun moratoire';
+  if (!hasMoratoireActif(enrollment)) return 'Aucun moratoire';
+  const parts = [];
+  if (enrollment.moratoire_motif) parts.push(`Motif : ${enrollment.moratoire_motif}`);
+  if (enrollment.moratoire_montant_convenu != null) parts.push(`Montant convenu : ${Number(enrollment.moratoire_montant_convenu).toLocaleString('fr-FR')} F`);
+  if (enrollment.moratoire_nb_mensualites) parts.push(`${enrollment.moratoire_nb_mensualites} mensualité(s)`);
+  if (enrollment.moratoire_date_debut) parts.push(`Début : ${enrollment.moratoire_date_debut}`);
+  if (enrollment.moratoire_date_fin) parts.push(`Fin : ${enrollment.moratoire_date_fin}`);
+  if (enrollment.moratoire_prochaine_echeance) parts.push(`Prochaine échéance : ${enrollment.moratoire_prochaine_echeance}`);
+  if (enrollment.note_arrangement && enrollment.note_arrangement.trim() !== '') parts.push(`Note : ${enrollment.note_arrangement}`);
+  return parts.length > 0 ? parts.join(' · ') : 'Moratoire actif';
+}
+
 // Un parent qui a négocié un arrangement (ex. payer par mensualités plutôt
 // que suivre les tranches) est exclu des relances automatiques tant que
 // cette note existe. Sans calendrier configuré du tout (aucune date de
 // tranche ni de frais connexes), on ne peut rien dater : pas de relance
 // automatique, l'ancien badge par pourcentage prend le relais côté écran
 // (voir Students.jsx).
+//
+// Options C et E :
+// - C (retrait auto) : si l'écolage est soldé ET que les frais connexes
+//   sont soldés, le moratoire est considéré comme retiré. Un flag
+//   `moratoireRetireAuto: true` est retourné pour que les composants
+//   (formulaire de paiement, fiche élève) puissent déclencher un update
+//   de la base + une entrée d'historique.
+// - E (alerte de fin) : si on est à MORATOIRE_ALERTE_JOURS ou moins de la
+//   date de fin du moratoire, l'élève réapparaît dans "À relancer" avec
+//   `moratoireExpirant: true` et `joursRestantsMoratoire`.
 export function computeRelance(enrollment, schoolYear, feeSchedule) {
-  if (enrollment?.note_arrangement?.trim()) {
-    return { relance: false, moratoire: true, relanceEcolage: false, relanceConnexe: false };
+  if (!enrollment) {
+    return { relance: false, moratoire: false, relanceEcolage: false, relanceConnexe: false };
   }
+
+  const maintenant = new Date();
+
+  // --- Option C : détection "tout payé" ---
+  const ecolageDu = Number(enrollment.montant_du) || 0;
+  const ecolagePaye = Number(enrollment.montant_paye) || 0;
+  const connexeDu = Number(enrollment.frais_connexe_du) || 0;
+  const connexePaye = Number(enrollment.frais_connexe_paye) || 0;
+  const toutPaye = (ecolageDu - ecolagePaye <= 0) && (connexeDu - connexePaye <= 0);
+
+  const moratoireActif = hasMoratoireActif(enrollment);
+
+  // Option C : moratoire retiré automatiquement parce que tout est soldé
+  if (moratoireActif && toutPaye) {
+    return {
+      relance: false,
+      moratoire: false,
+      moratoireRetireAuto: true,
+      relanceEcolage: false,
+      relanceConnexe: false,
+    };
+  }
+
+  // Moratoire actif : on regarde l'option E (alerte de fin)
+  if (moratoireActif) {
+    let joursRestantsMoratoire = null;
+    let moratoireExpirant = false;
+
+    if (enrollment.moratoire_date_fin) {
+      const fin = new Date(enrollment.moratoire_date_fin);
+      const diffMs = fin.getTime() - maintenant.getTime();
+      joursRestantsMoratoire = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      if (joursRestantsMoratoire <= MORATOIRE_ALERTE_JOURS) {
+        moratoireExpirant = true;
+      }
+    }
+
+    if (moratoireExpirant && schoolYear) {
+      // On recalcule les échéances normalement pour voir s'il y a un retard
+      const echeances = computeEcheances(enrollment, schoolYear, feeSchedule);
+      const relanceEcolage = echeances.some((e) => e.id !== 'connexe' && e.enRetard);
+      const relanceConnexe = echeances.some((e) => e.id === 'connexe' && e.enRetard);
+      return {
+        relance: relanceEcolage || relanceConnexe,
+        moratoire: false,
+        moratoireExpirant: true,
+        joursRestantsMoratoire,
+        relanceEcolage,
+        relanceConnexe,
+      };
+    }
+
+    // Moratoire normal (pas en fin imminente)
+    return {
+      relance: false,
+      moratoire: true,
+      joursRestantsMoratoire,
+      relanceEcolage: false,
+      relanceConnexe: false,
+    };
+  }
+
+  // --- Pas de moratoire : calcul normal ---
   if (!schoolYear) {
     return { relance: false, moratoire: false, relanceEcolage: false, relanceConnexe: false };
   }
