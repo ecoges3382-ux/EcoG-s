@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, Cell
 } from 'recharts';
-import ReactECharts from 'echarts-for-react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, todayIso, downloadCsv, stickyColStyle } from '../lib/utils.js';
@@ -376,87 +376,33 @@ function DemographicsSection({ students }) {
   const girls = students.filter((s) => s.sexe === 'F').length;
   const other = students.length - boys - girls;
 
-  const pieData = [
-    { name: 'Garçons', value: boys, itemStyle: { color: '#4A90E2' } }, // Bleu
-    { name: 'Filles', value: girls, itemStyle: { color: '#E26D8A' } },  // Rose
+  const data = [
+    { name: 'Garçons', value: boys },
+    { name: 'Filles', value: girls },
   ];
-  if (other > 0) pieData.push({ name: 'Non renseigné', value: other, itemStyle: { color: '#999999' } });
+  if (other > 0) data.push({ name: 'Non renseigné', value: other });
 
   const total = students.length;
 
-  // Configuration du graphique 3D avec ECharts (empilement de plusieurs camemberts pour donner du volume)
-  const option = {
-    tooltip: {
-      trigger: 'item',
-      formatter: '{b} : {c} élèves ({d}%)',
-      backgroundColor: 'rgba(0,0,0,0.8)',
-      textStyle: { color: '#fff' }
-    },
-    legend: {
-      bottom: 0,
-      icon: 'circle',
-      textStyle: { color: 'var(--muted)', fontSize: 12, fontWeight: 600 }
-    },
-    series: [
-      // 1. Couche inférieure (l'ombre portée)
-      {
-        type: 'pie',
-        radius: ['0%', '75%'],
-        center: ['50%', '50%'],
-        label: { show: false },
-        labelLine: { show: false },
-        itemStyle: {
-          shadowBlur: 15,
-          shadowOffsetX: 0,
-          shadowOffsetY: 5,
-          shadowColor: 'rgba(0,0,0,0.3)'
-        },
-        data: pieData,
-      },
-      // 2. Couche intermédiaire (donne l'épaisseur)
-      {
-        type: 'pie',
-        radius: ['0%', '75%'],
-        center: ['50%', '47%'],
-        label: { show: false },
-        labelLine: { show: false },
-        data: pieData,
-      },
-      // 3. Couche intermédiaire (donne encore plus d'épaisseur)
-      {
-        type: 'pie',
-        radius: ['0%', '75%'],
-        center: ['50%', '44%'],
-        label: { show: false },
-        labelLine: { show: false },
-        data: pieData,
-      },
-      // 4. Couche supérieure (avec les labels)
-      {
-        type: 'pie',
-        radius: ['0%', '75%'],
-        center: ['50%', '41%'],
-        label: {
-          show: true,
-          position: 'inner',
-          formatter: '{d}%',
-          color: '#fff',
-          fontWeight: 'bold',
-          fontSize: 12
-        },
-        labelLine: { show: false },
-        data: pieData,
-      }
-    ]
+  // 🎯 Couleurs pour l'effet 3D (Clair, Moyen, Foncé)
+  const COLORS = {
+    'Garçons': { top: '#4A90E2', mid: '#357ABD', bottom: '#25609A' },
+    'Filles': { top: '#E26D8A', mid: '#C24C69', bottom: '#9B324B' },
+    'Non renseigné': { top: '#999999', mid: '#777777', bottom: '#555555' },
   };
 
-  if (total === 0) {
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if (percent < 0.05) return null;
     return (
-      <div className="card-bold" style={{ padding: '20px 24px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
-      </div>
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
     );
-  }
+  };
 
   return (
     <div className="card-bold" style={{ padding: '20px 24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -465,8 +411,75 @@ function DemographicsSection({ students }) {
         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Démographie de l'école</p>
       </div>
       
-      <div style={{ flex: 1, minHeight: 220 }}>
-        <ReactECharts option={option} style={{ height: '100%', width: '100%' }} />
+      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
+        {total === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
+        ) : (
+          <div style={{ width: '100%', height: 250, marginTop: 10 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                {/* Couche inférieure (l'ombre) */}
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  cx="50%"
+                  cy="55%"
+                  outerRadius={80}
+                  innerRadius={0}
+                  stroke="none"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-bottom-${index}`} fill={COLORS[entry.name].bottom} />
+                  ))}
+                </Pie>
+                {/* Couche intermédiaire */}
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  cx="50%"
+                  cy="52.5%"
+                  outerRadius={80}
+                  innerRadius={0}
+                  stroke="none"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-mid-${index}`} fill={COLORS[entry.name].mid} />
+                  ))}
+                </Pie>
+                {/* Couche supérieure (avec les labels) */}
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  innerRadius={0}
+                  stroke="none"
+                  labelLine={false}
+                  label={renderCustomizedLabel}
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-top-${index}`} fill={COLORS[entry.name].top} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value) => [`${value} élèves`, '']}
+                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, flexWrap: 'wrap' }}>
+        {data.map((d) => (
+          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[d.name].top }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
+          </div>
+        ))}
       </div>
     </div>
   );
