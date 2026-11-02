@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
   PieChart, Pie, Cell 
 } from 'recharts';
 import { supabase } from '../lib/supabase.js';
@@ -224,12 +224,9 @@ function TrendsSection({ schoolYear, attendance }) {
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
-    
-    // On affiche les données dans la console pour comprendre
-    console.log("Chargement des paiements pour l'année:", schoolYear.id);
 
     guardedFetch({
-      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v2`, // Cache bypass
+      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v3`, 
       hasData: false,
       load: async () => {
         const { data, error: e } = await supabase
@@ -237,12 +234,7 @@ function TrendsSection({ schoolYear, attendance }) {
           .select('date, montant')
           .eq('school_year_id', schoolYear.id);
         
-        if (e) {
-          console.error("Erreur Supabase paiements:", e);
-          return { error: e };
-        }
-        
-        console.log("Paiements récupérés du serveur:", data);
+        if (e) return { error: e };
         return { data: data || [] };
       },
       setData: setPayments,
@@ -322,19 +314,23 @@ function TrendsSection({ schoolYear, attendance }) {
           ) : (
             <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
-                <AreaChart data={paymentsData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorPayments" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--forest)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--forest)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                {/* 🎯 CHANGEMENT ICI : LineChart au lieu d'AreaChart */}
+                <LineChart data={paymentsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} tickFormatter={(val) => val > 1000 ? `${val / 1000}k` : val} />
-                  <Tooltip content={<CustomTooltip isCurrency={true} />} />
-                  <Area type="monotone" dataKey="value" stroke="var(--forest)" strokeWidth={3} fillOpacity={1} fill="url(#colorPayments)" />
-                </AreaChart>
+                  <Tooltip content={<CustomTooltip isCurrency={true} />} cursor={{ stroke: 'var(--line)', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                  
+                  {/* 🎯 CHANGEMENT ICI : type="linear" pour des lignes droites, et dot pour afficher les points */}
+                  <Line 
+                    type="linear" 
+                    dataKey="value" 
+                    stroke="var(--forest)" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: 'var(--paper)', stroke: 'var(--forest)', strokeWidth: 2 }} 
+                    activeDot={{ r: 6, fill: 'var(--forest)' }} 
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -355,19 +351,22 @@ function TrendsSection({ schoolYear, attendance }) {
           ) : (
             <div style={{ width: '100%', height: 150 }}>
               <ResponsiveContainer>
-                <AreaChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorPresence" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--gold)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="var(--gold)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                {/* 🎯 CHANGEMENT ICI : LineChart pour les présences aussi */}
+                <LineChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} domain={[0, 100]} />
-                  <Tooltip content={<CustomTooltip isCurrency={false} />} />
-                  <Area type="monotone" dataKey="value" stroke="var(--gold)" strokeWidth={3} fillOpacity={1} fill="url(#colorPresence)" />
-                </AreaChart>
+                  <Tooltip content={<CustomTooltip isCurrency={false} />} cursor={{ stroke: 'var(--line)', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                  
+                  <Line 
+                    type="linear" 
+                    dataKey="value" 
+                    stroke="var(--gold)" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: 'var(--paper)', stroke: 'var(--gold)', strokeWidth: 2 }} 
+                    activeDot={{ r: 6, fill: 'var(--gold)' }} 
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           )}
