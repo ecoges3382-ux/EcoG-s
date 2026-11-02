@@ -381,10 +381,19 @@ function Payments() {
       onSuccess: () => setError(''),
     });
     
-    // On récupère les élèves avec leur niveau de classe (pour faire le lien avec la grille tarifaire)
-    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, classes ( nom, niveau ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
+    // On récupère les élèves avec leur niveau de classe et les frais connexes
+    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom, niveau ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
-      .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—', classeNiveau: e.classes?.niveau, montant_du: e.montant_du, montant_paye: e.montant_paye }))
+      .map((e) => ({
+        id: e.students.id,
+        full_name: e.students.full_name,
+        niveau: e.classes?.nom || '—',
+        classeNiveau: e.classes?.niveau,
+        montant_du: e.montant_du,
+        montant_paye: e.montant_paye,
+        frais_connexe_du: e.frais_connexe_du,
+        frais_connexe_paye: e.frais_connexe_paye,
+      }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name)));
 
     // On récupère la grille tarifaire
@@ -538,7 +547,16 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
   // Élève sélectionné et sa grille tarifaire
   const currentStudent = students.find((s) => s.id === studentId);
   const currentFeeSchedule = currentStudent && feeSchedules ? feeSchedules.find((f) => f.niveau === currentStudent.classeNiveau) : null;
-  const reste = currentStudent ? (Number(currentStudent.montant_du) - Number(currentStudent.montant_paye)) : 0;
+  
+  // Restes par type de frais
+  const resteEcolage = currentStudent ? (Number(currentStudent.montant_du) - Number(currentStudent.montant_paye)) : 0;
+  const resteConnexe = currentStudent ? (Number(currentStudent.frais_connexe_du) - Number(currentStudent.frais_connexe_paye)) : 0;
+
+  // 🎯 Détection "déjà tout payé" selon le type de frais
+  let dejaPaye = false;
+  if (typeFrais === 'scolarite' && resteEcolage <= 0) dejaPaye = true;
+  if (typeFrais === 'connexe' && resteConnexe <= 0) dejaPaye = true;
+  // Pour 'inscription' et 'autre', on autorise toujours (pas de notion de reste)
 
   // 🎯 Logique d'auto-remplissage du montant
   useEffect(() => {
@@ -567,6 +585,10 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     e.preventDefault();
     if (!studentId || !montant) {
       setError("L'élève et le montant sont obligatoires.");
+      return;
+    }
+    if (dejaPaye) {
+      setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais. Choisis « Autre » pour un paiement exceptionnel.");
       return;
     }
     setSubmitting(true);
@@ -614,6 +636,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
 
   // Déterminer si le champ montant doit être modifiable
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
+  const canSubmit = !dejaPaye && !submitting && students.length > 0 && montant !== '';
 
   if (students.length === 0) {
     return createPortal(
@@ -672,13 +695,28 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
         {currentStudent && (
           <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Total dû : {fmtF(currentStudent.montant_du)}</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Écolage dû : {fmtF(currentStudent.montant_du)}</p>
               <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Déjà payé : {fmtF(currentStudent.montant_paye)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Connexes : {fmtF(currentStudent.frais_connexe_du)} / {fmtF(currentStudent.frais_connexe_paye)}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Reste à payer</p>
-              <p style={{ margin: '2px 0 0', fontSize: 16, fontWeight: 700, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(reste)}</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Reste écolage</p>
+              <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 700, color: resteEcolage > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(resteEcolage)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
             </div>
+          </div>
+        )}
+
+        {/* 🎯 Alerte "déjà payé" */}
+        {dejaPaye && (
+          <div style={{ background: 'var(--amber-light)', border: '1px solid var(--amber)', borderRadius: 9, padding: '10px 14px', marginBottom: 14 }}>
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
+              <i className="ti ti-alert-triangle" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
+              Cet élève a déjà tout payé pour ce type de frais.
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--clay-dark)', lineHeight: 1.5 }}>
+              Si tu veux quand même enregistrer un paiement (avance, remboursement, frais exceptionnel), choisis le type de frais « Autre ».
+            </p>
           </div>
         )}
 
@@ -728,7 +766,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
-          <button type="submit" disabled={submitting || students.length === 0} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
+          <button type="submit" disabled={!canSubmit} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}>
             {submitting ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
