@@ -460,30 +460,51 @@ export default function Staff() {
 }
 
 // ==========================================
-// COMPOSANT : GESTION DES SALAIRES
+// COMPOSANT : GESTION DES SALAIRES (avec déduction des avances)
 // ==========================================
 function SalairesSection({ staff }) {
   const { profile } = useAuth();
   const showToast = useToast();
   const [mois, setMois] = useState(generateMonthOptions()[0].value);
   const [salaries, setSalaries] = useState(null);
+  const [advances, setAdvances] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [error, setError] = useState('');
 
   const monthOptions = generateMonthOptions();
-  const COLONNES_SALAIRES = '2fr 1.2fr 1.2fr 1.2fr 110px';
+  const COLONNES_SALAIRES = '1.5fr 1.2fr 1.2fr 1.2fr 1.2fr 110px';
 
   async function reloadSalaries() {
     setSalaries(null);
-    const { data, error: e } = await supabase
+    
+    // 1. Récupérer les salaires payés pour le mois sélectionné
+    const { data: sal, error: salErr } = await supabase
       .from('staff_salaries')
       .select('*, staff (full_name, role)')
       .eq('school_id', profile.school_id)
       .eq('mois', mois)
       .order('created_at', { ascending: false });
-    if (e) setError(e.message);
-    else setSalaries(data || []);
+      
+    if (salErr) {
+      setError(salErr.message);
+    } else {
+      setSalaries(sal || []);
+    }
+
+    // 2. Récupérer les avances approuvées et non encore remboursées
+    const { data: adv, error: advErr } = await supabase
+      .from('salary_advances')
+      .select('staff_id, solde')
+      .eq('school_id', profile.school_id)
+      .eq('statut', 'approuvee')
+      .gt('solde', 0);
+      
+    if (advErr) {
+      setError(advErr.message);
+    } else {
+      setAdvances(adv || []);
+    }
   }
 
   useEffect(() => {
@@ -500,7 +521,7 @@ function SalairesSection({ staff }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Gestion des salaires</p>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Enregistrez les paiements de salaires par mois.</p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Les avances approuvées sont automatiquement déduites du reste à payer.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>Mois :</label>
@@ -511,12 +532,13 @@ function SalairesSection({ staff }) {
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
 
       <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 24 }}>
-        <div style={{ minWidth: 760 }}>
+        <div style={{ minWidth: 900 }}>
           <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Membre</span>
             <span>Salaire prévu</span>
+            <span>Avance à déduire</span>
             <span>Déjà payé</span>
-            <span>Reste à payer</span>
+            <span>Reste net à payer</span>
             <span></span>
           </div>
           
@@ -526,11 +548,11 @@ function SalairesSection({ staff }) {
             <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre du personnel actif.</p>
           ) : (
             activeStaff.map((p, i) => {
-              const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((a, s) => a + Number(s.montant), 0);
+              const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((acc, s) => acc + Number(s.montant), 0);
+              const avanceDeduire = (advances || []).filter(a => a.staff_id === p.id).reduce((acc, a) => acc + Number(a.solde), 0);
               const prevu = Number(p.salaire_mensuel) || 0;
-              const reste = prevu - paye;
+              const reste = prevu - paye - avanceDeduire;
               
-              // 🎯 Condition : est-ce que c'est déjà payé (ou plus) ?
               const estPaye = prevu > 0 && reste <= 0;
 
               return (
@@ -539,8 +561,17 @@ function SalairesSection({ staff }) {
                     <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
                     <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
                   </div>
+                  
                   <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
-                  <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>{fmtF(paye)}</span>
+                  
+                  <span style={{ color: avanceDeduire > 0 ? 'var(--amber)' : 'var(--muted)' }}>
+                    {avanceDeduire > 0 ? fmtF(avanceDeduire) : '—'}
+                  </span>
+                  
+                  <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>
+                    {fmtF(paye)}
+                  </span>
+                  
                   <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
                     {prevu > 0 ? fmtF(reste) : '—'}
                   </span>
@@ -592,6 +623,7 @@ function SalairesSection({ staff }) {
         <PayerSalaireModal
           staffMember={selectedStaff}
           mois={mois}
+          avance={advances.filter(a => a.staff_id === selectedStaff.id).reduce((acc, a) => acc + Number(a.solde), 0)}
           onClose={() => setModalOpen(false)}
           onSaved={() => { setModalOpen(false); reloadSalaries(); showToast('Salaire enregistré'); }}
         />
@@ -600,9 +632,10 @@ function SalairesSection({ staff }) {
   );
 }
 
-function PayerSalaireModal({ staffMember, mois, onClose, onSaved }) {
+function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
   const { profile } = useAuth();
-  const [montant, setMontant] = useState(String(staffMember.salaire_mensuel || ''));
+  const prevu = Number(staffMember.salaire_mensuel || 0);
+  const [montant, setMontant] = useState(String(Math.max(0, prevu - avance)));
   const [mode, setMode] = useState('especes');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
@@ -636,7 +669,14 @@ function PayerSalaireModal({ staffMember, mois, onClose, onSaved }) {
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Payer le salaire</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>×</button>
         </div>
-        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})</p>
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})</p>
+        
+        {avance > 0 && (
+          <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté (Salaire prévu - Avance).</p>
+          </div>
+        )}
 
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Montant à payer</label>
         <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ marginBottom: 12 }} />
