@@ -66,7 +66,6 @@ function PencilIcon() {
 function generateMonthOptions() {
   const months = [];
   const now = new Date();
-  // On génère les 12 derniers mois (jusqu'au mois en cours)
   for (let i = 0; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const year = d.getFullYear();
@@ -80,7 +79,7 @@ function generateMonthOptions() {
 export default function Staff() {
   const { profile } = useAuth();
   const confirm = useConfirm();
-  const [tab, setTab] = useState('annuaire'); // 'annuaire' ou 'salaires'
+  const [tab, setTab] = useState('annuaire'); 
   const [staff, setStaff] = useState(null);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -283,7 +282,6 @@ export default function Staff() {
         </div>
       </div>
 
-      {/* Onglets */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <button
           onClick={() => setTab('annuaire')}
@@ -461,9 +459,6 @@ export default function Staff() {
   );
 }
 
-// ==========================================
-// NOUVEAU COMPOSANT : GESTION DES SALAIRES
-// ==========================================
 function SalairesSection({ staff }) {
   const { profile } = useAuth();
   const showToast = useToast();
@@ -554,7 +549,6 @@ function SalairesSection({ staff }) {
         )}
       </div>
 
-      {/* Historique */}
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Paiements enregistrés pour {monthOptions.find(m => m.value === mois)?.label}</p>
       <div className="card-bold" style={{ overflow: 'hidden' }}>
         {salaries === null && <SkeletonRow count={2} />}
@@ -585,7 +579,7 @@ function SalairesSection({ staff }) {
 }
 
 function PayerSalaireModal({ staffMember, mois, onClose, onSaved }) {
-  const { profile } = useAuth();
+  const { profile } = useAuth(); // 👈 On récupère le profile
   const [montant, setMontant] = useState(String(staffMember.salaire_mensuel || ''));
   const [mode, setMode] = useState('especes');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -606,6 +600,7 @@ function PayerSalaireModal({ staffMember, mois, onClose, onSaved }) {
       date: date,
       mode: mode,
       note: note.trim() || null,
+      created_by: profile.id, // 👈 LA CORRECTION EST ICI
     });
     setSubmitting(false);
     if (insertError) setError(insertError.message);
