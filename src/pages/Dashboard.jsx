@@ -426,7 +426,9 @@ function DemographicsSection({ students }) {
                   cy="55%"
                   outerRadius={80}
                   innerRadius={0}
-                  stroke="none"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  paddingAngle={2}
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-bottom-${index}`} fill={COLORS[entry.name].bottom} />
@@ -440,7 +442,9 @@ function DemographicsSection({ students }) {
                   cy="52.5%"
                   outerRadius={80}
                   innerRadius={0}
-                  stroke="none"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  paddingAngle={2}
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-mid-${index}`} fill={COLORS[entry.name].mid} />
@@ -454,7 +458,9 @@ function DemographicsSection({ students }) {
                   cy="50%"
                   outerRadius={80}
                   innerRadius={0}
-                  stroke="none"
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  paddingAngle={2}
                   labelLine={false}
                   label={renderCustomizedLabel}
                 >
