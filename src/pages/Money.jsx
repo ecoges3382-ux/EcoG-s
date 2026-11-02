@@ -925,6 +925,7 @@ function Expenses() {
 function SalairesSection() {
   const { profile } = useAuth();
   const showToast = useToast();
+  const confirm = useConfirm(); // 🔥 AJOUT ICI
   const [mois, setMois] = useState(generateMonthOptions()[0].value);
   const [salaries, setSalaries] = useState(null);
   const [advances, setAdvances] = useState([]);
@@ -970,6 +971,28 @@ function SalairesSection() {
     // 3. Récupérer la liste du personnel actif
     const { data: st } = await supabase.from('staff').select('*').eq('statut', 'actif').order('full_name');
     setStaff(st || []);
+  }
+
+  // 🔥 AJOUT : FONCTION DE SUPPRESSION DU SALAIRE
+  async function handleDeleteSalaire(id, nomMembre, montant) {
+    if (!(await confirm(`Supprimer le paiement de ${fmtF(montant)} pour ${nomMembre} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+
+    const { data: deleted, error: deleteError } = await supabase
+      .from('staff_salaries')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table staff_salaries.");
+      return;
+    }
+    showToast('Supprimé');
+    reloadSalaries();
   }
 
   useEffect(() => {
@@ -1070,6 +1093,7 @@ function SalairesSection() {
         {salaries === null && <SkeletonRow count={2} />}
         {salaries && salaries.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement de salaire ce mois-ci.</p>}
         {salaries && salaries.map((s, i) => (
+          // 🔥 AJOUT : Le bouton corbeille à côté du montant
           <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
             <div>
               <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{s.staff?.full_name}</p>
@@ -1077,7 +1101,17 @@ function SalairesSection() {
                 {new Date(s.date).toLocaleDateString('fr-FR')} · {s.mode}{s.note ? ` · ${s.note}` : ''}
               </p>
             </div>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{fmtF(s.montant)}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{fmtF(s.montant)}</span>
+              <button
+                type="button"
+                onClick={() => handleDeleteSalaire(s.id, s.staff?.full_name || 'ce membre', s.montant)}
+                title="Supprimer ce paiement"
+                style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
+              >
+                <TrashIcon />
+              </button>
+            </div>
           </div>
         ))}
       </div>
