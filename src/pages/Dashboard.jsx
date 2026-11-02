@@ -384,11 +384,10 @@ function DemographicsSection({ students }) {
 
   const total = students.length;
 
-  // 🎯 Couleurs pour l'effet 3D (Clair, Moyen, Foncé)
   const COLORS = {
-    'Garçons': { top: '#4A90E2', mid: '#357ABD', bottom: '#25609A' },
-    'Filles': { top: '#E26D8A', mid: '#C24C69', bottom: '#9B324B' },
-    'Non renseigné': { top: '#999999', mid: '#777777', bottom: '#555555' },
+    'Garçons': '#4A90E2',
+    'Filles': '#E26D8A',
+    'Non renseigné': '#999999',
   };
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
@@ -418,45 +417,13 @@ function DemographicsSection({ students }) {
           <div style={{ width: '100%', height: 250, marginTop: 10 }}>
             <ResponsiveContainer>
               <PieChart>
-                {/* Couche inférieure (l'ombre) */}
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  cx="50%"
-                  cy="55%"
-                  outerRadius={80}
-                  innerRadius={0}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  paddingAngle={2}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-bottom-${index}`} fill={COLORS[entry.name].bottom} />
-                  ))}
-                </Pie>
-                {/* Couche intermédiaire */}
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  cx="50%"
-                  cy="52.5%"
-                  outerRadius={80}
-                  innerRadius={0}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  paddingAngle={2}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-mid-${index}`} fill={COLORS[entry.name].mid} />
-                  ))}
-                </Pie>
-                {/* Couche supérieure (avec les labels) */}
+                {/* Graphique 2D simple, avec bordure blanche */}
                 <Pie
                   data={data}
                   dataKey="value"
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  outerRadius={90}
                   innerRadius={0}
                   stroke="#ffffff"
                   strokeWidth={2}
@@ -465,7 +432,7 @@ function DemographicsSection({ students }) {
                   label={renderCustomizedLabel}
                 >
                   {data.map((entry, index) => (
-                    <Cell key={`cell-top-${index}`} fill={COLORS[entry.name].top} />
+                    <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -481,7 +448,7 @@ function DemographicsSection({ students }) {
       <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, flexWrap: 'wrap' }}>
         {data.map((d) => (
           <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[d.name].top }} />
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[d.name] }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
           </div>
