@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel, stickyColStyle } from '../lib/utils.js';
+import { fmtF, initials, TRANCHES, MODES, trancheLabel, TYPES_FRAIS, typeFraisLabel, modeLabel, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
@@ -74,11 +74,25 @@ function WalletIcon() {
   );
 }
 
+function generateMonthOptions() {
+  const months = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    months.push({ value: `${year}-${month}`, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  return months;
+}
+
 const TABS = [
   { id: 'vue', label: "Droit d'écolage" },
   { id: 'connexe', label: 'Frais connexes' },
   { id: 'paiements', label: 'Paiements' },
   { id: 'depenses', label: 'Dépenses' },
+  { id: 'salaires', label: 'Salaires' },
   { id: 'avances', label: 'Avances sur salaire' },
   { id: 'bilan', label: 'Bilan financier' },
 ];
@@ -125,6 +139,7 @@ export default function Money() {
       {tab === 'connexe' && <FraisConnexes />}
       {tab === 'paiements' && <Payments />}
       {tab === 'depenses' && <Expenses />}
+      {tab === 'salaires' && <SalairesSection />}
       {tab === 'avances' && <Advances />}
       {tab === 'bilan' && <BilanFinancier />}
     </div>
@@ -904,6 +919,258 @@ function Expenses() {
   );
 }
 
+// ==========================================
+// COMPOSANT : GESTION DES SALAIRES
+// ==========================================
+function SalairesSection() {
+  const { profile } = useAuth();
+  const showToast = useToast();
+  const [mois, setMois] = useState(generateMonthOptions()[0].value);
+  const [salaries, setSalaries] = useState(null);
+  const [advances, setAdvances] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [error, setError] = useState('');
+
+  const monthOptions = generateMonthOptions();
+  const COLONNES_SALAIRES = '1.5fr 1.2fr 1.2fr 1.2fr 1.2fr 110px';
+
+  async function reloadSalaries() {
+    setSalaries(null);
+    
+    // 1. Récupérer les salaires payés pour le mois sélectionné
+    const { data: sal, error: salErr } = await supabase
+      .from('staff_salaries')
+      .select('*, staff (full_name, role)')
+      .eq('school_id', profile.school_id)
+      .eq('mois', mois)
+      .order('created_at', { ascending: false });
+      
+    if (salErr) {
+      setError(salErr.message);
+    } else {
+      setSalaries(sal || []);
+    }
+
+    // 2. Récupérer les avances approuvées et non encore remboursées
+    const { data: adv, error: advErr } = await supabase
+      .from('salary_advances')
+      .select('staff_id, solde')
+      .eq('school_id', profile.school_id)
+      .eq('statut', 'approuvee')
+      .gt('solde', 0);
+      
+    if (advErr) {
+      setError(advErr.message);
+    } else {
+      setAdvances(adv || []);
+    }
+
+    // 3. Récupérer la liste du personnel actif
+    const { data: st } = await supabase.from('staff').select('*').eq('statut', 'actif').order('full_name');
+    setStaff(st || []);
+  }
+
+  useEffect(() => {
+    reloadSalaries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mois]);
+
+  if (!staff) return <div className="card-bold"><SkeletonRow count={5} /></div>;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Gestion des salaires</p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Les avances approuvées sont automatiquement déduites du reste à payer.</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>Mois :</label>
+          <Dropdown value={mois} onChange={setMois} options={monthOptions} style={{ width: 200 }} />
+        </div>
+      </div>
+
+      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+
+      <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 24 }}>
+        <div style={{ minWidth: 900 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Membre</span>
+            <span>Salaire prévu</span>
+            <span>Avance à déduire</span>
+            <span>Déjà payé</span>
+            <span>Reste net à payer</span>
+            <span></span>
+          </div>
+          
+          {salaries === null ? (
+            <SkeletonRow count={3} />
+          ) : staff.length === 0 ? (
+            <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre du personnel actif.</p>
+          ) : (
+            staff.map((p, i) => {
+              const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((acc, s) => acc + Number(s.montant), 0);
+              const avanceDeduire = (advances || []).filter(a => a.staff_id === p.id).reduce((acc, a) => acc + Number(a.solde), 0);
+              const prevu = Number(p.salaire_mensuel) || 0;
+              const reste = prevu - paye - avanceDeduire;
+              
+              const estPaye = prevu > 0 && reste <= 0;
+
+              return (
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '14px 20px 14px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
+                  <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
+                  </div>
+                  
+                  <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
+                  
+                  <span style={{ color: avanceDeduire > 0 ? 'var(--amber)' : 'var(--muted)' }}>
+                    {avanceDeduire > 0 ? fmtF(avanceDeduire) : '—'}
+                  </span>
+                  
+                  <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>
+                    {fmtF(paye)}
+                  </span>
+                  
+                  <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
+                    {prevu > 0 ? fmtF(reste) : '—'}
+                  </span>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 20 }}>
+                    <button
+                      onClick={() => { setSelectedStaff(p); setModalOpen(true); }}
+                      disabled={prevu <= 0 || estPaye}
+                      style={{ 
+                        fontSize: 11.5, 
+                        fontWeight: 600, 
+                        padding: '6px 12px', 
+                        borderRadius: 8, 
+                        border: 'none', 
+                        background: estPaye ? 'var(--line)' : 'var(--forest)', 
+                        color: estPaye ? 'var(--muted)' : '#fff', 
+                        cursor: (prevu <= 0 || estPaye) ? 'default' : 'pointer', 
+                        opacity: (prevu <= 0 || estPaye) ? 0.7 : 1 
+                      }}
+                    >
+                      {estPaye ? 'Payé' : 'Payer'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Paiements enregistrés pour {monthOptions.find(m => m.value === mois)?.label}</p>
+      <div className="card-bold" style={{ overflow: 'hidden' }}>
+        {salaries === null && <SkeletonRow count={2} />}
+        {salaries && salaries.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement de salaire ce mois-ci.</p>}
+        {salaries && salaries.map((s, i) => (
+          <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+            <div>
+              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{s.staff?.full_name}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                {new Date(s.date).toLocaleDateString('fr-FR')} · {s.mode}{s.note ? ` · ${s.note}` : ''}
+              </p>
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{fmtF(s.montant)}</span>
+          </div>
+        ))}
+      </div>
+
+      {modalOpen && selectedStaff && (
+        <PayerSalaireModal
+          staffMember={selectedStaff}
+          mois={mois}
+          avance={advances.filter(a => a.staff_id === selectedStaff.id).reduce((acc, a) => acc + Number(a.solde), 0)}
+          onClose={() => setModalOpen(false)}
+          onSaved={() => { setModalOpen(false); reloadSalaries(); showToast('Salaire enregistré'); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
+  const { profile } = useAuth();
+  const prevu = Number(staffMember.salaire_mensuel || 0);
+  const [montant, setMontant] = useState(String(Math.max(0, prevu - avance)));
+  const [mode, setMode] = useState('especes');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!montant || Number(montant) <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
+    setSubmitting(true);
+    setError('');
+    const { error: insertError } = await supabase.from('staff_salaries').insert({
+      school_id: profile.school_id,
+      staff_id: staffMember.id,
+      montant: Number(montant),
+      mois: mois,
+      date: date,
+      mode: mode,
+      note: note.trim() || null,
+      created_by: profile.id,
+    });
+    setSubmitting(false);
+    if (insertError) setError(insertError.message);
+    else onSaved();
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 400, width: '100%', padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Payer le salaire</p>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>×</button>
+        </div>
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})</p>
+        
+        {avance > 0 && (
+          <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté (Salaire prévu - Avance).</p>
+          </div>
+        )}
+
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Montant à payer</label>
+        <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ marginBottom: 12 }} />
+
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Mode</label>
+            <Dropdown value={mode} onChange={setMode} options={[{ value: 'especes', label: 'Espèces' }, { value: 'virement', label: 'Virement' }, { value: 'mobile_money', label: 'Mobile Money' }, { value: 'cheque', label: 'Chèque' }]} style={{ width: '100%' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Date</label>
+            <DatePicker value={date} onChange={setDate} style={{ width: '100%' }} />
+          </div>
+        </div>
+
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Note (facultatif)</label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Acompte, prime..." style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, marginBottom: 16, boxSizing: 'border-box' }} />
+
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ padding: '9px 16px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 }}>Annuler</button>
+          <button type="submit" disabled={submitting} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: 13, opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function Advances() {
   const showToast = useToast();
   const confirm = useConfirm();
@@ -1198,7 +1465,7 @@ const smallInput = { padding: '10px 12px', borderRadius: 9, border: '1px solid v
 
 
 // ==========================================
-// COMPOSANT : BILAN FINANCIER (CORRIGÉ)
+// COMPOSANT : BILAN FINANCIER
 // ==========================================
 function BilanFinancier() {
   const { profile } = useAuth();
@@ -1235,7 +1502,7 @@ function BilanFinancier() {
         const inscription = (payments || []).filter(p => p.type_frais === 'inscription').reduce((acc, p) => acc + Number(p.montant), 0);
         const totalRevenus = ecolage + connexe + inscription;
 
-        // 2. Calcul des Charges (CORRIGÉ : acc et item)
+        // 2. Calcul des Charges
         const salairesPayes = (salaries || []).reduce((acc, item) => acc + Number(item.montant), 0);
         const avancesPayees = (advances || []).reduce((acc, item) => acc + Number(item.montant), 0);
         const autresDepenses = (expenses || []).reduce((acc, item) => acc + Number(item.montant), 0);
@@ -1302,7 +1569,6 @@ function BilanFinancier() {
       </div>
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
-        {/* BLOC REVENUS */}
         <div className="card-bold" style={{ padding: '20px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-up" style={{ fontSize: 20, color: 'var(--success)' }} aria-hidden="true"></i>
@@ -1344,7 +1610,6 @@ function BilanFinancier() {
           )}
         </div>
 
-        {/* BLOC CHARGES */}
         <div className="card-bold" style={{ padding: '20px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-down" style={{ fontSize: 20, color: 'var(--danger)' }} aria-hidden="true"></i>
