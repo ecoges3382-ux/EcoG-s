@@ -92,7 +92,21 @@ export default function Money() {
       </div>
       {tour.Runner}
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
-      <div data-tour="money-tabs" style={{ display: 'flex', gap: 8, overflowX: 'auto', margin: '0 -14px 22px', padding: '0 14px 4px' }}>
+      
+      {/* Masquage de la barre de défilement horizontale (hide-scrollbar) tout en gardant le scroll */}
+      <div 
+        data-tour="money-tabs" 
+        className="hide-scrollbar"
+        style={{ 
+          display: 'flex', 
+          gap: 8, 
+          overflowX: 'auto', 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none', 
+          margin: '0 -14px 22px', 
+          padding: '0 14px 4px' 
+        }}
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -556,7 +570,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
   let dejaPaye = false;
   if (typeFrais === 'scolarite' && resteEcolage <= 0) dejaPaye = true;
   if (typeFrais === 'connexe' && resteConnexe <= 0) dejaPaye = true;
-  // Pour 'inscription' et 'autre', on autorise toujours (pas de notion de reste)
 
   // 🎯 Logique d'auto-remplissage du montant
   useEffect(() => {
