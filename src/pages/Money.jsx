@@ -987,7 +987,8 @@ function SalairesSection() {
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Les avances approuvées sont automatiquement déduites du reste à payer.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>Mois :</label>
+          {/* 🎯 AJOUT DE whiteSpace: 'nowrap' ICI */}
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Mois :</label>
           <Dropdown value={mois} onChange={setMois} options={monthOptions} style={{ width: 200 }} />
         </div>
       </div>
