@@ -459,6 +459,9 @@ export default function Staff() {
   );
 }
 
+// ==========================================
+// COMPOSANT : GESTION DES SALAIRES (CORRIGÉ)
+// ==========================================
 function SalairesSection({ staff }) {
   const { profile } = useAuth();
   const showToast = useToast();
@@ -469,6 +472,9 @@ function SalairesSection({ staff }) {
   const [error, setError] = useState('');
 
   const monthOptions = generateMonthOptions();
+
+  // Largeur min et colonnes pour que ce soit aéré et scrollable sur mobile
+  const COLONNES_SALAIRES = '2fr 1.2fr 1.2fr 1.2fr 110px';
 
   async function reloadSalaries() {
     setSalaries(null);
@@ -506,47 +512,60 @@ function SalairesSection({ staff }) {
 
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
 
-      <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 100px', padding: '11px 18px', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-          <span>Membre</span>
-          <span>Salaire prévu</span>
-          <span>Déjà payé</span>
-          <span>Reste à payer</span>
-          <span></span>
+      {/* Tableau avec scroll horizontal et première colonne sticky */}
+      <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 24 }}>
+        <div style={{ minWidth: 760 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Membre</span>
+            <span>Salaire prévu</span>
+            <span>Déjà payé</span>
+            <span>Reste à payer</span>
+            <span></span>
+          </div>
+          
+          {salaries === null ? (
+            <SkeletonRow count={3} />
+          ) : activeStaff.length === 0 ? (
+            <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre du personnel actif.</p>
+          ) : (
+            activeStaff.map((p, i) => {
+              const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((a, s) => a + Number(s.montant), 0);
+              const prevu = Number(p.salaire_mensuel) || 0;
+              const reste = prevu - paye;
+              return (
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '14px 20px 14px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
+                  {/* Colonne 1 (Sticky) */}
+                  <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
+                  </div>
+                  
+                  {/* Colonne 2 */}
+                  <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
+                  
+                  {/* Colonne 3 */}
+                  <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>{fmtF(paye)}</span>
+                  
+                  {/* Colonne 4 */}
+                  <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
+                    {prevu > 0 ? fmtF(reste) : '—'}
+                  </span>
+                  
+                  {/* Colonne 5 (Actions) */}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 20 }}>
+                    <button
+                      onClick={() => { setSelectedStaff(p); setModalOpen(true); }}
+                      disabled={prevu <= 0}
+                      style={{ fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', cursor: prevu <= 0 ? 'default' : 'pointer', opacity: prevu <= 0 ? 0.5 : 1 }}
+                    >
+                      Payer
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
-        {salaries === null ? (
-          <SkeletonRow count={3} />
-        ) : activeStaff.length === 0 ? (
-          <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre du personnel actif.</p>
-        ) : (
-          activeStaff.map((p, i) => {
-            const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((a, s) => a + Number(s.montant), 0);
-            const prevu = Number(p.salaire_mensuel) || 0;
-            const reste = prevu - paye;
-            return (
-              <div key={p.id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 100px', padding: '12px 18px', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
-                </div>
-                <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
-                <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>{fmtF(paye)}</span>
-                <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
-                  {prevu > 0 ? fmtF(reste) : '—'}
-                </span>
-                <div style={{ textAlign: 'right' }}>
-                  <button
-                    onClick={() => { setSelectedStaff(p); setModalOpen(true); }}
-                    disabled={prevu <= 0}
-                    style={{ fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', cursor: prevu <= 0 ? 'default' : 'pointer', opacity: prevu <= 0 ? 0.5 : 1 }}
-                  >
-                    Payer
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
       </div>
 
       <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Paiements enregistrés pour {monthOptions.find(m => m.value === mois)?.label}</p>
@@ -579,7 +598,7 @@ function SalairesSection({ staff }) {
 }
 
 function PayerSalaireModal({ staffMember, mois, onClose, onSaved }) {
-  const { profile } = useAuth(); // 👈 On récupère le profile
+  const { profile } = useAuth();
   const [montant, setMontant] = useState(String(staffMember.salaire_mensuel || ''));
   const [mode, setMode] = useState('especes');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -600,7 +619,7 @@ function PayerSalaireModal({ staffMember, mois, onClose, onSaved }) {
       date: date,
       mode: mode,
       note: note.trim() || null,
-      created_by: profile.id, // 👈 LA CORRECTION EST ICI
+      created_by: profile.id,
     });
     setSubmitting(false);
     if (insertError) setError(insertError.message);
