@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  PieChart, Pie, Cell 
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts';
+import ReactECharts from 'echarts-for-react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, todayIso, downloadCsv, stickyColStyle } from '../lib/utils.js';
@@ -314,14 +314,11 @@ function TrendsSection({ schoolYear, attendance }) {
           ) : (
             <div style={{ width: '100%', height: 180 }}>
               <ResponsiveContainer>
-                {/* 🎯 CHANGEMENT ICI : LineChart au lieu d'AreaChart */}
                 <LineChart data={paymentsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} tickFormatter={(val) => val > 1000 ? `${val / 1000}k` : val} />
                   <Tooltip content={<CustomTooltip isCurrency={true} />} cursor={{ stroke: 'var(--line)', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                  
-                  {/* 🎯 CHANGEMENT ICI : type="linear" pour des lignes droites, et dot pour afficher les points */}
                   <Line 
                     type="linear" 
                     dataKey="value" 
@@ -351,13 +348,11 @@ function TrendsSection({ schoolYear, attendance }) {
           ) : (
             <div style={{ width: '100%', height: 150 }}>
               <ResponsiveContainer>
-                {/* 🎯 CHANGEMENT ICI : LineChart pour les présences aussi */}
                 <LineChart data={presenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--muted)' }} domain={[0, 100]} />
                   <Tooltip content={<CustomTooltip isCurrency={false} />} cursor={{ stroke: 'var(--line)', strokeWidth: 1, strokeDasharray: '3 3' }} />
-                  
                   <Line 
                     type="linear" 
                     dataKey="value" 
@@ -381,26 +376,87 @@ function DemographicsSection({ students }) {
   const girls = students.filter((s) => s.sexe === 'F').length;
   const other = students.length - boys - girls;
 
-  const data = [
-    { name: 'Garçons', value: boys, color: '#4A90E2' },
-    { name: 'Filles', value: girls, color: '#E26D8A' },
+  const pieData = [
+    { name: 'Garçons', value: boys, itemStyle: { color: '#4A90E2' } }, // Bleu
+    { name: 'Filles', value: girls, itemStyle: { color: '#E26D8A' } },  // Rose
   ];
-  if (other > 0) data.push({ name: 'Non renseigné', value: other, color: 'var(--muted)' });
+  if (other > 0) pieData.push({ name: 'Non renseigné', value: other, itemStyle: { color: '#999999' } });
 
   const total = students.length;
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    if (percent < 0.05) return null;
-    return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
+  // Configuration du graphique 3D avec ECharts (empilement de plusieurs camemberts pour donner du volume)
+  const option = {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b} : {c} élèves ({d}%)',
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      textStyle: { color: '#fff' }
+    },
+    legend: {
+      bottom: 0,
+      icon: 'circle',
+      textStyle: { color: 'var(--muted)', fontSize: 12, fontWeight: 600 }
+    },
+    series: [
+      // 1. Couche inférieure (l'ombre portée)
+      {
+        type: 'pie',
+        radius: ['0%', '75%'],
+        center: ['50%', '50%'],
+        label: { show: false },
+        labelLine: { show: false },
+        itemStyle: {
+          shadowBlur: 15,
+          shadowOffsetX: 0,
+          shadowOffsetY: 5,
+          shadowColor: 'rgba(0,0,0,0.3)'
+        },
+        data: pieData,
+      },
+      // 2. Couche intermédiaire (donne l'épaisseur)
+      {
+        type: 'pie',
+        radius: ['0%', '75%'],
+        center: ['50%', '47%'],
+        label: { show: false },
+        labelLine: { show: false },
+        data: pieData,
+      },
+      // 3. Couche intermédiaire (donne encore plus d'épaisseur)
+      {
+        type: 'pie',
+        radius: ['0%', '75%'],
+        center: ['50%', '44%'],
+        label: { show: false },
+        labelLine: { show: false },
+        data: pieData,
+      },
+      // 4. Couche supérieure (avec les labels)
+      {
+        type: 'pie',
+        radius: ['0%', '75%'],
+        center: ['50%', '41%'],
+        label: {
+          show: true,
+          position: 'inner',
+          formatter: '{d}%',
+          color: '#fff',
+          fontWeight: 'bold',
+          fontSize: 12
+        },
+        labelLine: { show: false },
+        data: pieData,
+      }
+    ]
   };
+
+  if (total === 0) {
+    return (
+      <div className="card-bold" style={{ padding: '20px 24px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="card-bold" style={{ padding: '20px 24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -409,51 +465,8 @@ function DemographicsSection({ students }) {
         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Démographie de l'école</p>
       </div>
       
-      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}>
-        {total === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
-        ) : (
-          <>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={90}
-                  paddingAngle={4}
-                  dataKey="value"
-                  labelLine={false}
-                  label={renderCustomizedLabel}
-                  stroke="none"
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value) => [`${value} élèves`, '']}
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{total}</p>
-              <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Élèves</p>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, flexWrap: 'wrap' }}>
-        {data.map((d) => (
-          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
-          </div>
-        ))}
+      <div style={{ flex: 1, minHeight: 220 }}>
+        <ReactECharts option={option} style={{ height: '100%', width: '100%' }} />
       </div>
     </div>
   );
