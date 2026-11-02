@@ -109,7 +109,7 @@ export default function Dashboard() {
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
       
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 18, marginBottom: 28 }}>
-        <TrendsSection schoolYear={schoolYear} attendance={attendance} />
+        <TrendsSection schoolYear={schoolYear} attendance={attendance} students={students} />
         <DemographicsSection students={students} />
       </div>
 
@@ -227,7 +227,7 @@ function buildMonthsForChart(schoolYear, payments) {
   return months;
 }
 
-function TrendsSection({ schoolYear, attendance }) {
+function TrendsSection({ schoolYear, attendance, students }) {
   const [payments, setPayments] = useState(null);
 
   useEffect(() => {
@@ -261,6 +261,10 @@ function TrendsSection({ schoolYear, attendance }) {
   }));
 
   const totalPayments = paymentsData.reduce((a, d) => a + d.value, 0);
+  
+  // Détection d'anomalie : des élèves ont payé, mais la table des paiements est vide
+  const totalEncaisseEnrollments = (students || []).reduce((a, s) => a + Number(s.montant_paye || 0) + Number(s.frais_connexe_paye || 0), 0);
+  const anomaliePaiements = (payments || []).length === 0 && totalEncaisseEnrollments > 0;
 
   const presenceData = months.map((m) => {
     const records = (attendance || []).filter((r) => r.date && r.date.startsWith(m.key));
@@ -296,12 +300,24 @@ function TrendsSection({ schoolYear, attendance }) {
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        
         {/* GRAPHIQUE ENCAISSEMENTS */}
         <div style={{ marginBottom: 24 }}>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest)' }}>
             Encaissements {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
           </p>
-          {totalPayments === 0 ? (
+          
+          {anomaliePaiements ? (
+            <div style={{ height: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--amber-light)', borderRadius: 8, padding: '0 20px', textAlign: 'center', border: '1px solid var(--amber)' }}>
+              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
+                <i className="ti ti-alert-triangle" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }}></i>
+                Aucun paiement dans l'historique
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--clay-dark)', lineHeight: 1.4 }}>
+                Les élèves ont bien un montant payé ({fmtF(totalEncaisseEnrollments)}), mais la table des paiements est vide. L'historique n'a pas été généré lors de l'inscription.
+              </p>
+            </div>
+          ) : totalPayments === 0 ? (
             <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--line)', borderRadius: 8 }}>
               <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun paiement enregistré sur cette période.</p>
             </div>
