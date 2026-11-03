@@ -45,7 +45,7 @@ export default function Notes() {
   const [niveau, setNiveau] = useState('Tout');
   const [eleveId, setEleveId] = useState('Tout');
   const [matiereId, setMatiereId] = useState('Tout');
-  const [periode, setPeriode] = useState('Trimestre 1'); // Fixé par défaut
+  const [periode, setPeriode] = useState('Trimestre 1');
   const [typeFiltre, setTypeFiltre] = useState('Tout');
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,13 +56,13 @@ export default function Notes() {
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
-      cacheKey: `notes_${schoolYear.id}_v2`, // 🚨 CACHE VIDÉ ICI
+      cacheKey: `notes_${schoolYear.id}_v3`, // Cache vidé
       hasData: grades !== null,
       load: async () => {
         const [{ data: enr }, { data: su }, { data: gr, error: grError }] = await Promise.all([
           supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
           supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-          supabase.from('grades').select('*, students ( full_name ), subjects ( nom, coefficient )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false }),
+          supabase.from('grades').select('*, students ( full_name ), subjects ( nom, coefficient )').eq('school_year_id', schoolYear.id).limit(50000).order('created_at', { ascending: false }), // 🔥 LIMITE AUGMENTÉE ICI
         ]);
         if (grError) return { error: grError };
         const st = (enr || [])
