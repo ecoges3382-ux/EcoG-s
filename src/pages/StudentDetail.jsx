@@ -34,7 +34,7 @@ export default function StudentDetail() {
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [student, setStudent] = useState(null);
   const [enrollment, setEnrollment] = useState(undefined);
-  const [feeSchedule, setFeeSchedule] = useState(null);
+  const [feeSchedules, setFeeSchedules] = useState([]); // Ajouté pour le formulaire de paiement
   const [payments, setPayments] = useState(undefined);
   const [attendance, setAttendance] = useState(undefined);
   const [parents, setParents] = useState(null);
@@ -91,20 +91,13 @@ export default function StudentDetail() {
       setData: setEnrollment,
       setOffline,
       isCancelled: () => cancelled,
-      onSuccess: async (data) => {
-        if (data?.classes?.niveau) {
-          const { data: fee } = await supabase
-            .from('fee_schedules')
-            .select('*')
-            .eq('school_year_id', schoolYear.id)
-            .eq('niveau', data.classes.niveau)
-            .maybeSingle();
-          if (!cancelled) setFeeSchedule(fee || null);
-        } else if (!cancelled) {
-          setFeeSchedule(null);
-        }
-      },
     });
+    
+    // Chargement de la grille tarifaire pour le formulaire de paiement
+    supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id).then(({ data }) => {
+      if (!cancelled) setFeeSchedules(data || []);
+    });
+
     supabase
       .from('payments')
       .select('id, montant, type_frais, mode, tranche, date, note')
@@ -123,7 +116,6 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [id, schoolYear?.id]);
 
-  // Charger l'historique du moratoire
   useEffect(() => {
     if (!enrollment?.id) { setMoratoireHistory([]); return; }
     let cancelled = false;
@@ -136,10 +128,9 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [enrollment?.id]);
 
-  // Détecter le retrait automatique du moratoire quand tout est payé
   useEffect(() => {
     if (!enrollment || !schoolYear) return;
-    const relance = computeRelance(enrollment, schoolYear, feeSchedule);
+    const relance = computeRelance(enrollment, schoolYear, null);
     if (relance?.moratoireRetireAuto) {
       (async () => {
         const ancienResume = resumeMoratoire(enrollment);
@@ -158,7 +149,6 @@ export default function StudentDetail() {
         setEnrollment((prev) => ({ ...prev, moratoire_actif: false, note_arrangement: null }));
       })();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enrollment?.id, enrollment?.montant_paye, enrollment?.frais_connexe_paye, schoolYear?.id]);
 
   async function saveMoratoire(dataMoratoire) {
@@ -193,7 +183,6 @@ export default function StudentDetail() {
     });
 
     setEnrollment(nouvelEnrollment);
-    // Recharger l'historique
     const { data: hist } = await supabase
       .from('moratoire_history')
       .select('id, action, ancien_resume, nouveau_resume, auteur, created_at')
@@ -222,8 +211,8 @@ export default function StudentDetail() {
 
   const reste = Number(enrollment?.montant_du || 0) - Number(enrollment?.montant_paye || 0);
   const resteFrais = Number(enrollment?.frais_connexe_du || 0) - Number(enrollment?.frais_connexe_paye || 0);
-  const relance = enrollment ? computeRelance(enrollment, schoolYear, feeSchedule) : null;
-  const echeances = enrollment ? computeEcheances(enrollment, schoolYear, feeSchedule) : [];
+  const relance = enrollment ? computeRelance(enrollment, schoolYear, null) : null;
+  const echeances = enrollment ? computeEcheances(enrollment, schoolYear, null) : [];
 
   const nbAbsences = (attendance || []).filter((a) => a.statut === 'absent').length;
   const nbRetards = (attendance || []).filter((a) => a.statut === 'retard').length;
@@ -494,9 +483,15 @@ export default function StudentDetail() {
           student={{ 
             id: student.id, 
             full_name: student.full_name, 
-            niveau: enrollment?.classes?.nom || '—', 
-            school_year_id: schoolYear?.id 
+            niveau: enrollment?.classes?.nom || '—',
+            classeNiveau: enrollment?.classes?.niveau,
+            school_year_id: schoolYear?.id,
+            montant_du: enrollment?.montant_du || 0,
+            montant_paye: enrollment?.montant_paye || 0,
+            frais_connexe_du: enrollment?.frais_connexe_du || 0,
+            frais_connexe_paye: enrollment?.frais_connexe_paye || 0
           }}
+          feeSchedules={feeSchedules}
           onClose={() => setQuickPayOpen(false)}
           onSaved={() => { 
             setQuickPayOpen(false); 
@@ -540,9 +535,6 @@ function EcheanceBadge({ statut, montantPaye, montantRestant }) {
   );
 }
 
-// ============================================================
-// MORATOIRE : formulaire structuré + historique
-// ============================================================
 function MoratoireSection({ enrollment, history, canEdit, onSave }) {
   const estActif = !!(enrollment.moratoire_actif || (enrollment.note_arrangement && enrollment.note_arrangement.trim()));
   const [editing, setEditing] = useState(false);
@@ -729,7 +721,6 @@ function MoratoireSection({ enrollment, history, canEdit, onSave }) {
         )}
       </div>
 
-      {/* Historique */}
       {history && history.length > 0 && (
         <div style={{ marginTop: 16, maxWidth: 640 }}>
           <p style={{ margin: '0 0 8px', fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Historique du moratoire</p>
