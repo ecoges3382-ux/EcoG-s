@@ -54,14 +54,13 @@ export default function Grades() {
     if (!schoolYear) return;
     let cancelled = false;
     guardedFetch({
-      // 🚨 CLÉ DE CACHE MISE À JOUR ICI POUR FORCER LE RECHARGEMENT (_v3)
-      cacheKey: `bulletins_${schoolYear.id}_v3`,
+      cacheKey: `bulletins_${schoolYear.id}_v4`, // 🚨 CACHE VIDÉ ICI
       hasData: false,
       load: async () => {
         const [{ data: enr, error: enrError }, { data: su }, { data: gr }] = await Promise.all([
           supabase.from('enrollments').select('classes ( nom ), students ( id, full_name, matricule ) ').eq('school_year_id', schoolYear.id),
           supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-          supabase.from('grades').select('student_id, subject_id, type, note, sur, periode').eq('school_year_id', schoolYear.id),
+          supabase.from('grades').select('student_id, subject_id, type, note, sur, periode').eq('school_year_id', schoolYear.id).limit(50000), // 🔥 LIMITE AUGMENTÉE ICI
         ]);
         if (enrError) return { error: enrError };
         const st = (enr || [])
@@ -310,7 +309,7 @@ export default function Grades() {
                   <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{moyenneClasse != null ? `${moyenneClasse.toFixed(2)} / 20` : '—'}</p>
                 </div>
                 <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '10px 14px' }}>
-                  <p style={{ margin: '0 0 3px', fontSize: '11px', fontWeight: 600, color: 'var(--muted)' }}>Mention</p>
+                  <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>Mention</p>
                   <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{getMention(moyenneGenerale)}</p>
                 </div>
               </div>
