@@ -41,10 +41,14 @@ export default function Notes() {
   const [grades, setGrades] = useState(null);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
+  
   const [niveau, setNiveau] = useState('Tout');
   const [eleveId, setEleveId] = useState('Tout');
   const [matiereId, setMatiereId] = useState('Tout');
   const [periode, setPeriode] = useState(null);
+  // 🔥 NOUVEL ETAT POUR LE FILTRE DE TYPE
+  const [typeFiltre, setTypeFiltre] = useState('Tout');
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -108,11 +112,15 @@ export default function Notes() {
     setMatiereId('Tout');
   }
 
+  // 🔥 APPLICATION DU FILTRE DE TYPE
   let scopedGrades = grades || [];
   if (niveau !== 'Tout') scopedGrades = scopedGrades.filter((g) => niveauByStudent.get(g.student_id) === niveau);
   if (matiereId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.subject_id === matiereId);
   if (eleveId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.student_id === eleveId);
+  if (typeFiltre !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.type === typeFiltre);
+
   const filteredGrades = periode === 'Tous' ? scopedGrades : scopedGrades.filter((g) => g.periode === periode);
+  
   const groupesParType = TYPES
     .map((t) => ({ ...t, items: filteredGrades.filter((g) => g.type === t.id) }))
     .filter((t) => t.items.length > 0);
@@ -184,10 +192,19 @@ export default function Notes() {
           </div>
           {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Aucun élève inscrit pour l'instant.</p>}
 
-          <div data-tour="notes-periods" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22 }}>
+          <div data-tour="notes-periods" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginRight: 4 }}>Période :</span>
             {[...PERIODES_BULLETIN, 'Tous'].map((p) => (
               <button key={p} onClick={() => setPeriode(p)} style={toggleStyle(p === periode)}>{p}</button>
             ))}
+            
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginLeft: 16, marginRight: 4 }}>Type :</span>
+            {['Tout', ...TYPES.map(t => t.id)].map((tId) => {
+              const label = tId === 'Tout' ? 'Tous' : TYPES.find(t => t.id === tId).labelPluriel;
+              return (
+                <button key={tId} onClick={() => setTypeFiltre(tId)} style={toggleStyle(typeFiltre === tId)}>{label}</button>
+              );
+            })}
           </div>
 
           {!grades && <div className="card-bold"><SkeletonTableRows count={6} columns={3} /></div>}
@@ -195,7 +212,7 @@ export default function Notes() {
           {grades && (
             <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
               
-              {/* TABLEAU 1 : LISTE DES NOTES (Le scroll est maintenant interne à la carte) */}
+              {/* TABLEAU 1 : LISTE DES NOTES */}
               <div data-tour="notes-list" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
                 {groupesParType.map((groupe) => (
                   <div key={groupe.id}>
@@ -237,12 +254,14 @@ export default function Notes() {
                 ))}
                 {groupesParType.length === 0 && (
                   <div style={{ padding: 20 }}>
-                    <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Aucune note pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.</p>
+                    <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
+                      Aucune note de type « {typeFiltre === 'Tout' ? 'tous' : TYPES.find(t => t.id === typeFiltre)?.label} » pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.
+                    </p>
                   </div>
                 )}
               </div>
 
-              {/* TABLEAU 2 : CLASSEMENT (L'en-tête a maintenant exactement le même format) */}
+              {/* TABLEAU 2 : CLASSEMENT */}
               {eleveId === 'Tout' && (
                 <div data-tour="notes-rank" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
                   <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
