@@ -45,8 +45,7 @@ export default function Notes() {
   const [niveau, setNiveau] = useState('Tout');
   const [eleveId, setEleveId] = useState('Tout');
   const [matiereId, setMatiereId] = useState('Tout');
-  const [periode, setPeriode] = useState(null);
-  // 🔥 NOUVEL ETAT POUR LE FILTRE DE TYPE
+  const [periode, setPeriode] = useState('Trimestre 1'); // Fixé par défaut
   const [typeFiltre, setTypeFiltre] = useState('Tout');
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -57,7 +56,7 @@ export default function Notes() {
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
-      cacheKey: `notes_${schoolYear.id}`,
+      cacheKey: `notes_${schoolYear.id}_v2`, // 🚨 CACHE VIDÉ ICI
       hasData: grades !== null,
       load: async () => {
         const [{ data: enr }, { data: su }, { data: gr, error: grError }] = await Promise.all([
@@ -75,10 +74,6 @@ export default function Notes() {
         setGrades(g);
         setStudents(st);
         setSubjects(su);
-        if (periode === null) {
-          const dernier = g.find((gr) => PERIODES_BULLETIN.includes(gr.periode))?.periode;
-          setPeriode(dernier || 'Trimestre 1');
-        }
       },
       setOffline,
       onError: (err) => setError(err.message),
@@ -112,7 +107,6 @@ export default function Notes() {
     setMatiereId('Tout');
   }
 
-  // 🔥 APPLICATION DU FILTRE DE TYPE
   let scopedGrades = grades || [];
   if (niveau !== 'Tout') scopedGrades = scopedGrades.filter((g) => niveauByStudent.get(g.student_id) === niveau);
   if (matiereId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.subject_id === matiereId);
