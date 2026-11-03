@@ -54,7 +54,8 @@ export default function Grades() {
     if (!schoolYear) return;
     let cancelled = false;
     guardedFetch({
-      cacheKey: `bulletins_${schoolYear.id}`,
+      // 🚨 CLÉ DE CACHE MISE À JOUR ICI POUR FORCER LE RECHARGEMENT (_v3)
+      cacheKey: `bulletins_${schoolYear.id}_v3`,
       hasData: false,
       load: async () => {
         const [{ data: enr, error: enrError }, { data: su }, { data: gr }] = await Promise.all([
