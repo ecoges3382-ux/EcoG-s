@@ -46,7 +46,6 @@ function slug(s) {
     .toLowerCase();
 }
 
-// 🔥 Détecte si on est sur mobile (y compris iPad récent qui se fait passer pour un Mac)
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
@@ -330,6 +329,9 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [showStatement, setShowStatement] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfBlob, setPdfBlob] = useState(null);
+  const [pdfFilename, setPdfFilename] = useState(null);
+  const [pdfBuilding, setPdfBuilding] = useState(false);
 
   if (!enrollment) {
     return (
@@ -397,15 +399,49 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     return { blob, filename };
   }
 
-  // 🔥 TÉLÉCHARGER : PC = boîte "Enregistrer sous", Mobile = partage natif avec "Enregistrer dans Fichiers"
+  // 🔥 PRÉ-GÉNÉRATION DU PDF : dès que la fiche est prête, on génère le blob en arrière-plan.
+  // Ça résout le problème iOS "not allowed by user agent" car au moment du clic
+  // sur Partager, le blob est déjà prêt → navigator.share est appelé sans await.
+  useEffect(() => {
+    if (!enrollment) return;
+    let cancelled = false;
+    setPdfBlob(null);
+    setPdfFilename(null);
+    setPdfBuilding(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const { blob, filename } = await buildPdfBlob();
+        if (!cancelled) {
+          setPdfBlob(blob);
+          setPdfFilename(filename);
+        }
+      } catch (err) {
+        console.error('Pré-génération PDF:', err);
+      }
+      if (!cancelled) setPdfBuilding(false);
+    }, 800);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periode, enrollment?.id, student.full_name]);
+
+  // 🔥 TÉLÉCHARGER : PC = showSaveFilePicker, Mobile = a.download
   async function downloadBulletinPDF() {
     setPdfLoading(true);
     try {
-      const { blob, filename } = await buildPdfBlob();
-      const file = new File([blob], filename, { type: 'application/pdf' });
+      let blob = pdfBlob;
+      let filename = pdfFilename;
+
+      if (!blob) {
+        const result = await buildPdfBlob();
+        blob = result.blob;
+        filename = result.filename;
+      }
+
       const mobile = isMobileDevice();
 
-      // 1. PC Chrome/Edge : vraie boîte "Enregistrer sous" native Windows
+      // PC Chrome/Edge : boîte "Enregistrer sous" native
       if (!mobile && typeof window.showSaveFilePicker === 'function') {
         try {
           const handle = await window.showSaveFilePicker({
@@ -419,22 +455,10 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           return;
         } catch (pickerErr) {
           if (pickerErr.name === 'AbortError') { setPdfLoading(false); return; }
-          // Sinon on continue avec le fallback
         }
       }
 
-      // 2. Mobile : menu de partage natif (contient "Enregistrer dans Fichiers")
-      if (mobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Bulletin scolaire',
-          text: `Bulletin de ${student.full_name} — ${periodeLabel(periode)}`,
-        });
-        setPdfLoading(false);
-        return;
-      }
-
-      // 3. Fallback universel : a.download
+      // Mobile + PC fallback : a.download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -447,24 +471,26 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         URL.revokeObjectURL(url);
       }, 3000);
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Erreur PDF:', err);
-        alert('Impossible de générer le PDF : ' + (err.message || 'inconnue'));
-      }
+      console.error('Erreur PDF:', err);
+      alert('Impossible de générer le PDF : ' + (err.message || 'inconnue'));
     }
     setPdfLoading(false);
   }
 
-  // 🔥 PARTAGER : envoie le PDF en pièce jointe (WhatsApp, SMS, Mail)
+  // 🔥 PARTAGER : utilise le blob DÉJÀ PRÊT (pré-généré) pour ne pas perdre
+  // la "user activation" requise par iOS pour navigator.share
   async function shareBulletinPDF() {
-    setPdfLoading(true);
-    try {
-      const { blob, filename } = await buildPdfBlob();
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      const mobile = isMobileDevice();
+    if (!pdfBlob) {
+      alert('Le PDF est en cours de préparation, réessayez dans 2 secondes.');
+      return;
+    }
 
-      // Menu de partage natif avec le PDF en pièce jointe
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    setPdfLoading(true);
+    const file = new File([pdfBlob], pdfFilename, { type: 'application/pdf' });
+
+    // navigator.share avec fichier — appelé IMMÉDIATEMENT (pas d'await avant)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
         await navigator.share({
           files: [file],
           title: 'Bulletin scolaire',
@@ -472,19 +498,28 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         });
         setPdfLoading(false);
         return;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          // L'utilisateur a annulé le partage, ce n'est pas une erreur
+          setPdfLoading(false);
+          return;
+        }
+        console.error('Erreur navigator.share:', err);
+        // On continue vers le fallback
       }
+    }
 
-      // Fallback : télécharger le PDF
-      alert("Le partage direct n'est pas disponible sur cet appareil.\nLe PDF va être enregistré — vous pourrez l'envoyer manuellement par WhatsApp.");
-
+    // Fallback : téléchargement
+    const mobile = isMobileDevice();
+    try {
       if (!mobile && typeof window.showSaveFilePicker === 'function') {
         try {
           const handle = await window.showSaveFilePicker({
-            suggestedName: filename,
+            suggestedName: pdfFilename,
             types: [{ description: 'Document PDF', accept: { 'application/pdf': ['.pdf'] } }],
           });
           const writable = await handle.createWritable();
-          await writable.write(blob);
+          await writable.write(pdfBlob);
           await writable.close();
           setPdfLoading(false);
           return;
@@ -493,10 +528,10 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         }
       }
 
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename;
+      a.download = pdfFilename;
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -504,14 +539,18 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       }, 3000);
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Erreur partage PDF:', err);
-        alert('Impossible de partager le PDF : ' + (err.message || 'inconnue'));
+
+      if (mobile) {
+        alert("Le partage direct n'est pas disponible sur cet appareil.\nLe PDF a été téléchargé dans vos fichiers — vous pouvez l'envoyer manuellement.");
       }
+    } catch (err) {
+      console.error('Fallback partage PDF:', err);
+      alert('Impossible de partager le PDF.');
     }
     setPdfLoading(false);
   }
+
+  const shareDisabled = pdfLoading || pdfBuilding;
 
   return (
     <>
@@ -666,11 +705,12 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           <button
             type="button"
             onClick={shareBulletinPDF}
-            disabled={pdfLoading}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: pdfLoading ? 'default' : 'pointer', opacity: pdfLoading ? 0.6 : 1 }}
+            disabled={shareDisabled}
+            title={pdfBuilding ? 'PDF en cours de préparation…' : ''}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: shareDisabled ? 'default' : 'pointer', opacity: shareDisabled ? 0.6 : 1 }}
           >
             <i className="ti ti-share" style={{ fontSize: 18 }} aria-hidden="true"></i>
-            {pdfLoading ? 'Préparation…' : 'Partager'}
+            {pdfBuilding ? 'Préparation…' : (pdfLoading ? 'Envoi…' : 'Partager')}
           </button>
         </div>
       </Section>
