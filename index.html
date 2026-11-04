@@ -9,9 +9,6 @@
     <!-- Librairie pour lire les fichiers Excel (Importation) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-    <!-- Librairie pour générer et partager des PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
     <!-- Importation de la police Poppins pour les textes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +29,24 @@
       #screen { height: 100% !important; overflow-y: auto !important; flex: 1 !important; }
       .hide-scrollbar::-webkit-scrollbar { display: none !important; }
       .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+
+      /* 🔥 CSS D'IMPRESSION : cache TOUT sauf le bulletin */
+      @media print {
+        body * { visibility: hidden; }
+        #bulletin-print, #bulletin-print * { visibility: visible; }
+        #bulletin-print {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          padding: 20px;
+          margin: 0;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        .no-print { display: none !important; }
+        @page { margin: 15mm; }
+      }
     </style>
   </head>
   <body>
