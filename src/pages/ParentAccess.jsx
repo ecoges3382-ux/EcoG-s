@@ -18,6 +18,9 @@ const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) { return p === 'annuel' ? 'Année complète' : p; }
 
+// Fonction utilitaire pour ignorer les majuscules et les accents
+const normalizeType = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 function toCalcEnrollment(e) {
   return {
     montant_du: e.montant_du,
@@ -319,7 +322,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
   const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 15);
 
-  // 🔥 Préparation des notes détaillées par matière (robuste)
   const notesDetaillees = (() => {
     const gradesPourPeriode = annuel
       ? (grades || [])
@@ -333,14 +335,10 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
 
     return Object.entries(parMatiere)
       .map(([subjectId, notes]) => {
-        // On cherche d'abord dans la liste des matières, puis dans les données imbriquées de la note
         const subject = (subjects || []).find((s) => s.id === subjectId) || notes[0]?.subjects || null;
-        const sortedNotes = [...notes].sort((a, b) => {
-          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-        });
+        const sortedNotes = [...notes].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
         return { subjectId, subject, notes: sortedNotes };
       })
-      // On NE filtre PLUS sur `subject` : si on ne trouve rien, on affiche quand même les notes
       .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
@@ -491,7 +489,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         </div>
       </Section>
 
-      {/* 🔥 SECTION Détail des notes — 2 colonnes forcées (Interro | Devoir) */}
+      {/* SECTION Détail des notes */}
       <Section title={`Détail des notes — ${periodeLabel(periode)}`}>
         {notesDetaillees.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
@@ -500,10 +498,13 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {notesDetaillees.map(({ subjectId, subject, notes }) => {
-              const interros = notes.filter((n) => n.type === 'controle' || n.type === 'interrogation');
-              const devoirs = notes.filter((n) => n.type === 'devoir');
-              const examens = notes.filter((n) => n.type === 'examen');
-              const autres = notes.filter((n) => !['controle', 'interrogation', 'devoir', 'examen'].includes(n.type));
+              // On trie : Interro (tout ce qui n'est pas devoir/examen), Devoir, Examen
+              const devoirs = notes.filter((n) => normalizeType(n.type) === 'devoir');
+              const examens = notes.filter((n) => normalizeType(n.type) === 'examen');
+              const interros = notes.filter((n) => {
+                const t = normalizeType(n.type);
+                return t !== 'devoir' && t !== 'examen';
+              });
 
               return (
                 <div key={subjectId} className="card-bold" style={{ padding: '14px 18px' }}>
@@ -516,8 +517,8 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
                     )}
                   </p>
 
-                  {/* 2 colonnes forcées : Interrogations | Devoirs */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 || autres.length > 0 ? 12 : 0 }}>
+                  {/* 2 colonnes côte à côte (forcé) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 ? 12 : 0 }}>
                     <ColonneNotes
                       titre="Interrogations"
                       couleur="var(--forest)"
@@ -533,23 +534,12 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
                   </div>
 
                   {examens.length > 0 && (
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginBottom: autres.length > 0 ? 12 : 0 }}>
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
                       <ColonneNotes
                         titre="Examens"
                         couleur="var(--danger)"
                         fond="var(--danger-light)"
                         notes={examens}
-                      />
-                    </div>
-                  )}
-
-                  {autres.length > 0 && (
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-                      <ColonneNotes
-                        titre="Autres notes"
-                        couleur="var(--muted)"
-                        fond="#F0EDE5"
-                        notes={autres}
                       />
                     </div>
                   )}
@@ -633,7 +623,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
 
 function ColonneNotes({ titre, couleur, fond, notes }) {
   return (
-    <div>
+    <div style={{ minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: couleur, background: fond, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
           {titre}
@@ -648,16 +638,20 @@ function ColonneNotes({ titre, couleur, fond, notes }) {
         </p>
       ) : (
         <div style={{ display: 'grid', gap: 4 }}>
-          {notes.map((n, i) => (
-            <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-              <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>
-                {n.date_evaluation
-                  ? new Date(n.date_evaluation).toLocaleDateString('fr-FR')
-                  : `Note ${i + 1}`}
-              </span>
-              <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
-            </div>
-          ))}
+          {notes.map((n, i) => {
+            // On affiche la date d'évaluation si elle existe, sinon la date de création, sinon "Note X"
+            const dateAffichee = n.date_evaluation || n.created_at;
+            return (
+              <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+                <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>
+                  {dateAffichee
+                    ? new Date(dateAffichee).toLocaleDateString('fr-FR')
+                    : `Note ${i + 1}`}
+                </span>
+                <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
