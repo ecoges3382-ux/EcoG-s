@@ -319,10 +319,10 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
   const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 15);
 
-  // Préparation des notes détaillées par matière
+  // 🔥 Préparation des notes détaillées par matière (robuste)
   const notesDetaillees = (() => {
     const gradesPourPeriode = annuel
-      ? grades
+      ? (grades || [])
       : (grades || []).filter((g) => g.periode === periode);
 
     const parMatiere = {};
@@ -333,14 +333,15 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
 
     return Object.entries(parMatiere)
       .map(([subjectId, notes]) => {
-        const subject = (subjects || []).find((s) => s.id === subjectId);
+        // On cherche d'abord dans la liste des matières, puis dans les données imbriquées de la note
+        const subject = (subjects || []).find((s) => s.id === subjectId) || notes[0]?.subjects || null;
         const sortedNotes = [...notes].sort((a, b) => {
           return new Date(a.created_at || 0) - new Date(b.created_at || 0);
         });
-        return { subject, notes: sortedNotes };
+        return { subjectId, subject, notes: sortedNotes };
       })
-      .filter((x) => x.subject)
-      .sort((a, b) => a.subject.nom.localeCompare(b.subject.nom));
+      // On NE filtre PLUS sur `subject` : si on ne trouve rien, on affiche quand même les notes
+      .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
   return (
@@ -490,7 +491,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         </div>
       </Section>
 
-      {/* 🔥 SECTION Détail des notes — Interro / Devoir / Examen */}
+      {/* 🔥 SECTION Détail des notes — 2 colonnes forcées (Interro | Devoir) */}
       <Section title={`Détail des notes — ${periodeLabel(periode)}`}>
         {notesDetaillees.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
@@ -498,24 +499,25 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           </p>
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
-            {notesDetaillees.map(({ subject, notes }) => {
-              const interros = notes.filter((n) => n.type === 'controle');
+            {notesDetaillees.map(({ subjectId, subject, notes }) => {
+              const interros = notes.filter((n) => n.type === 'controle' || n.type === 'interrogation');
               const devoirs = notes.filter((n) => n.type === 'devoir');
               const examens = notes.filter((n) => n.type === 'examen');
+              const autres = notes.filter((n) => !['controle', 'interrogation', 'devoir', 'examen'].includes(n.type));
 
               return (
-                <div key={subject.id} className="card-bold" style={{ padding: '14px 18px' }}>
+                <div key={subjectId} className="card-bold" style={{ padding: '14px 18px' }}>
                   <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {subject.nom}
-                    {subject.coefficient && (
+                    {subject?.nom || 'Matière inconnue'}
+                    {subject?.coefficient && (
                       <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
                         Coef. {subject.coefficient}
                       </span>
                     )}
                   </p>
 
-                  {/* Deux colonnes : Interrogations | Devoirs */}
-                  <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 ? 12 : 0 }}>
+                  {/* 2 colonnes forcées : Interrogations | Devoirs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 || autres.length > 0 ? 12 : 0 }}>
                     <ColonneNotes
                       titre="Interrogations"
                       couleur="var(--forest)"
@@ -530,14 +532,24 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
                     />
                   </div>
 
-                  {/* Examens en pleine largeur en dessous (s'il y en a) */}
                   {examens.length > 0 && (
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginBottom: autres.length > 0 ? 12 : 0 }}>
                       <ColonneNotes
                         titre="Examens"
                         couleur="var(--danger)"
                         fond="var(--danger-light)"
                         notes={examens}
+                      />
+                    </div>
+                  )}
+
+                  {autres.length > 0 && (
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                      <ColonneNotes
+                        titre="Autres notes"
+                        couleur="var(--muted)"
+                        fond="#F0EDE5"
+                        notes={autres}
                       />
                     </div>
                   )}
