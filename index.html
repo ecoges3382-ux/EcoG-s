@@ -9,97 +9,30 @@
     <!-- Librairie pour lire les fichiers Excel (Importation) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-    <!-- 🔥 Librairie pour générer et partager des PDF -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
     <!-- Importation de la police Poppins pour les textes -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-      /* --- 1. BARRE DE DÉFILEMENT BLANCHE ET VISIBLE --- */
-      ::-webkit-scrollbar {
-        -webkit-appearance: none;
-        width: 14px !important;
-        height: 14px !important;
-      }
-      ::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.1) !important;
-        border-radius: 0 !important;
-      }
-      ::-webkit-scrollbar-thumb {
-        background-color: #ffffff !important;
-        border-radius: 10px !important;
-        border: 3px solid transparent !important;
-        background-clip: content-box !important;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background-color: #e5e7eb !important;
-      }
-      * {
-        scrollbar-width: auto !important;
-        scrollbar-color: #ffffff rgba(0, 0, 0, 0.1) !important;
-      }
-
-      /* --- 2. APPLICATION DE LA POLICE POPPINS PARTOUT --- */
-      body, button, input, select, textarea, a, span, p, div, table, th, td, label {
-        font-family: 'Poppins', sans-serif !important;
-      }
-      
-      /* On écrase la variable --sans utilisée par l'application */
-      :root {
-        --sans: 'Poppins', sans-serif !important;
-      }
-
-      /* --- 3. FIXER LA BARRE LATÉRALE ET LE CONTENU (SCROLL INDÉPENDANT) --- */
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100vh;
-        overflow: hidden !important;
-      }
-      
-      #app {
-        height: 100vh !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-      }
-      
-      #layout {
-        display: flex !important;
-        flex: 1 !important;
-        overflow: hidden !important;
-      }
-      
-      #sidebar {
-        height: 100% !important;
-        overflow-y: auto !important;
-        flex-shrink: 0 !important;
-      }
-      
-      #screen {
-        height: 100% !important;
-        overflow-y: auto !important;
-        flex: 1 !important;
-      }
-
-      /* --- 4. CACHER LA BARRE DE DÉFILEMENT SUR CERTAINS ÉLÉMENTS --- */
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none !important;
-      }
-      .hide-scrollbar {
-        -ms-overflow-style: none !important;  /* IE and Edge */
-        scrollbar-width: none !important;  /* Firefox */
-      }
+      ::-webkit-scrollbar { -webkit-appearance: none; width: 14px !important; height: 14px !important; }
+      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1) !important; border-radius: 0 !important; }
+      ::-webkit-scrollbar-thumb { background-color: #ffffff !important; border-radius: 10px !important; border: 3px solid transparent !important; background-clip: content-box !important; }
+      ::-webkit-scrollbar-thumb:hover { background-color: #e5e7eb !important; }
+      * { scrollbar-width: auto !important; scrollbar-color: #ffffff rgba(0,0,0,0.1) !important; }
+      body, button, input, select, textarea, a, span, p, div, table, th, td, label { font-family: 'Poppins', sans-serif !important; }
+      :root { --sans: 'Poppins', sans-serif !important; }
+      html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden !important; }
+      #app { height: 100vh !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+      #layout { display: flex !important; flex: 1 !important; overflow: hidden !important; }
+      #sidebar { height: 100% !important; overflow-y: auto !important; flex-shrink: 0 !important; }
+      #screen { height: 100% !important; overflow-y: auto !important; flex: 1 !important; }
+      .hide-scrollbar::-webkit-scrollbar { display: none !important; }
+      .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     </style>
   </head>
   <body>
-    <!-- L'endroit où React affiche l'application -->
     <div id="root"></div>
-    
-    <!-- Le moteur de l'application -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
