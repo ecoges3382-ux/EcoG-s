@@ -32,8 +32,38 @@ export function saveWhatsAppConfig(payload) {
   return invokeFn('whatsapp-config', { action: 'save', ...payload }, "Erreur d'enregistrement.");
 }
 
-export function sendWhatsAppMessage(payload) {
-  return invokeFn('whatsapp-send', payload, "Erreur d'envoi.");
+// --- NOUVELLE FONCTION ROUTEUR ---
+// Vérifie si l'école a une configuration OpenWA active. Si oui, elle utilise
+// l'Edge Function 'openwa-send' (qui parle à notre serveur local via Cloudflare).
+// Sinon, elle utilise 'whatsapp-send' (l'API officielle Meta).
+export async function sendWhatsAppMessage(payload) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    let isOpenWA = false;
+
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('school_id').eq('id', user.id).single();
+      if (profile) {
+        const { data: openwa } = await supabase
+          .from('openwa_configs')
+          .select('id')
+          .eq('school_id', profile.school_id)
+          .eq('statut', 'actif')
+          .maybeSingle();
+        
+        if (openwa) isOpenWA = true;
+      }
+    }
+
+    if (isOpenWA) {
+      return invokeFn('openwa-send', payload, "Erreur d'envoi via OpenWA.");
+    }
+    return invokeFn('whatsapp-send', payload, "Erreur d'envoi via Meta.");
+
+  } catch (err) {
+    console.error("Erreur routage WhatsApp:", err);
+    return invokeFn('whatsapp-send', payload, "Erreur d'envoi.");
+  }
 }
 
 export const WHATSAPP_TYPE_LABELS = {
