@@ -57,14 +57,12 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   const selectedClasse = classes.find((c) => c.id === classeId);
 
-  // 🔥 NOUVEAU : calcul dynamique des frais d'inscription selon le type choisi
   const fraisInscription = selectedClasse
     ? (typeInscription === 'reinscription'
         ? Number(feeSchedules[selectedClasse.niveau]?.montant_reinscription) || 0
         : Number(feeSchedules[selectedClasse.niveau]?.montant_inscription) || 0)
     : 0;
 
-  // Libellé dynamique du bloc frais
   const libelleFrais = typeInscription === 'reinscription' ? "Frais de réinscription" : "Frais d'inscription";
 
   useEffect(() => {
@@ -130,7 +128,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     setSubmitting(true);
     setError('');
 
+    let targetStudentId = student?.id || null;
+
     if (isEditing) {
+      // Mise à jour de l'élève
       const { error: studentError } = await supabase
         .from('students')
         .update({
@@ -156,76 +157,93 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           .eq('school_year_id', schoolYearId);
         if (enrollmentError) { setSubmitting(false); setError(enrollmentError.message); return; }
       }
-      setSubmitting(false);
-      showToast('Enregistré');
-      onCreated();
-      return;
+    } else {
+      // Création de l'élève (RPC)
+      let studentParentPhone = null;
+      if (canManageParents && parentMode === 'new') {
+        studentParentPhone = composePhone(parentAccessDial, parentAccessLocal) || null;
+      } else if (canManageParents && parentMode === 'existing') {
+        studentParentPhone = (existingParents || []).find((p) => p.id === existingParentId)?.phone || null;
+      }
+
+      const isExistingParent = canManageParents && parentMode === 'existing' && !!existingParentId;
+      const { data: newStudentId, error: rpcError } = await supabase.rpc('create_student_with_enrollment', {
+        p_school_id: schoolId,
+        p_nom: studentNom.trim(),
+        p_prenom: studentPrenom.trim(),
+        p_full_name: displayName(studentNom.trim(), studentPrenom.trim()),
+        p_parent_phone: studentParentPhone,
+        p_photo_url: photoUrl || null,
+        p_matricule: matricule.trim() || null,
+        p_school_year_id: schoolYearId,
+        p_classe_id: classeId || null,
+        p_montant_du: Number(montantDu) || 0,
+        p_frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
+        p_existing_parent_access_id: isExistingParent ? existingParentId : null,
+        p_paiement_montant: Number(paiementMontant) || 0,
+        p_paiement_tranche: paiementTranche,
+        p_paiement_mode: paiementMode,
+        p_frais_inscription_montant: fraisInscription,
+        p_date_naissance: dateNaissance || null,
+        p_solde_ecolage_anterieur: 0,
+        p_solde_connexe_anterieur: 0,
+        p_sexe: sexe,
+        p_nationalite: nationalite || null,
+        p_adresse: adresse.trim() || null,
+        p_type_inscription: typeInscription,
+      });
+      
+      if (rpcError) { setSubmitting(false); setError(rpcError.message); return; }
+      targetStudentId = newStudentId;
+
+      if (!canManageParents || isExistingParent || !parentNom.trim()) {
+        setSubmitting(false);
+        showToast('Enregistré');
+        onCreated();
+        return;
+      }
     }
 
-    let studentParentPhone = null;
-    if (canManageParents && parentMode === 'new') {
-      studentParentPhone = composePhone(parentAccessDial, parentAccessLocal) || null;
-    } else if (canManageParents && parentMode === 'existing') {
-      studentParentPhone = (existingParents || []).find((p) => p.id === existingParentId)?.phone || null;
+    // Si on est ici, c'est qu'il faut créer un nouveau parent (en mode édition ou création)
+    if (canManageParents && parentMode === 'new' && parentNom.trim()) {
+      let created = null;
+      for (let attempt = 0; attempt < 5 && !created; attempt++) {
+        const { data, error: paError } = await supabase.from('parent_access').insert({
+          school_id: schoolId,
+          full_name: displayName(parentNom.trim(), parentPrenom.trim()),
+          nom: parentNom.trim(),
+          prenom: parentPrenom.trim(),
+          phone: composePhone(parentAccessDial, parentAccessLocal) || null,
+          code: generateAccessCode(),
+          lien_parente: lienParente,
+        }).select().single();
+        if (!paError) { created = data; break; }
+        if (paError.code !== '23505') { setSubmitting(false); setError(paError.message); return; }
+      }
+      if (!created) { setSubmitting(false); setError('Impossible de générer un code unique, réessaie.'); return; }
+
+      const { error: linkError } = await supabase.from('parent_access_students').insert({
+        parent_access_id: created.id, student_id: targetStudentId,
+      });
+      
+      if (linkError) { setSubmitting(false); setError(linkError.message); return; }
+      
+      // En mode édition, on n'affiche pas le code, on recharge juste
+      if (isEditing) {
+        setSubmitting(false);
+        showToast('Parent ajouté');
+        onCreated();
+        return;
+      } else {
+        setResult({ code: created.code });
+        setSubmitting(false);
+        return;
+      }
     }
 
-    const isExistingParent = canManageParents && parentMode === 'existing' && !!existingParentId;
-    const { data: studentId, error: rpcError } = await supabase.rpc('create_student_with_enrollment', {
-      p_school_id: schoolId,
-      p_nom: studentNom.trim(),
-      p_prenom: studentPrenom.trim(),
-      p_full_name: displayName(studentNom.trim(), studentPrenom.trim()),
-      p_parent_phone: studentParentPhone,
-      p_photo_url: photoUrl || null,
-      p_matricule: matricule.trim() || null,
-      p_school_year_id: schoolYearId,
-      p_classe_id: classeId || null,
-      p_montant_du: Number(montantDu) || 0,
-      p_frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
-      p_existing_parent_access_id: isExistingParent ? existingParentId : null,
-      p_paiement_montant: Number(paiementMontant) || 0,
-      p_paiement_tranche: paiementTranche,
-      p_paiement_mode: paiementMode,
-      p_frais_inscription_montant: fraisInscription,
-      p_date_naissance: dateNaissance || null,
-      p_solde_ecolage_anterieur: 0,
-      p_solde_connexe_anterieur: 0,
-      p_sexe: sexe,
-      p_nationalite: nationalite || null,
-      p_adresse: adresse.trim() || null,
-      p_type_inscription: typeInscription,
-    });
-    if (rpcError) { setSubmitting(false); setError(rpcError.message); return; }
-
-    if (!canManageParents || isExistingParent || !parentNom.trim()) {
-      setSubmitting(false);
-      showToast('Enregistré');
-      onCreated();
-      return;
-    }
-
-    let created = null;
-    for (let attempt = 0; attempt < 5 && !created; attempt++) {
-      const { data, error: paError } = await supabase.from('parent_access').insert({
-        school_id: schoolId,
-        full_name: displayName(parentNom.trim(), parentPrenom.trim()),
-        nom: parentNom.trim(),
-        prenom: parentPrenom.trim(),
-        phone: composePhone(parentAccessDial, parentAccessLocal) || null,
-        code: generateAccessCode(),
-        lien_parente: lienParente,
-      }).select().single();
-      if (!paError) { created = data; break; }
-      if (paError.code !== '23505') { setSubmitting(false); setError(paError.message); return; }
-    }
-    if (!created) { setSubmitting(false); setError('Impossible de générer un code unique, réessaie.'); return; }
-
-    const { error: linkError } = await supabase.from('parent_access_students').insert({
-      parent_access_id: created.id, student_id: studentId,
-    });
     setSubmitting(false);
-    if (linkError) { setError(linkError.message); return; }
-    setResult({ code: created.code });
+    showToast('Enregistré');
+    onCreated();
   }
 
   function copyLink() {
@@ -353,7 +371,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Facultatif — laisse à 0 si le parent ne paie rien aujourd'hui.</p>
 
-          {/* 🔥 Bloc frais d'inscription dynamique */}
           {fraisInscription > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--forest-light)', marginBottom: 14 }}>
               <div>
@@ -366,7 +383,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             </div>
           )}
 
-          {/* Si le type est réinscription mais aucun montant de réinscription n'est configuré */}
           {typeInscription === 'reinscription' && fraisInscription === 0 && selectedClasse && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--amber-light)', marginBottom: 14 }}>
               <div>
@@ -403,13 +419,16 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
         </div>
 
-        {!isEditing && canManageParents && (
+        {/* 🔥 LE BLOC PARENT APPARAÎT MAINTENANT TOUT LE TEMPS */}
+        {canManageParents && (
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 4 }}>
             <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>
-              Parent
+              {isEditing ? 'Ajouter un parent' : 'Parent'}
               <HelpTooltip text="Crée un code d'accès pour que le parent puisse consulter les notes et payer en ligne sans avoir de compte." />
             </p>
-            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Pour que le parent puisse consulter la fiche de son enfant sans compte ni mot de passe.</p>
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
+              {isEditing ? "Si tu remplis ces champs, un nouveau parent sera créé et rattaché à cet élève." : "Pour que le parent puisse consulter la fiche de son enfant sans compte ni mot de passe."}
+            </p>
 
             <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
               {[{ id: 'new', label: 'Nouveau parent' }, { id: 'existing', label: 'Parent existant' }].map((m) => (
@@ -471,7 +490,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
           <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
           <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
             {submitting ? (isEditing ? 'Enregistrement…' : 'Inscription…') : (isEditing ? 'Enregistrer les modifications' : 'Inscrire')}
