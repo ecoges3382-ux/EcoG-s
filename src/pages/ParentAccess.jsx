@@ -18,8 +18,14 @@ const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) { return p === 'annuel' ? 'Année complète' : p; }
 
-// Fonction utilitaire pour ignorer les majuscules et les accents
 const normalizeType = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+function classifyNote(n) {
+  const t = normalizeType(n.type);
+  if (t.includes('devoir')) return 'devoir';
+  if (t.includes('examen')) return 'examen';
+  return 'interro';
+}
 
 function toCalcEnrollment(e) {
   return {
@@ -141,7 +147,6 @@ export default function ParentAccess() {
     setDetailError('');
   }
 
-  // --- Écran 1 : saisie du code ---
   if (!summary) {
     return (
       <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -175,7 +180,6 @@ export default function ParentAccess() {
     );
   }
 
-  // --- Écran 3 : détail d'un enfant ---
   if (selectedId) {
     const student = summary.students.find((s) => s.id === selectedId);
     return (
@@ -210,7 +214,6 @@ export default function ParentAccess() {
     );
   }
 
-  // --- Écran 2 : accueil parent (liste des enfants) ---
   return (
     <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -489,7 +492,16 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         </div>
       </Section>
 
-      {/* SECTION Détail des notes */}
+      {/* 🔥 PANNEAU DE DEBUG TEMPORAIRE */}
+      <div style={{ background: '#FFF3CD', border: '2px solid #FFC107', padding: 16, borderRadius: 8, marginBottom: 20, fontSize: 13, fontFamily: 'monospace', lineHeight: 1.6 }}>
+        <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#856404' }}>🔍 DEBUG (à supprimer après) :</p>
+        <p style={{ margin: '0 0 4px', color: '#000' }}>Période active : <strong>{periode}</strong></p>
+        <p style={{ margin: '0 0 4px', color: '#000' }}>Total de notes reçues : <strong>{grades?.length || 0}</strong></p>
+        <p style={{ margin: '0 0 4px', color: '#000' }}>Types trouvés : <strong>{JSON.stringify([...new Set((grades || []).map(g => g.type))])}</strong></p>
+        <p style={{ margin: '0 0 4px', color: '#000' }}>Notes en "devoir" : <strong>{(grades || []).filter(g => g.type === 'devoir').length}</strong></p>
+        <p style={{ margin: 0, color: '#000' }}>Notes filtrées (après période) : <strong>{(grades || []).filter(g => periode === 'annuel' || g.periode === periode).length}</strong></p>
+      </div>
+
       <Section title={`Détail des notes — ${periodeLabel(periode)}`}>
         {notesDetaillees.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
@@ -498,13 +510,9 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {notesDetaillees.map(({ subjectId, subject, notes }) => {
-              // On trie : Interro (tout ce qui n'est pas devoir/examen), Devoir, Examen
-              const devoirs = notes.filter((n) => normalizeType(n.type) === 'devoir');
-              const examens = notes.filter((n) => normalizeType(n.type) === 'examen');
-              const interros = notes.filter((n) => {
-                const t = normalizeType(n.type);
-                return t !== 'devoir' && t !== 'examen';
-              });
+              const devoirs = notes.filter((n) => classifyNote(n) === 'devoir');
+              const examens = notes.filter((n) => classifyNote(n) === 'examen');
+              const interros = notes.filter((n) => classifyNote(n) === 'interro');
 
               return (
                 <div key={subjectId} className="card-bold" style={{ padding: '14px 18px' }}>
@@ -517,7 +525,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
                     )}
                   </p>
 
-                  {/* 2 colonnes côte à côte (forcé) */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 ? 12 : 0 }}>
                     <ColonneNotes
                       titre="Interrogations"
@@ -639,7 +646,6 @@ function ColonneNotes({ titre, couleur, fond, notes }) {
       ) : (
         <div style={{ display: 'grid', gap: 4 }}>
           {notes.map((n, i) => {
-            // On affiche la date d'évaluation si elle existe, sinon la date de création, sinon "Note X"
             const dateAffichee = n.date_evaluation || n.created_at;
             return (
               <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
