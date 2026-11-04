@@ -18,12 +18,6 @@ const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) { return p === 'annuel' ? 'Année complète' : p; }
 
-const TYPES_GRADES = {
-  controle: 'Interrogation',
-  devoir: 'Devoir',
-  examen: 'Examen',
-};
-
 function toCalcEnrollment(e) {
   return {
     montant_du: e.montant_du,
@@ -262,7 +256,6 @@ function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
 
   let badge = null;
   if (s.has_arrangement) badge = { label: 'Arrangement', bg: '#F0EDE5', fg: 'var(--muted)' };
-  // 🔥 "À relancer" remplacé par "Solde à régler" (vocabulaire côté parent, pas côté admin)
   else if (enRetard) badge = { label: 'Solde à régler', bg: 'var(--danger-light)', fg: 'var(--danger)' };
   else if (reste > 0) badge = { label: `${fmtF(reste)} dû`, bg: 'var(--amber-light)', fg: 'var(--amber)' };
   else badge = { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
@@ -326,28 +319,22 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
   const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 15);
 
-  // 🔥 NOUVEAU : Préparation des notes détaillées par matière
+  // Préparation des notes détaillées par matière
   const notesDetaillees = (() => {
     const gradesPourPeriode = annuel
       ? grades
       : (grades || []).filter((g) => g.periode === periode);
 
-    // Grouper par matière
     const parMatiere = {};
     gradesPourPeriode.forEach((g) => {
       if (!parMatiere[g.subject_id]) parMatiere[g.subject_id] = [];
       parMatiere[g.subject_id].push(g);
     });
 
-    // Trier : matière alphabétique, puis type (interro → devoir → examen), puis date
-    const orderType = { controle: 0, devoir: 1, examen: 2 };
     return Object.entries(parMatiere)
       .map(([subjectId, notes]) => {
         const subject = (subjects || []).find((s) => s.id === subjectId);
         const sortedNotes = [...notes].sort((a, b) => {
-          const tA = orderType[a.type] ?? 9;
-          const tB = orderType[b.type] ?? 9;
-          if (tA !== tB) return tA - tB;
           return new Date(a.created_at || 0) - new Date(b.created_at || 0);
         });
         return { subject, notes: sortedNotes };
@@ -503,7 +490,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         </div>
       </Section>
 
-      {/* 🔥 NOUVELLE SECTION : Détail des notes */}
+      {/* 🔥 SECTION Détail des notes — Interro / Devoir / Examen */}
       <Section title={`Détail des notes — ${periodeLabel(periode)}`}>
         {notesDetaillees.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
@@ -512,57 +499,48 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {notesDetaillees.map(({ subject, notes }) => {
-              // Si annuel, regrouper les notes par trimestre
-              const parTrimestre = annuel
-                ? ['Trimestre 1', 'Trimestre 2', 'Trimestre 3']
-                    .map((t) => ({ trimestre: t, notes: notes.filter((n) => n.periode === t) }))
-                    .filter((x) => x.notes.length > 0)
-                : null;
+              const interros = notes.filter((n) => n.type === 'controle');
+              const devoirs = notes.filter((n) => n.type === 'devoir');
+              const examens = notes.filter((n) => n.type === 'examen');
 
               return (
                 <div key={subject.id} className="card-bold" style={{ padding: '14px 18px' }}>
-                  <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {subject.nom}
                     {subject.coefficient && (
-                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
                         Coef. {subject.coefficient}
                       </span>
                     )}
                   </p>
 
-                  {!annuel && (
-                    <div style={{ display: 'grid', gap: 6 }}>
-                      {notes.map((n, i) => (
-                        <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
-                          <span style={{ color: 'var(--muted)' }}>
-                            {TYPES_GRADES[n.type] || n.type}
-                            {n.date_evaluation && (
-                              <span style={{ fontSize: 11, marginLeft: 6 }}>
-                                · {new Date(n.date_evaluation).toLocaleDateString('fr-FR')}
-                              </span>
-                            )}
-                          </span>
-                          <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
-                        </div>
-                      ))}
+                  {/* Deux colonnes : Interrogations | Devoirs */}
+                  <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 ? 12 : 0 }}>
+                    <ColonneNotes
+                      titre="Interrogations"
+                      couleur="var(--forest)"
+                      fond="var(--forest-light)"
+                      notes={interros}
+                    />
+                    <ColonneNotes
+                      titre="Devoirs"
+                      couleur="var(--clay-dark)"
+                      fond="var(--gold-light)"
+                      notes={devoirs}
+                    />
+                  </div>
+
+                  {/* Examens en pleine largeur en dessous (s'il y en a) */}
+                  {examens.length > 0 && (
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                      <ColonneNotes
+                        titre="Examens"
+                        couleur="var(--danger)"
+                        fond="var(--danger-light)"
+                        notes={examens}
+                      />
                     </div>
                   )}
-
-                  {annuel && parTrimestre.map(({ trimestre, notes: notesT }) => (
-                    <div key={trimestre} style={{ marginBottom: 10 }}>
-                      <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 700, color: 'var(--forest)', textTransform: 'uppercase' }}>
-                        {trimestre}
-                      </p>
-                      <div style={{ display: 'grid', gap: 4 }}>
-                        {notesT.map((n, i) => (
-                          <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
-                            <span style={{ color: 'var(--muted)' }}>{TYPES_GRADES[n.type] || n.type}</span>
-                            <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               );
             })}
@@ -641,6 +619,39 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   );
 }
 
+function ColonneNotes({ titre, couleur, fond, notes }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: couleur, background: fond, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+          {titre}
+        </span>
+        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
+          {notes.length > 0 ? `(${notes.length})` : ''}
+        </span>
+      </div>
+      {notes.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', padding: '6px 0' }}>
+          Aucune note
+        </p>
+      ) : (
+        <div style={{ display: 'grid', gap: 4 }}>
+          {notes.map((n, i) => (
+            <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>
+                {n.date_evaluation
+                  ? new Date(n.date_evaluation).toLocaleDateString('fr-FR')
+                  : `Note ${i + 1}`}
+              </span>
+              <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function YearSelector({ years, current, onChange }) {
   return (
     <div style={{ marginBottom: 18 }}>
@@ -674,7 +685,6 @@ function Section({ title, children }) {
   );
 }
 
-// 🔥 BADGE CORRIGÉ (avec 'a_venir' et détail du partiel)
 function EcheanceBadge({ statut, montantPaye, montantRestant }) {
   const map = {
     payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
