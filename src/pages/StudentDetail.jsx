@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, initials, trancheLabel } from '../lib/utils.js';
+import { fmtF, initials, trancheLabel, sortClasses } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance, computeEcheances, resumeMoratoire } from '../lib/retard.js';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
@@ -11,6 +11,7 @@ import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
 import QuickPaymentModal from '../components/QuickPaymentModal.jsx';
+import NewStudentModal from '../components/NewStudentModal.jsx'; // 🔥 NOUVEL IMPORT
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
@@ -34,7 +35,7 @@ export default function StudentDetail() {
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const [student, setStudent] = useState(null);
   const [enrollment, setEnrollment] = useState(undefined);
-  const [feeSchedules, setFeeSchedules] = useState([]); // Ajouté pour le formulaire de paiement
+  const [feeSchedules, setFeeSchedules] = useState([]); 
   const [payments, setPayments] = useState(undefined);
   const [attendance, setAttendance] = useState(undefined);
   const [parents, setParents] = useState(null);
@@ -47,6 +48,10 @@ export default function StudentDetail() {
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [showStatement, setShowStatement] = useState(false);
   const [quickPayOpen, setQuickPayOpen] = useState(false);
+  
+  // 🔥 NOUVEAUX ETATS POUR L'EDITION
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [allClasses, setAllClasses] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +87,7 @@ export default function StudentDetail() {
       load: async () => {
         const { data, error: fetchError } = await supabase
           .from('enrollments')
-          .select('id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( nom, niveau )')
+          .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( nom, niveau )')
           .eq('student_id', id)
           .eq('school_year_id', schoolYear.id)
           .maybeSingle();
@@ -93,9 +98,13 @@ export default function StudentDetail() {
       isCancelled: () => cancelled,
     });
     
-    // Chargement de la grille tarifaire pour le formulaire de paiement
     supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id).then(({ data }) => {
       if (!cancelled) setFeeSchedules(data || []);
+    });
+
+    // 🔥 CHARGEMENT DES CLASSES POUR LA MODALE D'EDITION
+    supabase.from('classes').select('id, nom, niveau, section').then(({ data }) => {
+      if (!cancelled) setAllClasses(sortClasses(data || []));
     });
 
     supabase
@@ -238,13 +247,23 @@ export default function StudentDetail() {
         </Link>
         
         {enrollment && !isHistorical && (
-          <button 
-            onClick={() => setQuickPayOpen(true)} 
-            style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '9px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-          >
-            <i className="ti ti-cash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-            Encaisser un paiement
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {/* 🔥 NOUVEAU BOUTON MODIFIER */}
+            <button 
+              onClick={() => setEditModalOpen(true)} 
+              style={{ background: 'var(--paper)', color: 'var(--ink)', border: '1px solid var(--line-strong)', fontWeight: 600, fontSize: 13, padding: '9px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+            >
+              <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+              Modifier
+            </button>
+            <button 
+              onClick={() => setQuickPayOpen(true)} 
+              style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '9px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+            >
+              <i className="ti ti-cash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+              Encaisser un paiement
+            </button>
+          </div>
         )}
       </div>
 
@@ -417,7 +436,13 @@ export default function StudentDetail() {
         </div>
       )}
 
-      <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
+      {/* 🔥 AJOUT DU LIEN POUR GERER LES PARENTS */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
+        <Link to="/comptes" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', textDecoration: 'none' }}>
+          + Gérer les parents
+        </Link>
+      </div>
       <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
         {parents === null && <SkeletonRow count={2} />}
         {parents?.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun parent relié pour l'instant.</p>}
@@ -497,6 +522,33 @@ export default function StudentDetail() {
             setQuickPayOpen(false); 
             window.location.reload();
           }}
+        />
+      )}
+
+      {/* 🔥 AFFICHAGE DE LA MODALE D'EDITION */}
+      {editModalOpen && enrollment && (
+        <NewStudentModal
+          schoolId={profile.school_id}
+          schoolYearId={schoolYear.id}
+          classes={allClasses}
+          canManageParents={['fondateur', 'directeur', 'secretaire'].includes(profile.role)}
+          student={{
+            id: student.id,
+            enrollment_id: enrollment.id,
+            nom: student.nom,
+            prenom: student.prenom,
+            matricule: student.matricule,
+            sexe: student.sexe,
+            date_naissance: student.date_naissance,
+            nationalite: student.nationalite,
+            adresse: student.adresse,
+            photo_url: student.photo_url,
+            classe_id: enrollment.classe_id,
+            montant_du: enrollment.montant_du
+          }}
+          isHistorical={isHistorical}
+          onClose={() => setEditModalOpen(false)}
+          onCreated={() => { setEditModalOpen(false); window.location.reload(); }}
         />
       )}
     </div>
