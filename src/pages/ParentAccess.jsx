@@ -1,9 +1,8 @@
-import html2pdf from 'html2pdf.js';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { fmtF, initials, trancheLabel } from '../lib/utils.js';        // ✅ slug retiré
-import { slug } from '../lib/print.js';                               // ✅ slug ajouté ici
+import { fmtF, initials, trancheLabel } from '../lib/utils.js';
+import { slug } from '../lib/print.js';
 import { computeEcheances } from '../lib/retard.js';
 import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation } from '../lib/bulletin.js';
 import DocumentHeader from '../components/DocumentHeader.jsx';
@@ -357,12 +356,16 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   };
 
   async function downloadBulletinPDF() {
+    if (!window.html2pdf) {
+      alert('Générateur de PDF en cours de chargement. Réessaye dans 2 secondes.');
+      return;
+    }
     const element = document.getElementById('bulletin-print');
     if (!element) return;
 
     setPdfLoading(true);
     try {
-      await html2pdf().set(pdfOptions).from(element).save();
+      await window.html2pdf().set(pdfOptions).from(element).save();
     } catch (err) {
       console.error('Erreur génération PDF:', err);
       alert('Une erreur est survenue lors de la génération du PDF.');
@@ -371,12 +374,16 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   }
 
   async function shareBulletinPDF() {
+    if (!window.html2pdf) {
+      alert('Générateur de PDF en cours de chargement. Réessaye dans 2 secondes.');
+      return;
+    }
     const element = document.getElementById('bulletin-print');
     if (!element) return;
 
     setPdfLoading(true);
     try {
-      const pdfBlob = await html2pdf().set(pdfOptions).from(element).outputPdf('blob');
+      const pdfBlob = await window.html2pdf().set(pdfOptions).from(element).outputPdf('blob');
       const fileName = pdfOptions.filename;
       const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
@@ -387,7 +394,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           text: `Bulletin de ${student.full_name} - ${periodeLabel(periode)}`,
         });
       } else {
-        await html2pdf().set(pdfOptions).from(element).save();
+        await window.html2pdf().set(pdfOptions).from(element).save();
         alert("Le partage direct n'est pas disponible sur cet appareil. Le PDF a été téléchargé dans vos fichiers.");
       }
     } catch (err) {
