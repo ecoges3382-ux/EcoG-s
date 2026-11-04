@@ -36,6 +36,35 @@ function toCalcEnrollment(e) {
   };
 }
 
+function slug(s) {
+  return (s || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+// Charge html2pdf depuis le CDN si pas déjà présent
+function loadHtml2Pdf() {
+  return new Promise((resolve, reject) => {
+    if (window.html2pdf) return resolve(window.html2pdf);
+    const existing = document.querySelector('script[data-html2pdf]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.html2pdf));
+      existing.addEventListener('error', () => reject(new Error('CDN html2pdf inaccessible.')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.setAttribute('data-html2pdf', 'true');
+    script.onload = () => resolve(window.html2pdf);
+    script.onerror = () => reject(new Error('CDN html2pdf inaccessible.'));
+    document.head.appendChild(script);
+  });
+}
+
 export default function ParentAccess() {
   const [searchParams] = useSearchParams();
   const [codeInput, setCodeInput] = useState(searchParams.get('code') || '');
@@ -186,13 +215,12 @@ export default function ParentAccess() {
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 100px' }}>
           <button
             onClick={backToList}
-            className="no-print"
             style={{ background: 'none', border: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: 13, cursor: 'pointer', marginBottom: 16, padding: 0 }}
           >
             ← Retour aux enfants
           </button>
 
-          <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
             <div style={{ width: 54, height: 54, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden', flexShrink: 0 }}>
               {student?.photo_url ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(student?.full_name)}
             </div>
@@ -296,6 +324,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const annuel = periode === 'annuel';
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [showStatement, setShowStatement] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   if (!enrollment) {
     return (
@@ -345,31 +374,77 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
       .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
-  // 🔥 Télécharger en PDF = ouvre la fenêtre d'impression du navigateur
-  function downloadBulletinPDF() {
-    window.print();
+  // 🔥 GÉNÉRATION DU PDF (vrai fichier PDF)
+  async function buildPdfBlob() {
+    const html2pdf = await loadHtml2Pdf();
+    const element = document.getElementById('bulletin-print');
+    if (!element) throw new Error('Élément bulletin introuvable.');
+
+    const opt = {
+      margin: 10,
+      filename: `bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    };
+
+    const worker = html2pdf().set(opt).from(element);
+    const blob = await worker.outputPdf('blob');
+    return { blob, filename: opt.filename };
   }
 
-  // 🔥 Partager = partage le lien du bulletin
-  async function shareBulletinPDF() {
-    const text = `Voici le bulletin de ${student.full_name} pour la période ${periodeLabel(periode)}.\n${window.location.href}`;
+  // 🔥 TÉLÉCHARGER : télécharge un fichier .pdf dans les fichiers du téléphone/ordi
+  async function downloadBulletinPDF() {
+    setPdfLoading(true);
     try {
-      if (navigator.share) {
-        await navigator.share({ title: 'Bulletin scolaire', text, url: window.location.href });
+      const { blob, filename } = await buildPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('Erreur PDF:', err);
+      alert('Impossible de générer le PDF : ' + (err.message || 'inconnue'));
+    }
+    setPdfLoading(false);
+  }
+
+  // 🔥 PARTAGER : envoie le fichier PDF via WhatsApp / SMS / Mail
+  async function shareBulletinPDF() {
+    setPdfLoading(true);
+    try {
+      const { blob, filename } = await buildPdfBlob();
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Bulletin scolaire',
+          text: `Bulletin de ${student.full_name} — ${periodeLabel(periode)}`,
+        });
       } else {
-        await navigator.clipboard.writeText(text);
-        alert('Lien du bulletin copié dans le presse-papiers ! Vous pouvez le coller dans WhatsApp.');
+        // Fallback : télécharger
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        alert("Le partage direct n'est pas disponible sur cet appareil.\nLe PDF a été téléchargé dans vos fichiers — vous pouvez l'envoyer manuellement par WhatsApp.");
       }
     } catch (err) {
       if (err.name !== 'AbortError') {
-        try {
-          await navigator.clipboard.writeText(text);
-          alert('Lien du bulletin copié dans le presse-papiers !');
-        } catch (e) {
-          alert('Impossible de partager. Copiez l\'URL manuellement.');
-        }
+        console.error('Erreur partage PDF:', err);
+        alert('Impossible de partager le PDF : ' + (err.message || 'inconnue'));
       }
     }
+    setPdfLoading(false);
   }
 
   return (
@@ -414,7 +489,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         <button
           type="button"
           onClick={() => setShowStatement(true)}
-          className="no-print"
           style={{ marginTop: 12, fontSize: 11.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
         >
           <i className="ti ti-file-invoice" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
@@ -448,7 +522,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
       </Section>
 
       <Section title="Bulletin">
-        <div className="no-print" style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           {PERIODE_OPTIONS.map((p) => (
             <button
               key={p} onClick={() => setPeriode(p)}
@@ -459,7 +533,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           ))}
         </div>
 
-        {/* 🔥 L'ID "bulletin-print" EST UTILISÉ PAR LE CSS D'IMPRESSION DANS index.html */}
         <div id="bulletin-print" className="card-bold" style={{ padding: '18px 20px', overflow: 'hidden', backgroundColor: 'white' }}>
           <DocumentHeader
             school={school}
@@ -514,22 +587,24 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           </div>
         </div>
 
-        <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button
             type="button"
             onClick={downloadBulletinPDF}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', cursor: 'pointer' }}
+            disabled={pdfLoading}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', cursor: pdfLoading ? 'default' : 'pointer', opacity: pdfLoading ? 0.6 : 1 }}
           >
             <i className="ti ti-download" style={{ fontSize: 18 }} aria-hidden="true"></i>
-            Télécharger en PDF
+            {pdfLoading ? 'Génération…' : 'Télécharger en PDF'}
           </button>
           <button
             type="button"
             onClick={shareBulletinPDF}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+            disabled={pdfLoading}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: pdfLoading ? 'default' : 'pointer', opacity: pdfLoading ? 0.6 : 1 }}
           >
             <i className="ti ti-share" style={{ fontSize: 18 }} aria-hidden="true"></i>
-            Partager
+            {pdfLoading ? 'Préparation…' : 'Partager'}
           </button>
         </div>
       </Section>
