@@ -349,6 +349,28 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
       .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
+  // 🔥 FONCTION DE PARTAGE
+  async function handleShare() {
+    const text = `Voici le bulletin de ${student.full_name} pour la période ${periodeLabel(periode)}.`;
+    const url = window.location.href;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Bulletin scolaire', text, url });
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error('Erreur de partage:', err);
+      }
+    } else {
+      // Fallback si le navigateur ne supporte pas le partage natif (ex: PC)
+      try {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        alert('Lien copié dans le presse-papier !');
+      } catch (err) {
+        alert('Impossible de copier le lien.');
+      }
+    }
+  }
+
   return (
     <>
       {years?.length > 1 && <YearSelector years={years} current={schoolYear?.id} onChange={onChangeYear} />}
@@ -433,12 +455,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
               {periodeLabel(p)}
             </button>
           ))}
-          <button
-            onClick={() => printDocument(`bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}`)}
-            style={{ marginLeft: 'auto', fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 20, border: 'none', background: 'var(--clay)', color: '#fff', cursor: 'pointer' }}
-          >
-            <i className="ti ti-printer" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Imprimer
-          </button>
         </div>
 
         <div className="card-bold print-sheet" style={{ padding: '18px 20px', overflow: 'hidden' }}>
@@ -493,6 +509,26 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
               <p style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{rang ? `${rang.rang}${rang.rang === 1 ? 'er' : 'e'} / ${rang.total}` : 'Non classé'}</p>
             </div>
           </div>
+        </div>
+
+        {/* 🔥 BOUTONS TÉLÉCHARGER ET PARTAGER */}
+        <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={() => printDocument(`bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}`)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', cursor: 'pointer' }}
+          >
+            <i className="ti ti-download" style={{ fontSize: 18 }} aria-hidden="true"></i>
+            Télécharger en PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+          >
+            <i className="ti ti-share" style={{ fontSize: 18 }} aria-hidden="true"></i>
+            Partager
+          </button>
         </div>
       </Section>
 
