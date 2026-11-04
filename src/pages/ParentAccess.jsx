@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { fmtF, initials, trancheLabel } from '../lib/utils.js';
+import { fmtF, initials, trancheLabel, slug } from '../lib/utils.js';
 import { computeEcheances } from '../lib/retard.js';
 import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation } from '../lib/bulletin.js';
-import { printDocument, slug } from '../lib/print.js';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
@@ -18,14 +17,13 @@ const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) { return p === 'annuel' ? 'Année complète' : p; }
 
-// Fonction utilitaire pour ignorer les majuscules et les accents
 const normalizeType = (s) => (s || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 function classifyNote(n) {
   const t = normalizeType(n.type);
   if (t.includes('devoir')) return 'devoir';
   if (t.includes('examen')) return 'examen';
-  return 'interro'; // tout le reste (controle, interrogation, vide, etc.)
+  return 'interro';
 }
 
 function toCalcEnrollment(e) {
@@ -148,7 +146,6 @@ export default function ParentAccess() {
     setDetailError('');
   }
 
-  // --- Écran 1 : saisie du code ---
   if (!summary) {
     return (
       <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -182,7 +179,6 @@ export default function ParentAccess() {
     );
   }
 
-  // --- Écran 3 : détail d'un enfant ---
   if (selectedId) {
     const student = summary.students.find((s) => s.id === selectedId);
     return (
@@ -217,7 +213,6 @@ export default function ParentAccess() {
     );
   }
 
-  // --- Écran 2 : accueil parent (liste des enfants) ---
   return (
     <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -300,6 +295,7 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const annuel = periode === 'annuel';
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [showStatement, setShowStatement] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   if (!enrollment) {
     return (
@@ -349,26 +345,68 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
       .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
-  // 🔥 FONCTION DE PARTAGE
-  async function handleShare() {
-    const text = `Voici le bulletin de ${student.full_name} pour la période ${periodeLabel(periode)}.`;
-    const url = window.location.href;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Bulletin scolaire', text, url });
-      } catch (err) {
-        if (err.name !== 'AbortError') console.error('Erreur de partage:', err);
+  // 🔥 OPTIONS COMMUNES POUR html2pdf
+  const pdfOptions = {
+    margin: 10,
+    filename: `bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+  };
+
+  // 🔥 TÉLÉCHARGEMENT DIRECT DU PDF
+  async function downloadBulletinPDF() {
+    if (!window.html2pdf) {
+      alert('Le générateur de PDF est en cours de chargement. Réessaye dans 2 secondes.');
+      return;
+    }
+    const element = document.getElementById('bulletin-print');
+    if (!element) return;
+
+    setPdfLoading(true);
+    try {
+      await window.html2pdf().set(pdfOptions).from(element).save();
+    } catch (err) {
+      console.error('Erreur génération PDF:', err);
+      alert('Une erreur est survenue lors de la génération du PDF.');
+    }
+    setPdfLoading(false);
+  }
+
+  // 🔥 PARTAGE NATIF DU PDF (WhatsApp, SMS, Mail...)
+  async function shareBulletinPDF() {
+    if (!window.html2pdf) {
+      alert('Le générateur de PDF est en cours de chargement. Réessaye dans 2 secondes.');
+      return;
+    }
+    const element = document.getElementById('bulletin-print');
+    if (!element) return;
+
+    setPdfLoading(true);
+    try {
+      const pdfBlob = await window.html2pdf().set(pdfOptions).from(element).outputPdf('blob');
+      const fileName = pdfOptions.filename;
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Bulletin scolaire',
+          text: `Bulletin de ${student.full_name} - ${periodeLabel(periode)}`,
+        });
+      } else {
+        // Fallback : télécharge le PDF et informe l'utilisateur
+        await window.html2pdf().set(pdfOptions).from(element).save();
+        alert("Le partage direct n'est pas disponible sur cet appareil. Le PDF a été téléchargé dans vos fichiers.");
       }
-    } else {
-      // Fallback si le navigateur ne supporte pas le partage natif (ex: PC)
-      try {
-        await navigator.clipboard.writeText(`${text}\n${url}`);
-        alert('Lien copié dans le presse-papier !');
-      } catch (err) {
-        alert('Impossible de copier le lien.');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Erreur de partage:', err);
+        alert('Une erreur est survenue lors du partage.');
       }
     }
+    setPdfLoading(false);
   }
 
   return (
@@ -457,7 +495,8 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           ))}
         </div>
 
-        <div className="card-bold print-sheet" style={{ padding: '18px 20px', overflow: 'hidden' }}>
+        {/* 🔥 L'ID "bulletin-print" EST UTILISÉ PAR html2pdf POUR GÉNÉRER LE PDF */}
+        <div id="bulletin-print" className="card-bold" style={{ padding: '18px 20px', overflow: 'hidden', backgroundColor: 'white' }}>
           <DocumentHeader
             school={school}
             title="Bulletin scolaire"
@@ -512,22 +551,24 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         </div>
 
         {/* 🔥 BOUTONS TÉLÉCHARGER ET PARTAGER */}
-        <div className="no-print" style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button
             type="button"
-            onClick={() => printDocument(`bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}`)}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', cursor: 'pointer' }}
+            onClick={downloadBulletinPDF}
+            disabled={pdfLoading}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', cursor: pdfLoading ? 'default' : 'pointer', opacity: pdfLoading ? 0.6 : 1 }}
           >
             <i className="ti ti-download" style={{ fontSize: 18 }} aria-hidden="true"></i>
-            Télécharger en PDF
+            {pdfLoading ? 'Génération…' : 'Télécharger en PDF'}
           </button>
           <button
             type="button"
-            onClick={handleShare}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}
+            onClick={shareBulletinPDF}
+            disabled={pdfLoading}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13.5, fontWeight: 600, padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: pdfLoading ? 'default' : 'pointer', opacity: pdfLoading ? 0.6 : 1 }}
           >
             <i className="ti ti-share" style={{ fontSize: 18 }} aria-hidden="true"></i>
-            Partager
+            {pdfLoading ? 'Préparation…' : 'Partager'}
           </button>
         </div>
       </Section>
