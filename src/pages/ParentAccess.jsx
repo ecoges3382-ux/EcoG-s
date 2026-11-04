@@ -46,7 +46,12 @@ function slug(s) {
     .toLowerCase();
 }
 
-// Charge html2pdf depuis le CDN si pas déjà présent
+// 🔥 Détecte si on est sur mobile (y compris iPad récent qui se fait passer pour un Mac)
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.userAgent));
+}
+
 function loadHtml2Pdf() {
   return new Promise((resolve, reject) => {
     if (window.html2pdf) return resolve(window.html2pdf);
@@ -374,70 +379,131 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
       .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
-  // 🔥 GÉNÉRATION DU PDF (vrai fichier PDF)
   async function buildPdfBlob() {
     const html2pdf = await loadHtml2Pdf();
     const element = document.getElementById('bulletin-print');
     if (!element) throw new Error('Élément bulletin introuvable.');
 
+    const filename = `bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}.pdf`;
     const opt = {
       margin: 10,
-      filename: `bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}.pdf`,
+      filename,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff' },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
-    const worker = html2pdf().set(opt).from(element);
-    const blob = await worker.outputPdf('blob');
-    return { blob, filename: opt.filename };
+    const blob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    return { blob, filename };
   }
 
-  // 🔥 TÉLÉCHARGER : télécharge un fichier .pdf dans les fichiers du téléphone/ordi
+  // 🔥 TÉLÉCHARGER : PC = boîte "Enregistrer sous", Mobile = partage natif avec "Enregistrer dans Fichiers"
   async function downloadBulletinPDF() {
     setPdfLoading(true);
     try {
       const { blob, filename } = await buildPdfBlob();
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      const mobile = isMobileDevice();
+
+      // 1. PC Chrome/Edge : vraie boîte "Enregistrer sous" native Windows
+      if (!mobile && typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'Document PDF', accept: { 'application/pdf': ['.pdf'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          setPdfLoading(false);
+          return;
+        } catch (pickerErr) {
+          if (pickerErr.name === 'AbortError') { setPdfLoading(false); return; }
+          // Sinon on continue avec le fallback
+        }
+      }
+
+      // 2. Mobile : menu de partage natif (contient "Enregistrer dans Fichiers")
+      if (mobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Bulletin scolaire',
+          text: `Bulletin de ${student.full_name} — ${periodeLabel(periode)}`,
+        });
+        setPdfLoading(false);
+        return;
+      }
+
+      // 3. Fallback universel : a.download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 3000);
     } catch (err) {
-      console.error('Erreur PDF:', err);
-      alert('Impossible de générer le PDF : ' + (err.message || 'inconnue'));
+      if (err.name !== 'AbortError') {
+        console.error('Erreur PDF:', err);
+        alert('Impossible de générer le PDF : ' + (err.message || 'inconnue'));
+      }
     }
     setPdfLoading(false);
   }
 
-  // 🔥 PARTAGER : envoie le fichier PDF via WhatsApp / SMS / Mail
+  // 🔥 PARTAGER : envoie le PDF en pièce jointe (WhatsApp, SMS, Mail)
   async function shareBulletinPDF() {
     setPdfLoading(true);
     try {
       const { blob, filename } = await buildPdfBlob();
       const file = new File([blob], filename, { type: 'application/pdf' });
+      const mobile = isMobileDevice();
 
+      // Menu de partage natif avec le PDF en pièce jointe
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: 'Bulletin scolaire',
           text: `Bulletin de ${student.full_name} — ${periodeLabel(periode)}`,
         });
-      } else {
-        // Fallback : télécharger
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        alert("Le partage direct n'est pas disponible sur cet appareil.\nLe PDF a été téléchargé dans vos fichiers — vous pouvez l'envoyer manuellement par WhatsApp.");
+        setPdfLoading(false);
+        return;
       }
+
+      // Fallback : télécharger le PDF
+      alert("Le partage direct n'est pas disponible sur cet appareil.\nLe PDF va être enregistré — vous pourrez l'envoyer manuellement par WhatsApp.");
+
+      if (!mobile && typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'Document PDF', accept: { 'application/pdf': ['.pdf'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          setPdfLoading(false);
+          return;
+        } catch (pickerErr) {
+          if (pickerErr.name === 'AbortError') { setPdfLoading(false); return; }
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 3000);
     } catch (err) {
       if (err.name !== 'AbortError') {
         console.error('Erreur partage PDF:', err);
