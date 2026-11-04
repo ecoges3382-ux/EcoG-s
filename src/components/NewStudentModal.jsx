@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase.js';
 import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
-import PhoneInput, { COUNTRIES, composePhone, decomposePhone } from './PhoneInput.jsx'; // Ajout de decomposePhone
+import PhoneInput, { COUNTRIES, composePhone, decomposePhone } from './PhoneInput.jsx';
 import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
@@ -67,10 +67,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const libelleFrais = typeInscription === 'reinscription' ? "Frais de réinscription" : "Frais d'inscription";
 
   // --- ÉTATS PARENTS (MODE ÉDITION) ---
-  const [existingParents, setExistingParents] = useState([]); // Liste des parents déjà liés
-  const [editingParentId, setEditingParentId] = useState(null); // Si on modifie un parent existant
+  const [editingParentId, setEditingParentId] = useState(null); 
   
-  // Champs du parent en cours d'édition / création
   const [parentNom, setParentNom] = useState('');
   const [parentPrenom, setParentPrenom] = useState('');
   const [parentAccessDial, setParentAccessDial] = useState(COUNTRIES[0].dial);
@@ -96,7 +94,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         .eq('student_id', student.id)
         .then(({ data }) => {
            const parents = (data || []).map(d => d.parent_access).filter(Boolean);
-           setExistingParents(parents);
+           
+           // On prend le premier parent trouvé pour l'édition
            if (parents.length > 0) {
               const p = parents[0];
               setEditingParentId(p.id);
@@ -181,7 +180,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         if (enrollmentError) { setSubmitting(false); setError(enrollmentError.message); return; }
       }
 
-      // 3. Mise à jour du parent existant (si modifié)
+      // 3. Mise à jour du parent existant (REMPLACEMENT DU NUMERO)
       if (canManageParents && editingParentId) {
         const newPhone = composePhone(parentAccessDial, parentAccessLocal) || null;
         const { error: paError } = await supabase
@@ -296,7 +295,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   }
 
   if (classes.length === 0) {
-     // (Code inchangé pour l'écran "Aucune classe")
     return createPortal(
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
@@ -311,7 +309,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   }
 
   if (result) {
-     // (Code inchangé pour l'écran "Résultat" avec le code)
     return createPortal(
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 420, width: '100%', padding: 26, textAlign: 'center' }}>
@@ -326,7 +323,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     );
   }
 
-  // Rendu principal
   return createPortal(
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
@@ -349,7 +345,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           </div>
         )}
 
-        {/* --- CHAMPS ÉLÈVE --- */}
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Nom</label>
