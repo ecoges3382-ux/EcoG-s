@@ -573,11 +573,13 @@ function MiniStat({ label, value, color }) {
   );
 }
 
+// 🔥 BADGE MIS À JOUR
 function EcheanceBadge({ statut, montantPaye, montantRestant }) {
   const map = {
     payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
-    partielle: { label: `Partielle · ${fmtF(montantPaye)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
+    partielle: { label: `Partielle · ${fmtF(montantPaye)} payés · reste ${fmtF(montantRestant)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
     impayee: { label: `Impayée · reste ${fmtF(montantRestant)}`, bg: 'var(--danger-light)', fg: 'var(--danger)' },
+    a_venir: { label: 'À venir', bg: '#F0EDE5', fg: 'var(--muted)' },
   };
   const s = map[statut] || map.impayee;
   return (
