@@ -52,9 +52,16 @@ function trancheSlots(montantDu, feeSchedule, nbDelais) {
 // Retourne la liste des échéances de scolarité + une échéance "Frais
 // connexes" si elle s'applique. Chaque échéance : { id, label, ordre,
 // montant, dateLimite, montantPaye, montantRestant, statut, enRetard }.
-// statut ('payee' | 'partielle' | 'impayee') dépend uniquement des
-// paiements réellement enregistrés, jamais de la date — enRetard est la
-// seule chose que la date influence (délai dépassé ET pas encore soldée).
+//
+// Statut possible : 'payee' | 'partielle' | 'impayee' | 'a_venir'.
+// - 'a_venir' : date limite dans le futur ET aucun paiement reçu.
+//   Cette échéance n'est PAS en retard, ne déclenche PAS de relance,
+//   et s'affiche en gris côté UI.
+// - 'impayee' : date limite dépassée OU pas de calendrier configuré,
+//   et aucun paiement reçu.
+//
+// enRetard reste la seule chose que la date influence strictement :
+// true = la date est dépassée ET l'échéance n'est pas totalement soldée.
 export function computeEcheances(enrollment, schoolYear, feeSchedule) {
   if (!schoolYear || !enrollment) return [];
   const today = new Date();
@@ -68,10 +75,22 @@ export function computeEcheances(enrollment, schoolYear, feeSchedule) {
   let cumulAvant = 0;
   const echeancesScolarite = slots.map(({ slotIndex, montant }, k) => {
     const montantPaye = Math.min(Math.max(montantPayeTotal - cumulAvant, 0), montant);
-    const statut = montant <= 0 ? 'payee' : montantPaye >= montant ? 'payee' : montantPaye > 0 ? 'partielle' : 'impayee';
     const dateLimite = datesConfigurees[slotIndex] || null;
-    const enRetard = statut !== 'payee' && !!dateLimite && new Date(dateLimite) < today;
+    const isFuture = !!dateLimite && new Date(dateLimite) > today;
+
+    let statut = 'impayee';
+    if (montant <= 0 || montantPaye >= montant) {
+      statut = 'payee';
+    } else if (montantPaye > 0) {
+      statut = 'partielle';
+    } else if (isFuture) {
+      // Aucun paiement et la date n'est pas encore passée : on n'inquiète pas le parent
+      statut = 'a_venir';
+    }
+
+    const enRetard = statut !== 'payee' && statut !== 'a_venir' && !!dateLimite && new Date(dateLimite) < today;
     cumulAvant += montant;
+
     return {
       id: `tranche${slotIndex + 1}`,
       label: TRANCHES.find((t) => t.id === `tranche${slotIndex + 1}`)?.label || `Échéance ${k + 1}`,
@@ -89,8 +108,19 @@ export function computeEcheances(enrollment, schoolYear, feeSchedule) {
   if (schoolYear.date_connexe || Number(enrollment.frais_connexe_du) > 0) {
     const montant = Number(enrollment.frais_connexe_du) || 0;
     const montantPaye = Math.min(Number(enrollment.frais_connexe_paye) || 0, montant);
-    const statut = montant <= 0 ? 'payee' : montantPaye >= montant ? 'payee' : montantPaye > 0 ? 'partielle' : 'impayee';
-    const enRetard = statut !== 'payee' && !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) < today;
+    const isFuture = !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) > today;
+
+    let statut = 'impayee';
+    if (montant <= 0 || montantPaye >= montant) {
+      statut = 'payee';
+    } else if (montantPaye > 0) {
+      statut = 'partielle';
+    } else if (isFuture) {
+      statut = 'a_venir';
+    }
+
+    const enRetard = statut !== 'payee' && statut !== 'a_venir' && !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) < today;
+
     echeances.push({
       id: 'connexe',
       label: 'Frais connexes',
