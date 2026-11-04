@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { fmtF, initials, trancheLabel, slug } from '../lib/utils.js';
+import { fmtF, initials, trancheLabel } from '../lib/utils.js'; // Correction ici
+import { printDocument, slug } from '../lib/print.js'; // Correction ici
 import { computeEcheances } from '../lib/retard.js';
 import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation } from '../lib/bulletin.js';
 import DocumentHeader from '../components/DocumentHeader.jsx';
@@ -345,7 +346,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
       .sort((a, b) => (a.subject?.nom || '').localeCompare(b.subject?.nom || ''));
   })();
 
-  // 🔥 OPTIONS COMMUNES POUR html2pdf
   const pdfOptions = {
     margin: 10,
     filename: `bulletin-${slug(student.full_name)}-${slug(periodeLabel(periode))}.pdf`,
@@ -355,7 +355,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
   };
 
-  // 🔥 TÉLÉCHARGEMENT DIRECT DU PDF
   async function downloadBulletinPDF() {
     if (!window.html2pdf) {
       alert('Le générateur de PDF est en cours de chargement. Réessaye dans 2 secondes.');
@@ -374,7 +373,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     setPdfLoading(false);
   }
 
-  // 🔥 PARTAGE NATIF DU PDF (WhatsApp, SMS, Mail...)
   async function shareBulletinPDF() {
     if (!window.html2pdf) {
       alert('Le générateur de PDF est en cours de chargement. Réessaye dans 2 secondes.');
@@ -396,7 +394,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           text: `Bulletin de ${student.full_name} - ${periodeLabel(periode)}`,
         });
       } else {
-        // Fallback : télécharge le PDF et informe l'utilisateur
         await window.html2pdf().set(pdfOptions).from(element).save();
         alert("Le partage direct n'est pas disponible sur cet appareil. Le PDF a été téléchargé dans vos fichiers.");
       }
@@ -495,7 +492,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           ))}
         </div>
 
-        {/* 🔥 L'ID "bulletin-print" EST UTILISÉ PAR html2pdf POUR GÉNÉRER LE PDF */}
         <div id="bulletin-print" className="card-bold" style={{ padding: '18px 20px', overflow: 'hidden', backgroundColor: 'white' }}>
           <DocumentHeader
             school={school}
@@ -550,7 +546,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
           </div>
         </div>
 
-        {/* 🔥 BOUTONS TÉLÉCHARGER ET PARTAGER */}
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
           <button
             type="button"
