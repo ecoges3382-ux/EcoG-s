@@ -18,6 +18,12 @@ const STORAGE_KEY = 'ecoges_parent_access_code';
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) { return p === 'annuel' ? 'Année complète' : p; }
 
+const TYPES_GRADES = {
+  controle: 'Interrogation',
+  devoir: 'Devoir',
+  examen: 'Examen',
+};
+
 function toCalcEnrollment(e) {
   return {
     montant_du: e.montant_du,
@@ -256,7 +262,8 @@ function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
 
   let badge = null;
   if (s.has_arrangement) badge = { label: 'Arrangement', bg: '#F0EDE5', fg: 'var(--muted)' };
-  else if (enRetard) badge = { label: 'À relancer', bg: 'var(--danger-light)', fg: 'var(--danger)' };
+  // 🔥 "À relancer" remplacé par "Solde à régler" (vocabulaire côté parent, pas côté admin)
+  else if (enRetard) badge = { label: 'Solde à régler', bg: 'var(--danger-light)', fg: 'var(--danger)' };
   else if (reste > 0) badge = { label: `${fmtF(reste)} dû`, bg: 'var(--amber-light)', fg: 'var(--amber)' };
   else badge = { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
 
@@ -318,6 +325,36 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   const totalAppels = (attendance || []).length;
   const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
   const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 15);
+
+  // 🔥 NOUVEAU : Préparation des notes détaillées par matière
+  const notesDetaillees = (() => {
+    const gradesPourPeriode = annuel
+      ? grades
+      : (grades || []).filter((g) => g.periode === periode);
+
+    // Grouper par matière
+    const parMatiere = {};
+    gradesPourPeriode.forEach((g) => {
+      if (!parMatiere[g.subject_id]) parMatiere[g.subject_id] = [];
+      parMatiere[g.subject_id].push(g);
+    });
+
+    // Trier : matière alphabétique, puis type (interro → devoir → examen), puis date
+    const orderType = { controle: 0, devoir: 1, examen: 2 };
+    return Object.entries(parMatiere)
+      .map(([subjectId, notes]) => {
+        const subject = (subjects || []).find((s) => s.id === subjectId);
+        const sortedNotes = [...notes].sort((a, b) => {
+          const tA = orderType[a.type] ?? 9;
+          const tB = orderType[b.type] ?? 9;
+          if (tA !== tB) return tA - tB;
+          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        });
+        return { subject, notes: sortedNotes };
+      })
+      .filter((x) => x.subject)
+      .sort((a, b) => a.subject.nom.localeCompare(b.subject.nom));
+  })();
 
   return (
     <>
@@ -466,6 +503,73 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         </div>
       </Section>
 
+      {/* 🔥 NOUVELLE SECTION : Détail des notes */}
+      <Section title={`Détail des notes — ${periodeLabel(periode)}`}>
+        {notesDetaillees.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Aucune note enregistrée pour cette période.
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            {notesDetaillees.map(({ subject, notes }) => {
+              // Si annuel, regrouper les notes par trimestre
+              const parTrimestre = annuel
+                ? ['Trimestre 1', 'Trimestre 2', 'Trimestre 3']
+                    .map((t) => ({ trimestre: t, notes: notes.filter((n) => n.periode === t) }))
+                    .filter((x) => x.notes.length > 0)
+                : null;
+
+              return (
+                <div key={subject.id} className="card-bold" style={{ padding: '14px 18px' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                    {subject.nom}
+                    {subject.coefficient && (
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
+                        Coef. {subject.coefficient}
+                      </span>
+                    )}
+                  </p>
+
+                  {!annuel && (
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {notes.map((n, i) => (
+                        <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
+                          <span style={{ color: 'var(--muted)' }}>
+                            {TYPES_GRADES[n.type] || n.type}
+                            {n.date_evaluation && (
+                              <span style={{ fontSize: 11, marginLeft: 6 }}>
+                                · {new Date(n.date_evaluation).toLocaleDateString('fr-FR')}
+                              </span>
+                            )}
+                          </span>
+                          <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {annuel && parTrimestre.map(({ trimestre, notes: notesT }) => (
+                    <div key={trimestre} style={{ marginBottom: 10 }}>
+                      <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 700, color: 'var(--forest)', textTransform: 'uppercase' }}>
+                        {trimestre}
+                      </p>
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        {notesT.map((n, i) => (
+                          <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0', fontSize: 13 }}>
+                            <span style={{ color: 'var(--muted)' }}>{TYPES_GRADES[n.type] || n.type}</span>
+                            <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
       <Section title="Présences">
         {totalAppels === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun appel enregistré pour cette année.</p>
@@ -570,11 +674,13 @@ function Section({ title, children }) {
   );
 }
 
+// 🔥 BADGE CORRIGÉ (avec 'a_venir' et détail du partiel)
 function EcheanceBadge({ statut, montantPaye, montantRestant }) {
   const map = {
     payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
-    partielle: { label: `Partielle · ${fmtF(montantPaye)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
+    partielle: { label: `Partielle · ${fmtF(montantPaye)} payés · reste ${fmtF(montantRestant)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
     impayee: { label: `Impayée · reste ${fmtF(montantRestant)}`, bg: 'var(--danger-light)', fg: 'var(--danger)' },
+    a_venir: { label: 'À venir', bg: '#F0EDE5', fg: 'var(--muted)' },
   };
   const s = map[statut] || map.impayee;
   return (
