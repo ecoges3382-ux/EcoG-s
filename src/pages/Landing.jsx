@@ -845,7 +845,7 @@ function Price() {
           </p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>
             Les <strong>10 premières écoles</strong> bénéficient de <strong>-20 % à vie</strong> sur tous les plans :<br />
-            Essentiel à <strong>80 000 F/an</strong> · Standard à <strong>128 000 F/an</strong> · Premium à <strong>224 000 F/an</strong>.
+            Essentiel à <strong>80 000 F CFA/an</strong> · Standard à <strong>128 000 F CFA/an</strong> · Premium à <strong>224 000 F CFA/an</strong>.
           </p>
         </InView>
 
@@ -889,7 +889,7 @@ function PlanCard({ plan, period, index }) {
   const checkColor = isHighlight ? 'var(--lp-gold-soft)' : 'var(--forest)';
 
   const ctaHref = plan.ctaType === 'whatsapp'
-    ? WA_PLAN(plan.name, isGratuit ? 'gratuit' : `${price.toLocaleString('fr-FR')} F/${period === 'annuel' ? 'an' : 'mois'}`)
+    ? WA_PLAN(plan.name, isGratuit ? 'gratuit' : `${price.toLocaleString('fr-FR')} F CFA/${period === 'annuel' ? 'an' : 'mois'}`)
     : null;
 
   return (
@@ -952,7 +952,7 @@ function PlanCard({ plan, period, index }) {
         ) : (
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: textColor, letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>
             {fmtPrice(price)} 
-            <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.65 }}>F</span>
+            <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.65 }}>F CFA</span>
             <span style={{ fontSize: 18, fontWeight: 600, color: mutedColor }}>
               / {period === 'annuel' ? 'an' : 'mois'}
             </span>
