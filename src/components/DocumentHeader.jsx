@@ -1,32 +1,56 @@
 // En-tête institutionnel commun à tous les documents imprimables (bulletin,
-// reçu, situation financière) — un seul endroit pour l'identité de l'école,
-// jamais reconstruite différemment d'un document à l'autre. `school` doit
-// venir de la ligne "schools" de l'établissement concerné (jamais d'une
-// autre école) : profile.schools côté admin, ou l'objet school renvoyé par
-// l'Edge Function parent-portal côté portail parent.
-export default function DocumentHeader({ school, title, subtitle }) {
+// reçu, situation financière). Le prop `compact` permet de réduire la taille
+// pour les reçus A6 imprimés 4 fois sur une page A4.
+export default function DocumentHeader({ school, title, subtitle, compact = false }) {
+  const logoSize = compact ? 26 : 48;
+  const nameSize = compact ? 10.5 : 18;
+  const contactSize = compact ? 6.5 : 11;
+  const titleSize = compact ? 9.5 : 15;
+  const subtitleSize = compact ? 7 : 11.5;
+  const gap = compact ? 6 : 16;
+  const marginBottom = compact ? 6 : 18;
+  const paddingBottom = compact ? 5 : 14;
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18, paddingBottom: 14, borderBottom: '2px solid var(--ink)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap,
+      marginBottom,
+      paddingBottom,
+      borderBottom: compact ? '1.5px solid var(--ink)' : '2px solid var(--ink)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 5 : 12, minWidth: 0 }}>
         {school?.logo_url ? (
-          <img src={school.logo_url} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+          <img src={school.logo_url} alt="" style={{ width: logoSize, height: logoSize, borderRadius: compact ? 5 : 10, objectFit: 'cover', flexShrink: 0 }} />
         ) : (
-          <div style={{ width: 48, height: 48, borderRadius: 10, background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 16, color: '#fff', flexShrink: 0 }}>
+          <div style={{
+            width: logoSize, height: logoSize, borderRadius: compact ? 5 : 10,
+            background: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--serif)', fontWeight: 700, fontSize: compact ? 8 : 16, color: '#fff', flexShrink: 0,
+          }}>
             {(school?.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG'}
           </div>
         )}
-        <div>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>{school?.name || 'École'}</p>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: nameSize, fontWeight: 600, lineHeight: compact ? 1.2 : 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: compact ? 'nowrap' : 'normal' }}>
+            {school?.name || 'École'}
+          </p>
           {(school?.adresse || school?.telephone || school?.email) && (
-            <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--muted)', lineHeight: 1.5 }}>
+            <p style={{
+              margin: compact ? '1px 0 0' : '2px 0 0', fontSize: contactSize, color: 'var(--muted)',
+              lineHeight: compact ? 1.3 : 1.5,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: compact ? 'nowrap' : 'normal',
+            }}>
               {[school?.adresse, school?.telephone, school?.email].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</p>
-        {subtitle && <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>{subtitle}</p>}
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <p style={{ margin: 0, fontSize: titleSize, fontWeight: 700 }}>{title}</p>
+        {subtitle && <p style={{ margin: compact ? '1px 0 0' : '2px 0 0', fontSize: subtitleSize, color: 'var(--muted)' }}>{subtitle}</p>}
       </div>
     </div>
   );
