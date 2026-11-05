@@ -656,7 +656,7 @@ const PLANS = [
     ctaLabel: 'Commencer gratuitement',
     ctaType: 'link',
     features: [
-      { label: "Jusqu'à 60 élèves", included: true },
+      { label: "Jusqu'à 50 élèves", included: true },
       { label: '2 comptes (fondateur + directeur)', included: true },
       { label: 'Élèves, Argent, Notes, Bulletins', included: true },
       { label: 'Présences et annonces', included: true },
@@ -669,15 +669,15 @@ const PLANS = [
   {
     id: 'essentiel',
     name: 'Essentiel',
-    tagline: "Tout ce qu'il faut pour gérer une école jusqu'à 1 000 élèves.",
-    mensuel: 12000,
-    annuel: 120000,
+    tagline: "Tout ce qu'il faut pour gérer une école jusqu'à 300 élèves.",
+    mensuel: 10000,
+    annuel: 100000,
     highlight: true,
     badge: '⭐ Le plus choisi',
     ctaLabel: 'Choisir Essentiel',
     ctaType: 'whatsapp',
     features: [
-      { label: "Jusqu'à 1 000 élèves", included: true },
+      { label: "De 51 à 300 élèves", included: true },
       { label: '10 comptes (équipe complète)', included: true },
       { label: 'Tout Découverte, plus :', included: true, header: true },
       { label: 'Portail parent pour les familles', included: true },
@@ -692,14 +692,14 @@ const PLANS = [
     id: 'standard',
     name: 'Standard',
     tagline: 'Pour les écoles qui grandissent et veulent tout piloter.',
-    mensuel: 20000,
-    annuel: 200000,
+    mensuel: 15000,
+    annuel: 160000,
     highlight: false,
     badge: null,
     ctaLabel: 'Choisir Standard',
     ctaType: 'whatsapp',
     features: [
-      { label: "Jusqu'à 3 000 élèves", included: true },
+      { label: "De 301 à 800 élèves", included: true },
       { label: 'Comptes illimités', included: true },
       { label: 'Tout Essentiel, plus :', included: true, header: true },
       { label: "Passage d'année scolaire assisté", included: true },
@@ -712,14 +712,14 @@ const PLANS = [
     id: 'premium',
     name: 'Premium',
     tagline: 'Pour les grandes écoles et les groupes scolaires.',
-    mensuel: 35000,
-    annuel: 350000,
+    mensuel: 25000,
+    annuel: 280000,
     highlight: false,
     badge: null,
     ctaLabel: 'Choisir Premium',
     ctaType: 'whatsapp',
     features: [
-      { label: 'Élèves illimités', included: true },
+      { label: 'Plus de 800 élèves (Illimité)', included: true },
       { label: 'Comptes illimités', included: true },
       { label: 'Tout Standard, plus :', included: true, header: true },
       { label: 'Support prioritaire sous 4h', included: true },
@@ -845,7 +845,7 @@ function Price() {
           </p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>
             Les <strong>10 premières écoles</strong> bénéficient de <strong>-20 % à vie</strong> sur tous les plans :<br />
-            Essentiel à <strong>96 000 F/an</strong> · Standard à <strong>160 000 F/an</strong> · Premium à <strong>280 000 F/an</strong>.
+            Essentiel à <strong>80 000 F/an</strong> · Standard à <strong>128 000 F/an</strong> · Premium à <strong>224 000 F/an</strong>.
           </p>
         </InView>
 
