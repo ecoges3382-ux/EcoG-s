@@ -888,10 +888,6 @@ function PlanCard({ plan, period, index }) {
   const borderColor = isHighlight ? 'var(--lp-gold)' : 'var(--line-strong)';
   const checkColor = isHighlight ? 'var(--lp-gold-soft)' : 'var(--forest)';
 
-  const mensuelEquiv = period === 'annuel' && plan.mensuel
-    ? Math.round(plan.annuel / 12)
-    : null;
-
   const ctaHref = plan.ctaType === 'whatsapp'
     ? WA_PLAN(plan.name, isGratuit ? 'gratuit' : `${price.toLocaleString('fr-FR')} F/${period === 'annuel' ? 'an' : 'mois'}`)
     : null;
@@ -954,19 +950,13 @@ function PlanCard({ plan, period, index }) {
             </p>
           </>
         ) : (
-          <>
-            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: textColor, letterSpacing: '-0.02em' }}>
-              {fmtPrice(price)} <span style={{ fontSize: 16, fontWeight: 600, opacity: 0.65 }}>F</span>
-            </p>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: mutedColor, fontWeight: 600 }}>
-              {period === 'annuel' ? '/ an' : '/ mois'}
-              {mensuelEquiv != null && (
-                <span style={{ marginLeft: 8, color: isHighlight ? 'var(--lp-gold-soft)' : 'var(--forest)', fontWeight: 700 }}>
-                  soit {fmtPrice(mensuelEquiv)} F/mois
-                </span>
-              )}
-            </p>
-          </>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: textColor, letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>
+            {fmtPrice(price)} 
+            <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.65 }}>F</span>
+            <span style={{ fontSize: 18, fontWeight: 600, color: mutedColor }}>
+              / {period === 'annuel' ? 'an' : 'mois'}
+            </span>
+          </p>
         )}
       </div>
 
