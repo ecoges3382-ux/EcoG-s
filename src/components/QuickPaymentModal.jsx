@@ -9,11 +9,12 @@ import DatePicker from './DatePicker.jsx';
 import { useToast } from './Toast.jsx';
 import { translateError } from '../lib/errors.js';
 import ModalContainer from './ModalContainer.jsx';
+import PaymentReceipt from './PaymentReceipt.jsx';
 
 export default function QuickPaymentModal({ student, feeSchedules, onClose, onSaved }) {
   const showToast = useToast();
   const { profile } = useAuth();
-  
+
   const [typeFrais, setTypeFrais] = useState('scolarite');
   const [montant, setMontant] = useState('');
   const [mode, setMode] = useState('especes');
@@ -24,9 +25,12 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
   const [error, setError] = useState('');
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
-  // Récupération de la grille tarifaire pour la classe de l'élève
+  // 🔥 Nouveaux states pour l'auto-print
+  const [createdPayment, setCreatedPayment] = useState(null);
+  const [schoolYearInfo, setSchoolYearInfo] = useState(null);
+
   const currentFeeSchedule = feeSchedules ? feeSchedules.find((f) => f.niveau === student.classeNiveau) : null;
-  
+
   const resteEcolage = Number(student.montant_du) - Number(student.montant_paye);
   const resteConnexe = Number(student.frais_connexe_du) - Number(student.frais_connexe_paye);
 
@@ -34,10 +38,18 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
   if (typeFrais === 'scolarite' && resteEcolage <= 0) dejaPaye = true;
   if (typeFrais === 'connexe' && resteConnexe <= 0) dejaPaye = true;
 
-  // Calcul automatique du montant selon la tranche et le type
+  // 🔥 Charge l'année scolaire (pour les dates de tranches → reçu détaillé)
+  useEffect(() => {
+    if (!student.school_year_id) return;
+    supabase.from('school_years')
+      .select('id, label, date_tranche1, date_tranche2, date_tranche3, date_connexe')
+      .eq('id', student.school_year_id)
+      .maybeSingle()
+      .then(({ data }) => setSchoolYearInfo(data));
+  }, [student.school_year_id]);
+
   useEffect(() => {
     if (!currentFeeSchedule) return;
-
     let amount = '';
     if (typeFrais === 'scolarite') {
       if (tranche === 'tranche1') amount = currentFeeSchedule.montant_tranche1;
@@ -49,7 +61,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
     } else if (typeFrais === 'inscription') {
       if (tranche === 'complet') amount = currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription;
     }
-
     if (amount !== '' && amount !== null && amount !== undefined && tranche !== 'autre') {
       setMontant(String(amount));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
@@ -81,16 +92,19 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       idempotency_key: idempotencyKey,
     };
 
-    const { error: insertError } = await supabase.from('payments').insert(payload);
+    const { data: inserted, error: insertError } = await supabase.from('payments')
+      .insert(payload)
+      .select('id, montant, type_frais, mode, tranche, date, note')
+      .single();
 
-    // Gestion de l'erreur anti-double clic (code 23505)
+    // Gestion de l'erreur anti-double clic
     if (insertError && insertError.code === '23505') {
       const { data: existing, error: fetchError } = await supabase
         .from('payments')
-        .select('student_id, type_frais, montant, mode, tranche, date')
+        .select('id, student_id, type_frais, montant, mode, tranche, date, note')
         .eq('idempotency_key', idempotencyKey)
         .maybeSingle();
-      
+
       setSubmitting(false);
       if (fetchError || !existing) {
         setError("Ce paiement semble déjà avoir été enregistré, mais impossible de le confirmer. Vérifie la liste des paiements avant de réessayer.");
@@ -103,8 +117,8 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         && existing.tranche === payload.tranche
         && existing.date === payload.date;
       if (matches) {
-        showToast('Enregistré');
-        onSaved();
+        // 🔥 Affiche le reçu existant
+        setCreatedPayment(existing);
         return;
       }
       setError(`Un paiement a déjà été enregistré pour cette même saisie, mais avec des données différentes (${fmtF(existing.montant)} au lieu de ${fmtF(payload.montant)}). Vérifie la liste des paiements plutôt que de réessayer.`);
@@ -113,13 +127,45 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
 
     setSubmitting(false);
     if (insertError) { setError(translateError(insertError)); return; }
-    
+
     showToast('Paiement enregistré');
+    // 🔥 Affiche le reçu au lieu d'appeler onSaved tout de suite
+    if (inserted) {
+      setCreatedPayment(inserted);
+      return;
+    }
     onSaved();
   }
 
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
   const canSubmit = !dejaPaye && !submitting && montant !== '';
+
+  // 🔥 Rendu du reçu après paiement
+  if (createdPayment && schoolYearInfo) {
+    const updatedEnrollment = {
+      montant_du: Number(student.montant_du) || 0,
+      montant_paye: Number(student.montant_paye) + Number(createdPayment.montant),
+      frais_connexe_du: Number(student.frais_connexe_du) || 0,
+      frais_connexe_paye: Number(student.frais_connexe_paye) || 0,
+    };
+    return (
+      <PaymentReceipt
+        payment={createdPayment}
+        studentName={student.full_name}
+        classeNom={student.niveau}
+        studentMatricule={student.matricule}
+        schoolYearLabel={schoolYearInfo.label}
+        school={profile.schools}
+        montantDu={Number(student.montant_du) || 0}
+        montantPaye={updatedEnrollment.montant_paye}
+        enrollment={updatedEnrollment}
+        schoolYear={schoolYearInfo}
+        feeSchedule={currentFeeSchedule}
+        autoPrint={true}
+        onClose={onSaved}
+      />
+    );
+  }
 
   return (
     <ModalContainer onClose={onClose} maxWidth={460}>
@@ -129,7 +175,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Résumé de l'élève (verrouillé) */}
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Classe</label>
@@ -176,12 +221,12 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           <div>
             <label style={labelStyle}>Montant</label>
             <div style={{ position: 'relative' }}>
-              <MoneyInput 
-                value={montant} 
-                onChange={setMontant} 
-                style={{ ...inputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }} 
-                suffix="F CFA" 
-                disabled={!isMontantEditable} 
+              <MoneyInput
+                value={montant}
+                onChange={setMontant}
+                style={{ ...inputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }}
+                suffix="F CFA"
+                disabled={!isMontantEditable}
               />
             </div>
             {!isMontantEditable && <p style={{ margin: '-8px 0 10px', fontSize: 10.5, color: 'var(--muted)' }}>Calculé selon la grille</p>}
