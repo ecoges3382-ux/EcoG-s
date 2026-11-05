@@ -22,7 +22,7 @@ import DatePicker from '../components/DatePicker.jsx';
 import { SkeletonCard, SkeletonTableRows, SkeletonRow } from '../components/Skeleton.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-import SelectionBar from '../components/SelectionBar.jsx'; // 🔥 NOUVEL IMPORT
+import SelectionBar from '../components/SelectionBar.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -374,19 +374,29 @@ function Payments() {
   const [payments, setPayments] = useState(null);
   const [students, setStudents] = useState([]);
   const [feeSchedules, setFeeSchedules] = useState([]);
+  const [schoolYearInfo, setSchoolYearInfo] = useState(null); // 🔥 dates tranches pour le reçu
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [deleting, setDeleting] = useState(false);
   
-  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
   function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
   function toggleAllVisible() { setSelectedIds((prev) => { const ids = payments.map((p) => p.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
   function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+
+  // 🔥 Charge l'année scolaire complète (dates de tranches) pour les reçus
+  useEffect(() => {
+    if (!schoolYear?.id) return;
+    supabase.from('school_years')
+      .select('id, label, date_tranche1, date_tranche2, date_tranche3, date_connexe')
+      .eq('id', schoolYear.id)
+      .maybeSingle()
+      .then(({ data }) => setSchoolYearInfo(data));
+  }, [schoolYear?.id]);
 
   async function handleDeleteSelected() {
     if (!(await confirm(`Supprimer définitivement ${selectedIds.length} paiement${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
@@ -438,11 +448,12 @@ function Payments() {
       onSuccess: () => setError(''),
     });
     
-    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom, niveau ), students ( id, full_name )').eq('school_year_id', schoolYear.id);
+    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom, niveau ), students ( id, full_name, matricule )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
       .map((e) => ({
         id: e.students.id,
         full_name: e.students.full_name,
+        matricule: e.students.matricule,
         niveau: e.classes?.nom || '—',
         classeNiveau: e.classes?.niveau,
         montant_du: e.montant_du,
@@ -587,24 +598,41 @@ function Payments() {
         />
       )}
 
-      {receiptPayment && (
-        <PaymentReceipt
-          payment={receiptPayment}
-          studentName={receiptPayment.students?.full_name || '—'}
-          classeNom={students.find((s) => s.id === receiptPayment.student_id)?.niveau}
-          schoolYearLabel={schoolYear?.label}
-          school={profile.schools}
-          montantDu={students.find((s) => s.id === receiptPayment.student_id)?.montant_du}
-          montantPaye={students.find((s) => s.id === receiptPayment.student_id)?.montant_paye}
-          onClose={() => setReceiptPayment(null)}
-        />
-      )}
+      {/* 🔥 Reçu manuel (clic sur l'icône œil) avec détail par tranche */}
+      {receiptPayment && (() => {
+        const st = students.find((s) => s.id === receiptPayment.student_id);
+        const enrollment = st ? {
+          montant_du: st.montant_du,
+          montant_paye: st.montant_paye,
+          frais_connexe_du: st.frais_connexe_du,
+          frais_connexe_paye: st.frais_connexe_paye,
+        } : null;
+        const fs = st ? feeSchedules.find((f) => f.niveau === st.classeNiveau) : null;
+        return (
+          <PaymentReceipt
+            payment={receiptPayment}
+            studentName={receiptPayment.students?.full_name || st?.full_name || '—'}
+            classeNom={st?.niveau}
+            studentMatricule={st?.matricule}
+            schoolYearLabel={schoolYear?.label}
+            school={profile.schools}
+            montantDu={st?.montant_du}
+            montantPaye={st?.montant_paye}
+            enrollment={enrollment}
+            schoolYear={schoolYearInfo}
+            feeSchedule={fs}
+            autoPrint={false}
+            onClose={() => setReceiptPayment(null)}
+          />
+        );
+      })()}
     </div>
   );
 }
 
 function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClose, onCreated }) {
   const showToast = useToast();
+  const { profile } = useAuth(); // 🔥 pour récupérer school.schools côté reçu
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const [classeFilter, setClasseFilter] = useState(classes[0] || '');
   const studentsInClasse = students.filter((s) => s.niveau === classeFilter);
@@ -626,6 +654,10 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
   const [error, setError] = useState('');
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
+  // 🔥 Nouveaux states pour l'auto-print
+  const [createdPayment, setCreatedPayment] = useState(null);
+  const [schoolYearInfo, setSchoolYearInfo] = useState(null);
+
   const currentStudent = students.find((s) => s.id === studentId);
   const currentFeeSchedule = currentStudent && feeSchedules ? feeSchedules.find((f) => f.niveau === currentStudent.classeNiveau) : null;
   
@@ -635,6 +667,16 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
   let dejaPaye = false;
   if (typeFrais === 'scolarite' && resteEcolage <= 0) dejaPaye = true;
   if (typeFrais === 'connexe' && resteConnexe <= 0) dejaPaye = true;
+
+  // 🔥 Charge les dates de tranches (pour le détail sur le reçu)
+  useEffect(() => {
+    if (!schoolYearId) return;
+    supabase.from('school_years')
+      .select('id, label, date_tranche1, date_tranche2, date_tranche3, date_connexe')
+      .eq('id', schoolYearId)
+      .maybeSingle()
+      .then(({ data }) => setSchoolYearInfo(data));
+  }, [schoolYearId]);
 
   useEffect(() => {
     if (!currentFeeSchedule) return;
@@ -674,12 +716,16 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       school_id: schoolId, school_year_id: schoolYearId, student_id: studentId, type_frais: typeFrais, montant: Number(montant), mode, tranche, date, note: note.trim() || null,
       idempotency_key: idempotencyKey,
     };
-    const { error: insertError } = await supabase.from('payments').insert(payload);
+    // 🔥 On récupère la ligne créée pour alimenter le reçu
+    const { data: inserted, error: insertError } = await supabase.from('payments')
+      .insert(payload)
+      .select('id, student_id, montant, type_frais, mode, tranche, date, note')
+      .single();
 
     if (insertError && insertError.code === '23505') {
       const { data: existing, error: fetchError } = await supabase
         .from('payments')
-        .select('student_id, type_frais, montant, mode, tranche, date')
+        .select('id, student_id, type_frais, montant, mode, tranche, date, note')
         .eq('idempotency_key', idempotencyKey)
         .maybeSingle();
       setSubmitting(false);
@@ -694,8 +740,8 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
         && existing.tranche === payload.tranche
         && existing.date === payload.date;
       if (matches) {
-        showToast('Enregistré');
-        onCreated();
+        // 🔥 Reçu existant → on l'affiche
+        setCreatedPayment(existing);
         return;
       }
       setError(`Un paiement a déjà été enregistré pour cette même saisie, mais avec des données différentes (${fmtF(existing.montant)} au lieu de ${fmtF(payload.montant)}). Vérifie la liste des paiements plutôt que de réessayer.`);
@@ -708,11 +754,43 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       return;
     }
     showToast('Enregistré');
+    // 🔥 Affiche le reçu au lieu de fermer tout de suite
+    if (inserted) {
+      setCreatedPayment(inserted);
+      return;
+    }
     onCreated();
   }
 
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
   const canSubmit = !dejaPaye && !submitting && students.length > 0 && montant !== '';
+
+  // 🔥 Rendu du reçu après paiement réussi
+  if (createdPayment && schoolYearInfo && currentStudent) {
+    const updatedEnrollment = {
+      montant_du: Number(currentStudent.montant_du) || 0,
+      montant_paye: Number(currentStudent.montant_paye) + Number(createdPayment.montant),
+      frais_connexe_du: Number(currentStudent.frais_connexe_du) || 0,
+      frais_connexe_paye: Number(currentStudent.frais_connexe_paye) || 0,
+    };
+    return (
+      <PaymentReceipt
+        payment={createdPayment}
+        studentName={currentStudent.full_name}
+        classeNom={currentStudent.niveau}
+        studentMatricule={currentStudent.matricule}
+        schoolYearLabel={schoolYearInfo.label}
+        school={profile?.schools}
+        montantDu={updatedEnrollment.montant_du}
+        montantPaye={updatedEnrollment.montant_paye}
+        enrollment={updatedEnrollment}
+        schoolYear={schoolYearInfo}
+        feeSchedule={currentFeeSchedule}
+        autoPrint={true}
+        onClose={onCreated}
+      />
+    );
+  }
 
   if (students.length === 0) {
     return createPortal(
@@ -867,7 +945,6 @@ function Expenses() {
   const [montant, setMontant] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
@@ -1018,9 +1095,6 @@ function Expenses() {
   );
 }
 
-// ==========================================
-// COMPOSANT : GESTION DES SALAIRES
-// ==========================================
 function SalairesSection() {
   const { profile } = useAuth();
   const showToast = useToast();
@@ -1033,7 +1107,6 @@ function SalairesSection() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [error, setError] = useState('');
 
-  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
@@ -1063,7 +1136,6 @@ function SalairesSection() {
   async function reloadSalaries() {
     setSalaries(null);
     
-    // 1. Récupérer les salaires payés pour le mois sélectionné
     const { data: sal, error: salErr } = await supabase
       .from('staff_salaries')
       .select('*, staff (full_name, role)')
@@ -1077,7 +1149,6 @@ function SalairesSection() {
       setSalaries(sal || []);
     }
 
-    // 2. Récupérer les avances approuvées et non encore remboursées
     const { data: adv, error: advErr } = await supabase
       .from('salary_advances')
       .select('staff_id, solde')
@@ -1091,7 +1162,6 @@ function SalairesSection() {
       setAdvances(adv || []);
     }
 
-    // 3. Récupérer la liste du personnel actif
     const { data: st } = await supabase.from('staff').select('*').eq('statut', 'actif').order('full_name');
     setStaff(st || []);
   }
@@ -1367,7 +1437,6 @@ function Advances() {
   const [submitting, setSubmitting] = useState(false);
   const [editingAdvance, setEditingAdvance] = useState(null);
 
-  // 🔥 NOUVEAUX ETATS POUR LA SELECTION
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
@@ -1724,19 +1793,16 @@ function BilanFinancier() {
         if (aErr) throw aErr;
         if (eErr) throw eErr;
 
-        // 1. Calcul des Revenus
         const ecolage = (payments || []).filter(p => p.type_frais === 'scolarite').reduce((acc, p) => acc + Number(p.montant), 0);
         const connexe = (payments || []).filter(p => p.type_frais === 'connexe').reduce((acc, p) => acc + Number(p.montant), 0);
         const inscription = (payments || []).filter(p => p.type_frais === 'inscription').reduce((acc, p) => acc + Number(p.montant), 0);
         const totalRevenus = ecolage + connexe + inscription;
 
-        // 2. Calcul des Charges
         const salairesPayes = (salaries || []).reduce((acc, item) => acc + Number(item.montant), 0);
         const avancesPayees = (advances || []).reduce((acc, item) => acc + Number(item.montant), 0);
         const autresDepenses = (expenses || []).reduce((acc, item) => acc + Number(item.montant), 0);
         const totalCharges = salairesPayes + avancesPayees + autresDepenses;
 
-        // 3. Résultat Net
         const resultatNet = totalRevenus - totalCharges;
 
         if (!cancelled) {
@@ -1779,7 +1845,6 @@ function BilanFinancier() {
     { name: 'Autres dépenses', value: data.autresDepenses, color: 'var(--muted)' },
   ].filter(d => d.value > 0);
 
-  // 🎯 Fonction pour afficher le pourcentage dans le Donut
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
@@ -1811,7 +1876,6 @@ function BilanFinancier() {
       </div>
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
-        {/* BLOC REVENUS */}
         <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-up" style={{ fontSize: 20, color: 'var(--success)' }} aria-hidden="true"></i>
@@ -1864,14 +1928,12 @@ function BilanFinancier() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                {/* 🎯 TEXTE AU CENTRE DU DONUT */}
                 <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
                   <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
                     {fmtF(data.totalRevenus).replace(' F CFA', '')}
                   </p>
                   <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
                 </div>
-                {/* LÉGENDE */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
                   {pieRevenusData.map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1885,7 +1947,6 @@ function BilanFinancier() {
           </div>
         </div>
 
-        {/* BLOC CHARGES */}
         <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-down" style={{ fontSize: 20, color: 'var(--danger)' }} aria-hidden="true"></i>
@@ -1938,14 +1999,12 @@ function BilanFinancier() {
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                {/* 🎯 TEXTE AU CENTRE DU DONUT */}
                 <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
                   <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
                     {fmtF(data.totalCharges).replace(' F CFA', '')}
                   </p>
                   <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
                 </div>
-                {/* LÉGENDE */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
                   {pieChargesData.map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
