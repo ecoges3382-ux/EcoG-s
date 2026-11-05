@@ -44,9 +44,9 @@ const PLAN_LABELS = {
 
 const PLAN_OPTIONS = [
   { value: 'decouverte', label: 'Découverte — Gratuit (60 élèves)' },
-  { value: 'essentiel', label: 'Essentiel — 80 000 F/an (200 élèves)' },
-  { value: 'standard', label: 'Standard — 150 000 F/an (500 élèves)' },
-  { value: 'premium', label: 'Premium — 250 000 F/an (illimité)' },
+  { value: 'essentiel', label: 'Essentiel — 120 000 F/an (1 000 élèves)' },
+  { value: 'standard', label: 'Standard — 200 000 F/an (3 000 élèves)' },
+  { value: 'premium', label: 'Premium — 350 000 F/an (illimité)' },
 ];
 
 const ROLE_LABELS = { fondateur: 'Fondateur', directeur: 'Directeur', secretaire: 'Secrétaire', enseignant: 'Enseignant' };
