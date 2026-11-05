@@ -397,7 +397,7 @@ function DemographicsSection({ students }) {
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     if (percent < 0.05) return null;
     return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight="bold">
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     );
@@ -417,7 +417,24 @@ function DemographicsSection({ students }) {
           <div style={{ width: '100%', height: 250, marginTop: 10 }}>
             <ResponsiveContainer>
               <PieChart>
-                {/* Graphique 2D simple, avec bordure blanche */}
+                {/* 1. Couche d'ombre 3D (légèrement décalée vers le bas) */}
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  cx="50%"
+                  cy="52%"
+                  outerRadius={90}
+                  innerRadius={0}
+                  stroke="none"
+                  paddingAngle={4}
+                  isAnimationActive={false}
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-shadow-${index}`} fill="rgba(0,0,0,0.15)" />
+                  ))}
+                </Pie>
+                
+                {/* 2. Graphique principal en couleurs avec effet "éclaté" */}
                 <Pie
                   data={data}
                   dataKey="value"
@@ -427,7 +444,7 @@ function DemographicsSection({ students }) {
                   innerRadius={0}
                   stroke="#ffffff"
                   strokeWidth={2}
-                  paddingAngle={2}
+                  paddingAngle={4}
                   labelLine={false}
                   label={renderCustomizedLabel}
                 >
