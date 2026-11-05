@@ -28,7 +28,6 @@ const LIENS_PARENTE = [
   { id: 'autre', label: 'Autre' },
 ];
 
-// 🔥 Composant réutilisable pour saisir un parent (bloc 1 ou 2)
 function ParentFields({
   label,
   nom, setNom,
@@ -45,8 +44,6 @@ function ParentFields({
   isEditing = false,
   onRemove,
 }) {
-  // 🔥 Recherche partielle : tape "cou" → tous les parents dont nom/prénom/full_name contient "cou"
-  // Si pas de recherche ET pas d'exclusion → filtre auto par nom de famille de l'élève
   const filteredParents = useMemo(() => {
     if (!existingParents) return [];
     let filtered = existingParents;
@@ -89,13 +86,18 @@ function ParentFields({
 
       {!useExisting ? (
         <>
-          {/* 1. Lien de parenté en haut, pleine largeur */}
-          <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Lien de parenté</label>
-            <Dropdown value={lien} onChange={setLien} options={LIENS_PARENTE.map(l => ({ value: l.id, label: l.label }))} style={inputStyle} />
+          {/* 🔥 Lien de parenté : label + dropdown sur la même ligne */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <label style={{ ...labelStyle, marginBottom: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>Lien de parenté</label>
+            <Dropdown
+              value={lien}
+              onChange={setLien}
+              options={LIENS_PARENTE.map(l => ({ value: l.id, label: l.label }))}
+              style={{ ...inputStyle, marginBottom: 0 }}
+              wrapperStyle={{ flex: 1, minWidth: 0, width: 'auto' }}
+            />
           </div>
 
-          {/* 2. Nom + Prénom */}
           <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label style={labelStyle}>Nom du parent</label>
@@ -107,14 +109,12 @@ function ParentFields({
             </div>
           </div>
 
-          {/* 3. Téléphone */}
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Téléphone du parent</label>
             <PhoneInput dial={dial} local={local} onDialChange={setDial} onLocalChange={setLocal} style={{ marginBottom: 0 }} />
           </div>
         </>
       ) : (
-        // Mode "parent existant"
         <div style={{ marginBottom: 12 }}>
           <p style={{ margin: '0 0 8px', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>
             {search.trim()
@@ -180,7 +180,6 @@ function ParentFields({
         </div>
       )}
 
-      {/* Case à cocher parent existant */}
       <div style={{ background: 'var(--line)', padding: 10, borderRadius: 8 }}>
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 13, lineHeight: 1.5 }}>
           <input
@@ -251,7 +250,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [paiementMontantTouched, setPaiementMontantTouched] = useState(false);
   const [paiementMode, setPaiementMode] = useState(MODES[0].id);
 
-  // --- ÉTATS PARENT 1 (principal) ---
+  // --- ÉTATS PARENT 1 ---
   const [parentNom, setParentNom] = useState('');
   const [parentPrenom, setParentPrenom] = useState('');
   const [parentAccessDial, setParentAccessDial] = useState(COUNTRIES[0].dial);
@@ -261,7 +260,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [selectedExistingParentId, setSelectedExistingParentId] = useState(null);
   const [parentSearch, setParentSearch] = useState('');
 
-  // --- ÉTATS PARENT 2 (optionnel) ---
+  // --- ÉTATS PARENT 2 ---
   const [hasSecondParent, setHasSecondParent] = useState(false);
   const [parent2Nom, setParent2Nom] = useState('');
   const [parent2Prenom, setParent2Prenom] = useState('');
@@ -274,8 +273,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   // --- ÉTATS PARENT ÉDITION ---
   const [editingParentId, setEditingParentId] = useState(null);
+  const [editingParent2Id, setEditingParent2Id] = useState(null);
   const [parentLoaded, setParentLoaded] = useState(!isEditing);
-  const [parentsAlreadyLinked, setParentsAlreadyLinked] = useState([]); // Tous les parents déjà liés à cet élève
 
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -322,7 +321,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     setPaiementMontantTouched(false);
   }
 
-  // 🔥 En édition : charge TOUS les parents liés + pré-remplit le bloc 1 avec le premier
+  // En édition : charge TOUS les parents liés et pré-remplit les DEUX blocs
   useEffect(() => {
     if (!isEditing || !student?.id) return;
     let cancelled = false;
@@ -332,8 +331,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       .then(({ data }) => {
         if (cancelled) return;
         const parents = (data || []).map((d) => d.parent_access).filter(Boolean);
-        setParentsAlreadyLinked(parents);
-        if (parents.length > 0) {
+
+        if (parents.length >= 1) {
           const p = parents[0];
           setEditingParentId(p.id);
           setParentNom(p.nom || '');
@@ -343,12 +342,26 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           setParentAccessLocal(local || '');
           setLienParente(p.lien_parente || 'pere');
         }
+
+        if (parents.length >= 2) {
+          const p2 = parents[1];
+          setHasSecondParent(true);
+          setEditingParent2Id(p2.id);
+          setParent2Nom(p2.nom || '');
+          setParent2Prenom(p2.prenom || '');
+          const { dial, local } = decomposePhone(p2.phone);
+          setParent2Dial(dial || COUNTRIES[0].dial);
+          setParent2Local(local || '');
+          setParent2Lien(p2.lien_parente || 'mere');
+        }
+
         setParentLoaded(true);
       });
     return () => { cancelled = true; };
   }, [isEditing, student?.id]);
 
-  // Charge tous les parents de l'école (pour les listes)
+  const [existingParents, setExistingParents] = useState(null);
+
   useEffect(() => {
     if (!canManageParents) return;
     supabase.from('parent_access').select('id, nom, prenom, full_name, phone, code').order('nom').then(({ data }) => {
@@ -356,15 +369,13 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     });
   }, [canManageParents]);
 
-  const [existingParents, setExistingParents] = useState(null);
-
-  // Calcule les exclusions pour le parent 2 (ne peut pas être le même que parent 1)
   const parent2ExcludeIds = useMemo(() => {
     const ids = [];
-    if (editingParentId && !useExistingParent) ids.push(editingParentId);
+    if (editingParentId) ids.push(editingParentId);
     if (selectedExistingParentId) ids.push(selectedExistingParentId);
-    return ids;
-  }, [editingParentId, useExistingParent, selectedExistingParentId]);
+    if (editingParent2Id) ids.push(editingParent2Id);
+    return ids.filter((id, i, arr) => arr.indexOf(id) === i);
+  }, [editingParentId, selectedExistingParentId, editingParent2Id]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -376,7 +387,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
     // ===== MODE MODIFICATION =====
     if (isEditing) {
-      // 1. UPDATE élève
       const { error: studentError } = await supabase
         .from('students')
         .update({
@@ -394,7 +404,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         .eq('school_id', schoolId);
       if (studentError) { setSubmitting(false); setError(studentError.message); return; }
 
-      // 2. UPDATE enrollment
       if (canEditEnrollment) {
         const { error: enrollmentError } = await supabase
           .from('enrollments')
@@ -404,10 +413,9 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         if (enrollmentError) { setSubmitting(false); setError(enrollmentError.message); return; }
       }
 
-      // 3. Parent 1
+      // PARENT 1
       if (canManageParents) {
         if (useExistingParent && selectedExistingParentId) {
-          // Remplacer : supprimer ancien lien, créer nouveau
           if (editingParentId && editingParentId !== selectedExistingParentId) {
             const { error: delErr } = await supabase
               .from('parent_access_students')
@@ -421,7 +429,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             .insert({ parent_access_id: selectedExistingParentId, student_id: student.id });
           if (insErr && insErr.code !== '23505') { setSubmitting(false); setError(insErr.message); return; }
         } else if (editingParentId && parentNom.trim()) {
-          // Modifier les infos
           const { error: paError } = await supabase
             .from('parent_access')
             .update({
@@ -434,7 +441,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             .eq('id', editingParentId);
           if (paError) { setSubmitting(false); setError(paError.message); return; }
         } else if (!editingParentId && parentNom.trim()) {
-          // Créer (l'élève n'avait pas de parent)
           let created = null;
           for (let attempt = 0; attempt < 5 && !created; attempt++) {
             const { data, error: paError } = await supabase.from('parent_access').insert({
@@ -454,14 +460,34 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         }
       }
 
-      // 4. Parent 2 (édition : ajouter un parent supplementaire)
+      // PARENT 2
       if (canManageParents && hasSecondParent) {
         if (useExistingParent2 && selectedExistingParentId2) {
+          if (editingParent2Id && editingParent2Id !== selectedExistingParentId2) {
+            const { error: delErr } = await supabase
+              .from('parent_access_students')
+              .delete()
+              .eq('student_id', student.id)
+              .eq('parent_access_id', editingParent2Id);
+            if (delErr) { setSubmitting(false); setError(delErr.message); return; }
+          }
           const { error: insErr } = await supabase
             .from('parent_access_students')
             .insert({ parent_access_id: selectedExistingParentId2, student_id: student.id });
           if (insErr && insErr.code !== '23505') { setSubmitting(false); setError(insErr.message); return; }
-        } else if (parent2Nom.trim()) {
+        } else if (editingParent2Id && parent2Nom.trim()) {
+          const { error: paError } = await supabase
+            .from('parent_access')
+            .update({
+              nom: parent2Nom.trim(),
+              prenom: parent2Prenom.trim(),
+              full_name: displayName(parent2Nom.trim(), parent2Prenom.trim()),
+              phone: composePhone(parent2Dial, parent2Local) || null,
+              lien_parente: parent2Lien,
+            })
+            .eq('id', editingParent2Id);
+          if (paError) { setSubmitting(false); setError(paError.message); return; }
+        } else if (!editingParent2Id && parent2Nom.trim()) {
           let created2 = null;
           for (let attempt = 0; attempt < 5 && !created2; attempt++) {
             const { data, error: paError } = await supabase.from('parent_access').insert({
@@ -479,6 +505,13 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           if (!created2) { setSubmitting(false); setError('Impossible de générer un code unique pour le 2ème parent.'); return; }
           await supabase.from('parent_access_students').insert({ parent_access_id: created2.id, student_id: student.id });
         }
+      } else if (canManageParents && !hasSecondParent && editingParent2Id) {
+        const { error: delErr } = await supabase
+          .from('parent_access_students')
+          .delete()
+          .eq('student_id', student.id)
+          .eq('parent_access_id', editingParent2Id);
+        if (delErr) { setSubmitting(false); setError(delErr.message); return; }
       }
 
       setSubmitting(false);
@@ -524,7 +557,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     let newParentCode = null;
     let newParent2Code = null;
 
-    // Parent 1 : si nouveau → créer + lier ; si existant → le RPC a déjà lié
     if (canManageParents && !useExistingParent && parentNom.trim()) {
       let created = null;
       for (let attempt = 0; attempt < 5 && !created; attempt++) {
@@ -545,7 +577,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       newParentCode = created.code;
     }
 
-    // Parent 2 : même logique
     if (canManageParents && hasSecondParent) {
       if (useExistingParent2 && selectedExistingParentId2) {
         const { error: insErr } = await supabase
@@ -573,7 +604,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       }
     }
 
-    // Affiche les codes générés s'il y en a (sinon l'élève est lié à un parent existant → simple confirmation)
     if (newParentCode || newParent2Code) {
       setResult({ code: newParentCode, secondCode: newParent2Code });
       setSubmitting(false);
@@ -754,7 +784,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
         </div>
 
-        {/* ================== SECTION PARENTS ================== */}
         {canManageParents && parentLoaded && (
           <div style={{ borderTop: '1px solid var(--line)', paddingTop: 18, marginBottom: 4 }}>
             <p style={{ margin: '0 0 14px', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600 }}>
@@ -762,7 +791,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
               <HelpTooltip text="Chaque parent reçoit son propre code d'accès. Un élève peut avoir 1 ou 2 parents liés." />
             </p>
 
-            {/* === BLOC PARENT 1 === */}
             <ParentFields
               label={hasSecondParent ? 'Parent 1' : ''}
               nom={parentNom} setNom={setParentNom}
@@ -778,7 +806,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
               isEditing={isEditing}
             />
 
-            {/* === BLOC PARENT 2 (optionnel) === */}
             {hasSecondParent && (
               <ParentFields
                 label="Parent 2"
@@ -795,6 +822,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
                 excludeIds={parent2ExcludeIds}
                 onRemove={() => {
                   setHasSecondParent(false);
+                  setEditingParent2Id(null);
                   setParent2Nom('');
                   setParent2Prenom('');
                   setParent2Local('');
@@ -805,7 +833,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
               />
             )}
 
-            {/* Bouton Ajouter 2ème parent */}
             {!hasSecondParent && (
               <button
                 type="button"
