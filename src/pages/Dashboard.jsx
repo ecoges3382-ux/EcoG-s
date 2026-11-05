@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  PieChart, Pie, Cell
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip
 } from 'recharts';
+import ReactECharts from 'echarts-for-react';
+import 'echarts-gl';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, todayIso, downloadCsv, stickyColStyle } from '../lib/utils.js';
@@ -377,30 +378,55 @@ function DemographicsSection({ students }) {
   const other = students.length - boys - girls;
 
   const data = [
-    { name: 'Garçons', value: boys },
-    { name: 'Filles', value: girls },
+    { name: 'Garçons', value: boys, itemStyle: { color: '#4A90E2' } },
+    { name: 'Filles', value: girls, itemStyle: { color: '#E26D8A' } },
   ];
-  if (other > 0) data.push({ name: 'Non renseigné', value: other });
+  if (other > 0) data.push({ name: 'Non renseigné', value: other, itemStyle: { color: '#999999' } });
 
   const total = students.length;
 
-  const COLORS = {
-    'Garçons': '#4A90E2',
-    'Filles': '#E26D8A',
-    'Non renseigné': '#999999',
-  };
-
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    if (percent < 0.05) return null;
-    return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight="bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
+  const getOption = () => {
+    return {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} élèves ({d}%)',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        textStyle: { color: '#fff' },
+        borderRadius: 8,
+      },
+      series: [
+        {
+          type: 'pie3D',
+          data: data,
+          radius: ['10%', '60%'],
+          height: 0.2, // Épaisseur 3D
+          itemStyle: {
+            opacity: 0.9,
+            borderWidth: 1,
+            borderColor: '#fff',
+          },
+          label: {
+            show: true,
+            formatter: '{d}%',
+            position: 'inside',
+            textStyle: {
+              color: '#fff',
+              fontWeight: 'bold',
+              fontSize: 12,
+            },
+          },
+          labelLine: { show: false },
+          // Effet d'éclatement (sépare les parts)
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)',
+            },
+          },
+        },
+      ],
+    };
   };
 
   return (
@@ -410,54 +436,16 @@ function DemographicsSection({ students }) {
         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Démographie de l'école</p>
       </div>
       
-      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
+      <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 260 }}>
         {total === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
         ) : (
-          <div style={{ width: '100%', height: 250, marginTop: 10 }}>
-            <ResponsiveContainer>
-              <PieChart>
-                {/* 1. Couche d'ombre 3D (légèrement décalée vers le bas) */}
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  cx="50%"
-                  cy="52%"
-                  outerRadius={90}
-                  innerRadius={0}
-                  stroke="none"
-                  paddingAngle={4}
-                  isAnimationActive={false}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-shadow-${index}`} fill="rgba(0,0,0,0.15)" />
-                  ))}
-                </Pie>
-                
-                {/* 2. Graphique principal en couleurs avec effet "éclaté" */}
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={90}
-                  innerRadius={0}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  paddingAngle={4}
-                  labelLine={false}
-                  label={renderCustomizedLabel}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value) => [`${value} élèves`, '']}
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+          <div style={{ width: '100%', height: 260, marginTop: 10 }}>
+            <ReactECharts
+              option={getOption()}
+              style={{ height: '100%', width: '100%' }}
+              opts={{ renderer: 'canvas' }}
+            />
           </div>
         )}
       </div>
@@ -465,7 +453,7 @@ function DemographicsSection({ students }) {
       <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginTop: 10, flexWrap: 'wrap' }}>
         {data.map((d) => (
           <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: COLORS[d.name] }} />
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.itemStyle.color }} />
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
           </div>
