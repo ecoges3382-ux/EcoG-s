@@ -4,11 +4,13 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, downloadCsv, todayIso, startOfWeekIso, endOfWeekIso, startOfMonthIso, endOfMonthIso } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
+import { hasFeature, getPlanLabel, featurePlanRequired } from '../lib/plan.js';
 import { printDocument, slug } from '../lib/print.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import DocumentHeader from '../components/DocumentHeader.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import PlanLocked from '../components/PlanLocked.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 
@@ -36,7 +38,13 @@ function groupByClasse(students) {
 export default function Reports() {
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
-  const { students, error, offline: offlineStudents } = useEnrollmentsForYear(schoolYear);
+  const plan = profile?.schools?.plan || 'decouverte';
+  const hasReports = hasFeature(plan, 'rapports_avances');
+
+  // useEnrollmentsForYear avec schoolYear=null ne fait aucune requête —
+  // évite de charger les élèves quand le plan ne donne pas accès aux
+  // rapports avancés (URL tapée directement par un compte Découverte).
+  const { students, error, offline: offlineStudents } = useEnrollmentsForYear(hasReports ? schoolYear : null);
   const [reportId, setReportId] = useState('synthese');
   const [attendance, setAttendance] = useState(null);
   const [classResults, setClassResults] = useState(null);
@@ -48,7 +56,7 @@ export default function Reports() {
   // par période (jour/semaine/mois) filtrent ensuite ce même jeu de
   // données en mémoire plutôt que de refaire une requête par période.
   useEffect(() => {
-    if (!schoolYear) return;
+    if (!schoolYear || !hasReports) return;
     let cancelled = false;
     guardedFetch({
       cacheKey: `reports_attendance_${schoolYear.id}`,
@@ -62,13 +70,13 @@ export default function Reports() {
       isCancelled: () => cancelled,
     });
     return () => { cancelled = true; };
-  }, [schoolYear?.id]);
+  }, [schoolYear?.id, hasReports]);
 
   // Moyenne générale par classe — calculée côté serveur, voir
   // dashboard_class_results (supabase/schema.sql) : même fonction que le
   // rollover (student_annual_average), jamais une deuxième formule.
   useEffect(() => {
-    if (!schoolYear) return;
+    if (!schoolYear || !hasReports) return;
     let cancelled = false;
     guardedFetch({
       cacheKey: `reports_class_results_${schoolYear.id}`,
@@ -82,14 +90,14 @@ export default function Reports() {
       isCancelled: () => cancelled,
     });
     return () => { cancelled = true; };
-  }, [schoolYear?.id]);
+  }, [schoolYear?.id, hasReports]);
 
   // Nouveaux élèves / réinscriptions : une seule requête (pas une par
   // élève) qui liste, parmi les élèves de CETTE année, ceux qui ont aussi
   // une inscription sur une AUTRE année — les absents de ce résultat sont
   // donc nouveaux cette année.
   useEffect(() => {
-    if (!schoolYear || !students) return;
+    if (!schoolYear || !students || !hasReports) return;
     let cancelled = false;
     const ids = students.map((s) => s.id);
     if (ids.length === 0) { setEffectifsMouvement({ nouveaux: [], reinscrits: [] }); return; }
@@ -103,13 +111,13 @@ export default function Reports() {
         });
       });
     return () => { cancelled = true; };
-  }, [schoolYear?.id, students]);
+  }, [schoolYear?.id, students, hasReports]);
 
   // Masse salariale + avances + dépenses de l'année — mêmes tables/colonnes
   // que Dashboard.jsx (PersonnelSection) et StaffDetail.jsx, jamais une
   // deuxième formule, juste réagrégées ici pour les rapports financiers.
   useEffect(() => {
-    if (!schoolYear) return;
+    if (!schoolYear || !hasReports) return;
     let cancelled = false;
     guardedFetch({
       cacheKey: `reports_personnel_${schoolYear.id}`,
@@ -135,7 +143,20 @@ export default function Reports() {
       isCancelled: () => cancelled,
     });
     return () => { cancelled = true; };
-  }, [schoolYear?.id]);
+  }, [schoolYear?.id, hasReports]);
+
+  // Verrouillage par le plan : placé APRÈS tous les hooks (règle React),
+  // comme dans Staff.jsx. Empêche l'accès direct par URL même si l'entrée
+  // de la sidebar a déjà été masquée par Shell.jsx.
+  if (!hasReports) {
+    return (
+      <div>
+        <SchoolTabs />
+        <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Rapports de direction</p>
+        <PlanLocked currentPlanLabel={getPlanLabel(plan)} requiredPlanLabel={featurePlanRequired('rapports_avances')} featureDescription="les rapports avancés (effectifs, financier, impayés, présences, résultats, synthèse générale)" />
+      </div>
+    );
+  }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students || !schoolYear) {
