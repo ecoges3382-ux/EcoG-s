@@ -11,9 +11,10 @@ import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
-import { SkeletonLine } from './Skeleton.jsx';
 import HelpTooltip from './HelpTooltip.jsx';
 import PaymentReceipt from './PaymentReceipt.jsx';
+import ParentFields from './students/ParentFields.jsx';
+import ParentCodesView from './students/ParentCodesView.jsx';
 
 const PAIEMENT_TRANCHES = [
   { id: 'tranche1', label: '1ère tranche' },
@@ -22,118 +23,6 @@ const PAIEMENT_TRANCHES = [
   { id: 'complet', label: 'Complet' },
   { id: 'autre', label: 'Autre' },
 ];
-
-const LIENS_PARENTE = [
-  { id: 'pere', label: 'Père' },
-  { id: 'mere', label: 'Mère' },
-  { id: 'tuteur', label: 'Tuteur' },
-  { id: 'autre', label: 'Autre' },
-];
-
-function ParentFields({
-  label, nom, setNom, prenom, setPrenom,
-  dial, setDial, local, setLocal,
-  lien, setLien,
-  useExisting, setUseExisting,
-  selectedExistingId, setSelectedExistingId,
-  search, setSearch,
-  existingParents, studentNom,
-  excludeIds = [], isEditing = false, onRemove,
-}) {
-  const filteredParents = useMemo(() => {
-    if (!existingParents) return [];
-    let filtered = existingParents;
-    if (excludeIds.length > 0) filtered = filtered.filter((p) => !excludeIds.includes(p.id));
-    const s = search.trim().toLowerCase();
-    if (s) {
-      filtered = filtered.filter((p) =>
-        (p.full_name || '').toLowerCase().includes(s) ||
-        (p.nom || '').toLowerCase().includes(s) ||
-        (p.prenom || '').toLowerCase().includes(s)
-      );
-    } else {
-      const nomEleve = studentNom.trim().toUpperCase();
-      if (nomEleve) filtered = filtered.filter((p) => (p.nom || '').toUpperCase() === nomEleve);
-    }
-    return filtered;
-  }, [existingParents, excludeIds, search, studentNom]);
-
-  return (
-    <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px dashed var(--line)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--forest-dark)' }}>{label}</p>
-        {onRemove && (
-          <button type="button" onClick={onRemove} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Retirer</button>
-        )}
-      </div>
-
-      {!useExisting ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <label style={{ ...labelStyle, marginBottom: 0, flexShrink: 0, whiteSpace: 'nowrap' }}>Lien de parenté</label>
-            <Dropdown value={lien} onChange={setLien} options={LIENS_PARENTE.map(l => ({ value: l.id, label: l.label }))} style={{ ...inputStyle, marginBottom: 0 }} wrapperStyle={{ flex: 1, minWidth: 0, width: 'auto' }} />
-          </div>
-
-          <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div>
-              <label style={labelStyle}>Nom du parent</label>
-              <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Prénom du parent</label>
-              <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Téléphone du parent</label>
-            <PhoneInput dial={dial} local={local} onDialChange={setDial} onLocalChange={setLocal} style={{ marginBottom: 0 }} />
-          </div>
-        </>
-      ) : (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ margin: '0 0 8px', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>
-            {search.trim() ? 'Résultats de recherche :' : studentNom.trim() ? `Parents portant le nom « ${studentNom.trim()} » :` : 'Tous les parents enregistrés :'}
-          </p>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tapez un nom pour rechercher…" style={{ ...inputStyle, marginBottom: 8 }} />
-          {existingParents === null && <SkeletonLine width="70%" />}
-          {existingParents?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun parent enregistré dans cette école.</p>}
-          {existingParents?.length > 0 && filteredParents.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0', padding: '10px 12px', background: 'var(--line)', borderRadius: 8 }}>
-              {search.trim() ? 'Aucun parent ne correspond à cette recherche.' : studentNom.trim() ? `Aucun parent avec le nom « ${studentNom.trim()} ». Tape dans la recherche pour en trouver un autre.` : 'Aucun résultat.'}
-            </p>
-          )}
-          {filteredParents.length > 0 && (
-            <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9 }}>
-              {filteredParents.map((p, i) => (
-                <button type="button" key={p.id} onClick={() => setSelectedExistingId(p.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', borderBottom: i < filteredParents.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer', fontSize: 13.5, background: selectedExistingId === p.id ? 'var(--forest-light)' : 'transparent', color: selectedExistingId === p.id ? 'var(--forest-dark)' : 'var(--ink)', fontWeight: selectedExistingId === p.id ? 600 : 400 }}>
-                  {p.full_name}
-                  {p.phone && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> · {p.phone}</span>}
-                  {p.code && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> · {p.code}</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ background: 'var(--line)', padding: 10, borderRadius: 8 }}>
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', fontSize: 13, lineHeight: 1.5 }}>
-          <input type="checkbox" checked={useExisting} onChange={(e) => { setUseExisting(e.target.checked); if (!e.target.checked) { setSelectedExistingId(null); setSearch(''); } }} style={{ marginTop: 2 }} />
-          <span>
-            {isEditing && !onRemove ? "Remplacer par un autre parent déjà enregistré" : "Utiliser un parent déjà enregistré"}
-            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
-              {isEditing && !onRemove ? "L'ancien lien sera retiré, le nouveau créé." : "Évite de ressaisir les infos. Le parent comptera tous ses enfants dans l'école."}
-            </span>
-          </span>
-        </label>
-      </div>
-
-      {useExisting && !selectedExistingId && <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>Choisis un parent dans la liste ci-dessus.</p>}
-      {!isEditing && !useExisting && !onRemove && <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>Laisser le nom vide pour ne pas créer d'accès maintenant.</p>}
-    </div>
-  );
-}
 
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
   const showToast = useToast();
@@ -224,7 +113,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     if (montantDuTouched) return;
     const fee = selectedClasse ? feeSchedules[selectedClasse.niveau] : null;
     setMontantDu(fee ? fee.montant_scolarite : 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classeId, feeSchedules]);
 
   useEffect(() => {
@@ -235,7 +123,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     else if (paiementTranche === 'tranche3') setPaiementMontant(fee?.montant_tranche3 ?? 0);
     else if (paiementTranche === 'complet') setPaiementMontant(montantDu);
     else setPaiementMontant('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paiementTranche, classeId, feeSchedules, montantDu]);
 
   function handleTrancheChange(value) {
@@ -533,7 +420,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         enrollment={enrollmentData}
         schoolYear={schoolYearInfo}
         feeSchedule={selectedClasse ? feeSchedules[selectedClasse.niveau] : null}
-        autoPrint={false} // 👈 MODIFICATION ICI
+        autoPrint={false}
         onClose={onCreated}
       />
     );
@@ -554,33 +441,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   }
 
   if (result && !createdPayment) {
-    return createPortal(
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', padding: 26, textAlign: 'center' }}>
-          <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600 }}>Élève inscrit</p>
-          <p style={{ margin: '0 0 18px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-            {result.secondCode ? 'Deux codes d\'accès parent ont été générés.' : 'Code d\'accès du parent — à lui transmettre.'}
-          </p>
-          {result.code && (
-            <div style={{ marginBottom: 14 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parent 1</p>
-              <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '10px', borderRadius: 10 }}>{result.code}</p>
-            </div>
-          )}
-          {result.secondCode && (
-            <div style={{ marginBottom: 14 }}>
-              <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parent 2</p>
-              <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '10px', borderRadius: 10 }}>{result.secondCode}</p>
-            </div>
-          )}
-          {result.code && (
-            <button type="button" onClick={copyLink} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px', marginBottom: 10 }}>{copied ? 'Lien copié !' : 'Copier le lien du parent 1'}</button>
-          )}
-          <button type="button" onClick={onCreated} style={{ width: '100%', padding: '11px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}>Terminé</button>
-        </div>
-      </div>,
-      document.body
-    );
+    return <ParentCodesView result={result} copied={copied} copyLink={copyLink} onCreated={onCreated} />;
   }
 
   return createPortal(
