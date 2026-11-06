@@ -14,6 +14,24 @@ import { SkeletonRow } from './Skeleton.jsx';
 
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'censeur', 'secretaire'];
 
+// Icônes SVG officielles de l'application pour garantir une cohérence
+// parfaite avec les tableaux de paiement, de personnel, etc.
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
+
 function formatHeures(decimalHeures) {
   const total = Number(decimalHeures) || 0;
   const h = Math.floor(total);
@@ -208,11 +226,11 @@ export default function AbsencesPanel({ studentId, studentName, classeNom, stude
                   {a.sante && <Badge color="danger">Santé</Badge>}
                   {!a.justifie && !a.sante && <span style={{ color: 'var(--muted)', fontSize: 11 }}>—</span>}
                 </span>
-                <span style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                <span style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                   {canManage && (
                     <>
-                      <button type="button" onClick={() => { setEditingAbsence(a); setAbsenceModalOpen(true); }} title="Modifier" style={iconBtnStyle}>✎</button>
-                      <button type="button" onClick={() => handleDeleteAbsence(a)} title="Supprimer" style={{ ...iconBtnStyle, color: 'var(--danger)' }}>✕</button>
+                      <button type="button" onClick={() => { setEditingAbsence(a); setAbsenceModalOpen(true); }} title="Modifier" style={iconBtnStyle}><PencilIcon /></button>
+                      <button type="button" onClick={() => handleDeleteAbsence(a)} title="Supprimer" style={{ ...iconBtnStyle, color: 'var(--danger)' }}><TrashIcon /></button>
                     </>
                   )}
                 </span>
@@ -245,11 +263,11 @@ export default function AbsencesPanel({ studentId, studentName, classeNom, stude
                 <span>{formatMinutes(l.duree_minutes)}</span>
                 <span style={{ color: 'var(--muted)' }}>{l.matiere || '—'}</span>
                 <span style={{ color: categorieCouleur(l.absence_motifs?.categorie) }}>{motifLabel(l)}</span>
-                <span style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                <span style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                   {canManage && (
                     <>
-                      <button type="button" onClick={() => { setEditingLate(l); setLateModalOpen(true); }} title="Modifier" style={iconBtnStyle}>✎</button>
-                      <button type="button" onClick={() => handleDeleteLate(l)} title="Supprimer" style={{ ...iconBtnStyle, color: 'var(--danger)' }}>✕</button>
+                      <button type="button" onClick={() => { setEditingLate(l); setLateModalOpen(true); }} title="Modifier" style={iconBtnStyle}><PencilIcon /></button>
+                      <button type="button" onClick={() => handleDeleteLate(l)} title="Supprimer" style={{ ...iconBtnStyle, color: 'var(--danger)' }}><TrashIcon /></button>
                     </>
                   )}
                 </span>
@@ -436,4 +454,4 @@ function AbsencesPrintModal({ school, studentName, classeNom, studentMatricule, 
   );
 }
 
-const iconBtnStyle = { background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: '2px 6px', fontSize: 14, lineHeight: 1 };
+const iconBtnStyle = { background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' };
