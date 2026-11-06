@@ -34,6 +34,20 @@ function useStudentsForLinking(schoolYearId) {
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
+const PERMISSIONS_LABELS = {
+  eleves: 'Gestion des élèves',
+  parents: 'Portail parents',
+  personnel: 'Gestion du personnel',
+  notes: 'Notes & évaluations',
+  bulletins: 'Bulletins',
+  finance: 'Gestion financière (Argent)',
+  presences: 'Présences',
+  emploi_du_temps: 'Emploi du temps',
+  annonces: 'Annonces',
+  documents: 'Documents',
+  rapports: 'Rapports',
+};
+
 async function describeFunctionError(fnError) {
   if (!fnError) return null;
   try {
@@ -188,6 +202,17 @@ function NewStaffAccountModal({ onClose, onCreated }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // NOUVEAU : État pour les permissions
+  const [permissions, setPermissions] = useState({
+    eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
+    notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
+    annonces: true, documents: true, rapports: false, finance: false
+  });
+
+  const togglePermission = (key) => {
+    setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!fullName.trim() || !email.trim() || !password) {
@@ -200,9 +225,20 @@ function NewStaffAccountModal({ onClose, onCreated }) {
     }
     setSubmitting(true);
     setError('');
+    
+    // NOUVEAU : On envoie les permissions à la fonction Edge
     const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', {
-      body: { action: 'create', full_name: fullName.trim(), email: email.trim(), phone: composePhone(phoneDial, phoneLocal), password, role },
+      body: { 
+        action: 'create', 
+        full_name: fullName.trim(), 
+        email: email.trim(), 
+        phone: composePhone(phoneDial, phoneLocal), 
+        password, 
+        role,
+        permissions // Ajouté ici
+      },
     });
+    
     setSubmitting(false);
     if (fnError || data?.error) {
       setError(data?.error || (await describeFunctionError(fnError)));
@@ -220,6 +256,21 @@ function NewStaffAccountModal({ onClose, onCreated }) {
 
         <label style={labelStyle}>Rôle</label>
         <Dropdown value={role} onChange={setRole} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
+
+        {/* NOUVEAU : Grille de permissions */}
+        {role !== 'fondateur' && (
+          <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès de ce compte</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+              {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
+                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)' }}>
+                  <input type="checkbox" checked={permissions[key]} onChange={() => togglePermission(key)} style={{ accentColor: 'var(--forest)', width: 15, height: 15 }} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <label style={labelStyle}>E-mail</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
