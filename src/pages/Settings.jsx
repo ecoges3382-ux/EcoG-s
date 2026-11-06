@@ -23,12 +23,11 @@ export default function Settings() {
   const { profile, refreshProfile } = useAuth();
   const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
   const school = profile.schools;
-  
   const isFondateur = profile.role === 'fondateur';
   const canManageYear = CAN_MANAGE_YEAR_ROLES.includes(profile.role);
   
-  // NOUVEAU : Vérification de l'accès à la page Paramètres
-  const canAccessSettings = isFondateur || profile.permissions?.parametres !== false;
+  // RÈGLE STRICTE
+  const canAccessSettings = isFondateur || profile.permissions?.parametres === true;
 
   const [name, setName] = useState(school?.name || '');
   const [color, setColor] = useState(school?.color || '#0F4C3A');
@@ -95,7 +94,6 @@ export default function Settings() {
     showToast('Visites guidées réinitialisées');
   }
 
-  // NOUVEAU : Blocage de la page
   if (!canAccessSettings) {
     return (
       <div>
@@ -219,7 +217,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Lien vers Comptes (visible seulement pour le fondateur) */}
         {isFondateur && (
           <Link to="/comptes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
             <div style={{ padding: '16px 20px' }}>
@@ -292,7 +289,6 @@ export default function Settings() {
   );
 }
 
-// ... (Le reste du fichier avec PaymentCalendar, PassageThresholds, etc. reste identique)
 const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)' };
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 };
 
