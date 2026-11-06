@@ -236,127 +236,89 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     onSaved();
   }
 
-  // Composant réutilisable pour les boutons de sélection
-  const SelectBtn = ({ active, onClick, icon, label }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '10px 16px', borderRadius: 10,
-        fontSize: 13, fontWeight: 600, transition: 'all 0.2s',
-        border: `1px solid ${active ? 'var(--clay)' : 'var(--line-strong)'}`,
-        background: active ? 'rgba(160, 71, 47, 0.08)' : 'var(--paper)',
-        color: active ? 'var(--clay-dark)' : 'var(--muted)',
-        cursor: 'pointer'
-      }}
-    >
-      <i className={`ti ${icon}`} style={{ fontSize: 16 }} aria-hidden="true"></i>
-      {label}
-    </button>
-  );
-
   return (
-    <div style={{ background: 'var(--paper)', borderRadius: 16, padding: '28px', marginBottom: 24, maxWidth: 720, boxShadow: '0 4px 24px rgba(0,0,0,0.04)', border: '1px solid var(--line)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--clay-dark)' }}>
-          <i className="ti ti-speakerphone" style={{ fontSize: 20 }} aria-hidden="true"></i>
-        </div>
-        <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
-            {editing ? "Modifier l'annonce" : 'Nouvelle annonce'}
-          </h2>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Rédigée en tant que {ROLES[profile.role]?.label || profile.role}</p>
-        </div>
-      </div>
+    <div className="card-bold" style={{ padding: '20px 22px', marginBottom: 20, maxWidth: 640 }}>
+      <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>
+        {editing ? 'Modifier l\'annonce' : 'Nouvelle annonce'} — en tant que {ROLES[profile.role]?.label || profile.role}
+      </p>
       
-      {/* 1. Destinataires */}
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Destinataires</label>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <SelectBtn active={audience === 'parents'} onClick={() => setAudience('parents')} icon="ti-users" label="Parents" />
-          <SelectBtn active={audience === 'personnel'} onClick={() => setAudience('personnel')} icon="ti-briefcase" label="Enseignants / Équipe" />
-          <SelectBtn active={audience === 'tous'} onClick={() => setAudience('tous')} icon="ti-users-group" label="Parents et Personnel" />
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Destinataires</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { id: 'parents', label: 'Parents' },
+            { id: 'personnel', label: 'Enseignants / Équipe' },
+            { id: 'tous', label: 'Parents et Personnel' }
+          ].map((a) => (
+            <button
+              type="button" key={a.id} onClick={() => setAudience(a.id)}
+              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: audience === a.id ? 'none' : '1px solid var(--line-strong)', background: audience === a.id ? 'var(--clay)' : 'var(--paper)', color: audience === a.id ? '#fff' : 'var(--ink)' }}
+            >
+              {a.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* 2. Ciblage (Conditionnel) */}
       {audience === 'parents' && (
-        <div style={{ marginBottom: 20, padding: '16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Ciblage</label>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <SelectBtn active={portee === 'École entière'} onClick={() => setPortee('École entière')} icon="ti-building-school" label="École entière" />
-            <SelectBtn active={portee === 'Une classe'} onClick={() => setPortee('Une classe')} icon="ti-door" label="Une classe" />
-            
-            {portee === 'Une classe' && (
-              <div style={{ marginLeft: 'auto' }}>
-                <Dropdown
-                  value={classeCibleId}
-                  onChange={setClasseCibleId}
-                  options={classes.length === 0 ? [{ value: '', label: 'Aucune classe' }] : classes.map((c) => ({ value: c.id, label: c.nom }))}
-                  style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, background: 'var(--paper)', borderRadius: 8, border: '1px solid var(--line-strong)' }}
-                  wrapperStyle={{ width: 'auto', minWidth: 200 }}
-                />
-              </div>
-            )}
-          </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Ciblage :</span>
+          {['École entière', 'Une classe'].map((p) => (
+            <button
+              type="button" key={p} onClick={() => setPortee(p)}
+              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: portee === p ? 'none' : '1px solid var(--line-strong)', background: portee === p ? 'var(--forest)' : 'var(--paper)', color: portee === p ? '#fff' : 'var(--ink)' }}
+            >
+              {p}
+            </button>
+          ))}
+          {portee === 'Une classe' && (
+            <Dropdown
+              value={classeCibleId}
+              onChange={setClasseCibleId}
+              options={classes.length === 0 ? [{ value: '', label: 'Aucune classe' }] : classes.map((c) => ({ value: c.id, label: c.nom }))}
+              style={{ padding: '7px 12px', fontSize: 12.5, fontWeight: 600 }}
+              wrapperStyle={{ width: 'auto', minWidth: 180 }}
+            />
+          )}
         </div>
       )}
 
-      {/* 3. Contenu */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Titre de l'annonce</label>
-          <input
-            value={titre}
-            onChange={(e) => setTitre(e.target.value)}
-            placeholder="Ex: Réunion de parents d'élèves"
-            style={{ width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', background: 'var(--paper)', outline: 'none' }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--forest)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--line-strong)'}
-          />
-        </div>
-        
-        <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Détail (facultatif)</label>
-          <textarea
-            value={contenu}
-            onChange={(e) => setContenu(e.target.value)}
-            placeholder="Précisez l'heure, le lieu, l'ordre du jour…"
-            rows={4}
-            style={{ width: '100%', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', background: 'var(--paper)', resize: 'vertical', outline: 'none' }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--forest)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--line-strong)'}
-          />
-        </div>
-
-        <div style={{ width: 'fit-content' }}>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Date d'expiration (facultatif)</label>
-          <DatePicker
-            value={dateExpiration} onChange={setDateExpiration} min={todayIso()}
-            style={{ width: 'auto', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 13, color: 'var(--ink)', background: 'var(--paper)' }}
-          />
-        </div>
+      <input
+        value={titre}
+        onChange={(e) => setTitre(e.target.value)}
+        placeholder="Titre de l'annonce…"
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 10 }}
+      />
+      <textarea
+        value={contenu}
+        onChange={(e) => setContenu(e.target.value)}
+        placeholder="Détail de l'annonce (facultatif)…"
+        rows={3}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 10, resize: 'vertical' }}
+      />
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Date d'expiration (facultatif)</label>
+        <DatePicker
+          value={dateExpiration} onChange={setDateExpiration} min={todayIso()}
+          style={{ width: 'auto', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 13, color: 'var(--ink)' }}
+        />
       </div>
-
-      {/* 4. Actions */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button
           type="button" onClick={() => submit('publiee')} disabled={!!submitting}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--clay)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13.5, padding: '11px 22px', borderRadius: 10, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1, boxShadow: '0 4px 12px rgba(160, 71, 47, 0.2)' }}
+          style={{ background: 'var(--clay)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13.5, padding: '11px 20px', borderRadius: 'var(--radius)', opacity: submitting ? 0.7 : 1 }}
         >
-          <i className="ti ti-send" style={{ fontSize: 16 }} aria-hidden="true"></i>
-          {submitting === 'publiee' ? 'Publication…' : 'Publier l\'annonce'}
+          <i className="ti ti-speakerphone" style={{ fontSize: 15, verticalAlign: '-2px', marginRight: 6 }} aria-hidden="true"></i>
+          {submitting === 'publiee' ? 'Publication…' : 'Publier'}
         </button>
         <button
           type="button" onClick={() => submit('brouillon')} disabled={!!submitting}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--paper)', border: '1px solid var(--line-strong)', color: 'var(--ink)', fontWeight: 600, fontSize: 13.5, padding: '11px 22px', borderRadius: 10, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
+          style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', color: 'var(--ink)', fontWeight: 600, fontSize: 13.5, padding: '11px 20px', borderRadius: 'var(--radius)', opacity: submitting ? 0.7 : 1 }}
         >
-          <i className="ti ti-device-floppy" style={{ fontSize: 16 }} aria-hidden="true"></i>
           {submitting === 'brouillon' ? 'Enregistrement…' : 'Enregistrer en brouillon'}
         </button>
         {editing && (
-          <button type="button" onClick={onCancelEdit} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontWeight: 600, fontSize: 13.5, padding: '11px 12px', cursor: 'pointer', marginLeft: 'auto' }}>
+          <button type="button" onClick={onCancelEdit} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontWeight: 600, fontSize: 13.5, padding: '11px 8px', cursor: 'pointer' }}>
             Annuler
           </button>
         )}
@@ -397,30 +359,28 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
   }
 
   return (
-    <div style={{ padding: '16px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: 'var(--gold-light)', color: 'var(--clay-dark)' }}>
+    <div style={{ padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'var(--gold-light)', color: 'var(--clay-dark)' }}>
           {audienceLabel}
         </span>
         {a.audience !== 'personnel' && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
             {cibleLabel}
           </span>
         )}
-        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
-        {expiree && <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: '#F0EDE5', color: 'var(--muted)' }}>Expirée</span>}
-        <span style={{ fontSize: '11.5px', color: 'var(--muted)', marginLeft: 'auto' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
+        {expiree && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: '#F0EDE5', color: 'var(--muted)' }}>Expirée</span>}
+        <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
           {a.statut === 'brouillon' ? `Créée · ${timeAgo(a.created_at)}` : `Publiée · ${timeAgo(a.published_at || a.created_at)}`}
         </span>
       </div>
-      <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{a.titre}</p>
-      {a.contenu && <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{a.contenu}</p>}
-      <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-        <i className="ti ti-user" aria-hidden="true"></i> {a.auteur} · {a.role}
-      </p>
+      <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 600 }}>{a.titre}</p>
+      {a.contenu && <p style={{ margin: '0 0 6px', fontSize: '12.5px', color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{a.contenu}</p>}
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{a.auteur} · {a.role}</p>
 
       {canManage && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           {a.statut === 'brouillon' && (
             <>
               <button onClick={() => onSetStatut('publiee')} style={actionBtnStyle('var(--forest)', '#fff')}>Publier</button>
@@ -435,7 +395,7 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
               <button onClick={onEdit} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Modifier</button>
               <button onClick={() => onSetStatut('archivee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Archiver</button>
               <button onClick={diffuserWhatsApp} disabled={waSending} style={actionBtnStyle('#25D366', '#fff')}>
-                <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 6 }} aria-hidden="true"></i>
+                <i className="ti ti-brand-whatsapp" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
                 {waSending ? 'Diffusion…' : 'Diffuser par WhatsApp'}
               </button>
             </>
@@ -451,14 +411,12 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
         </div>
       )}
       {waResult && (
-        <p style={{ margin: '10px 0 0', fontSize: 12, fontWeight: 600, color: waResult.ok ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <i className={`ti ${waResult.ok ? 'ti-check' : 'ti-alert-circle'}`} aria-hidden="true"></i> {waResult.text}
-        </p>
+        <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 600, color: waResult.ok ? 'var(--success)' : 'var(--danger)' }}>{waResult.text}</p>
       )}
     </div>
   );
 }
 
 function actionBtnStyle(bg, color, bordered) {
-  return { display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 600, padding: '7px 14px', borderRadius: 8, border: bordered ? '1px solid var(--line-strong)' : 'none', background: bg, color, cursor: 'pointer', transition: 'opacity 0.2s' };
+  return { fontSize: 11.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: bordered ? '1px solid var(--line-strong)' : 'none', background: bg, color, cursor: 'pointer' };
 }
