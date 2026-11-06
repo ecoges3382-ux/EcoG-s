@@ -3292,3 +3292,35 @@ as $$
   )
   select avg(trimestre_moyenne) from per_trimestre
 $$;
+
+-- ---------- Correctif : colonnes manquantes depuis le début ----------
+-- Deux colonnes sont lues par le code applicatif à chaque démarrage
+-- (AuthProvider lit profiles.permissions, Shell lit schools.plan) mais
+-- n'apparaissaient nulle part dans ce fichier. Elles ont visiblement été
+-- ajoutées à la main sur la base de production au moment où les
+-- fonctionnalités correspondantes ont été livrées — ce qui explique que
+-- l'appli actuelle fonctionne — mais un nouveau déploiement créé à partir
+-- de ce fichier seul resterait bloqué : profiles.permissions provoquerait
+-- une erreur de requête, et schools.plan ferait tomber toutes les écoles
+-- sur 'decouverte' par le `|| 'decouverte'` du code. On les ajoute ici
+-- avec les valeurs par défaut les plus sûres possibles.
+
+-- Plan de l'école : null tant que l'administrateur plateforme n'a rien
+-- attribué — le code traite null comme 'decouverte' (plan gratuit), donc
+-- aucune école existante ne se retrouve avec des fonctionnalités payantes
+-- qu'elle n'aurait pas payées.
+alter table schools add column if not exists plan text not null default 'decouverte';
+alter table schools drop constraint if exists schools_plan_check;
+alter table schools add constraint schools_plan_check
+  check (plan in ('decouverte', 'essentiel', 'standard', 'premium'));
+
+-- Permissions JSON des profils : objet libre {dashboard: bool, eleves:
+-- bool, ...}. Un profil existant sans permissions (colonne vide / null)
+-- est traité par le code comme "aucune permission explicite" — donc seul
+-- le rôle entre en jeu (ce qui est le comportement historique : avant la
+-- feature permissions, seuls les rôles comptaient, et le fondateur
+-- bypassait tout). On ne backfill PAS avec un objet par défaut : ça
+-- forcerait par exemple "parametres: true" sur tous les directeurs, ce
+-- qui pourrait ne pas être voulu par le fondateur. Null = comportement
+-- historique préservé.
+alter table profiles add column if not exists permissions jsonb;
