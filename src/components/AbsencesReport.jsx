@@ -41,6 +41,31 @@ const PERIODES = [
   { id: 'mois', label: 'Ce mois' },
 ];
 
+// Helper pour transformer une inscription en ligne de tableau exploitable.
+// Extrait de la logique du composant pour pouvoir être réutilisé aussi bien
+// pour construire la liste globale que pour afficher le détail d'un élève
+// même s'il n'a aucune absence (cas où il n'apparaît pas dans la liste).
+function buildStudentRow(en, byStudent) {
+  const ev = byStudent.get(en.student_id) || { absences: [], retards: [] };
+  const heures = ev.absences.reduce((s, a) => s + (Number(a.duree_heures) || 0), 0);
+  const demiJournees = ev.absences.reduce((s, a) => s + (a.demi_journee === 'journee' ? 2 : 1), 0);
+  const minutesRetard = ev.retards.reduce((s, l) => s + (Number(l.duree_minutes) || 0), 0);
+  return {
+    studentId: en.student_id,
+    fullName: en.students?.full_name || '—',
+    matricule: en.students?.matricule,
+    classeId: en.classe_id,
+    classeNom: en.classes?.nom || '—',
+    nbAbsences: ev.absences.length,
+    heures,
+    demiJournees,
+    nbRetards: ev.retards.length,
+    minutesRetard,
+    absences: ev.absences,
+    retards: ev.retards,
+  };
+}
+
 // Onglet "Absences & retards" du module Rapports. Contrairement au
 // récapitulatif individuel de la fiche élève (AbsencesPanel.jsx), celui-ci
 // s'adresse à la direction : il agrège TOUS les élèves de l'année pour
@@ -56,6 +81,7 @@ export default function AbsencesReport({ school, schoolYear }) {
   const [error, setError] = useState('');
   const [periode, setPeriode] = useState('annee');
   const [classeFilter, setClasseFilter] = useState('');
+  const [studentFilter, setStudentFilter] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
   // Chargement groupé : absences + retards + élèves inscrits + classes
@@ -134,30 +160,20 @@ export default function AbsencesReport({ school, schoolYear }) {
   const rows = useMemo(() => {
     if (!students) return [];
     return students
-      .map((en) => {
-        const ev = byStudent.get(en.student_id) || { absences: [], retards: [] };
-        const heures = ev.absences.reduce((s, a) => s + (Number(a.duree_heures) || 0), 0);
-        const demiJournees = ev.absences.reduce((s, a) => s + (a.demi_journee === 'journee' ? 2 : 1), 0);
-        const minutesRetard = ev.retards.reduce((s, l) => s + (Number(l.duree_minutes) || 0), 0);
-        return {
-          studentId: en.student_id,
-          fullName: en.students?.full_name || '—',
-          matricule: en.students?.matricule,
-          classeId: en.classe_id,
-          classeNom: en.classes?.nom || '—',
-          nbAbsences: ev.absences.length,
-          heures,
-          demiJournees,
-          nbRetards: ev.retards.length,
-          minutesRetard,
-          absences: ev.absences,
-          retards: ev.retards,
-        };
-      })
+      .map((en) => buildStudentRow(en, byStudent))
       .filter((r) => !classeFilter || r.classeId === classeFilter)
       .filter((r) => r.nbAbsences > 0 || r.nbRetards > 0)
       .sort((a, b) => b.heures - a.heures || b.nbAbsences - a.nbAbsences || a.fullName.localeCompare(b.fullName));
   }, [students, byStudent, classeFilter]);
+
+  // Élève sélectionné pour la vue détail : construit à partir de la liste
+  // complète des inscrits (et non du tableau filtré), sinon un élève sans
+  // absence serait introuvable et la vue resterait vide.
+  const selectedStudent = useMemo(() => {
+    if (!selectedStudentId || !students) return null;
+    const en = students.find((s) => s.student_id === selectedStudentId);
+    return en ? buildStudentRow(en, byStudent) : null;
+  }, [selectedStudentId, students, byStudent]);
 
   // Totaux globaux pour les 3 mini-stats
   const totals = useMemo(() => ({
@@ -178,7 +194,6 @@ export default function AbsencesReport({ school, schoolYear }) {
   const classeLabel = classeFilter
     ? (classes.find((c) => c.id === classeFilter)?.nom || '')
     : 'Toutes les classes';
-  const selectedStudent = selectedStudentId ? rows.find((r) => r.studentId === selectedStudentId) : null;
 
   // ---- Vue détail d'un élève ----
   if (selectedStudent) {
@@ -186,7 +201,7 @@ export default function AbsencesReport({ school, schoolYear }) {
       <div>
         <button
           type="button"
-          onClick={() => setSelectedStudentId(null)}
+          onClick={() => { setSelectedStudentId(null); setStudentFilter(''); }}
           style={{ marginBottom: 14, fontSize: 12.5, fontWeight: 600, color: 'var(--forest)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <i className="ti ti-arrow-left" style={{ fontSize: 14 }} aria-hidden="true"></i>
@@ -299,19 +314,42 @@ export default function AbsencesReport({ school, schoolYear }) {
         {PERIODES.map((p) => (
           <button
             key={p.id}
-            onClick={() => { setPeriode(p.id); setSelectedStudentId(null); }}
+            onClick={() => { setPeriode(p.id); setSelectedStudentId(null); setStudentFilter(''); }}
             style={{ padding: '6px 12px', borderRadius: 20, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${periode === p.id ? 'var(--forest)' : 'var(--line-strong)'}`, background: periode === p.id ? 'var(--forest)' : 'var(--paper)', color: periode === p.id ? '#fff' : 'var(--ink)' }}
           >
             {p.label}
           </button>
         ))}
-        <div style={{ marginLeft: 'auto', minWidth: 200 }}>
-          <Dropdown
-            value={classeFilter}
-            onChange={setClasseFilter}
-            options={[{ value: '', label: 'Toutes les classes' }, ...classes.map((c) => ({ value: c.id, label: c.nom }))]}
-            style={{ padding: '8px 12px', fontSize: 12.5 }}
-          />
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 180 }}>
+            <Dropdown
+              value={classeFilter}
+              onChange={(v) => {
+                setClasseFilter(v);
+                setStudentFilter('');
+                setSelectedStudentId(null);
+              }}
+              options={[{ value: '', label: 'Toutes les classes' }, ...classes.map((c) => ({ value: c.id, label: c.nom }))]}
+              style={{ padding: '8px 12px', fontSize: 12.5 }}
+            />
+          </div>
+          <div style={{ minWidth: 220 }}>
+            <Dropdown
+              value={studentFilter}
+              onChange={(v) => {
+                setStudentFilter(v);
+                setSelectedStudentId(v || null);
+              }}
+              options={[
+                { value: '', label: 'Tous les élèves' },
+                ...students
+                  .filter((en) => !classeFilter || en.classe_id === classeFilter)
+                  .map((en) => ({ value: en.student_id, label: en.students?.full_name || '—' }))
+                  .sort((a, b) => a.label.localeCompare(b.label))
+              ]}
+              style={{ padding: '8px 12px', fontSize: 12.5 }}
+            />
+          </div>
         </div>
       </div>
 
@@ -352,7 +390,7 @@ export default function AbsencesReport({ school, schoolYear }) {
                     key={r.studentId}
                     className="no-print-hover"
                     style={{ borderBottom: i < rows.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer' }}
-                    onClick={() => setSelectedStudentId(r.studentId)}
+                    onClick={() => { setSelectedStudentId(r.studentId); setStudentFilter(r.studentId); }}
                   >
                     <td style={{ ...tdStyle, padding: '10px 12px', fontWeight: 600 }}>{r.fullName}</td>
                     <td style={{ ...tdStyle, padding: '10px 12px', color: 'var(--muted)' }}>{r.classeNom}</td>
