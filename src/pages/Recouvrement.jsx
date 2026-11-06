@@ -7,11 +7,13 @@ import { fmtF, downloadCsv, TYPES_FRAIS } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
+import { sendWhatsAppMessage } from '../lib/whatsapp.js'; // 👈 IMPORT AJOUTÉ
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
+import { useToast } from '../components/Toast.jsx'; // 👈 IMPORT AJOUTÉ
 
 const STATUT_RECOUVREMENT = {
   a_jour: { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -40,13 +42,17 @@ function matchStatut(s, statut) {
 }
 
 export default function Recouvrement() {
+  const showToast = useToast();
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const { students, error, offline } = useEnrollmentsForYear(schoolYear);
   const [inscriptionByStudent, setInscriptionByStudent] = useState(null);
-  const [remindersByStudent, setRemindersByStudent] = useState({}); // 👈 NOUVEAU
+  const [remindersByStudent, setRemindersByStudent] = useState({});
   const [search, setSearch] = useState('');
   const [filterClasse, setFilterClasse] = useState('toutes');
+  const [selectedIds, setSelectedIds] = useState([]); // 👈 État pour la sélection
+  const [sendingId, setSendingId] = useState(null); // 👈 Pour l'icône de chargement
+  const [bulkSending, setBulkSending] = useState(false); // 👈 Pour le chargement groupé
   const tour = usePageTour('recouvrement');
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,7 +89,6 @@ export default function Recouvrement() {
     return () => { cancelled = true; };
   }, [schoolYear?.id, inscriptionTypeId]);
 
-  // 👇 NOUVEAU : Charger l'historique des relances envoyées
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -157,16 +162,12 @@ export default function Recouvrement() {
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
 
-  // 👇 NOUVEAU : On enrichit les élèves prioritaires avec l'info de relance
   const elevesPrioritaires = enrichis
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
       const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
-      
-      // On cherche si une relance a déjà été envoyée à cet élève
       const studentReminders = remindersByStudent[s.id] || [];
-      const lastReminder = studentReminders[0]; // Le plus récent
-      
+      const lastReminder = studentReminders[0];
       let relanceInfo = null;
       if (lastReminder) {
         const match = lastReminder.template_name.match(/rappel_j(\d+)_/);
@@ -177,11 +178,50 @@ export default function Recouvrement() {
           };
         }
       }
-
       return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe, relanceInfo };
     })
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
+
+  // 👇 FONCTION POUR RELANCER UN SEUL ÉLÈVE
+  async function handleRelance(studentId) {
+    setSendingId(studentId);
+    try {
+      await sendWhatsAppMessage({ type: 'relance_paiement', student_id: studentId });
+      showToast('Relance envoyée !');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+    setSendingId(null);
+  }
+
+  // 👇 FONCTION POUR RELANCER PLUSIEURS ÉLÈVES
+  async function handleBulkRelance(ids) {
+    if (ids.length === 0) return;
+    setBulkSending(true);
+    let count = 0;
+    for (const id of ids) {
+      try {
+        await sendWhatsAppMessage({ type: 'relance_paiement', student_id: id });
+        count++;
+        await new Promise(r => setTimeout(r, 300)); // Pause anti-spam
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setBulkSending(false);
+    setSelectedIds([]);
+    showToast(`${count} relance${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} !`);
+  }
+
+  function toggleSelection(id) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function toggleAllPrioritaires() {
+    const allIds = elevesPrioritaires.map(s => s.id);
+    setSelectedIds(prev => prev.length === allIds.length ? [] : allIds);
+  }
 
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const filtered = enrichis
@@ -310,32 +350,62 @@ export default function Recouvrement() {
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
             Priorité du jour (Élèves à relancer)
           </p>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'var(--danger-light)', padding: '4px 10px', borderRadius: 20 }}>
-            {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''} en retard
-          </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'var(--danger-light)', padding: '4px 10px', borderRadius: 20 }}>
+              {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''} en retard
+            </span>
+            {/* 👇 BOUTON TOUT RELANCER */}
+            {elevesPrioritaires.length > 0 && (
+              <button
+                onClick={() => handleBulkRelance(elevesPrioritaires.map(s => s.id))}
+                disabled={bulkSending}
+                style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: '#25D366', color: '#fff', cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
+              >
+                <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+                {bulkSending ? 'Envoi…' : 'Tout relancer'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
-          <div style={{ minWidth: 820 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-              <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', paddingLeft: 20, display: 'block', width: '100%' }}>Élève</span>
+          <div style={{ minWidth: 860 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '30px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+              {/* 👇 CHECKBOX TOUT SELECTIONNER */}
+              <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedIds.length > 0 && selectedIds.length === elevesPrioritaires.length}
+                  onChange={toggleAllPrioritaires}
+                  style={{ cursor: 'pointer' }}
+                />
+              </span>
+              <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', display: 'block', width: '100%' }}>Élève</span>
               <span>Reste Écolage</span>
               <span>Reste Connexes</span>
               <span>Total Dû</span>
-              <span>Relance Auto</span> {/* 👈 CHANGEMENT ICI */}
+              <span>Relance Auto</span>
+              <span></span>
             </div>
             {elevesPrioritaires.map((s, i) => (
-              <Link
+              <div
                 key={s.id}
-                to={`/eleves/${s.id}`}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'grid', gridTemplateColumns: '30px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
+                {/* 👇 CHECKBOX PAR LIGNE */}
+                <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.includes(s.id)}
+                    onChange={() => toggleSelection(s.id)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </span>
                 <div style={{ 
                   position: 'sticky', 
                   left: 0, 
                   zIndex: 10, 
                   backgroundColor: '#ffffff', 
-                  paddingLeft: 20,
                   boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)',
                   display: 'flex',
                   flexDirection: 'column',
@@ -355,7 +425,6 @@ export default function Recouvrement() {
                   {fmtF(s.totalReste)}
                 </span>
                 
-                {/* 👇 NOUVEAU : Affichage du statut de la relance */}
                 <div>
                   {s.relanceInfo ? (
                     <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
@@ -370,7 +439,18 @@ export default function Recouvrement() {
                     </span>
                   )}
                 </div>
-              </Link>
+
+                {/* 👇 BOUTON RELANCER INDIVIDUEL */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => handleRelance(s.id)}
+                    disabled={sendingId === s.id || bulkSending}
+                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: '1px solid #25D366', background: 'var(--paper)', color: '#0A7A4F', cursor: (sendingId === s.id || bulkSending) ? 'default' : 'pointer', opacity: (sendingId === s.id || bulkSending) ? 0.5 : 1 }}
+                  >
+                    {sendingId === s.id ? '…' : 'Relancer'}
+                  </button>
+                </div>
+              </div>
             ))}
             {elevesPrioritaires.length === 0 && (
               <p style={{ padding: 20, color: 'var(--success)', fontSize: 13, textAlign: 'center', fontWeight: 600 }}>
@@ -381,6 +461,26 @@ export default function Recouvrement() {
           </div>
         </div>
       </div>
+
+      {/* 👇 BARRE FLOTTANTE DE SELECTION */}
+      {selectedIds.length > 0 && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--forest-dark)', color: '#fff', padding: '10px 20px', borderRadius: 30, display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.4)', zIndex: 9999 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedIds.length} élève{selectedIds.length > 1 ? 's' : ''} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+          <button
+            onClick={() => handleBulkRelance(selectedIds)}
+            disabled={bulkSending}
+            style={{ background: '#25D366', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
+          >
+            {bulkSending ? 'Envoi en cours…' : 'Relancer la sélection'}
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, padding: 4 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
