@@ -27,7 +27,7 @@ const SIDEBAR_ITEMS = [
   { to: '/documents', label: 'Documents', icon: 'ti-file', feature: 'documents' },
   { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', feature: 'advanced_reports' },
   { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', tourId: 'sidebar-parametres' },
-  { to: '/comptes', label: 'Comptes', icon: 'ti-users-group' },
+  // J'ai supprimé { to: '/comptes', ... } ici
 ];
 
 const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/matieres', '/notes', '/bulletins', '/emploi-du-temps', '/presences', '/annonces', '/documents', '/rapports'];
@@ -37,7 +37,7 @@ const BOTTOM_NAV_ITEMS = [
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet' },
   { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', tourId: 'bottomnav-recouvrement' },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
-  { to: '/comptes', shortLabel: 'Comptes', icon: 'ti-users-group' },
+  // J'ai supprimé { to: '/comptes', ... } ici
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', tourId: 'bottomnav-parametres' },
 ];
 
@@ -71,9 +71,10 @@ export default function Shell() {
   const location = useLocation();
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
-  // Le plan vient directement de profile.schools.plan (chargé par AuthProvider
-  // via SELECT schools(id, name, ..., plan)). Pas de requête supplémentaire.
   const plan = profile?.schools?.plan || 'decouverte';
+
+  // NOUVEAU : Vérification de la permission Paramètres
+  const canAccessSettings = profile?.role === 'fondateur' || profile?.permissions?.parametres !== false;
 
   useEffect(() => {
     document.body.classList.add('app-mode');
@@ -136,6 +137,9 @@ export default function Shell() {
 
       <div id="bottomnav">
         {BOTTOM_NAV_ITEMS.map((item) => {
+          // NOUVEAU : On cache Paramètres si pas la permission
+          if (item.to === '/parametres' && !canAccessSettings) return null;
+
           const isActive = item.group
             ? item.group.some((p) => location.pathname.startsWith(p))
             : (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
@@ -196,8 +200,15 @@ function SidebarMenu({ plan }) {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
+  // NOUVEAU : On filtre selon les permissions
+  const canAccessSettings = profile?.role === 'fondateur' || profile?.permissions?.parametres !== false;
+  
   const visibleItems = SIDEBAR_ITEMS.filter(
-    (item) => !item.feature || hasFeature(plan, item.feature)
+    (item) => {
+      if (item.feature && !hasFeature(plan, item.feature)) return false;
+      if (item.to === '/parametres' && !canAccessSettings) return false;
+      return true;
+    }
   );
 
   return (
