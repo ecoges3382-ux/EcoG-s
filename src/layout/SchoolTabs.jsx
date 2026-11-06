@@ -17,20 +17,24 @@ const TABS = [
   { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', perm: 'rapports' },
 ];
 
+// Barre de sous-onglets visible seulement en dessous de 780px (voir
+// .school-tabs-mobile dans styles.css) : sur desktop ces pages sont déjà
+// toutes accessibles depuis la barre latérale complète.
 export default function SchoolTabs() {
   const location = useLocation();
   const containerRef = useRef(null);
   const { profile } = useAuth();
 
+  // La barre est recréée à chaque page : sans ça, elle réaffiche toujours
+  // le début (Élèves) même quand l'onglet actif (ex. Rapports) est plus loin.
   useEffect(() => {
     containerRef.current?.querySelector('a.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   }, [location.pathname]);
 
-  // Le fondateur voit tout. Les autres voient selon leurs permissions.
+  // NOUVEAU : On filtre les onglets selon les permissions
   const visibleTabs = TABS.filter((t) => {
     if (profile?.role === 'fondateur') return true;
-    // Si la permission n'est pas explicitement fausse, on affiche
-    return profile?.permissions?.[t.perm] !== false; 
+    return profile?.permissions?.[t.perm] !== false;
   });
 
   if (visibleTabs.length === 0) return null;
