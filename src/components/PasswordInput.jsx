@@ -5,26 +5,23 @@ function EyeIcon({ visible }) {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {!visible ? (
-        // 1. Mot de passe CACHÉ : on affiche un œil OUVERT (pour dire "clique pour voir")
+        // 1. Mot de passe CACHÉ : Œil ouvert, épuré
         <>
           <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
           <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />
         </>
       ) : (
-        // 2. Mot de passe VISIBLE : on affiche un œil FERMÉ (paupière avec cils)
+        // 2. Mot de passe VISIBLE : Œil fermé (paupière courbée, sans cils)
         <>
           <path d="M3 12c2.4 4 5.4 6 9 6c3.6 0 6.6 -2 9 -6" />
-          <path d="M9 17l-1 2" />
-          <path d="M15 17l1 2" />
-          <path d="M12 18v2" />
+          {/* Petit trait pour la paupière inférieure afin que ça fasse bien un œil fermé */}
+          <path d="M9 17.5c1 .3 2 .5 3 .5s2 -.2 3 -.5" />
         </>
       )}
     </svg>
   );
 }
 
-// Champ mot de passe avec bouton œil (afficher/masquer), partagé par tous
-// les formulaires de connexion/création de compte de l'appli.
 export default function PasswordInput({ style = {}, ...props }) {
   const [visible, setVisible] = useState(false);
 
