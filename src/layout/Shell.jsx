@@ -146,6 +146,20 @@ export default function Shell() {
               <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
             </div>
 
+                        {/* 👇 AJOUTER CE BOUTON POUR MOBILE 👇 */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="show-on-mobile"
+              title="Rechercher"
+              style={{ display: 'none', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', flexShrink: 0, cursor: 'pointer' }}
+            >
+              <i className="ti ti-search" style={{ fontSize: 20 }} aria-hidden="true"></i>
+            </button>
+            {/* 👆 FIN DE L'AJOUT 👆 */}
+
+            <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
+              <HelpIcon />
+            </Link>
             <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
               <HelpIcon />
             </Link>
