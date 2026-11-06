@@ -372,7 +372,6 @@ function TrendsSection({ schoolYear, attendance }) {
   );
 }
 
-// 👇 NOUVELLE VERSION CORRIGÉE DU GRAPHIQUE 👇
 function DemographicsSection({ students }) {
   const boys = students.filter((s) => s.sexe === 'M').length;
   const girls = students.filter((s) => s.sexe === 'F').length;
@@ -419,24 +418,29 @@ function DemographicsSection({ students }) {
           <div style={{ width: '100%', height: 260, marginTop: 10 }}>
             <ResponsiveContainer>
               <PieChart>
-                {/* 1. Ombre 3D (décalée vers le bas) */}
+                {/* 1. La couche 3D (décalée vers le bas, sans ombre grise) */}
                 <Pie
                   data={data}
                   dataKey="value"
                   cx="50%"
-                  cy="54%"
+                  cy="52%"
                   outerRadius={95}
                   innerRadius={0}
-                  stroke="none"
-                  paddingAngle={4}
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  paddingAngle={0} // Plus de V vert !
                   isAnimationActive={false}
                 >
                   {data.map((entry, index) => (
-                    <Cell key={`cell-shadow-${index}`} fill="rgba(0,0,0,0.1)" />
+                    <Cell 
+                      key={`cell-shadow-${index}`} 
+                      fill={COLORS[entry.name]} 
+                      style={{ filter: 'brightness(0.85)' }} // On assombrit la couleur pour l'effet de profondeur
+                    />
                   ))}
                 </Pie>
 
-                {/* 2. Le graphique principal avec les couleurs */}
+                {/* 2. La couche du dessus (couleurs vives) */}
                 <Pie
                   data={data}
                   dataKey="value"
@@ -446,7 +450,7 @@ function DemographicsSection({ students }) {
                   innerRadius={0}
                   stroke="#ffffff"
                   strokeWidth={2}
-                  paddingAngle={4}
+                  paddingAngle={0}
                   labelLine={false}
                   label={renderCustomizedLabel}
                 >
@@ -476,7 +480,6 @@ function DemographicsSection({ students }) {
     </div>
   );
 }
-// 👆 FIN DE LA CORRECTION 👆
 
 function ClassBreakdown({ students, attendance, classResults }) {
   const attendanceByStudent = new Map();
