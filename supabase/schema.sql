@@ -3324,3 +3324,265 @@ alter table schools add constraint schools_plan_check
 -- qui pourrait ne pas être voulu par le fondateur. Null = comportement
 -- historique préservé.
 alter table profiles add column if not exists permissions jsonb;
+
+-- ---------- Absences et retards détaillés : modèle enrichi ----------
+-- Jusqu'ici, "attendance_records" ne portait qu'un statut par élève et
+-- par jour (present/absent/retard) — suffisant pour un appel rapide, mais
+-- incapable de reproduire un récapitulatif détaillé type vie scolaire
+-- (motif codifié, demi-journée, heures manquées, justifié ou non, santé
+-- ou non). On ajoute donc DEUX tables distinctes, qui viennent compléter
+-- attendance_records sans le remplacer : l'appel rapide de classe reste
+-- tel quel, la saisie fine se fait dans les nouvelles tables.
+--
+-- Le modèle retenu est strictement manuel (pas de calcul automatique des
+-- heures via l'emploi du temps) : la vie scolaire saisit une absence
+-- ponctuelle avec sa durée réelle, telle qu'elle l'entend. Cela évite de
+-- dépendre de la précision de l'emploi du temps (qui peut changer en
+-- cours d'année) et permet de couvrir les cas réels : sortie anticipée,
+-- arrivée tardive, absence sur un créneau qui n'a pas de cours prévu.
+
+-- Motifs d'absence, configurables par école. Une absence référence un
+-- motif (ou porte un texte libre si aucun motif ne convient). Les 10
+-- codes par défaut ci-dessous sont insérés automatiquement à chaque
+-- nouvelle école (voir provision_school, mis à jour plus bas) et par un
+-- backfill pour les écoles existantes.
+create table if not exists absence_motifs (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  code integer not null,
+  libelle text not null,
+  categorie text not null default 'justifiee' check (categorie in ('justifiee', 'non_justifiee', 'non_imputable', 'en_attente')),
+  actif boolean not null default true,
+  ordre integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (school_id, code)
+);
+create index if not exists absence_motifs_school_idx on absence_motifs(school_id);
+alter table absence_motifs enable row level security;
+
+drop policy if exists "absence_motifs: select" on absence_motifs;
+create policy "absence_motifs: select" on absence_motifs
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "absence_motifs: insert" on absence_motifs;
+create policy "absence_motifs: insert" on absence_motifs
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "absence_motifs: update" on absence_motifs;
+create policy "absence_motifs: update" on absence_motifs
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+drop policy if exists "absence_motifs: delete" on absence_motifs;
+create policy "absence_motifs: delete" on absence_motifs
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur')
+  );
+
+-- Événements d'absence : une ligne = une absence précise (date,
+-- demi-journée ou créneau horaire, motif, justifié/santé, durée). Aucun
+-- lien technique avec attendance_records : les deux peuvent coexister
+-- sur la même journée (appel rapide qui dit "absent" + saisie détaillée
+-- qui précise "absent le matin pour maladie, 3h30, justifié").
+create table if not exists absence_events (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  school_year_id uuid not null references school_years(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  date date not null,
+  demi_journee text not null default 'journee' check (demi_journee in ('matin', 'apres_midi', 'journee')),
+  heure_debut time,
+  heure_fin time,
+  -- Saisie manuelle : la vie scolaire tape le nombre d'heures réellement
+  -- manquées (ex. 3.5 pour "3h30"), pas un calcul auto depuis l'emploi
+  -- du temps. Format décimal pour permettre les demi-heures.
+  duree_heures numeric not null default 0,
+  motif_id uuid references absence_motifs(id) on delete set null,
+  motif_libre text,
+  justifie boolean not null default false,
+  sante boolean not null default false,
+  note text,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists absence_events_student_year_idx on absence_events(student_id, school_year_id);
+create index if not exists absence_events_year_date_idx on absence_events(school_year_id, date);
+alter table absence_events enable row level security;
+
+drop policy if exists "absence_events: select" on absence_events;
+create policy "absence_events: select" on absence_events
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "absence_events: insert" on absence_events;
+create policy "absence_events: insert" on absence_events
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+    and exists (select 1 from students s where s.id = absence_events.student_id and s.school_id = absence_events.school_id)
+    and exists (select 1 from school_years sy where sy.id = absence_events.school_year_id and sy.school_id = absence_events.school_id)
+  );
+drop policy if exists "absence_events: update" on absence_events;
+create policy "absence_events: update" on absence_events
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+    and exists (select 1 from students s where s.id = absence_events.student_id and s.school_id = absence_events.school_id)
+    and exists (select 1 from school_years sy where sy.id = absence_events.school_year_id and sy.school_id = absence_events.school_id)
+  );
+drop policy if exists "absence_events: delete" on absence_events;
+create policy "absence_events: delete" on absence_events
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+  );
+
+-- Retards : structure proche de absence_events, mais avec une heure de
+-- début obligatoire (un retard est par définition rattaché à un moment
+-- précis), une durée en MINUTES (plus lisible : "0h20" devient 20),
+-- et une matière concernée en texte libre (pas de FK vers subjects :
+-- un retard peut concerner une matière non planifiée ce jour-là, ou
+-- saisie avant que les matières ne soient toutes configurées).
+create table if not exists late_events (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  school_year_id uuid not null references school_years(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  date date not null,
+  heure_debut time not null,
+  duree_minutes integer not null default 0,
+  matiere text,
+  motif_id uuid references absence_motifs(id) on delete set null,
+  motif_libre text,
+  justifie boolean not null default false,
+  note text,
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now()
+);
+create index if not exists late_events_student_year_idx on late_events(student_id, school_year_id);
+create index if not exists late_events_year_date_idx on late_events(school_year_id, date);
+alter table late_events enable row level security;
+
+drop policy if exists "late_events: select" on late_events;
+create policy "late_events: select" on late_events
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire', 'enseignant')
+  );
+drop policy if exists "late_events: insert" on late_events;
+create policy "late_events: insert" on late_events
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+    and exists (select 1 from students s where s.id = late_events.student_id and s.school_id = late_events.school_id)
+    and exists (select 1 from school_years sy where sy.id = late_events.school_year_id and sy.school_id = late_events.school_id)
+  );
+drop policy if exists "late_events: update" on late_events;
+create policy "late_events: update" on late_events
+  for update using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+  )
+  with check (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+    and exists (select 1 from students s where s.id = late_events.student_id and s.school_id = late_events.school_id)
+    and exists (select 1 from school_years sy where sy.id = late_events.school_year_id and sy.school_id = late_events.school_id)
+  );
+drop policy if exists "late_events: delete" on late_events;
+create policy "late_events: delete" on late_events
+  for delete using (
+    school_id = current_school_id()
+    and current_role_name() in ('fondateur', 'directeur', 'censeur', 'secretaire')
+  );
+
+-- Backfill : les 10 motifs par défaut pour toutes les écoles existantes
+-- qui n'en ont pas encore (aucune au moment de cette migration, mais le
+-- bloc reste idempotent — on peut le rejouer sans risque).
+insert into absence_motifs (school_id, code, libelle, categorie, ordre)
+select s.id, m.code, m.libelle, m.categorie, m.ordre
+from schools s
+cross join (values
+  (1, 'Maladie (avec certificat)', 'justifiee', 1),
+  (2, 'Maladie (sans certificat)', 'justifiee', 2),
+  (3, 'Rendez-vous médical', 'justifiee', 3),
+  (4, 'Raison familiale / personnelle', 'justifiee', 4),
+  (5, 'Décision parentale (sécurité, voyage)', 'justifiee', 5),
+  (6, 'Grève / perturbation transports', 'non_imputable', 6),
+  (7, 'Fermeture exceptionnelle établissement', 'non_imputable', 7),
+  (8, 'Convocation administrative / judiciaire', 'justifiee', 8),
+  (9, 'Motif non encore connu', 'en_attente', 9),
+  (10, 'Non justifiée', 'non_justifiee', 10)
+) as m(code, libelle, categorie, ordre)
+where not exists (
+  select 1 from absence_motifs am where am.school_id = s.id
+);
+
+-- provision_school : insère aussi les 10 motifs par défaut à chaque
+-- nouvelle école. Sans ce bloc, chaque nouvelle école devrait les créer
+-- à la main avant de pouvoir saisir sa première absence. Signature et
+-- logique inchangées pour tout le reste — seuls 2 lignes ajoutées à la
+-- fin, avant le "return".
+create or replace function provision_school(p_school_name text, p_full_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_school_id uuid;
+  v_email text;
+  v_phone text;
+  v_year int;
+  v_label text;
+begin
+  if auth.uid() is null then
+    raise exception 'Non authentifié';
+  end if;
+  if exists (select 1 from profiles where id = auth.uid()) then
+    raise exception 'Un profil existe déjà pour cet utilisateur';
+  end if;
+  if not exists (select 1 from school_signup_invites where used_by = auth.uid() and used_at is not null) then
+    raise exception 'Aucun code d''inscription valide pour ce compte';
+  end if;
+
+  select email, phone into v_email, v_phone from auth.users where id = auth.uid();
+
+  insert into schools (name) values (p_school_name) returning id into v_school_id;
+
+  insert into profiles (id, school_id, full_name, role, email, phone)
+  values (auth.uid(), v_school_id, p_full_name, 'fondateur', v_email, v_phone);
+
+  v_year := extract(year from now())::int;
+  v_label := case
+    when extract(month from now())::int >= 9 then v_year::text || '-' || (v_year + 1)::text
+    else (v_year - 1)::text || '-' || v_year::text
+  end;
+  insert into school_years (school_id, label, is_current) values (v_school_id, v_label, true);
+
+  insert into absence_motifs (school_id, code, libelle, categorie, ordre) values
+    (v_school_id, 1, 'Maladie (avec certificat)', 'justifiee', 1),
+    (v_school_id, 2, 'Maladie (sans certificat)', 'justifiee', 2),
+    (v_school_id, 3, 'Rendez-vous médical', 'justifiee', 3),
+    (v_school_id, 4, 'Raison familiale / personnelle', 'justifiee', 4),
+    (v_school_id, 5, 'Décision parentale (sécurité, voyage)', 'justifiee', 5),
+    (v_school_id, 6, 'Grève / perturbation transports', 'non_imputable', 6),
+    (v_school_id, 7, 'Fermeture exceptionnelle établissement', 'non_imputable', 7),
+    (v_school_id, 8, 'Convocation administrative / judiciaire', 'justifiee', 8),
+    (v_school_id, 9, 'Motif non encore connu', 'en_attente', 9),
+    (v_school_id, 10, 'Non justifiée', 'non_justifiee', 10);
+
+  return v_school_id;
+end;
+$$;
