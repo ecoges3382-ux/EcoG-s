@@ -126,23 +126,23 @@ export default function Recouvrement() {
   const totalInscriptionPaye = enrichis.reduce((a, s) => a + s.inscriptionPaye, 0);
   const nbInscriptionPayes = enrichis.filter((s) => s.inscriptionPaye > 0).length;
 
-  const ecolagePrioritaires = enrichis
-    .filter((s) => s.resteEcolage > 0)
-    .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relance : true }))
-    .sort((a, b) => b.resteEcolage - a.resteEcolage);
-  const connexePrioritaires = enrichis
-    .filter((s) => s.resteConnexe > 0)
-    .map((s) => ({ ...s, enRetard: calendrierConfigure ? !!s.relance.relanceConnexe : true }))
-    .sort((a, b) => b.resteConnexe - a.resteConnexe);
-  const totalEcolagePrioritaire = ecolagePrioritaires.reduce((a, s) => a + s.resteEcolage, 0);
-  const totalConnexePrioritaire = connexePrioritaires.reduce((a, s) => a + s.resteConnexe, 0);
-
   const totalAttendu = totalEcolageDu + totalConnexeDu;
   const totalEncaisse = totalEcolagePaye + totalConnexePaye;
   const totalReste = totalEcolageReste + totalConnexeReste;
   const tauxGlobal = totalAttendu > 0 ? Math.round((totalEncaisse / totalAttendu) * 100) : 0;
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
+
+  // 👇 NOUVEAU : Fusion des élèves prioritaires (Écolage + Connexes) 👇
+  const elevesPrioritaires = enrichis
+    .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
+    .map((s) => {
+      const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
+      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe };
+    })
+    .filter((s) => s.enRetard)
+    .sort((a, b) => b.totalReste - a.totalReste);
+  // 👆 FIN DU NOUVEAU 👆
 
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const filtered = enrichis
@@ -266,28 +266,60 @@ export default function Recouvrement() {
         <TypeCard label="Frais connexes" du={totalConnexeDu} paye={totalConnexePaye} reste={totalConnexeReste} taux={tauxConnexe} />
       </div>
 
-      <div data-tour="recouvrement-priority" className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-        <PriorityCard
-          title="Priorité — Écolage"
-          icon="ti-cash"
-          accent="var(--forest)"
-          accentDark="var(--forest-dark)"
-          accentLight="var(--forest-light)"
-          students={ecolagePrioritaires}
-          getReste={(s) => s.resteEcolage}
-          totalReste={totalEcolagePrioritaire}
-        />
-        <PriorityCard
-          title="Priorité — Frais connexes"
-          icon="ti-receipt-2"
-          accent="var(--clay)"
-          accentDark="var(--clay-dark)"
-          accentLight="var(--clay-light)"
-          students={connexePrioritaires}
-          getReste={(s) => s.resteConnexe}
-          totalReste={totalConnexePrioritaire}
-        />
+      {/* 👇 NOUVELLE SECTION PRIORITÉ (Format Tableau) 👇 */}
+      <div data-tour="recouvrement-priority" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
+            Priorité du jour (Élèves à relancer)
+          </p>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'var(--danger-light)', padding: '4px 10px', borderRadius: 20 }}>
+            {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''} en retard
+          </span>
+        </div>
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
+          <div style={{ minWidth: 820 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
+              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11, background: 'var(--forest-light)' }}>Élève</span>
+              <span>Reste Écolage</span>
+              <span>Reste Connexes</span>
+              <span>Total Dû</span>
+              <span>Statut</span>
+            </div>
+            {elevesPrioritaires.map((s, i) => (
+              <Link
+                key={s.id}
+                to={`/eleves/${s.id}`}
+                className="row-link"
+                style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+              >
+                <div style={{ ...stickyColStyle('var(--row-bg, var(--paper, #ffffff))'), paddingLeft: 20, background: 'var(--row-bg, var(--paper, #ffffff))' }}>
+                  <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: s.resteEcolage > 0 ? 600 : 400, color: s.resteEcolage > 0 ? 'var(--danger)' : 'var(--muted)' }}>
+                  {s.resteEcolage > 0 ? fmtF(s.resteEcolage) : '—'}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: s.resteConnexe > 0 ? 600 : 400, color: s.resteConnexe > 0 ? 'var(--danger)' : 'var(--muted)' }}>
+                  {s.resteConnexe > 0 ? fmtF(s.resteConnexe) : '—'}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                  {fmtF(s.totalReste)}
+                </span>
+                <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
+                  À relancer
+                </span>
+              </Link>
+            ))}
+            {elevesPrioritaires.length === 0 && (
+              <p style={{ padding: 20, color: 'var(--success)', fontSize: 13, textAlign: 'center', fontWeight: 600 }}>
+                <i className="ti ti-check" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+                Aucun élève en retard ! Tout est à jour.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
+      {/* 👆 FIN DE LA NOUVELLE SECTION 👆 */}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
@@ -451,73 +483,6 @@ function TypeCard({ label, du, paye, reste, taux, inscription, count }) {
             {taux}% recouvré
           </p>
         </>
-      )}
-    </div>
-  );
-}
-
-function PriorityCard({ title, icon, accent, accentDark, accentLight, students, getReste, totalReste }) {
-  const enRetard = students.filter((s) => s.enRetard);
-  const aJour = students.length - enRetard.length;
-
-  return (
-    <div className="card-bold" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', maxHeight: 400 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <i className={`ti ${icon}`} style={{ fontSize: 18, color: accent }} aria-hidden="true"></i>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{title}</p>
-        </div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: accentDark, background: accentLight, padding: '3px 10px', borderRadius: 20 }}>
-          {students.length} élève{students.length > 1 ? 's' : ''}
-        </span>
-      </div>
-
-      <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
-        Total restant : <strong style={{ color: accentDark, fontSize: 14 }}>{fmtF(totalReste)}</strong>
-        {enRetard.length > 0 && (
-          <> · <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{enRetard.length} en retard</span></>
-        )}
-        {enRetard.length === 0 && aJour > 0 && (
-          <> · <span style={{ color: 'var(--amber)', fontWeight: 600 }}>{aJour} dans les délais</span></>
-        )}
-      </p>
-
-      {students.length === 0 ? (
-        <p style={{ margin: 'auto 0', padding: '14px 0', fontSize: 12.5, color: 'var(--success)', fontWeight: 600, textAlign: 'center' }}>
-          <i className="ti ti-check" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
-          Tout est à jour
-        </p>
-      ) : (
-        <div style={{ borderTop: '1px solid var(--line)', overflowY: 'auto', flex: 1, paddingRight: 4 }}>
-          {students.map((s, i) => (
-            <Link
-              key={s.id}
-              to={`/eleves/${s.id}`}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 0', textDecoration: 'none', color: 'inherit',
-                borderBottom: i < students.length - 1 ? '1px solid var(--line)' : 'none', gap: 8,
-              }}
-            >
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.full_name}
-                </p>
-                <p style={{ margin: 0, fontSize: 10.5, color: 'var(--muted)' }}>{s.niveau}</p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: s.enRetard ? 'var(--danger)' : 'var(--amber)' }}>
-                  {fmtF(getReste(s))}
-                </span>
-                {s.enRetard && (
-                  <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--danger)', padding: '2px 7px', borderRadius: 10, background: 'var(--danger-light)', whiteSpace: 'nowrap' }}>
-                    RETARD
-                  </span>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
       )}
     </div>
   );
