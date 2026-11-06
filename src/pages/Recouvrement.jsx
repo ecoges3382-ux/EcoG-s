@@ -133,7 +133,6 @@ export default function Recouvrement() {
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
 
-  // 👇 NOUVEAU : Fusion des élèves prioritaires (Écolage + Connexes) 👇
   const elevesPrioritaires = enrichis
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
@@ -142,7 +141,6 @@ export default function Recouvrement() {
     })
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
-  // 👆 FIN DU NOUVEAU 👆
 
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
   const filtered = enrichis
@@ -266,7 +264,6 @@ export default function Recouvrement() {
         <TypeCard label="Frais connexes" du={totalConnexeDu} paye={totalConnexePaye} reste={totalConnexeReste} taux={tauxConnexe} />
       </div>
 
-      {/* 👇 NOUVELLE SECTION PRIORITÉ (Format Tableau) 👇 */}
       <div data-tour="recouvrement-priority" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
@@ -292,7 +289,8 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                <div style={{ ...stickyColStyle('var(--row-bg, var(--paper, #ffffff))'), paddingLeft: 20, background: 'var(--row-bg, var(--paper, #ffffff))' }}>
+                {/* 👇 CORRECTION ICI : FOND OPAQUE + Z-INDEX 👇 */}
+                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, background: 'var(--paper)', zIndex: 10 }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
@@ -319,7 +317,6 @@ export default function Recouvrement() {
           </div>
         </div>
       </div>
-      {/* 👆 FIN DE LA NOUVELLE SECTION 👆 */}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
@@ -391,7 +388,8 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                <div style={{ ...stickyColStyle('var(--row-bg, var(--paper, #ffffff))'), paddingLeft: 20, background: 'var(--row-bg, var(--paper, #ffffff))' }}>
+                {/* 👇 CORRECTION ICI : FOND OPAQUE + Z-INDEX 👇 */}
+                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, background: 'var(--paper)', zIndex: 10 }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
