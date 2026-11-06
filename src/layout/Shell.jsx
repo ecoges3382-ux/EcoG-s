@@ -9,6 +9,7 @@ import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
 import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
+import GlobalSearch from '../components/GlobalSearch.jsx';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
@@ -70,12 +71,26 @@ export default function Shell() {
   const schoolName = profile?.schools?.name || 'EcoGès';
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
   const plan = profile?.schools?.plan || 'decouverte';
+  
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const hasAccess = (perm) => {
     if (!perm) return true;
     if (profile?.role === 'fondateur') return true;
     return profile?.permissions?.[perm] === true;
   };
+
+  // Raccourci clavier global pour la recherche (Cmd+K ou Ctrl+K)
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     document.body.classList.add('app-mode');
@@ -89,9 +104,11 @@ export default function Shell() {
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
+      {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
+
       <div id="app">
         <div className="topbar-row" style={{ background: 'var(--forest)', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, flex: '1 1 0' }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
               {profile?.schools?.logo_url
                 ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -101,7 +118,23 @@ export default function Shell() {
               {schoolName}
             </p>
           </div>
-          <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+
+          {/* 👇 NOUVELLE BARRE DE RECHERCHE VISUELLE AU CENTRE 👇 */}
+          <button 
+            onClick={() => setSearchOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 14px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', width: '100%', maxWidth: 320, transition: 'background 0.2s' }}
+            className="hide-on-mobile"
+          >
+            <i className="ti ti-search" style={{ fontSize: 16 }} aria-hidden="true"></i>
+            <span style={{ fontSize: 13, flex: 1, textAlign: 'left' }}>Rechercher...</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>Ctrl</kbd>
+              <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>K</kbd>
+            </div>
+          </button>
+          {/* 👆 FIN DE LA BARRE DE RECHERCHE 👆 */}
+
+          <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0, flex: '1 1 0', justifyContent: 'flex-end' }}>
             <SchoolYearSelector />
             {isPlatformAdmin && (
               <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
