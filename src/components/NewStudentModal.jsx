@@ -189,7 +189,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // 🔥 Nouveaux states pour l'auto-print
   const [createdPayment, setCreatedPayment] = useState(null);
   const [schoolYearInfo, setSchoolYearInfo] = useState(null);
 
@@ -203,7 +202,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   const libelleFrais = typeInscription === 'reinscription' ? "Frais de réinscription" : "Frais d'inscription";
 
-  // 🔥 Charge l'année scolaire (une seule fois)
   useEffect(() => {
     if (!schoolYearId) return;
     supabase.from('school_years')
@@ -305,7 +303,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
     let targetStudentId = student?.id || null;
 
-    // ===== MODE MODIFICATION =====
     if (isEditing) {
       const { error: studentError } = await supabase
         .from('students')
@@ -333,7 +330,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         if (enrollmentError) { setSubmitting(false); setError(enrollmentError.message); return; }
       }
 
-      // PARENT 1
       if (canManageParents) {
         if (useExistingParent && selectedExistingParentId) {
           if (editingParentId && editingParentId !== selectedExistingParentId) {
@@ -367,7 +363,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         }
       }
 
-      // PARENT 2
       if (canManageParents && hasSecondParent) {
         if (useExistingParent2 && selectedExistingParentId2) {
           if (editingParent2Id && editingParent2Id !== selectedExistingParentId2) {
@@ -410,7 +405,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       return;
     }
 
-    // ===== MODE CRÉATION =====
     const studentParentPhone = (canManageParents && !useExistingParent && parentNom.trim())
       ? composePhone(parentAccessDial, parentAccessLocal) || null
       : null;
@@ -486,7 +480,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       }
     }
 
-    // 🔥 Si un paiement à l'inscription a été saisi, on récupère le paiement créé par le RPC
     if (Number(paiementMontant) > 0 && targetStudentId) {
       const { data: newPayment } = await supabase.from('payments')
         .select('id, montant, type_frais, mode, tranche, date, note')
@@ -497,7 +490,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         .maybeSingle();
 
       if (newPayment) {
-        // On stocke les codes pour l'affichage après fermeture du reçu
         setResult({ code: newParentCode, secondCode: newParent2Code });
         setCreatedPayment(newPayment);
         setSubmitting(false);
@@ -521,7 +513,6 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     navigator.clipboard.writeText(url).then(() => setCopied(true));
   }
 
-  // 🔥 Rendu du reçu après inscription avec paiement
   if (createdPayment && schoolYearInfo) {
     const enrollmentData = {
       montant_du: Number(montantDu) || 0,
@@ -542,7 +533,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         enrollment={enrollmentData}
         schoolYear={schoolYearInfo}
         feeSchedule={selectedClasse ? feeSchedules[selectedClasse.niveau] : null}
-        autoPrint={true}
+        autoPrint={false} // 👈 MODIFICATION ICI
         onClose={onCreated}
       />
     );
