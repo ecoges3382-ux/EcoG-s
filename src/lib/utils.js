@@ -274,3 +274,12 @@ export function stickyHeaderStyle(bg) {
     WebkitBackfaceVisibility: 'hidden',
   };
 }
+// Force la date locale du navigateur (fuseau horaire de l'utilisateur)
+// au lieu de l'heure UTC (qui décale les dates tard le soir).
+export function todayLocalIso() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
