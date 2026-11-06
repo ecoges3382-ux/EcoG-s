@@ -10,9 +10,9 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 
-// Liste des onglets du menu latéral avec leur clé de permission
 const SIDEBAR_ITEMS = [
-  { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
+  // NOUVEAU : ajout de perm: 'dashboard'
+  { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet', perm: 'finance' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', perm: 'finance', tourId: 'sidebar-recouvrement' },
   { to: '/eleves', label: 'Élèves', icon: 'ti-users', perm: 'eleves', countKey: 'students', tourId: 'sidebar-eleves' },
@@ -28,13 +28,12 @@ const SIDEBAR_ITEMS = [
   { to: '/documents', label: 'Documents', icon: 'ti-file', perm: 'documents', feature: 'documents' },
   { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', perm: 'rapports', feature: 'advanced_reports' },
   { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'sidebar-parametres' },
-  // Comptes est accessible uniquement depuis l'intérieur de la page Paramètres
 ];
 
 const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/matieres', '/notes', '/bulletins', '/emploi-du-temps', '/presences', '/annonces', '/documents', '/rapports'];
 
 const BOTTOM_NAV_ITEMS = [
-  { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', end: true },
+  { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet', perm: 'finance' },
   { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', perm: 'finance', tourId: 'bottomnav-recouvrement' },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', perm: 'eleves', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
@@ -73,16 +72,12 @@ export default function Shell() {
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
   const plan = profile?.schools?.plan || 'decouverte';
 
-  // 👇 C'EST ICI QUE LA RÈGLE STRICTE EST APPLIQUÉE 👇
+  // La règle stricte
   const hasAccess = (perm) => {
-    // 1. Si la page n'a pas besoin de permission (ex: Tableau de bord), on affiche.
     if (!perm) return true; 
-    // 2. Le fondateur voit tout, toujours.
     if (profile?.role === 'fondateur') return true;
-    // 3. STRICT : Pour tous les autres, il faut que ce soit EXACTEMENT true.
     return profile?.permissions?.[perm] === true;
   };
-  // 👆 FIN DE LA RÈGLE STRICTE 👆
 
   useEffect(() => {
     document.body.classList.add('app-mode');
@@ -145,7 +140,6 @@ export default function Shell() {
 
       <div id="bottomnav">
         {BOTTOM_NAV_ITEMS.map((item) => {
-          // Application de la règle stricte
           if (!hasAccess(item.perm)) return null;
 
           const isActive = item.group
@@ -208,7 +202,6 @@ function SidebarMenu({ plan, hasAccess }) {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
-  // On filtre selon le plan ET selon la règle stricte des permissions
   const visibleItems = SIDEBAR_ITEMS.filter((item) => {
     if (item.feature && !hasFeature(plan, item.feature)) return false;
     if (!hasAccess(item.perm)) return false;
