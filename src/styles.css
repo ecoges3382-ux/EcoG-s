@@ -235,3 +235,9 @@ body.app-mode .page-title { color: #fff !important; }
     max-height: calc(100vh - 360px) !important;
   }
 }
+/* Cache la barre de recherche au centre sur mobile pour laisser de la place au nom de l'école */
+@media (max-width: 900px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
