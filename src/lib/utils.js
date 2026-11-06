@@ -3,24 +3,36 @@ export function fmt(n) {
   return Number(n ?? 0).toLocaleString('de-DE');
 }
 
+// Force la date locale du navigateur (fuseau horaire de l'utilisateur)
+// au lieu de l'heure UTC (qui décale les dates tard le soir).
+function toLocalIso(dateObj) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalIso(new Date());
 }
 
 export function startOfWeekIso(iso) {
   const d = new Date(`${iso}T00:00:00`);
   const day = d.getDay();
   d.setDate(d.getDate() + ((day === 0 ? -6 : 1) - day));
-  return d.toISOString().slice(0, 10);
+  return toLocalIso(d);
 }
+
 export function endOfWeekIso(iso) {
   const d = new Date(`${startOfWeekIso(iso)}T00:00:00`);
   d.setDate(d.getDate() + 6);
-  return d.toISOString().slice(0, 10);
+  return toLocalIso(d);
 }
+
 export function startOfMonthIso(iso) {
   return `${iso.slice(0, 7)}-01`;
 }
+
 export function endOfMonthIso(iso) {
   const [y, m] = iso.slice(0, 7).split('-').map(Number);
   return `${iso.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
@@ -273,13 +285,4 @@ export function stickyHeaderStyle(bg) {
     backfaceVisibility: 'hidden',
     WebkitBackfaceVisibility: 'hidden',
   };
-}
-// Force la date locale du navigateur (fuseau horaire de l'utilisateur)
-// au lieu de l'heure UTC (qui décale les dates tard le soir).
-export function todayLocalIso() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
