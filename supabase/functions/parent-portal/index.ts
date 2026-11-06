@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
       }
 
       if (!targetYear) {
-        return jsonResponse({ full_name: access.full_name, school, student, years, school_year: null, enrollment: null, payments: [], attendance: [], grades: [], subjects: [], rangs: null, fee_schedule: null, announcements: [] });
+        return jsonResponse({ full_name: access.full_name, school, student, years, school_year: null, enrollment: null, payments: [], attendance: [], absence_events: [], late_events: [], grades: [], subjects: [], rangs: null, fee_schedule: null, announcements: [] });
       }
 
       const { data: enr } = await adminClient
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
       const niveau = enr?.classes?.niveau || null;
       const today = new Date().toISOString().slice(0, 10);
 
-      const [{ data: payments }, { data: attendance }, { data: subjects }, { data: myGrades }, { data: feeSchedule }, { data: classmateEnrollments }, { data: announcements }] = await Promise.all([
+      const [{ data: payments }, { data: attendance }, { data: subjects }, { data: myGrades }, { data: feeSchedule }, { data: classmateEnrollments }, { data: announcements }, { data: absenceEvents }, { data: lateEvents }] = await Promise.all([
         adminClient.from('payments').select('id, montant, type_frais, mode, tranche, date, note').eq('student_id', student.id).eq('school_year_id', targetYear.id).order('date', { ascending: false }),
         adminClient.from('attendance_records').select('date, statut').eq('student_id', student.id).eq('school_year_id', targetYear.id).order('date', { ascending: false }),
         adminClient.from('subjects').select('id, nom, coefficient, niveau').eq('school_id', access.school_id),
@@ -278,6 +278,8 @@ Deno.serve(async (req) => {
           ? adminClient.from('enrollments').select('student_id').eq('school_year_id', targetYear.id).eq('classe_id', enr.classe_id)
           : Promise.resolve({ data: [] as { student_id: string }[] }),
         adminClient.from('announcements').select('*').eq('school_id', access.school_id).eq('statut', 'publiee').or(`school_year_id.is.null,school_year_id.eq.${targetYear.id}`).order('created_at', { ascending: false }).limit(20),
+        adminClient.from('absence_events').select('*, absence_motifs(code, libelle, categorie)').eq('student_id', student.id).eq('school_year_id', targetYear.id).order('date', { ascending: false }),
+        adminClient.from('late_events').select('*, absence_motifs(code, libelle, categorie)').eq('student_id', student.id).eq('school_year_id', targetYear.id).order('date', { ascending: false }),
       ]);
 
       const subjectsById = new Map((subjects || []).map((s: { id: string }) => [s.id, s]));
@@ -332,6 +334,8 @@ Deno.serve(async (req) => {
         fee_schedule: feeSchedule || null,
         payments: payments || [],
         attendance: attendance || [],
+        absence_events: absenceEvents || [],
+        late_events: lateEvents || [],
         grades: gradesWithSubject,
         subjects: subjectsForNiveau,
         rangs,
