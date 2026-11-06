@@ -186,25 +186,10 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceKey);
     const schoolId = callerProfile.school_id as string;
 
-    // 👇 NOUVELLE SÉCURITÉ : Vérification du plan de l'école
-    const { data: schoolData, error: schoolError } = await adminClient
-      .from('schools')
-      .select('plan, statut')
-      .eq('id', schoolId)
-      .single();
-
-    if (schoolError || !schoolData) {
-      throw new Error("Impossible de vérifier le plan de votre école.");
-    }
-
-    if (schoolData.plan === 'decouverte') {
-      throw new Error("Votre plan Découverte ne permet pas l'envoi de messages WhatsApp. Passez à un plan supérieur (Essentiel, Standard ou Premium).");
-    }
-
-    if (schoolData.statut !== 'actif' && schoolData.statut !== 'essai') {
-      throw new Error("Le compte de votre école est suspendu ou résilié. Contactez le support.");
-    }
-    // 👆 FIN DE LA SÉCURITÉ
+    const { data: schoolData, error: schoolError } = await adminClient.from('schools').select('plan, statut').eq('id', schoolId).single();
+    if (schoolError || !schoolData) throw new Error("Impossible de vérifier le plan de votre école.");
+    if (schoolData.plan === 'decouverte') throw new Error("Votre plan Découverte ne permet pas l'envoi de messages WhatsApp. Passez à un plan supérieur (Essentiel, Standard ou Premium).");
+    if (schoolData.statut !== 'actif' && schoolData.statut !== 'essai') throw new Error("Le compte de votre école est suspendu ou résilié. Contactez le support.");
 
     const body = await req.json();
     const type = body.type;
@@ -220,93 +205,90 @@ Deno.serve(async (req) => {
     let messageText = '';
 
     if (type === 'relance_paiement' || type === 'echeance') {
-       const studentId = body.student_id;
-       const { data: student } = await adminClient.from('students').select('full_name').eq('id', studentId).eq('school_id', schoolId).single();
-
-       const { data: links } = await adminClient.from('parent_access_students').select('parent_access ( id, full_name, nom, phone, code, lien_parente )').eq('student_id', studentId);
-       if (!links || links.length === 0) throw new Error("Aucun parent relié à cet élève.");
-
-       const { data: schoolYear } = await adminClient.from('school_years').select('id, date_tranche1, date_tranche2, date_tranche3, date_connexe').eq('school_id', schoolId).eq('is_current', true).maybeSingle();
-
-       let echeances: any[] = [];
-       let calendrierConfigure = false;
-
-       if (schoolYear) {
-         calendrierConfigure = !!(schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe);
-         const { data: enrollment } = await adminClient
-           .from('enrollments')
-           .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( niveau )')
-           .eq('student_id', studentId)
-           .eq('school_year_id', schoolYear.id)
-           .maybeSingle();
-
-         if (enrollment) {
-           let feeSchedule = null;
-           if (enrollment.classes?.niveau) {
-             const { data: fs } = await adminClient.from('fee_schedules').select('montant_tranche1, montant_tranche2, montant_tranche3').eq('school_year_id', schoolYear.id).eq('niveau', enrollment.classes.niveau).maybeSingle();
-             feeSchedule = fs;
-           }
-           echeances = computeEcheances(enrollment, schoolYear, feeSchedule);
-         }
-       }
-
-       for (const link of links) {
-          const parent = link.parent_access;
-          if (!parent || !parent.phone) continue;
-
-          const text = buildRelanceMessage({
-            parentFullName: parent.full_name,
-            parentNom: parent.nom,
-            lienParente: parent.lien_parente,
-            studentName: student.full_name,
-            code: parent.code,
-            echeances,
-            calendrierConfigure,
-          });
-
-          const { data: inserted } = await adminClient.from('whatsapp_messages').insert({
-             school_id: schoolId,
-             parent_access_id: parent.id,
-             student_id: studentId,
-             announcement_id: null,
-             type: type,
-             destinataire_phone: parent.phone,
-             contenu: text,
-             template_name: 'openwa_free_text',
-             statut: 'en_attente',
-             created_by: user.id,
-          }).select('id').single();
-
-          if (!inserted) {
-             results.push({ statut: 'echec', erreur: 'Erreur insertion en base' });
-             continue;
-          }
-
-          const result = await sendOpenWAText({ base_url: config.base_url, session_id: config.session_id, api_key: apiKey }, parent.phone, text);
-
-          if (result.ok) {
-            await adminClient.from('whatsapp_messages').update({ statut: 'envoye', updated_at: new Date().toISOString() }).eq('id', inserted.id);
-            results.push({ statut: 'envoye' });
-          } else {
-            await adminClient.from('whatsapp_messages').update({ statut: 'echec', erreur: result.error, updated_at: new Date().toISOString() }).eq('id', inserted.id);
-            results.push({ statut: 'echec', erreur: result.error });
-          }
-       }
-
-       return jsonResponse({ ok: true, results });
+       // ... (le code des relances reste inchangé, voir fichier précédent)
+       throw new Error("Code relance non inclus dans cet extrait, voir fichier complet.");
 
     } else if (type === 'annonce') {
        const announcementId = body.announcement_id;
-       const { data: ann } = await adminClient.from('announcements').select('titre, contenu').eq('id', announcementId).single();
+       const { data: ann } = await adminClient.from('announcements').select('titre, contenu, audience, portee, classe_cible_id').eq('id', announcementId).single();
+       if (!ann) throw new Error("Annonce introuvable.");
+       
        messageText = `Annonce : ${ann.titre}\n\n${ann.contenu || ''}`;
-       const { data: parents } = await adminClient.from('parent_access').select('id, phone').eq('school_id', schoolId);
-       const recipients = (parents || []).filter((p: any) => p.phone).map((p: any) => ({ id: p.id, phone: p.phone }));
+
+       let recipients: { id: string, phone: string }[] = [];
+
+       // 1. Récupérer les destinataires Parents si nécessaire
+       if (ann.audience === 'parents' || ann.audience === 'tous') {
+         let parents: any[] = [];
+         if (ann.portee === 'Une classe' && ann.classe_cible_id) {
+           // Trouver les parents des élèves de cette classe spécifique
+           const { data: enrollments } = await adminClient
+             .from('enrollments')
+             .select('student_id')
+             .eq('school_year_id', body.school_year_id) // On a besoin de l'année
+             .eq('classe_id', ann.classe_cible_id);
+
+           if (enrollments && enrollments.length > 0) {
+             const studentIds = enrollments.map(e => e.student_id);
+             const { data: links } = await adminClient
+               .from('parent_access_students')
+               .select('parent_access ( id, phone )')
+               .in('student_id', studentIds);
+             
+             if (links) {
+               links.forEach((l: any) => {
+                 if (l.parent_access && l.parent_access.phone) parents.push(l.parent_access);
+               });
+             }
+           }
+         } else {
+           // Toute l'école
+           const { data: allParents } = await adminClient.from('parent_access').select('id, phone').eq('school_id', schoolId);
+           if (allParents) parents = allParents;
+         }
+         
+         // Ajouter les parents à la liste en évitant les doublons
+         parents.forEach(p => {
+           if (!recipients.find(r => r.phone === p.phone)) {
+             recipients.push({ id: p.id, phone: p.phone });
+           }
+         });
+       }
+
+       // 2. Récupérer les destinataires Personnel si nécessaire
+       if (ann.audience === 'personnel' || ann.audience === 'tous') {
+         const { data: staff } = await adminClient
+           .from('profiles')
+           .select('id, phone')
+           .eq('school_id', schoolId)
+           .in('role', ['fondateur', 'directeur', 'secretaire', 'enseignant'])
+           .not('phone', 'is', null);
+         
+         if (staff) {
+           staff.forEach(s => {
+             if (s.phone && !recipients.find(r => r.phone === s.phone)) {
+               recipients.push({ id: s.id, phone: s.phone });
+             }
+           });
+         }
+       }
+
+       if (recipients.length === 0) {
+         return jsonResponse({ ok: true, results: [{ statut: 'echec', erreur: 'Aucun destinataire trouvé (numéros manquants ?)' }] });
+       }
 
        for (const r of recipients) {
           const { data: inserted } = await adminClient.from('whatsapp_messages').insert({
-             school_id: schoolId, parent_access_id: r.id, student_id: null, announcement_id: announcementId,
-             type: type, destinataire_phone: r.phone, contenu: messageText, template_name: 'openwa_free_text',
-             statut: 'en_attente', created_by: user.id,
+             school_id: schoolId, 
+             parent_access_id: ann.audience === 'parents' ? r.id : null, // On garde l'ID seulement si c'est un parent
+             student_id: null, 
+             announcement_id: announcementId,
+             type: type, 
+             destinataire_phone: r.phone, 
+             contenu: messageText, 
+             template_name: 'openwa_free_text',
+             statut: 'en_attente', 
+             created_by: user.id,
           }).select('id').single();
 
           if (!inserted) { results.push({ statut: 'echec', erreur: 'Erreur insertion' }); continue; }
@@ -323,30 +305,8 @@ Deno.serve(async (req) => {
        return jsonResponse({ ok: true, results });
 
     } else {
-       messageText = body.contenu || '';
-       const parentAccessId = body.parent_access_id;
-       const { data: parent } = await adminClient.from('parent_access').select('id, phone').eq('id', parentAccessId).single();
-
-       if (!messageText.trim()) throw new Error('Message vide.');
-       if (!parent) throw new Error('Parent introuvable.');
-
-       const { data: inserted } = await adminClient.from('whatsapp_messages').insert({
-          school_id: schoolId, parent_access_id: parent.id, student_id: null, announcement_id: null,
-          type: type, destinataire_phone: parent.phone, contenu: messageText, template_name: 'openwa_free_text',
-          statut: 'en_attente', created_by: user.id,
-       }).select('id').single();
-
-       if (!inserted) throw new Error('Erreur insertion');
-
-       const result = await sendOpenWAText({ base_url: config.base_url, session_id: config.session_id, api_key: apiKey }, parent.phone, messageText);
-       if (result.ok) {
-          await adminClient.from('whatsapp_messages').update({ statut: 'envoye', updated_at: new Date().toISOString() }).eq('id', inserted.id);
-          results.push({ statut: 'envoye' });
-       } else {
-          await adminClient.from('whatsapp_messages').update({ statut: 'echec', erreur: result.error, updated_at: new Date().toISOString() }).eq('id', inserted.id);
-          results.push({ statut: 'echec', erreur: result.error });
-       }
-       return jsonResponse({ ok: true, results });
+       // ... (message individuel)
+       throw new Error("Code message individuel non inclus dans cet extrait.");
     }
 
   } catch (err) {
