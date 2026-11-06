@@ -93,10 +93,6 @@ export default function Announce() {
     reload();
   }
 
-  // Supabase renvoie error: null même quand la policy RLS bloque la
-  // suppression — il faut donc vérifier que des lignes ont bien été
-  // supprimées (.select('id') renvoie les lignes effacées, ou [] si
-  // la RLS a bloqué silencieusement).
   async function handleDelete(item) {
     const label = item.statut === 'brouillon' ? 'ce brouillon' : item.statut === 'archivee' ? 'cette annonce archivée' : 'cette annonce';
     if (!(await confirm(`Supprimer définitivement ${label} ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
@@ -110,7 +106,7 @@ export default function Announce() {
     setDeletingId(null);
     if (deleteError) { setError(deleteError.message); return; }
     if (!deleted || deleted.length === 0) {
-      setError("La suppression n'a pas été effectuée. La policy RLS de la table announcements bloque probablement cette action — vérifie dans Supabase (Dashboard → Authentication → Policies) qu'une policy autorise bien le DELETE pour ton rôle.");
+      setError("La suppression n'a pas été effectuée. La policy RLS bloque probablement cette action.");
       return;
     }
     reload();
@@ -196,6 +192,7 @@ export default function Announce() {
 
 function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onSaved, onError }) {
   const showToast = useToast();
+  const [audience, setAudience] = useState(editing?.audience || 'parents');
   const [portee, setPortee] = useState(editing ? (editing.classe_cible_id ? 'Une classe' : 'École entière') : 'École entière');
   const [classeCibleId, setClasseCibleId] = useState(editing?.classe_cible_id || '');
   const [titre, setTitre] = useState(editing?.titre || '');
@@ -209,14 +206,16 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
 
   async function submit(statut) {
     if (!titre.trim()) { onError('Le titre est obligatoire.'); return; }
-    if (portee === 'Une classe' && !classeCibleId) { onError('Choisis une classe.'); return; }
+    if (audience === 'parents' && portee === 'Une classe' && !classeCibleId) { onError('Choisis une classe.'); return; }
+    
     setSubmitting(statut);
     onError('');
     const payload = {
       titre: titre.trim(),
       contenu: contenu.trim(),
-      portee,
-      classe_cible_id: portee === 'Une classe' ? classeCibleId : null,
+      audience,
+      portee: audience === 'personnel' ? 'École entière' : portee,
+      classe_cible_id: (audience === 'parents' && portee === 'Une classe') ? classeCibleId : null,
       date_expiration: dateExpiration || null,
       statut,
       school_year_id: activeYear?.id || null,
@@ -242,25 +241,48 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
       <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>
         {editing ? 'Modifier l\'annonce' : 'Nouvelle annonce'} — en tant que {ROLES[profile.role]?.label || profile.role}
       </p>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        {['École entière', 'Une classe'].map((p) => (
-          <button
-            type="button" key={p} onClick={() => setPortee(p)}
-            style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: portee === p ? 'none' : '1px solid var(--line-strong)', background: portee === p ? 'var(--forest)' : 'var(--paper)', color: portee === p ? '#fff' : 'var(--ink)' }}
-          >
-            {p}
-          </button>
-        ))}
-        {portee === 'Une classe' && (
-          <Dropdown
-            value={classeCibleId}
-            onChange={setClasseCibleId}
-            options={classes.length === 0 ? [{ value: '', label: 'Aucune classe' }] : classes.map((c) => ({ value: c.id, label: c.nom }))}
-            style={{ padding: '7px 12px', fontSize: 12.5, fontWeight: 600 }}
-            wrapperStyle={{ width: 'auto', minWidth: 180 }}
-          />
-        )}
+      
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Destinataires</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            { id: 'parents', label: 'Parents' },
+            { id: 'personnel', label: 'Enseignants / Équipe' },
+            { id: 'tous', label: 'Parents et Personnel' }
+          ].map((a) => (
+            <button
+              type="button" key={a.id} onClick={() => setAudience(a.id)}
+              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: audience === a.id ? 'none' : '1px solid var(--line-strong)', background: audience === a.id ? 'var(--clay)' : 'var(--paper)', color: audience === a.id ? '#fff' : 'var(--ink)' }}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {audience === 'parents' && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Ciblage :</span>
+          {['École entière', 'Une classe'].map((p) => (
+            <button
+              type="button" key={p} onClick={() => setPortee(p)}
+              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: portee === p ? 'none' : '1px solid var(--line-strong)', background: portee === p ? 'var(--forest)' : 'var(--paper)', color: portee === p ? '#fff' : 'var(--ink)' }}
+            >
+              {p}
+            </button>
+          ))}
+          {portee === 'Une classe' && (
+            <Dropdown
+              value={classeCibleId}
+              onChange={setClasseCibleId}
+              options={classes.length === 0 ? [{ value: '', label: 'Aucune classe' }] : classes.map((c) => ({ value: c.id, label: c.nom }))}
+              style={{ padding: '7px 12px', fontSize: 12.5, fontWeight: 600 }}
+              wrapperStyle={{ width: 'auto', minWidth: 180 }}
+            />
+          )}
+        </div>
+      )}
+
       <input
         value={titre}
         onChange={(e) => setTitre(e.target.value)}
@@ -317,13 +339,14 @@ function timeAgo(dateStr) {
 function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDelete }) {
   const confirm = useConfirm();
   const cibleLabel = a.portee === 'Une classe' ? (a.classes?.nom || a.classe_cible || 'Classe') : a.portee;
+  const audienceLabel = a.audience === 'tous' ? 'Parents & Personnel' : a.audience === 'personnel' ? 'Personnel' : 'Parents';
   const expiree = a.date_expiration && a.date_expiration < todayIso() && a.statut === 'publiee';
   const st = STATUT_LABELS[a.statut] || STATUT_LABELS.publiee;
   const [waSending, setWaSending] = useState(false);
   const [waResult, setWaResult] = useState(null);
 
   async function diffuserWhatsApp() {
-    if (!(await confirm(`Diffuser « ${a.titre} » par WhatsApp à ${cibleLabel === 'École entière' ? 'tous les parents' : `la classe « ${cibleLabel} »`} ?`, { confirmLabel: 'Diffuser', danger: false }))) return;
+    if (!(await confirm(`Diffuser « ${a.titre} » par WhatsApp à ${audienceLabel} ?`, { confirmLabel: 'Diffuser', danger: false }))) return;
     setWaSending(true);
     setWaResult(null);
     try {
@@ -338,9 +361,14 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
   return (
     <div style={{ padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
-          {cibleLabel}
+        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'var(--gold-light)', color: 'var(--clay-dark)' }}>
+          {audienceLabel}
         </span>
+        {a.audience !== 'personnel' && (
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
+            {cibleLabel}
+          </span>
+        )}
         <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
         {expiree && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: '#F0EDE5', color: 'var(--muted)' }}>Expirée</span>}
         <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
