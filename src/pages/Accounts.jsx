@@ -18,6 +18,7 @@ const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 const PERMISSIONS_LABELS = {
+  dashboard: 'Tableau de bord',
   eleves: 'Gestion des élèves',
   parents: 'Portail parents',
   personnel: 'Gestion du personnel',
@@ -202,6 +203,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   const [error, setError] = useState('');
 
   const [permissions, setPermissions] = useState(editing?.permissions || {
+    dashboard: true,
     eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
     notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
     annonces: true, documents: true, rapports: false, finance: false, parametres: false
