@@ -323,7 +323,7 @@ function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
 }
 
 function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
-  const { student, school, school_year: schoolYear, enrollment, years, payments, attendance, grades, subjects, rangs, announcements } = detail;
+  const { student, school, school_year: schoolYear, enrollment, years, payments, attendance, absence_events, late_events, grades, subjects, rangs, announcements } = detail;
   const isHistorical = schoolYear && years?.length && !schoolYear.is_current;
   const annuel = periode === 'annuel';
   const [receiptPayment, setReceiptPayment] = useState(null);
@@ -353,13 +353,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
   ));
   const moyenneGenerale = annuel ? annualMoyenneGenerale(subjects, grades, student.id) : periodeMoyenneGenerale(subjects, grades, student.id, periode);
   const rang = rangs?.[periode] || null;
-
-  const nbAbsences = (attendance || []).filter((a) => a.statut === 'absent').length;
-  const nbRetards = (attendance || []).filter((a) => a.statut === 'retard').length;
-  const nbPresent = (attendance || []).filter((a) => a.statut === 'present').length;
-  const totalAppels = (attendance || []).length;
-  const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
-  const absencesEtRetards = (attendance || []).filter((a) => a.statut !== 'present').slice(0, 15);
 
   const notesDetaillees = (() => {
     const gradesPourPeriode = annuel
@@ -399,9 +392,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     return { blob, filename };
   }
 
-  // 🔥 PRÉ-GÉNÉRATION DU PDF : dès que la fiche est prête, on génère le blob en arrière-plan.
-  // Ça résout le problème iOS "not allowed by user agent" car au moment du clic
-  // sur Partager, le blob est déjà prêt → navigator.share est appelé sans await.
   useEffect(() => {
     if (!enrollment) return;
     let cancelled = false;
@@ -426,7 +416,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periode, enrollment?.id, student.full_name]);
 
-  // 🔥 TÉLÉCHARGER : PC = showSaveFilePicker, Mobile = a.download
   async function downloadBulletinPDF() {
     setPdfLoading(true);
     try {
@@ -441,7 +430,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
 
       const mobile = isMobileDevice();
 
-      // PC Chrome/Edge : boîte "Enregistrer sous" native
       if (!mobile && typeof window.showSaveFilePicker === 'function') {
         try {
           const handle = await window.showSaveFilePicker({
@@ -458,7 +446,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         }
       }
 
-      // Mobile + PC fallback : a.download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -477,8 +464,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     setPdfLoading(false);
   }
 
-  // 🔥 PARTAGER : utilise le blob DÉJÀ PRÊT (pré-généré) pour ne pas perdre
-  // la "user activation" requise par iOS pour navigator.share
   async function shareBulletinPDF() {
     if (!pdfBlob) {
       alert('Le PDF est en cours de préparation, réessayez dans 2 secondes.');
@@ -488,7 +473,6 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
     setPdfLoading(true);
     const file = new File([pdfBlob], pdfFilename, { type: 'application/pdf' });
 
-    // navigator.share avec fichier — appelé IMMÉDIATEMENT (pas d'await avant)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
@@ -500,16 +484,13 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         return;
       } catch (err) {
         if (err.name === 'AbortError') {
-          // L'utilisateur a annulé le partage, ce n'est pas une erreur
           setPdfLoading(false);
           return;
         }
         console.error('Erreur navigator.share:', err);
-        // On continue vers le fallback
       }
     }
 
-    // Fallback : téléchargement
     const mobile = isMobileDevice();
     try {
       if (!mobile && typeof window.showSaveFilePicker === 'function') {
@@ -770,30 +751,12 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         )}
       </Section>
 
-      <Section title="Présences">
-        {totalAppels === 0 ? (
-          <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun appel enregistré pour cette année.</p>
-        ) : (
-          <>
-            <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 12 }}>
-              <Stat label="Absences" value={nbAbsences} color="var(--danger)" />
-              <Stat label="Retards" value={nbRetards} color="var(--amber)" />
-              <Stat label="Taux de présence" value={`${tauxPresence}%`} color="var(--success)" />
-            </div>
-            {absencesEtRetards.length > 0 && (
-              <div className="card-bold" style={{ overflow: 'hidden' }}>
-                {absencesEtRetards.map((a, i) => (
-                  <div key={`${a.date}-${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-                    <span style={{ fontSize: 13 }}>{new Date(a.date).toLocaleDateString('fr-FR')}</span>
-                    <span style={{ fontSize: 11.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.statut === 'absent' ? 'var(--danger-light)' : 'var(--amber-light)', color: a.statut === 'absent' ? 'var(--danger)' : 'var(--amber)' }}>
-                      {a.statut === 'absent' ? 'Absent' : 'Retard'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+      <Section title="Assiduité (Absences et retards)">
+        <AssiduiteSection 
+          absence_events={absence_events} 
+          late_events={late_events} 
+          attendance={attendance} 
+        />
       </Section>
 
       {announcements?.length > 0 && (
@@ -838,6 +801,87 @@ function ChildDetail({ detail, periode, setPeriode, onChangeYear }) {
         />
       )}
     </>
+  );
+}
+
+function AssiduiteSection({ absence_events, late_events, attendance }) {
+  const absences = absence_events || [];
+  const retards = late_events || [];
+  
+  const nbAbsences = (attendance || []).filter((a) => a.statut === 'absent').length;
+  const nbRetards = (attendance || []).filter((a) => a.statut === 'retard').length;
+  const nbPresent = (attendance || []).filter((a) => a.statut === 'present').length;
+  const totalAppels = (attendance || []).length;
+  const tauxPresence = totalAppels > 0 ? Math.round(((nbPresent + nbRetards) / totalAppels) * 100) : null;
+
+  if (absences.length === 0 && retards.length === 0 && totalAppels === 0) {
+    return <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucune absence ni retard enregistré.</p>;
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      {/* Détail des absences */}
+      {absences.length > 0 && (
+        <div>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)' }}>Absences détaillées</p>
+          <div className="card-bold" style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 500 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+                <span>Date</span>
+                <span>Motif</span>
+                <span>Durée</span>
+                <span>Justifié</span>
+              </div>
+              {absences.map((a, i) => (
+                <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', alignItems: 'center', borderBottom: i < absences.length - 1 ? '1px solid var(--line)' : 'none', fontSize: 12.5 }}>
+                  <span>{new Date(a.date).toLocaleDateString('fr-FR')}</span>
+                  <span>{a.absence_motifs ? `${a.absence_motifs.code}. ${a.absence_motifs.libelle}` : (a.motif_libre || '—')}</span>
+                  <span style={{ fontWeight: 600 }}>{Number(a.duree_heures)}h</span>
+                  <span style={{ color: a.justifie ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{a.justifie ? 'Oui' : 'Non'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Détail des retards */}
+      {retards.length > 0 && (
+        <div>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--amber)' }}>Retards détaillés</p>
+          <div className="card-bold" style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 500 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+                <span>Date</span>
+                <span>Motif</span>
+                <span>Durée</span>
+                <span>Justifié</span>
+              </div>
+              {retards.map((l, i) => (
+                <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', alignItems: 'center', borderBottom: i < retards.length - 1 ? '1px solid var(--line)' : 'none', fontSize: 12.5 }}>
+                  <span>{new Date(l.date).toLocaleDateString('fr-FR')}</span>
+                  <span>{l.absence_motifs ? `${l.absence_motifs.code}. ${l.absence_motifs.libelle}` : (l.motif_libre || '—')}</span>
+                  <span style={{ fontWeight: 600 }}>{l.duree_minutes} min</span>
+                  <span style={{ color: l.justifie ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>{l.justifie ? 'Oui' : 'Non'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appel rapide (stats) */}
+      {totalAppels > 0 && (
+        <div>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)' }}>Appel rapide quotidien</p>
+          <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+            <Stat label="Absences (appel)" value={nbAbsences} color="var(--danger)" />
+            <Stat label="Retards (appel)" value={nbRetards} color="var(--amber)" />
+            <Stat label="Taux de présence" value={`${tauxPresence}%`} color="var(--success)" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
