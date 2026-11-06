@@ -29,6 +29,7 @@ const PERMISSIONS_LABELS = {
   annonces: 'Annonces',
   documents: 'Documents',
   rapports: 'Rapports',
+  parametres: 'Accès aux paramètres',
 };
 
 function useStudentsForLinking(schoolYearId) {
@@ -203,7 +204,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   const [permissions, setPermissions] = useState(editing?.permissions || {
     eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
     notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
-    annonces: true, documents: true, rapports: false, finance: false
+    annonces: true, documents: true, rapports: false, finance: false, parametres: false
   });
 
   const togglePermission = (key) => {
@@ -265,7 +266,6 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
             <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px' }}>
               {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
-                /* 👇 ICI ON A CORRIGÉ L'ALIGNEMENT 👇 */
                 <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
                   <input 
                     type="checkbox" 
