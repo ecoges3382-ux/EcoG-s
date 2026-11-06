@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 
 const SIDEBAR_ITEMS = [
-  // NOUVEAU : ajout de perm: 'dashboard'
+  // AJOUT DE perm: 'dashboard' ICI
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet', perm: 'finance' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', perm: 'finance', tourId: 'sidebar-recouvrement' },
@@ -72,7 +72,7 @@ export default function Shell() {
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
   const plan = profile?.schools?.plan || 'decouverte';
 
-  // La règle stricte
+  // RÈGLE STRICTE
   const hasAccess = (perm) => {
     if (!perm) return true; 
     if (profile?.role === 'fondateur') return true;
