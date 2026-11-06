@@ -15,8 +15,6 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 
-const CAN_MANAGE_YEAR_ROLES = ['fondateur', 'directeur'];
-
 export default function Settings() {
   const showToast = useToast();
   const confirm = useConfirm();
@@ -24,9 +22,8 @@ export default function Settings() {
   const { schoolYear, refresh: refreshSchoolYear } = useCurrentSchoolYear(profile.school_id);
   const school = profile.schools;
   const isFondateur = profile.role === 'fondateur';
-  const canManageYear = CAN_MANAGE_YEAR_ROLES.includes(profile.role);
   
-  // RÈGLE STRICTE
+  // RÈGLE : Si on est fondateur OU si on a la permission 'parametres'
   const canAccessSettings = isFondateur || profile.permissions?.parametres === true;
 
   const [name, setName] = useState(school?.name || '');
@@ -70,7 +67,7 @@ export default function Settings() {
       .eq('id', profile.school_id);
     setSaving(false);
     if (updateError) {
-      setError(isFondateur ? updateError.message : "Seul le fondateur peut modifier les paramètres de l'école.");
+      setError(updateError.message);
       return;
     }
     await refreshProfile();
@@ -111,14 +108,6 @@ export default function Settings() {
     <div>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Paramètres</p>
 
-      {!isFondateur && (
-        <div className="card-bold" style={{ padding: '16px 20px', marginBottom: 22, background: 'var(--gold-light)', borderColor: 'var(--gold)', maxWidth: 520 }}>
-          <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
-            Seul le fondateur peut modifier ces réglages. Tu peux les consulter mais pas les enregistrer.
-          </p>
-        </div>
-      )}
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16, maxWidth: 1060 }}>
         
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22 }}>
@@ -126,26 +115,20 @@ export default function Settings() {
 
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Nom de l'école</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} disabled={!isFondateur} style={inputStyle} />
+            <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
           </div>
 
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Couleur principale de l'application</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} disabled={!isFondateur} style={{ width: 48, height: 40, borderRadius: 9, border: '1px solid var(--line-strong)', padding: 2, cursor: isFondateur ? 'pointer' : 'default' }} />
-              <input value={color} onChange={(e) => setColor(e.target.value)} disabled={!isFondateur} style={{ ...inputStyle, flex: 1 }} />
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 48, height: 40, borderRadius: 9, border: '1px solid var(--line-strong)', padding: 2, cursor: 'pointer' }} />
+              <input value={color} onChange={(e) => setColor(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             </div>
           </div>
 
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Logo (facultatif)</label>
-            {isFondateur ? (
-              <PhotoPicker schoolId={profile.school_id} value={logoUrl} onChange={setLogoUrl} />
-            ) : (
-              logoUrl
-                ? <img src={logoUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} />
-                : <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Aucun logo</p>
-            )}
+            <PhotoPicker schoolId={profile.school_id} value={logoUrl} onChange={setLogoUrl} />
             <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--muted)' }}>Sans logo, les initiales de l'école restent affichées.</p>
           </div>
 
@@ -154,31 +137,29 @@ export default function Settings() {
           </p>
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Adresse (facultatif)</label>
-            <input value={adresse} onChange={(e) => setAdresse(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="ex. Cotonou, Akpakpa" />
+            <input value={adresse} onChange={(e) => setAdresse(e.target.value)} style={inputStyle} placeholder="ex. Cotonou, Akpakpa" />
           </div>
           <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
             <div>
               <label style={labelStyle}>Téléphone (facultatif)</label>
-              <input value={telephone} onChange={(e) => setTelephone(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="+229 XX XX XX XX" />
+              <input value={telephone} onChange={(e) => setTelephone(e.target.value)} style={inputStyle} placeholder="+229 XX XX XX XX" />
             </div>
             <div>
               <label style={labelStyle}>E-mail (facultatif)</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isFondateur} style={inputStyle} placeholder="contact@ecole.bj" />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} placeholder="contact@ecole.bj" />
             </div>
           </div>
 
           {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
           {saved && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--success)', fontWeight: 600 }}>Enregistré.</p>}
 
-          {isFondateur && (
-            <button type="submit" disabled={saving} style={{ width: '100%', background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: 13, borderRadius: 'var(--radius)', opacity: saving ? 0.7 : 1 }}>
-              <i className="ti ti-check" style={{ fontSize: 16, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
-              {saving ? 'Enregistrement…' : 'Enregistrer et appliquer'}
-            </button>
-          )}
+          <button type="submit" disabled={saving} style={{ width: '100%', background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: 13, borderRadius: 'var(--radius)', opacity: saving ? 0.7 : 1 }}>
+            <i className="ti ti-check" style={{ fontSize: 16, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
+            {saving ? 'Enregistrement…' : 'Enregistrer et appliquer'}
+          </button>
         </form>
 
-        {canManageYear && <PassageThresholds schoolId={profile.school_id} />}
+        {canAccessSettings && <PassageThresholds schoolId={profile.school_id} />}
 
         {schoolYear && (
           <div className="card-bold" style={{ padding: 22 }}>
@@ -189,34 +170,33 @@ export default function Settings() {
                   Montants par niveau pour {schoolYear.label}.
                 </p>
               </div>
-              {canManageYear && (
-                <button
-                  onClick={handleClearGrid}
-                  disabled={!gridHasData}
-                  title="Effacer toute la grille"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700,
-                    padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)',
-                    background: 'var(--danger-light)', color: 'var(--danger)',
-                    cursor: !gridHasData ? 'default' : 'pointer',
-                    opacity: !gridHasData ? 0.4 : 1,
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>Tout effacer
-                </button>
-              )}
+              <button
+                onClick={handleClearGrid}
+                disabled={!gridHasData}
+                title="Effacer toute la grille"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700,
+                  padding: '6px 10px', borderRadius: 8, border: '1px solid var(--danger)',
+                  background: 'var(--danger-light)', color: 'var(--danger)',
+                  cursor: !gridHasData ? 'default' : 'pointer',
+                  opacity: !gridHasData ? 0.4 : 1,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <i className="ti ti-trash" style={{ fontSize: 13 }} aria-hidden="true"></i>Tout effacer
+              </button>
             </div>
-            <FeeScheduleGrid key={gridKey} schoolId={profile.school_id} schoolYear={schoolYear} canManage={canManageYear} />
+            <FeeScheduleGrid key={gridKey} schoolId={profile.school_id} schoolYear={schoolYear} canManage={true} />
           </div>
         )}
 
         {schoolYear && (
           <div className="card-bold" style={{ padding: 22 }}>
-            <PaymentCalendar schoolYear={schoolYear} canManage={canManageYear} onSaved={refreshSchoolYear} />
+            <PaymentCalendar schoolYear={schoolYear} canManage={true} onSaved={refreshSchoolYear} />
           </div>
         )}
 
+        {/* Comptes utilisateurs : Toujours réservé au fondateur pour des raisons de sécurité */}
         {isFondateur && (
           <Link to="/comptes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
             <div style={{ padding: '16px 20px' }}>
@@ -227,35 +207,29 @@ export default function Settings() {
           </Link>
         )}
 
-        {['fondateur', 'directeur'].includes(profile.role) && (
-          <Link to="/parametres/annee-scolaire" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
-            <div style={{ padding: '16px 20px' }}>
-              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Année scolaire</p>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Consulter l'historique ou préparer la prochaine année</p>
-            </div>
-            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-          </Link>
-        )}
+        <Link to="/parametres/annee-scolaire" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+          <div style={{ padding: '16px 20px' }}>
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Année scolaire</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Consulter l'historique ou préparer la prochaine année</p>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+        </Link>
 
-        {['fondateur', 'directeur', 'secretaire'].includes(profile.role) && (
-          <Link to="/parametres/whatsapp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
-            <div style={{ padding: '16px 20px' }}>
-              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>WhatsApp</p>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Connecter le compte WhatsApp Business</p>
-            </div>
-            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-          </Link>
-        )}
+        <Link to="/parametres/whatsapp" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+          <div style={{ padding: '16px 20px' }}>
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>WhatsApp</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Connecter le compte WhatsApp Business</p>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+        </Link>
 
-        {canManageYear && (
-          <Link to="/premiers-pas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
-            <div style={{ padding: '16px 20px' }}>
-              <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Configuration initiale</p>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Assistant classes, matières et tarifs</p>
-            </div>
-            <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
-          </Link>
-        )}
+        <Link to="/premiers-pas" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
+          <div style={{ padding: '16px 20px' }}>
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Configuration initiale</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Assistant classes, matières et tarifs</p>
+          </div>
+          <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
+        </Link>
 
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visites guidées</p>
