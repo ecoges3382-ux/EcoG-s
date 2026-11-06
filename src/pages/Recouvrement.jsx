@@ -7,13 +7,13 @@ import { fmtF, downloadCsv, TYPES_FRAIS } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
-import { sendWhatsAppMessage } from '../lib/whatsapp.js'; // 👈 IMPORT AJOUTÉ
+import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
-import { useToast } from '../components/Toast.jsx'; // 👈 IMPORT AJOUTÉ
+import { useToast } from '../components/Toast.jsx';
 
 const STATUT_RECOUVREMENT = {
   a_jour: { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -49,10 +49,11 @@ export default function Recouvrement() {
   const [inscriptionByStudent, setInscriptionByStudent] = useState(null);
   const [remindersByStudent, setRemindersByStudent] = useState({});
   const [search, setSearch] = useState('');
+  const [searchPriority, setSearchPriority] = useState(''); // 👈 Recherche Priorité
   const [filterClasse, setFilterClasse] = useState('toutes');
-  const [selectedIds, setSelectedIds] = useState([]); // 👈 État pour la sélection
-  const [sendingId, setSendingId] = useState(null); // 👈 Pour l'icône de chargement
-  const [bulkSending, setBulkSending] = useState(false); // 👈 Pour le chargement groupé
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [sendingId, setSendingId] = useState(null);
+  const [bulkSending, setBulkSending] = useState(false);
   const tour = usePageTour('recouvrement');
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -162,7 +163,8 @@ export default function Recouvrement() {
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
 
-  const elevesPrioritaires = enrichis
+  // Filtrage de base de la Priorité (avant recherche locale)
+  const elevesPrioritairesBase = enrichis
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
       const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
@@ -183,7 +185,11 @@ export default function Recouvrement() {
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
 
-  // 👇 FONCTION POUR RELANCER UN SEUL ÉLÈVE
+  // 👇 Filtrage avec la barre de recherche Priorité
+  const elevesPrioritaires = elevesPrioritairesBase.filter((s) =>
+    !searchPriority.trim() || s.full_name.toLowerCase().includes(searchPriority.trim().toLowerCase())
+  );
+
   async function handleRelance(studentId) {
     setSendingId(studentId);
     try {
@@ -195,7 +201,6 @@ export default function Recouvrement() {
     setSendingId(null);
   }
 
-  // 👇 FONCTION POUR RELANCER PLUSIEURS ÉLÈVES
   async function handleBulkRelance(ids) {
     if (ids.length === 0) return;
     setBulkSending(true);
@@ -204,7 +209,7 @@ export default function Recouvrement() {
       try {
         await sendWhatsAppMessage({ type: 'relance_paiement', student_id: id });
         count++;
-        await new Promise(r => setTimeout(r, 300)); // Pause anti-spam
+        await new Promise(r => setTimeout(r, 300));
       } catch (err) {
         console.error(err);
       }
@@ -346,14 +351,33 @@ export default function Recouvrement() {
       </div>
 
       <div data-tour="recouvrement-priority" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
             Priorité du jour (Élèves à relancer)
           </p>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* 👇 BARRE DE RECHERCHE PRIORITÉ */}
+            <input
+              value={searchPriority}
+              onChange={(e) => setSearchPriority(e.target.value)}
+              placeholder="Rechercher un élève prioritaire…"
+              style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 12.5, width: 220, boxSizing: 'border-box', color: 'var(--ink)' }}
+            />
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'var(--danger-light)', padding: '4px 10px', borderRadius: 20 }}>
               {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''} en retard
             </span>
+            {/* 👇 BOUTON RELANCER LA SELECTION (Apparaît si sélection) */}
+            {selectedIds.length > 0 && (
+              <button
+                onClick={() => handleBulkRelance(selectedIds)}
+                disabled={bulkSending}
+                style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: '#ff8c00', color: '#fff', cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
+              >
+                <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+                {bulkSending ? 'Envoi…' : `Relancer la sélection (${selectedIds.length})`}
+              </button>
+            )}
             {/* 👇 BOUTON TOUT RELANCER */}
             {elevesPrioritaires.length > 0 && (
               <button
@@ -367,10 +391,11 @@ export default function Recouvrement() {
             )}
           </div>
         </div>
+        
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
           <div style={{ minWidth: 860 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '30px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-              {/* 👇 CHECKBOX TOUT SELECTIONNER */}
+            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+              {/* 👇 CHECKBOX TOUT SELECTIONNER (élargie) */}
               <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}>
                 <input 
                   type="checkbox" 
@@ -390,9 +415,9 @@ export default function Recouvrement() {
               <div
                 key={s.id}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '30px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'grid', gridTemplateColumns: '40px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
-                {/* 👇 CHECKBOX PAR LIGNE */}
+                {/* 👇 CHECKBOX PAR LIGNE (élargie) */}
                 <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}>
                   <input 
                     type="checkbox" 
@@ -440,7 +465,6 @@ export default function Recouvrement() {
                   )}
                 </div>
 
-                {/* 👇 BOUTON RELANCER INDIVIDUEL */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => handleRelance(s.id)}
@@ -455,21 +479,21 @@ export default function Recouvrement() {
             {elevesPrioritaires.length === 0 && (
               <p style={{ padding: 20, color: 'var(--success)', fontSize: 13, textAlign: 'center', fontWeight: 600 }}>
                 <i className="ti ti-check" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
-                Aucun élève en retard ! Tout est à jour.
+                Aucun élève en retard ne correspond à votre recherche.
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* 👇 BARRE FLOTTANTE DE SELECTION */}
+      {/* 👇 BARRE FLOTTANTE DE SELECTION (conservée en plus du bouton en haut) */}
       {selectedIds.length > 0 && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--forest-dark)', color: '#fff', padding: '10px 20px', borderRadius: 30, display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.4)', zIndex: 9999 }}>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedIds.length} élève{selectedIds.length > 1 ? 's' : ''} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
           <button
             onClick={() => handleBulkRelance(selectedIds)}
             disabled={bulkSending}
-            style={{ background: '#25D366', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
+            style={{ background: '#ff8c00', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
           >
             {bulkSending ? 'Envoi en cours…' : 'Relancer la sélection'}
           </button>
