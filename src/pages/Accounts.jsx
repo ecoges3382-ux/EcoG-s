@@ -94,7 +94,6 @@ function StaffAccounts() {
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   
-  // Gestion de la modale (création ou édition)
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
 
@@ -185,7 +184,6 @@ function StaffAccounts() {
   );
 }
 
-// Ce composant gère à la fois la CRÉATION et la MODIFICATION
 function StaffAccountModal({ editing, onClose, onSaved }) {
   const showToast = useToast();
   const isEditing = !!editing;
@@ -265,11 +263,17 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
         {role !== 'fondateur' && (
           <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
             <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px' }}>
               {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)' }}>
-                  <input type="checkbox" checked={permissions[key]} onChange={() => togglePermission(key)} style={{ accentColor: 'var(--forest)', width: 15, height: 15 }} />
-                  {label}
+                /* 👇 ICI ON A CORRIGÉ L'ALIGNEMENT 👇 */
+                <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={permissions[key]} 
+                    onChange={() => togglePermission(key)} 
+                    style={{ accentColor: 'var(--forest)', width: 15, height: 15, marginTop: 2, flexShrink: 0 }} 
+                  />
+                  <span style={{ paddingTop: 1 }}>{label}</span>
                 </label>
               ))}
             </div>
