@@ -80,7 +80,6 @@ export default function Staff() {
   const { profile } = useAuth();
   const confirm = useConfirm();
   
-  // NOUVEAU : Vérification des permissions
   const canAccessFinance = profile?.role === 'fondateur' || profile?.permissions?.finance !== false;
   const canManageStaff = profile?.role === 'fondateur' || profile?.permissions?.personnel !== false;
 
@@ -275,7 +274,6 @@ export default function Staff() {
           Annuaire
         </button>
         
-        {/* On cache l'onglet Salaires si pas la permission finance */}
         {canAccessFinance && (
           <button onClick={() => setTab('salaires')} style={{ padding: '9px 18px', borderRadius: 10, fontSize: '13.5px', fontWeight: 600, border: `1px solid ${tab === 'salaires' ? 'var(--forest)' : 'var(--line-strong)'}`, background: tab === 'salaires' ? 'var(--forest)' : 'var(--paper)', color: tab === 'salaires' ? '#fff' : 'var(--ink)', cursor: 'pointer' }}>
             Salaires
@@ -292,7 +290,6 @@ export default function Staff() {
                   <i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter
                 </button>
                 
-                {/* On cache le bouton Ajouter si pas la permission personnel */}
                 {canManageStaff && (
                   <button onClick={() => { setEditingStaff(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff' }}>
                     <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
@@ -563,8 +560,48 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
     if (!montant || Number(montant) <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
     setSubmitting(true);
     setError('');
+
+    // NOUVEAU : solder l'avance déduite AVANT d'enregistrer le salaire, pour
+    // garantir qu'aucun salaire n'est enregistré avec des avances encore
+    // actives (double déduction le mois suivant sinon). Le trigger SQL
+    // trg_recompute_advance_solde recalcule "solde" à partir de
+    // "montant_rembourse" (solde = montant - montant_rembourse).
+    if (avance > 0) {
+      const { data: openAdv, error: advFetchErr } = await supabase
+        .from('salary_advances')
+        .select('id, montant, montant_rembourse, solde')
+        .eq('staff_id', staffMember.id)
+        .eq('statut', 'approuvee')
+        .gt('solde', 0)
+        .order('created_at', { ascending: true });
+
+      if (advFetchErr) { setSubmitting(false); setError(advFetchErr.message); return; }
+
+      let reste = Number(avance);
+      for (const a of (openAdv || [])) {
+        if (reste <= 0) break;
+        const soldeActuel = Number(a.solde) || 0;
+        const aRembourser = Math.min(reste, soldeActuel);
+        if (aRembourser <= 0) continue;
+        const nouveauMontantRembourse = (Number(a.montant_rembourse) || 0) + aRembourser;
+        const { error: advUpdErr } = await supabase
+          .from('salary_advances')
+          .update({ montant_rembourse: nouveauMontantRembourse })
+          .eq('id', a.id);
+        if (advUpdErr) { setSubmitting(false); setError(advUpdErr.message); return; }
+        reste -= aRembourser;
+      }
+    }
+
     const { error: insertError } = await supabase.from('staff_salaries').insert({
-      school_id: profile.school_id, staff_id: staffMember.id, montant: Number(montant), mois: mois, date: date, mode: mode, note: note.trim() || null, created_by: profile.id,
+      school_id: profile.school_id,
+      staff_id: staffMember.id,
+      montant: Number(montant),
+      mois: mois,
+      date: date,
+      mode: mode,
+      note: note.trim() || null,
+      created_by: profile.id,
     });
     setSubmitting(false);
     if (insertError) setError(insertError.message);
@@ -583,7 +620,7 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
         {avance > 0 && (
           <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
             <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté (Salaire prévu - Avance).</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté (Salaire prévu - Avance). L'avance sera soldée automatiquement.</p>
           </div>
         )}
 
