@@ -10,35 +10,35 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 
+// NOUVEAU : Ajout de la propriété "perm" pour chaque élément
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', end: true },
-  { to: '/argent', label: 'Argent', icon: 'ti-wallet' },
-  { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', tourId: 'sidebar-recouvrement' },
-  { to: '/eleves', label: 'Élèves', icon: 'ti-users', countKey: 'students', tourId: 'sidebar-eleves' },
-  { to: '/parents', label: 'Parents', icon: 'ti-users-group', countKey: 'parents', feature: 'parent_portal' },
-  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', countKey: 'staff', feature: 'personnel' },
-  { to: '/classes', label: 'Classes', icon: 'ti-building', countKey: 'classes' },
-  { to: '/matieres', label: 'Matières', icon: 'ti-book-2', countKey: 'subjects' },
-  { to: '/notes', label: 'Notes', icon: 'ti-pencil' },
-  { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate' },
-  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time', feature: 'schedule' },
-  { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check' },
-  { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone' },
-  { to: '/documents', label: 'Documents', icon: 'ti-file', feature: 'documents' },
-  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', feature: 'advanced_reports' },
-  { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', tourId: 'sidebar-parametres' },
-  // J'ai supprimé { to: '/comptes', ... } ici
+  { to: '/argent', label: 'Argent', icon: 'ti-wallet', perm: 'finance' },
+  { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', perm: 'finance', tourId: 'sidebar-recouvrement' },
+  { to: '/eleves', label: 'Élèves', icon: 'ti-users', perm: 'eleves', countKey: 'students', tourId: 'sidebar-eleves' },
+  { to: '/parents', label: 'Parents', icon: 'ti-users-group', perm: 'parents', countKey: 'parents', feature: 'parent_portal' },
+  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', perm: 'personnel', countKey: 'staff', feature: 'personnel' },
+  { to: '/classes', label: 'Classes', icon: 'ti-building', perm: 'classes', countKey: 'classes' },
+  { to: '/matieres', label: 'Matières', icon: 'ti-book-2', perm: 'matieres', countKey: 'subjects' },
+  { to: '/notes', label: 'Notes', icon: 'ti-pencil', perm: 'notes' },
+  { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate', perm: 'bulletins' },
+  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time', perm: 'emploi_du_temps', feature: 'schedule' },
+  { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check', perm: 'presences' },
+  { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone', perm: 'annonces' },
+  { to: '/documents', label: 'Documents', icon: 'ti-file', perm: 'documents', feature: 'documents' },
+  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', perm: 'rapports', feature: 'advanced_reports' },
+  { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'sidebar-parametres' },
+  // Comptes a été retiré de la liste
 ];
 
 const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/matieres', '/notes', '/bulletins', '/emploi-du-temps', '/presences', '/annonces', '/documents', '/rapports'];
 
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', end: true },
-  { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet' },
-  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', tourId: 'bottomnav-recouvrement' },
-  { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
-  // J'ai supprimé { to: '/comptes', ... } ici
-  { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', tourId: 'bottomnav-parametres' },
+  { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet', perm: 'finance' },
+  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', perm: 'finance', tourId: 'bottomnav-recouvrement' },
+  { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', perm: 'eleves', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
+  { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
 ];
 
 function ShieldIcon() {
@@ -73,9 +73,6 @@ export default function Shell() {
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
   const plan = profile?.schools?.plan || 'decouverte';
 
-  // NOUVEAU : Vérification de la permission Paramètres
-  const canAccessSettings = profile?.role === 'fondateur' || profile?.permissions?.parametres !== false;
-
   useEffect(() => {
     document.body.classList.add('app-mode');
     return () => document.body.classList.remove('app-mode');
@@ -85,6 +82,13 @@ export default function Shell() {
     applySchoolColor(profile?.schools?.color);
     return () => resetSchoolColor();
   }, [profile?.schools?.color]);
+
+  // Fonction de vérification d'accès globale
+  const hasAccess = (perm) => {
+    if (!perm) return true;
+    if (profile?.role === 'fondateur') return true;
+    return profile?.permissions?.[perm] !== false;
+  };
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
@@ -124,7 +128,7 @@ export default function Shell() {
 
       <div id="layout">
         <div id="sidebar" data-tour="sidebar">
-          <SidebarMenu plan={plan} />
+          <SidebarMenu plan={plan} hasAccess={hasAccess} />
         </div>
         <div id="screen">
           <div key={location.pathname} className="page-transition">
@@ -137,8 +141,8 @@ export default function Shell() {
 
       <div id="bottomnav">
         {BOTTOM_NAV_ITEMS.map((item) => {
-          // NOUVEAU : On cache Paramètres si pas la permission
-          if (item.to === '/parametres' && !canAccessSettings) return null;
+          // Si pas l'accès, on ne l'affiche pas
+          if (!hasAccess(item.perm)) return null;
 
           const isActive = item.group
             ? item.group.some((p) => location.pathname.startsWith(p))
@@ -161,7 +165,7 @@ export default function Shell() {
   );
 }
 
-function SidebarMenu({ plan }) {
+function SidebarMenu({ plan, hasAccess }) {
   const { profile } = useAuth();
   const { schoolYear } = useSelectedSchoolYear(profile?.school_id);
   const [counts, setCounts] = useState({});
@@ -200,16 +204,12 @@ function SidebarMenu({ plan }) {
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
 
-  // NOUVEAU : On filtre selon les permissions
-  const canAccessSettings = profile?.role === 'fondateur' || profile?.permissions?.parametres !== false;
-  
-  const visibleItems = SIDEBAR_ITEMS.filter(
-    (item) => {
-      if (item.feature && !hasFeature(plan, item.feature)) return false;
-      if (item.to === '/parametres' && !canAccessSettings) return false;
-      return true;
-    }
-  );
+  // On filtre selon le plan ET selon les permissions
+  const visibleItems = SIDEBAR_ITEMS.filter((item) => {
+    if (item.feature && !hasFeature(plan, item.feature)) return false;
+    if (!hasAccess(item.perm)) return false;
+    return true;
+  });
 
   return (
     <>
