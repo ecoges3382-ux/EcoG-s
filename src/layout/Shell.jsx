@@ -21,11 +21,11 @@ const SIDEBAR_ITEMS = [
   { to: '/matieres', label: 'Matières', icon: 'ti-book-2', perm: 'matieres', countKey: 'subjects' },
   { to: '/notes', label: 'Notes', icon: 'ti-pencil', perm: 'notes' },
   { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate', perm: 'bulletins' },
-  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time', perm: 'emploi_du_temps', feature: 'schedule' },
+  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time', perm: 'emploi_du_temps', feature: 'emploi_du_temps' },
   { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check', perm: 'presences' },
   { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone', perm: 'annonces' },
   { to: '/documents', label: 'Documents', icon: 'ti-file', perm: 'documents', feature: 'documents' },
-  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', perm: 'rapports', feature: 'advanced_reports' },
+  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', perm: 'rapports', feature: 'rapports_avances' },
   { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'sidebar-parametres' },
 ];
 
