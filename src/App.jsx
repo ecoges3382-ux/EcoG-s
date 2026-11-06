@@ -109,7 +109,6 @@ function RedirectIfAuthed({ children }) {
   return children;
 }
 
-// 👇 NOUVEAU : L'aiguilleur intelligent 👇
 function HomeRedirect() {
   const { profile } = useAuth();
   
@@ -125,6 +124,9 @@ function HomeRedirect() {
   if (profile?.permissions?.notes === true) return <Navigate to="/notes" replace />;
   if (profile?.permissions?.classes === true) return <Navigate to="/classes" replace />;
   if (profile?.permissions?.presences === true) return <Navigate to="/presences" replace />;
+  // Fallback : un compte qui n'a QUE l'accès Paramètres ne doit pas tomber
+  // sur "Accès restreint" — on l'y envoie directement.
+  if (profile?.permissions?.parametres === true) return <Navigate to="/parametres" replace />;
   
   // Si vraiment aucune permission, on affiche un message d'erreur
   return (
@@ -134,13 +136,11 @@ function HomeRedirect() {
     </div>
   );
 }
-// 👆 FIN DE L'AIGUILLEUR 👆
 
 function RoleRouter() {
   return (
     <Routes>
       <Route path="/" element={<Shell />}>
-        {/* On utilise notre aiguilleur au lieu de Dashboard directement */}
         <Route index element={<HomeRedirect />} />
         <Route path="argent" element={<Money />} />
         <Route path="recouvrement" element={<Recouvrement />} />
