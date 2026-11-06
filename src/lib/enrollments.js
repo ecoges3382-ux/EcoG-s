@@ -12,7 +12,14 @@ export function useEnrollmentsForYear(schoolYear) {
     let cancelled = false;
     guardedFetch({
       cacheKey: `enrollments_${schoolYear.id}`,
-      hasData: false,
+      // hasData doit refléter l'état affiché AU MOMENT de l'appel : si des
+      // élèves sont déjà à l'écran (rechargement, année re-sélectionnée),
+      // on garde l'affichage actuel plutôt que de repartir du cache local.
+      // L'ancienne version figeait ça à `false`, ce qui faisait toujours
+      // réafficher la version d'hier pendant un instant avant que la
+      // version du jour n'arrive — incohérent avec le reste de l'appli
+      // (Staff.jsx, Payments, etc. utilisent tous `xxx !== null`).
+      hasData: students !== null,
       load: async () => {
         const [{ data, error: e }, { data: fees }] = await Promise.all([
           supabase
