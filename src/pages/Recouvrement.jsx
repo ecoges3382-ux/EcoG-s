@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, stickyColStyle, downloadCsv, TYPES_FRAIS } from '../lib/utils.js';
+import { fmtF, downloadCsv, TYPES_FRAIS } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
@@ -275,8 +275,8 @@ export default function Recouvrement() {
         </div>
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
           <div style={{ minWidth: 820 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
-              <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11, background: 'var(--forest-light)' }}>Élève</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+              <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', paddingLeft: 20, display: 'block', width: '100%' }}>Élève</span>
               <span>Reste Écolage</span>
               <span>Reste Connexes</span>
               <span>Total Dû</span>
@@ -289,8 +289,19 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                {/* 👇 CORRECTION ICI : FOND OPAQUE + Z-INDEX 👇 */}
-                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, background: 'var(--paper)', zIndex: 10 }}>
+                {/* 👇 CORRECTION ICI : #ffffff OPAQUE + OMBRE 👇 */}
+                <div style={{ 
+                  position: 'sticky', 
+                  left: 0, 
+                  zIndex: 10, 
+                  backgroundColor: '#ffffff', 
+                  paddingLeft: 20,
+                  boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  height: '100%',
+                }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
@@ -372,8 +383,8 @@ export default function Recouvrement() {
 
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 820 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 10 }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 11, background: 'var(--forest-light)' }}>Élève</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+            <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', paddingLeft: 20, display: 'block', width: '100%' }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
             <span>Connexes</span>
@@ -388,8 +399,19 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                {/* 👇 CORRECTION ICI : FOND OPAQUE + Z-INDEX 👇 */}
-                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, background: 'var(--paper)', zIndex: 10 }}>
+                {/* 👇 CORRECTION ICI : #ffffff OPAQUE + OMBRE 👇 */}
+                <div style={{ 
+                  position: 'sticky', 
+                  left: 0, 
+                  zIndex: 10, 
+                  backgroundColor: '#ffffff', 
+                  paddingLeft: 20,
+                  boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  height: '100%',
+                }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
