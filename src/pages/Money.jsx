@@ -1242,4 +1242,806 @@ function SalairesSection() {
                     {fmtF(paye)}
                   </span>
                   
-                  <span style={{ color: reste > 0
+                  <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>
+                    {prevu > 0 ? fmtF(reste) : '—'}
+                  </span>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: 20 }}>
+                    <button
+                      onClick={() => { setSelectedStaff(p); setModalOpen(true); }}
+                      disabled={prevu <= 0 || estPaye}
+                      style={{ 
+                        fontSize: 11.5, 
+                        fontWeight: 600, 
+                        padding: '6px 12px', 
+                        borderRadius: 8, 
+                        border: 'none', 
+                        background: estPaye ? 'var(--line)' : 'var(--forest)', 
+                        color: estPaye ? 'var(--muted)' : '#fff', 
+                        cursor: (prevu <= 0 || estPaye) ? 'default' : 'pointer', 
+                        opacity: (prevu <= 0 || estPaye) ? 0.7 : 1 
+                      }}
+                    >
+                      {estPaye ? 'Payé' : 'Payer'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Paiements enregistrés pour {monthOptions.find(m => m.value === mois)?.label}</p>
+        {salaries && salaries.length > 0 && !selectMode && (
+          <button onClick={() => setSelectMode(true)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '7px 13px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            Sélectionner
+          </button>
+        )}
+      </div>
+
+      <div className="card-bold" style={{ overflow: 'hidden', marginBottom: 24 }}>
+        {salaries === null && <SkeletonRow count={2} />}
+        {salaries && salaries.length === 0 && <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun paiement de salaire ce mois-ci.</p>}
+        {salaries && salaries.map((s, i) => (
+          <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {selectMode && (
+                <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+              )}
+              <div>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{s.staff?.full_name}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
+                  {new Date(s.date).toLocaleDateString('fr-FR')} · {s.mode}{s.note ? ` · ${s.note}` : ''}
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>{fmtF(s.montant)}</span>
+              {!selectMode && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSalaire(s.id, s.staff?.full_name || 'ce membre', s.montant)}
+                  title="Supprimer ce paiement"
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                >
+                  <TrashIcon />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectMode && salaries && salaries.length > 0 && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={salaries.every((s) => selectedIds.includes(s.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
+
+      {modalOpen && selectedStaff && (
+        <PayerSalaireModal
+          staffMember={selectedStaff}
+          mois={mois}
+          avance={advances.filter(a => a.staff_id === selectedStaff.id).reduce((acc, a) => acc + Number(a.solde), 0)}
+          onClose={() => setModalOpen(false)}
+          onSaved={() => { setModalOpen(false); reloadSalaries(); showToast('Salaire enregistré'); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
+  const { profile } = useAuth();
+  const prevu = Number(staffMember.salaire_mensuel || 0);
+  const [montant, setMontant] = useState(String(Math.max(0, prevu - avance)));
+  const [mode, setMode] = useState('especes');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!montant || Number(montant) <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
+    setSubmitting(true);
+    setError('');
+
+    // NOUVEAU : solder l'avance déduite AVANT d'enregistrer le salaire, pour
+    // garantir qu'aucun salaire n'est enregistré avec des avances encore
+    // actives (double déduction le mois suivant sinon). Le trigger SQL
+    // trg_recompute_advance_solde recalcule "solde" à partir de
+    // "montant_rembourse" (solde = montant - montant_rembourse).
+    if (avance > 0) {
+      const { data: openAdv, error: advFetchErr } = await supabase
+        .from('salary_advances')
+        .select('id, montant, montant_rembourse, solde')
+        .eq('staff_id', staffMember.id)
+        .eq('statut', 'approuvee')
+        .gt('solde', 0)
+        .order('created_at', { ascending: true });
+
+      if (advFetchErr) { setSubmitting(false); setError(advFetchErr.message); return; }
+
+      let reste = Number(avance);
+      for (const a of (openAdv || [])) {
+        if (reste <= 0) break;
+        const soldeActuel = Number(a.solde) || 0;
+        const aRembourser = Math.min(reste, soldeActuel);
+        if (aRembourser <= 0) continue;
+        const nouveauMontantRembourse = (Number(a.montant_rembourse) || 0) + aRembourser;
+        const { error: advUpdErr } = await supabase
+          .from('salary_advances')
+          .update({ montant_rembourse: nouveauMontantRembourse })
+          .eq('id', a.id);
+        if (advUpdErr) { setSubmitting(false); setError(advUpdErr.message); return; }
+        reste -= aRembourser;
+      }
+    }
+
+    const { error: insertError } = await supabase.from('staff_salaries').insert({
+      school_id: profile.school_id,
+      staff_id: staffMember.id,
+      montant: Number(montant),
+      mois: mois,
+      date: date,
+      mode: mode,
+      note: note.trim() || null,
+      created_by: profile.id,
+    });
+    setSubmitting(false);
+    if (insertError) setError(insertError.message);
+    else onSaved();
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 400, width: '100%', padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Payer le salaire</p>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>×</button>
+        </div>
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})</p>
+        
+        {avance > 0 && (
+          <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté (Salaire prévu - Avance). L'avance sera soldée automatiquement.</p>
+          </div>
+        )}
+
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Montant à payer</label>
+        <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ marginBottom: 12 }} />
+
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Mode</label>
+            <Dropdown value={mode} onChange={setMode} options={[{ value: 'especes', label: 'Espèces' }, { value: 'virement', label: 'Virement' }, { value: 'mobile_money', label: 'Mobile Money' }, { value: 'cheque', label: 'Chèque' }]} style={{ width: '100%' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Date</label>
+            <DatePicker value={date} onChange={setDate} style={{ width: '100%' }} />
+          </div>
+        </div>
+
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Note (facultatif)</label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Acompte, prime..." style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, marginBottom: 16, boxSizing: 'border-box' }} />
+
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ padding: '9px 16px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 13 }}>Annuler</button>
+          <button type="submit" disabled={submitting} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: 13, opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Advances() {
+  const showToast = useToast();
+  const confirm = useConfirm();
+  const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
+  const [advances, setAdvances] = useState(null);
+  const [staff, setStaff] = useState([]);
+  const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
+  const [staffId, setStaffId] = useState('');
+  const [montant, setMontant] = useState('');
+  const [motif, setMotif] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [editingAdvance, setEditingAdvance] = useState(null);
+
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
+
+  function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
+  function toggleAllVisible() { setSelectedIds((prev) => { const ids = advances.map((a) => a.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
+  function exitSelectMode() { setSelectMode(false); setSelectedIds([]); }
+
+  async function handleDeleteSelected() {
+    if (!(await confirm(`Supprimer définitivement ${selectedIds.length} avance${selectedIds.length > 1 ? 's' : ''} ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
+    setDeleting(true);
+    const { data: deleted, error: deleteError } = await supabase.from('salary_advances').delete().in('id', selectedIds).select('id');
+    setDeleting(false);
+    if (deleteError) { setError(translateError(deleteError)); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table salary_advances.");
+      return;
+    }
+    showToast(`${selectedIds.length} supprimée(s)`);
+    exitSelectMode();
+    reload();
+  }
+
+  async function reload() {
+    if (!schoolYear) return;
+    await guardedFetch({
+      cacheKey: `advances_${schoolYear.id}`,
+      hasData: advances !== null,
+      load: async () => {
+        const { data, error: e } = await supabase.from('salary_advances').select('*, staff ( full_name, role )').eq('school_year_id', schoolYear.id).order('created_at', { ascending: false });
+        return e ? { error: e } : { data };
+      },
+      setData: setAdvances,
+      setOffline,
+      onError: (e) => setError(translateError(e)),
+      onSuccess: () => setError(''),
+    });
+    const { data: st } = await supabase.from('staff').select('id, full_name, role').eq('statut', 'actif').order('full_name');
+    setStaff(st || []);
+    if (st?.length && !staffId) setStaffId(st[0].id);
+  }
+  useEffect(() => { reload(); }, [schoolYear?.id]);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!staffId || !montant) return;
+    setSubmitting(true);
+    const amount = Number(montant);
+    const { error: insertError } = await supabase.from('salary_advances').insert({
+      school_id: profile.school_id, school_year_id: schoolYear.id, staff_id: staffId, montant: amount, solde: amount, statut: 'attente_fondateur', motif: motif.trim() || null,
+    });
+    setSubmitting(false);
+    if (insertError) { setError(translateError(insertError)); return; }
+    setMontant(''); setMotif('');
+    showToast('Enregistré');
+    reload();
+  }
+
+  async function decide(id, statut) {
+    const { error: updateError } = await supabase.from('salary_advances').update({ statut }).eq('id', id);
+    if (updateError) setError(translateError(updateError));
+    else { showToast('Enregistré'); reload(); }
+  }
+
+  async function markPaid(a) {
+    if (!(await confirm(`Marquer cette avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} comme payée ? Cette action solde intégralement l'avance.`, { confirmLabel: 'Marquer comme payé' }))) return;
+    const { error: updateError } = await supabase.from('salary_advances').update({ montant_rembourse: a.montant }).eq('id', a.id);
+    if (updateError) setError(translateError(updateError));
+    else { showToast('Avance marquée comme payée'); reload(); }
+  }
+
+  async function handleDelete(a) {
+    const rembourse = Number(a.montant_rembourse) || 0;
+    const message = rembourse > 0
+      ? `Cette avance a déjà été remboursée à hauteur de ${fmtF(rembourse)}. La supprimer effacera aussi cet historique. Continuer ?`
+      : `Supprimer cette demande d'avance de ${fmtF(a.montant)} pour ${a.staff?.full_name || 'ce membre du personnel'} ? Attention, tu ne pourras pas revenir en arrière.`;
+    if (!(await confirm(message, { confirmLabel: 'Supprimer' }))) return;
+    const { data: deleted, error: deleteError } = await supabase.from('salary_advances').delete().eq('id', a.id).select('id');
+    if (deleteError) { setError(translateError(deleteError)); return; }
+    if (!deleted || deleted.length === 0) {
+      setError("La suppression n'a pas été effectuée — probablement bloquée par une policy RLS sur la table salary_advances.");
+      return;
+    }
+    showToast('Supprimé');
+    reload();
+  }
+
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!advances || !schoolYear) return <div className="card-bold"><SkeletonRow count={4} avatar={false} /></div>;
+
+  const canDecide = profile.role === 'fondateur' || profile.role === 'directeur';
+
+  return (
+    <div>
+      {offline && <OfflineBanner />}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.6, maxWidth: 600 }}>
+          Le fondateur et le directeur peuvent approuver, refuser, modifier ou supprimer une demande. Les autres rôles peuvent
+          seulement en soumettre une nouvelle. Demandes de l'année {schoolYear.label}.
+        </p>
+        {canDecide && advances.length > 0 && !selectMode && (
+          <button onClick={() => setSelectMode(true)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '7px 13px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
+            Sélectionner
+          </button>
+        )}
+      </div>
+
+      {advances.length === 0 ? (
+        <div className="card-bold" style={{ marginBottom: 20 }}>
+          {staff.length === 0 ? (
+            <EmptyState
+              icon={<UsersIcon />}
+              title="Aucun membre du personnel enregistré"
+              subtitle="Les avances sur salaire se font pour les membres du personnel. Ajoute d'abord ton équipe."
+              actionLabel="Aller vers Personnel"
+              actionTo="/personnel"
+            />
+          ) : (
+            <EmptyState
+              icon={<MoneyIcon />}
+              title="Aucune demande d'avance"
+              subtitle="Les demandes d'avance sur salaire de ton équipe apparaîtront ici."
+            />
+          )}
+        </div>
+      ) : (
+        <div className="card-bold" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 400px)', marginBottom: 20 }}>
+          {advances.map((a, i) => (
+            <div key={a.id} style={{ padding: '13px 20px', borderBottom: i < advances.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {canDecide && selectMode && (
+                    <input type="checkbox" checked={selectedIds.includes(a.id)} onChange={() => toggleOne(a.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                  )}
+                  <div>
+                    <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
+                    <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}{a.statut === 'approuvee' && Number(a.solde) > 0 ? ` (reste ${fmtF(a.solde)})` : ''}</span>
+              </div>
+              {a.motif && <p style={{ margin: '0 0 6px', fontSize: '11.5px', color: 'var(--muted)', paddingLeft: selectMode ? 28 : 0 }}>{a.motif}</p>}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingLeft: selectMode ? 28 : 0 }}>
+                <StatusBadge statut={a.statut} solde={a.solde} montant={a.montant} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {!selectMode && canDecide && a.statut !== 'approuvee' && a.statut !== 'refusee' && (
+                    <>
+                      <button onClick={() => decide(a.id, 'approuvee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>Approuver</button>
+                      <button onClick={() => decide(a.id, 'refusee')} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>Refuser</button>
+                    </>
+                  )}
+                  {!selectMode && canDecide && a.statut === 'approuvee' && Number(a.solde ?? a.montant) > 0 && (
+                    <button onClick={() => markPaid(a)} style={{ fontSize: '11.5px', fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff' }}>
+                      <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Marquer comme payé
+                    </button>
+                  )}
+                  
+                  {!selectMode && canDecide && (
+                    <>
+                      <button onClick={() => setEditingAdvance(a)} title="Modifier cette avance" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                        <PencilIcon />
+                      </button>
+                      <button onClick={() => handleDelete(a)} title="Supprimer cette avance" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                        <TrashIcon />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectMode && advances.length > 0 && (
+        <SelectionBar
+          count={selectedIds.length}
+          allSelected={advances.every((a) => selectedIds.includes(a.id))}
+          onCancel={exitSelectMode}
+          onToggleAll={toggleAllVisible}
+          onDelete={handleDeleteSelected}
+          deleting={deleting}
+        />
+      )}
+
+      {staff.length > 0 ? (
+        <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 24 }}>
+          <Dropdown
+            value={staffId}
+            onChange={setStaffId}
+            options={staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }))}
+            style={smallInput}
+            wrapperStyle={{ flex: '2 1 180px', width: 'auto' }}
+          />
+          <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ ...smallInput, flex: '1 1 120px' }} />
+          <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif (facultatif)" style={{ ...smallInput, flex: '2 1 160px' }} />
+          <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Envoi…' : 'Nouvelle demande'}
+          </button>
+        </form>
+      ) : (
+        <p className="card-bold" style={{ padding: '18px 20px', margin: 0, fontSize: 13, color: 'var(--muted)', marginTop: 24 }}>
+          Aucun membre du personnel enregistré pour l'instant. Ajoute d'abord des membres dans l'onglet{' '}
+          <Link to="/personnel" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Personnel</Link>{' '}
+          pour pouvoir soumettre une demande d'avance sur salaire.
+        </p>
+      )}
+
+      {editingAdvance && (
+        <EditAdvanceModal
+          advance={editingAdvance}
+          staff={staff}
+          onClose={() => setEditingAdvance(null)}
+          onSaved={() => { setEditingAdvance(null); showToast('Modifié'); reload(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
+  const [staffId, setStaffId] = useState(advance.staff_id);
+  const [montant, setMontant] = useState(String(advance.montant));
+  const [motif, setMotif] = useState(advance.motif || '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const rembourse = Number(advance.montant_rembourse) || 0;
+
+  const staffOptions = (() => {
+    const opts = staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }));
+    if (advance.staff_id && !opts.find((o) => o.value === advance.staff_id)) {
+      opts.unshift({
+        value: advance.staff_id,
+        label: `${advance.staff?.full_name || '—'}${advance.staff?.role ? ` (${advance.staff.role})` : ''} — inactif`,
+      });
+    }
+    return opts;
+  })();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const amount = Number(montant);
+    if (!staffId) { setError('Sélectionne un membre du personnel.'); return; }
+    if (!amount || amount <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
+    if (rembourse > 0 && amount < rembourse) {
+      setError(`Le montant ne peut pas être inférieur au montant déjà remboursé (${fmtF(rembourse)}).`);
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    const newSolde = Math.max(amount - rembourse, 0);
+    const { error: updateError } = await supabase
+      .from('salary_advances')
+      .update({ staff_id: staffId, montant: amount, solde: newSolde, motif: motif.trim() || null })
+      .eq('id', advance.id);
+    setSubmitting(false);
+    if (updateError) { setError(translateError(updateError)); return; }
+    onSaved();
+  }
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 440, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>Modifier l'avance</p>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+
+        <label style={modalLabelStyle}>Membre du personnel</label>
+        <Dropdown value={staffId} onChange={setStaffId} options={staffOptions} style={modalInputStyle} />
+
+        <label style={modalLabelStyle}>Montant</label>
+        <MoneyInput value={montant} onChange={setMontant} style={modalInputStyle} suffix="F CFA" />
+
+        <label style={modalLabelStyle}>Motif</label>
+        <AmountAwareTextarea value={motif} onChange={setMotif} multiline={false} style={modalInputStyle} />
+
+        {rembourse > 0 && (
+          <p style={{ margin: '0 0 12px', fontSize: '11.5px', color: 'var(--muted)' }}>
+            Déjà remboursé : {fmtF(rembourse)} — le solde restant sera recalculé automatiquement.
+          </p>
+        )}
+        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
+          <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
+            {submitting ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  );
+}
+
+function StatusBadge({ statut, solde, montant }) {
+  if (statut === 'approuvee' && Number(solde ?? montant) <= 0) {
+    return <span style={{ background: 'var(--forest-light)', color: 'var(--forest)', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20 }}>Payée</span>;
+  }
+  const map = {
+    approuvee: { label: 'Approuvée', bg: 'var(--success-light)', fg: 'var(--success)' },
+    refusee: { label: 'Refusée', bg: 'var(--danger-light)', fg: 'var(--danger)' },
+    attente_directeur: { label: 'Attente directeur', bg: 'var(--gold-light)', fg: 'var(--clay-dark)' },
+    attente_fondateur: { label: 'Attente fondateur', bg: 'var(--amber-light)', fg: 'var(--amber)' },
+  };
+  const s = map[statut] || map.attente_fondateur;
+  return <span style={{ background: s.bg, color: s.fg, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20 }}>{s.label}</span>;
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div className="card-bold" style={{ padding: '18px 20px' }}>
+      <p style={{ margin: '0 0 4px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color }}>{value}</p>
+    </div>
+  );
+}
+
+const smallInput = { padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, boxSizing: 'border-box', color: 'var(--ink)' };
+
+// ==========================================
+// COMPOSANT : BILAN FINANCIER (avec Donuts)
+// ==========================================
+function BilanFinancier() {
+  const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile.school_id);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [
+          { data: payments, error: pErr },
+          { data: salaries, error: sErr },
+          { data: advances, error: aErr },
+          { data: expenses, error: eErr }
+        ] = await Promise.all([
+          supabase.from('payments').select('type_frais, montant').eq('school_year_id', schoolYear.id),
+          supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
+          supabase.from('salary_advances').select('montant').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
+          supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id)
+        ]);
+
+        if (pErr) throw pErr;
+        if (sErr) throw sErr;
+        if (aErr) throw aErr;
+        if (eErr) throw eErr;
+
+        const ecolage = (payments || []).filter(p => p.type_frais === 'scolarite').reduce((acc, p) => acc + Number(p.montant), 0);
+        const connexe = (payments || []).filter(p => p.type_frais === 'connexe').reduce((acc, p) => acc + Number(p.montant), 0);
+        const inscription = (payments || []).filter(p => p.type_frais === 'inscription').reduce((acc, p) => acc + Number(p.montant), 0);
+        const totalRevenus = ecolage + connexe + inscription;
+
+        const salairesPayes = (salaries || []).reduce((acc, item) => acc + Number(item.montant), 0);
+        const avancesPayees = (advances || []).reduce((acc, item) => acc + Number(item.montant), 0);
+        const autresDepenses = (expenses || []).reduce((acc, item) => acc + Number(item.montant), 0);
+        const totalCharges = salairesPayes + avancesPayees + autresDepenses;
+
+        const resultatNet = totalRevenus - totalCharges;
+
+        if (!cancelled) {
+          setData({
+            ecolage, connexe, inscription, totalRevenus,
+            salairesPayes, avancesPayees, autresDepenses, totalCharges,
+            resultatNet
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setError(translateError(err));
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
+
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!data || !schoolYear) {
+    return (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold"><SkeletonTableRows count={5} columns={4} /></div>
+      </div>
+    );
+  }
+
+  const pieRevenusData = [
+    { name: 'Écolage', value: data.ecolage, color: 'var(--forest)' },
+    { name: 'Connexes', value: data.connexe, color: 'var(--clay)' },
+    { name: 'Inscriptions', value: data.inscription, color: 'var(--gold)' },
+  ].filter(d => d.value > 0);
+
+  const pieChargesData = [
+    { name: 'Salaires', value: data.salairesPayes, color: '#4A90E2' },
+    { name: 'Avances', value: data.avancesPayees, color: '#E26D8A' },
+    { name: 'Autres dépenses', value: data.autresDepenses, color: 'var(--muted)' },
+  ].filter(d => d.value > 0);
+
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    if (percent < 0.05) return null;
+    return (
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
+  return (
+    <div>
+      <div className="card-bold" style={{ padding: '20px 24px', marginBottom: 24, background: 'var(--forest)', color: '#fff', borderColor: 'var(--forest)' }}>
+        <p style={{ margin: '0 0 6px', fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Résultat net de l'école — {schoolYear.label}</p>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, color: data.resultatNet >= 0 ? '#fff' : '#FFC0C0' }}>
+            {fmtF(data.resultatNet)}
+          </p>
+          <span style={{ fontSize: 14, fontWeight: 600, color: data.resultatNet >= 0 ? 'var(--gold)' : '#FFC0C0' }}>
+            {data.resultatNet >= 0 ? 'Bénéfice' : 'Déficit'}
+          </span>
+        </div>
+        <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
+          Revenus totaux : {fmtF(data.totalRevenus)} — Charges totales : {fmtF(data.totalCharges)}
+        </p>
+      </div>
+
+      <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
+        <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-trending-up" style={{ fontSize: 20, color: 'var(--success)' }} aria-hidden="true"></i>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Revenus encaissés</p>
+          </div>
+          
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Droit d'écolage</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.ecolage)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Frais connexes</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.connexe)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Inscriptions / Réinscriptions</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.inscription)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>TOTAL REVENUS</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>{fmtF(data.totalRevenus)}</span>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: 10, position: 'relative' }}>
+            {pieRevenusData.length > 0 && (
+              <>
+                <div style={{ height: 200, width: '100%' }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie 
+                        data={pieRevenusData} 
+                        dataKey="value" 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={60} 
+                        outerRadius={85} 
+                        paddingAngle={2} 
+                        stroke="#ffffff" 
+                        strokeWidth={2}
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                      >
+                        {pieRevenusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
+                    {fmtF(data.totalRevenus).replace(' F CFA', '')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                  {pieRevenusData.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-trending-down" style={{ fontSize: 20, color: 'var(--danger)' }} aria-hidden="true"></i>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Charges décaissées</p>
+          </div>
+          
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Salaires versés</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.salairesPayes)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Avances sur salaire</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.avancesPayees)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>Autres dépenses</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{fmtF(data.autresDepenses)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>TOTAL CHARGES</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(data.totalCharges)}</span>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: 10, position: 'relative' }}>
+            {pieChargesData.length > 0 && (
+              <>
+                <div style={{ height: 200, width: '100%' }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie 
+                        data={pieChargesData} 
+                        dataKey="value" 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={60} 
+                        outerRadius={85} 
+                        paddingAngle={2} 
+                        stroke="#ffffff" 
+                        strokeWidth={2}
+                        labelLine={false}
+                        label={renderCustomizedLabel}
+                      >
+                        {pieChargesData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
+                    {fmtF(data.totalCharges).replace(' F CFA', '')}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                  {pieChargesData.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--ink)' }}>{d.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
