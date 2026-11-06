@@ -109,7 +109,10 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [niveauEtudes, setNiveauEtudes] = useState(editing?.niveau_etudes || '');
   
   const [classNames, setClassNames] = useState(editing?.classes || []);
-  const [subjectIds, setSubjectIds] = useState(editing ? availableSubjects.filter((s) => s.enseignant_id === editing.id).map((s) => s.id) : []);
+  const [subjectIds, setSubjectIds] = useState(
+    editing ? availableSubjects.filter((s) => s.enseignant_id === editing.id).map((s) => s.id) : [],
+  );
+  
   const [dispenseCours, setDispenseCours] = useState(() => {
     if (editing?.role === 'Enseignant') return true;
     return (editing?.classes?.length > 0) || availableSubjects.some((s) => s.enseignant_id === editing?.id);
@@ -121,7 +124,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [salaireMensuel, setSalaireMensuel] = useState(editing?.salaire_mensuel ?? '');
   const [photoUrl, setPhotoUrl] = useState(editing?.photo_url || '');
   
-  // Nouvel état pour les permissions
   const [permissions, setPermissions] = useState(editing?.permissions || {
     eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
     notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
@@ -137,7 +139,10 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!nom.trim()) { setError('Le nom est obligatoire.'); return; }
+    if (!nom.trim()) {
+      setError('Le nom est obligatoire.');
+      return;
+    }
     setSubmitting(true);
     setError('');
 
@@ -156,7 +161,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       date_entree: dateEntree || null,
       salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
       photo_url: photoUrl || null,
-      permissions, // On sauvegarde les permissions
+      permissions,
     };
 
     const { data: savedRow, error: saveError } = editing
@@ -179,7 +184,10 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     ]);
     
     setSubmitting(false);
-    if (assignError || releaseError) { setError((assignError || releaseError).message); return; }
+    if (assignError || releaseError) {
+      setError((assignError || releaseError).message);
+      return;
+    }
     showToast('Enregistré');
     onSaved();
   }
@@ -187,21 +195,32 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const showAttribution = role === 'Enseignant' || dispenseCours;
 
   return createPortal(
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 480, width: '100%', maxHeight: '88vh', overflowY: 'auto', padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier le membre' : 'Nouveau membre du personnel'}</p>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{editing ? 'Modifier le membre du personnel' : 'Nouveau membre du personnel'}</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Nom"><NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} /></Field>
-          <Field label="Prénom"><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></Field>
+          <Field label="Nom">
+            <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
+          </Field>
+          <Field label="Prénom">
+            <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
+          </Field>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Rôle"><Dropdown value={role} onChange={setRole} options={ROLES} style={inputStyle} /></Field>
-          <Field label="Niveau d'études"><input value={niveauEtudes} onChange={(e) => setNiveauEtudes(e.target.value)} placeholder="ex. Licence" style={inputStyle} /></Field>
+          <Field label="Rôle">
+            <Dropdown value={role} onChange={setRole} options={ROLES} style={inputStyle} />
+          </Field>
+          <Field label="Niveau d'études">
+            <input value={niveauEtudes} onChange={(e) => setNiveauEtudes(e.target.value)} placeholder="ex. Licence en Lettres" style={inputStyle} />
+          </Field>
         </div>
 
         {/* NOUVEAU : Section des permissions */}
@@ -219,34 +238,63 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           </div>
         )}
 
+        {/* Case à cocher pour les non-enseignants */}
         {role !== 'Enseignant' && (
           <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--forest-light)', borderRadius: 9 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: 'var(--forest-dark)' }}>
-              <input type="checkbox" checked={dispenseCours} onChange={(e) => setDispenseCours(e.target.checked)} />
+              <input 
+                type="checkbox" 
+                checked={dispenseCours} 
+                onChange={(e) => setDispenseCours(e.target.checked)} 
+              />
               Ce membre dispense des cours
             </label>
           </div>
         )}
 
+        {/* Section d'attribution (visible si Enseignant ou si la case est cochée) */}
         {showAttribution && (
           <>
-            <MultiSelect label="Classe(s) attribuée(s)" options={availableClasses.map(c => ({ value: c.nom, label: c.nom }))} selectedIds={classNames} onChange={setClassNames} placeholder="Sélectionner des classes…" />
-            <MultiSelect label="Matière(s) enseignée(s)" options={availableSubjects.map(s => ({ value: s.id, label: s.nom }))} selectedIds={subjectIds} onChange={setSubjectIds} placeholder="Sélectionner des matières…" />
+            <MultiSelect 
+              label="Classe(s) attribuée(s)" 
+              options={availableClasses.map(c => ({ value: c.nom, label: c.nom }))} 
+              selectedIds={classNames} 
+              onChange={setClassNames} 
+              placeholder="Sélectionner des classes…" 
+            />
+
+            <MultiSelect 
+              label="Matière(s) enseignée(s)" 
+              options={availableSubjects.map(s => ({ value: s.id, label: s.nom }))} 
+              selectedIds={subjectIds} 
+              onChange={setSubjectIds} 
+              placeholder="Sélectionner des matières…" 
+            />
           </>
         )}
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Téléphone"><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} /></Field>
-          <Field label="E-mail"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} /></Field>
+          <Field label="Téléphone">
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
+          </Field>
+          <Field label="E-mail">
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+          </Field>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Date d'entrée"><DatePicker value={dateEntree} onChange={setDateEntree} style={inputStyle} /></Field>
-          <Field label="Salaire mensuel"><MoneyInput value={salaireMensuel} onChange={setSalaireMensuel} suffix="F CFA" style={inputStyle} /></Field>
+          <Field label="Date d'entrée">
+            <DatePicker value={dateEntree} onChange={setDateEntree} style={inputStyle} />
+          </Field>
+          <Field label="Salaire mensuel">
+            <MoneyInput value={salaireMensuel} onChange={setSalaireMensuel} suffix="F CFA" style={inputStyle} />
+          </Field>
         </div>
 
         <Field label="Photo (facultatif)">
-          <div style={{ marginBottom: 18 }}><PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} /></div>
+          <div style={{ marginBottom: 18 }}>
+            <PhotoPicker schoolId={schoolId} value={photoUrl} onChange={setPhotoUrl} />
+          </div>
         </Field>
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
@@ -263,5 +311,16 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   );
 }
 
-const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 12 };
-function Field({ label, children }) { return <div><label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>{label}</label>{children}</div>; }
+const inputStyle = {
+  width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)',
+  fontSize: 14, boxSizing: 'border-box', color: 'var(--ink)', marginBottom: 12,
+};
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>{label}</label>
+      {children}
+    </div>
+  );
+}
