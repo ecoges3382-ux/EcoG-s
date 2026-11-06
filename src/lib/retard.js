@@ -1,260 +1,288 @@
-import { TRANCHES } from './utils.js';
-
-// Source unique pour tout calcul lié aux échéances de paiement d'un élève
-// (Élèves, Argent, fiche élève, Dashboard) — au lieu de dupliquer la
-// logique. computeRelance() est un dérivé de computeEcheances() : jamais
-// deux calculs indépendants du même "reste à payer".
-//
-// Répartition des échéances de scolarité : si la grille tarifaire du
-// niveau de l'élève (fee_schedules, montant_tranche1/2/3) est configurée,
-// les seuils cumulés utilisent les PROPORTIONS de cette grille, remises à
-// l'échelle du montant_du réel de l'élève (qui peut différer de la grille :
-// bourse, réduction saisie à la main sur l'inscription). Une tranche à 0
-// dans la grille (ex. école à 2 tranches) n'est jamais affichée comme une
-// échéance à part — elle n'existe simplement pas pour ce niveau. Si la
-// grille n'est pas configurée du tout, repli sur une répartition en parts
-// égales du montant_du — comportement historique, pour ne rien casser chez
-// une école qui n'a pas encore rempli sa grille par tranche.
-//
-// Chaque paiement encaissé se répartit en cascade sur les échéances dans
-// l'ordre (1ère tranche d'abord, l'excédent vers la 2e, etc.) — c'est ce
-// qui permet à un paiement supérieur au montant d'une échéance de couvrir
-// automatiquement le début de la suivante, sans règle spéciale à part.
-function trancheSlots(montantDu, feeSchedule, nbDelais) {
-  const bruts = [
-    Number(feeSchedule?.montant_tranche1) || 0,
-    Number(feeSchedule?.montant_tranche2) || 0,
-    Number(feeSchedule?.montant_tranche3) || 0,
-  ];
-  const totalBrut = bruts[0] + bruts[1] + bruts[2];
-  const du = Number(montantDu) || 0;
-
-  if (totalBrut > 0) {
-    const actifs = [0, 1, 2].filter((i) => bruts[i] > 0);
-    const montants = actifs.map((i) => Math.round((bruts[i] / totalBrut) * du));
-    const ecart = du - montants.reduce((a, v) => a + v, 0);
-    montants[montants.length - 1] += ecart; // dernière tranche active absorbe l'arrondi
-    return actifs.map((slotIndex, k) => ({ slotIndex, montant: montants[k] }));
-  }
-
-  // Pas de grille par tranche pour ce niveau : répartition en parts égales
-  // sur le nombre de délais que l'école a effectivement configurés dans
-  // son calendrier (au moins 1, pour toujours avoir une échéance même sans
-  // calendrier rempli).
-  const n = Math.max(nbDelais, 1);
-  const part = Math.round(du / n);
-  return Array.from({ length: n }, (_, k) => ({
-    slotIndex: k,
-    montant: k === n - 1 ? du - part * (n - 1) : part,
-  }));
+// Séparateur de milliers "." et décimales "," (ex. 125.375,43)
+export function fmt(n) {
+  return Number(n ?? 0).toLocaleString('de-DE');
 }
 
-// Retourne la liste des échéances de scolarité + une échéance "Frais
-// connexes" si elle s'applique. Chaque échéance : { id, label, ordre,
-// montant, dateLimite, montantPaye, montantRestant, statut, enRetard }.
-//
-// Statut possible : 'payee' | 'partielle' | 'impayee' | 'a_venir'.
-// - 'a_venir' : date limite dans le futur ET aucun paiement reçu.
-//   Cette échéance n'est PAS en retard, ne déclenche PAS de relance,
-//   et s'affiche en gris côté UI.
-// - 'impayee' : date limite dépassée OU pas de calendrier configuré,
-//   et aucun paiement reçu.
-//
-// enRetard reste la seule chose que la date influence strictement :
-// true = la date est dépassée ET l'échéance n'est pas totalement soldée.
-export function computeEcheances(enrollment, schoolYear, feeSchedule) {
-  if (!schoolYear || !enrollment) return [];
-  const today = new Date();
-  const montantDu = Number(enrollment.montant_du) || 0;
-  const montantPayeTotal = Number(enrollment.montant_paye) || 0;
+// Force la date locale du navigateur (fuseau horaire de l'utilisateur)
+// au lieu de l'heure UTC (qui décale les dates tard le soir).
+function toLocalIso(dateObj) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
-  const datesConfigurees = [schoolYear.date_tranche1, schoolYear.date_tranche2, schoolYear.date_tranche3];
-  const nbDelais = datesConfigurees.filter(Boolean).length;
-  const slots = trancheSlots(montantDu, feeSchedule, nbDelais);
+export function todayIso() {
+  return toLocalIso(new Date());
+}
 
-  let cumulAvant = 0;
-  const echeancesScolarite = slots.map(({ slotIndex, montant }, k) => {
-    const montantPaye = Math.min(Math.max(montantPayeTotal - cumulAvant, 0), montant);
-    const dateLimite = datesConfigurees[slotIndex] || null;
-    const isFuture = !!dateLimite && new Date(dateLimite) > today;
+export function startOfWeekIso(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  const day = d.getDay();
+  d.setDate(d.getDate() + ((day === 0 ? -6 : 1) - day));
+  return toLocalIso(d);
+}
 
-    let statut = 'impayee';
-    if (montant <= 0 || montantPaye >= montant) {
-      statut = 'payee';
-    } else if (montantPaye > 0) {
-      statut = 'partielle';
-    } else if (isFuture) {
-      // Aucun paiement et la date n'est pas encore passée : on n'inquiète pas le parent
-      statut = 'a_venir';
-    }
+export function endOfWeekIso(iso) {
+  const d = new Date(`${startOfWeekIso(iso)}T00:00:00`);
+  d.setDate(d.getDate() + 6);
+  return toLocalIso(d);
+}
 
-    const enRetard = statut !== 'payee' && statut !== 'a_venir' && !!dateLimite && new Date(dateLimite) < today;
-    cumulAvant += montant;
+export function startOfMonthIso(iso) {
+  return `${iso.slice(0, 7)}-01`;
+}
 
-    return {
-      id: `tranche${slotIndex + 1}`,
-      label: TRANCHES.find((t) => t.id === `tranche${slotIndex + 1}`)?.label || `Échéance ${k + 1}`,
-      ordre: k + 1,
-      montant,
-      dateLimite,
-      montantPaye,
-      montantRestant: Math.max(montant - montantPaye, 0),
-      statut,
-      enRetard,
-    };
+export function endOfMonthIso(iso) {
+  const [y, m] = iso.slice(0, 7).split('-').map(Number);
+  return `${iso.slice(0, 7)}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+}
+
+export function fmtF(n) {
+  return `${fmt(n)} F CFA`;
+}
+
+export function formatAmountsInText(text) {
+  return (text || '').replace(/\d+(?:\.\d+)*(?:,\d+)?/g, (token) => {
+    const [intPart, decPart] = token.split(',');
+    const digits = intPart.replace(/\./g, '');
+    const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return decPart !== undefined ? `${grouped},${decPart}` : grouped;
   });
-
-  const echeances = [...echeancesScolarite];
-  if (schoolYear.date_connexe || Number(enrollment.frais_connexe_du) > 0) {
-    const montant = Number(enrollment.frais_connexe_du) || 0;
-    const montantPaye = Math.min(Number(enrollment.frais_connexe_paye) || 0, montant);
-    const isFuture = !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) > today;
-
-    let statut = 'impayee';
-    if (montant <= 0 || montantPaye >= montant) {
-      statut = 'payee';
-    } else if (montantPaye > 0) {
-      statut = 'partielle';
-    } else if (isFuture) {
-      statut = 'a_venir';
-    }
-
-    const enRetard = statut !== 'payee' && statut !== 'a_venir' && !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) < today;
-
-    echeances.push({
-      id: 'connexe',
-      label: 'Frais connexes',
-      ordre: echeancesScolarite.length + 1,
-      montant,
-      dateLimite: schoolYear.date_connexe || null,
-      montantPaye,
-      montantRestant: Math.max(montant - montantPaye, 0),
-      statut,
-      enRetard,
-    });
-  }
-
-  return echeances;
 }
 
-// Nombre de jours avant la fin du moratoire à partir duquel on considère
-// qu'il faut relancer (option E). Modifiable ici pour toute l'app.
-export const MORATOIRE_ALERTE_JOURS = 7;
-
-// Détecte si un moratoire est actif, en tenant compte à la fois de
-// l'ancien système (note_arrangement) et du nouveau (moratoire_actif).
-function hasMoratoireActif(enrollment) {
-  if (!enrollment) return false;
-  if (enrollment.moratoire_actif === true) return true;
-  if (enrollment.note_arrangement && enrollment.note_arrangement.trim() !== '') return true;
-  return false;
+export function initials(name) {
+  return (name || '').split(' ').map((w) => w[0]).join('');
 }
 
-// Résumé texte du moratoire, utilisé pour l'historique (D) et l'affichage.
-export function resumeMoratoire(enrollment) {
-  if (!enrollment) return 'Aucun moratoire';
-  if (!hasMoratoireActif(enrollment)) return 'Aucun moratoire';
-  const parts = [];
-  if (enrollment.moratoire_motif) parts.push(`Motif : ${enrollment.moratoire_motif}`);
-  if (enrollment.moratoire_montant_convenu != null) parts.push(`Montant convenu : ${Number(enrollment.moratoire_montant_convenu).toLocaleString('fr-FR')} F`);
-  if (enrollment.moratoire_nb_mensualites) parts.push(`${enrollment.moratoire_nb_mensualites} mensualité(s)`);
-  if (enrollment.moratoire_date_debut) parts.push(`Début : ${enrollment.moratoire_date_debut}`);
-  if (enrollment.moratoire_date_fin) parts.push(`Fin : ${enrollment.moratoire_date_fin}`);
-  if (enrollment.moratoire_prochaine_echeance) parts.push(`Prochaine échéance : ${enrollment.moratoire_prochaine_echeance}`);
-  if (enrollment.note_arrangement && enrollment.note_arrangement.trim() !== '') parts.push(`Note : ${enrollment.note_arrangement}`);
-  return parts.length > 0 ? parts.join(' · ') : 'Moratoire actif';
+export function displayName(nom, prenom) {
+  return `${(nom || '').toUpperCase()} ${prenom || ''}`.trim();
 }
 
-// Un parent qui a négocié un arrangement (ex. payer par mensualités plutôt
-// que suivre les tranches) est exclu des relances automatiques tant que
-// cette note existe. Sans calendrier configuré du tout (aucune date de
-// tranche ni de frais connexes), on ne peut rien dater : pas de relance
-// automatique, l'ancien badge par pourcentage prend le relais côté écran
-// (voir Students.jsx).
-//
-// Options C et E :
-// - C (retrait auto) : si l'écolage est soldé ET que les frais connexes
-//   sont soldés, le moratoire est considéré comme retiré. Un flag
-//   `moratoireRetireAuto: true` est retourné pour que les composants
-//   (formulaire de paiement, fiche élève) puissent déclencher un update
-//   de la base + une entrée d'historique.
-// - E (alerte de fin) : si on est à MORATOIRE_ALERTE_JOURS ou moins de la
-//   date de fin du moratoire, l'élève réapparaît dans "À relancer" avec
-//   `moratoireExpirant: true` et `joursRestantsMoratoire`.
-export function computeRelance(enrollment, schoolYear, feeSchedule) {
-  if (!enrollment) {
-    return { relance: false, moratoire: false, relanceEcolage: false, relanceConnexe: false };
+export function splitFullName(fullName) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { nom: '', prenom: '' };
+  if (parts.length === 1) return { nom: parts[0], prenom: '' };
+  const upperWordIndex = parts.findIndex(p => p === p.toUpperCase() && p.length > 1);
+  if (upperWordIndex !== -1) {
+    const nom = parts[upperWordIndex];
+    const prenom = parts.filter((_, i) => i !== upperWordIndex).join(' ');
+    return { nom, prenom };
   }
+  return { nom: parts[0], prenom: parts.slice(1).join(' ') };
+}
 
-  const maintenant = new Date();
-
-  // --- Option C : détection "tout payé" ---
-  const ecolageDu = Number(enrollment.montant_du) || 0;
-  const ecolagePaye = Number(enrollment.montant_paye) || 0;
-  const connexeDu = Number(enrollment.frais_connexe_du) || 0;
-  const connexePaye = Number(enrollment.frais_connexe_paye) || 0;
-  const toutPaye = (ecolageDu - ecolagePaye <= 0) && (connexeDu - connexePaye <= 0);
-
-  const moratoireActif = hasMoratoireActif(enrollment);
-
-  // Option C : moratoire retiré automatiquement parce que tout est soldé
-  if (moratoireActif && toutPaye) {
-    return {
-      relance: false,
-      moratoire: false,
-      moratoireRetireAuto: true,
-      relanceEcolage: false,
-      relanceConnexe: false,
-    };
+export function csvEscape(val) {
+  const s = String(val ?? '');
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
   }
+  return s;
+}
 
-  // Moratoire actif : on regarde l'option E (alerte de fin)
-  if (moratoireActif) {
-    let joursRestantsMoratoire = null;
-    let moratoireExpirant = false;
+export function downloadCsv(filename, rows) {
+  const csvContent = rows.map((row) => row.map(csvEscape).join(',')).join('\r\n');
+  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
-    if (enrollment.moratoire_date_fin) {
-      const fin = new Date(enrollment.moratoire_date_fin);
-      const diffMs = fin.getTime() - maintenant.getTime();
-      joursRestantsMoratoire = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      if (joursRestantsMoratoire <= MORATOIRE_ALERTE_JOURS) {
-        moratoireExpirant = true;
+export function parseCsv(text) {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else {
+        field += c;
       }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field); field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else {
+      field += c;
     }
-
-    if (moratoireExpirant && schoolYear) {
-      // On recalcule les échéances normalement pour voir s'il y a un retard
-      const echeances = computeEcheances(enrollment, schoolYear, feeSchedule);
-      const relanceEcolage = echeances.some((e) => e.id !== 'connexe' && e.enRetard);
-      const relanceConnexe = echeances.some((e) => e.id === 'connexe' && e.enRetard);
-      return {
-        relance: relanceEcolage || relanceConnexe,
-        moratoire: false,
-        moratoireExpirant: true,
-        joursRestantsMoratoire,
-        relanceEcolage,
-        relanceConnexe,
-      };
-    }
-
-    // Moratoire normal (pas en fin imminente)
-    return {
-      relance: false,
-      moratoire: true,
-      joursRestantsMoratoire,
-      relanceEcolage: false,
-      relanceConnexe: false,
-    };
   }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
 
-  // --- Pas de moratoire : calcul normal ---
-  if (!schoolYear) {
-    return { relance: false, moratoire: false, relanceEcolage: false, relanceConnexe: false };
+const ACCESS_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export function generateAccessCode(length = 8) {
+  const bytes = new Uint32Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (n) => ACCESS_CODE_ALPHABET[n % ACCESS_CODE_ALPHABET.length]).join('');
+}
+
+export const NIVEAUX = [
+  'Maternelle', 'CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2',
+  '6e', '5e', '4e', '3e', '2nde', '1ere', 'Tle',
+];
+
+export const NATIONALITES = [
+  'Béninoise', 'Burkinabè', 'Burundaise', 'Camerounaise', 'Centrafricaine', 'Congolaise (Brazzaville)', 
+  'Congolaise (RDC)', 'Ivoirienne', 'Djiboutienne', 'Égyptienne', 'Érythréenne', 'Éthiopienne', 
+  'Gabonaise', 'Gambienne', 'Ghanéenne', 'Guinéenne', 'Équato-guinéenne', 'Bissau-guinéenne', 
+  'Kényane', 'Libérienne', 'Libyenne', 'Malgache', 'Malawienne', 'Malienne', 'Marocaine', 
+  'Mauritanienne', 'Mauricienne', 'Mozambicaine', 'Namibienne', 'Nigérienne', 'Nigériane', 
+  'Rwandaise', 'Sénégalaise', 'Seychelloise', 'Sierra-Léonaise', 'Somalienne', 'Sud-africaine', 
+  'Soudanaise', 'Sud-soudanaise', 'Tanzanienne', 'Tchadienne', 'Togolaise', 'Tunisienne', 
+  'Ougandaise', 'Zambienne', 'Zimbabwéenne', 'Française', 'Belge', 'Canadienne', 'Américaine', 
+  'Algérienne', 'Allemande', 'Angolaise', 'Saoudienne', 'Argentine', 'Australienne', 'Autrichienne', 
+  'Brésilienne', 'Britannique', 'Chinoise', 'Espagnole', 'Indienne', 'Italienne', 'Japonaise', 
+  'Libanaise', 'Portugaise', 'Russe', 'Suisse', 'Turque', 'Autre'
+];
+
+export function sortClasses(list) {
+  return [...list].sort((a, b) => {
+    const diff = NIVEAUX.indexOf(a.niveau) - NIVEAUX.indexOf(b.niveau);
+    if (diff !== 0) return diff;
+    return (a.section || '').localeCompare(b.section || '');
+  });
+}
+
+export const TRANCHES = [
+  { id: 'tranche1', label: '1ère tranche' },
+  { id: 'tranche2', label: '2ème tranche' },
+  { id: 'tranche3', label: '3ème tranche' },
+  { id: 'moitie', label: 'Moitié' },
+  { id: 'complet', label: 'Complet' },
+  { id: 'autre', label: 'Autre' },
+];
+export function trancheLabel(id) {
+  return TRANCHES.find((t) => t.id === id)?.label || (id === 'partiel' ? 'Partiel' : id);
+}
+
+export const MODES = [
+  { id: 'especes', label: 'Espèces' },
+  { id: 'mobile_money', label: 'Mobile Money' },
+  { id: 'virement', label: 'Virement' },
+  { id: 'cheque', label: 'Chèque' },
+];
+export function modeLabel(id) {
+  return MODES.find((m) => m.id === id)?.label || id;
+}
+
+export const TYPES_FRAIS = [
+  { id: 'scolarite', label: 'Scolarité' },
+  { id: 'connexe', label: 'Frais connexes' },
+  { id: 'inscription', label: 'Inscription' },
+  { id: 'autre', label: 'Autre' },
+  { id: 'solde_ouverture_ecolage', label: "Solde d'ouverture (écolage)", hidden: true },
+  { id: 'solde_ouverture_connexe', label: "Solde d'ouverture (connexes)", hidden: true },
+];
+export function typeFraisLabel(id) {
+  return TYPES_FRAIS.find((t) => t.id === id)?.label || id;
+}
+
+export const ROLES = {
+  fondateur: { label: 'Fondateur' },
+  directeur: { label: 'Directeur' },
+  censeur: { label: 'Censeur' },
+  secretaire: { label: 'Secrétaire' },
+  enseignant: { label: 'Enseignant' },
+  parent: { label: 'Parent' },
+};
+
+const ROLE_ORDER = ['fondateur', 'directeur', 'censeur', 'secretaire'];
+export function sortByRole(list) {
+  return [...list].sort((a, b) => {
+    const ra = ROLE_ORDER.indexOf(a.role);
+    const rb = ROLE_ORDER.indexOf(b.role);
+    return (ra === -1 ? ROLE_ORDER.length : ra) - (rb === -1 ? ROLE_ORDER.length : rb);
+  });
+}
+
+export const SUPPORT_WHATSAPP_NUMBER = '22995056424';
+export const SUPPORT_WHATSAPP_DISPLAY = '+229 95 05 64 24';
+export const SUPPORT_EMAIL = 'ecoges3382@gmail.com';
+
+export function supportWhatsappLink(message) {
+  return `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+}
+export function supportMailLink(subject) {
+  return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+}
+
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
   }
+}
 
-  const echeances = computeEcheances(enrollment, schoolYear, feeSchedule);
-  const relanceEcolage = echeances.some((e) => e.id !== 'connexe' && e.enRetard);
-  const relanceConnexe = echeances.some((e) => e.id === 'connexe' && e.enRetard);
+// Permet de figer une colonne à gauche (pour le nom de l'élève)
+export function stickyColStyle(bg) {
+  return {
+    position: 'sticky',
+    left: 0,
+    zIndex: 2,
+    background: bg,
+    borderRight: '1px solid var(--line)',
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  };
+}
 
-  return { relance: relanceEcolage || relanceConnexe, moratoire: false, relanceEcolage, relanceConnexe };
+// Permet de figer une colonne à droite (pour les boutons d'action)
+export function stickyRightColStyle(bg) {
+  return {
+    position: 'sticky',
+    right: 0,
+    zIndex: 2,
+    background: bg,
+    borderLeft: '1px solid var(--line)',
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  };
+}
+
+// Permet de figer la ligne d'en-tête en haut
+export function stickyHeaderStyle(bg) {
+  return {
+    position: 'sticky',
+    top: 0,
+    zIndex: 3,
+    background: bg,
+    borderBottom: '1px solid var(--line)',
+    transform: 'translateZ(0)',
+    WebkitTransform: 'translateZ(0)',
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  };
 }
