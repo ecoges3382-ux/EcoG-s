@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { sortClasses } from '../lib/utils.js';
 import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
+import { hasFeature, getPlanLabel, featurePlanRequired } from '../lib/plan.js';
 import NewScheduleEntryModal from '../components/NewScheduleEntryModal.jsx';
 import ScheduleSlotsModal from '../components/ScheduleSlotsModal.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
@@ -10,6 +11,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import PlanLocked from '../components/PlanLocked.jsx';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -25,6 +27,8 @@ export default function Schedule() {
   const { profile } = useAuth();
   const confirm = useConfirm();
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
+  const plan = profile?.schools?.plan || 'decouverte';
+  const hasSchedule = hasFeature(plan, 'emploi_du_temps');
   const [entries, setEntries] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [classes, setClasses] = useState(null);
@@ -70,13 +74,32 @@ export default function Schedule() {
     });
   }
 
-  useEffect(() => { reload(); }, [schoolYear?.id]);
+  useEffect(() => {
+    if (!hasSchedule) return;
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolYear?.id, hasSchedule]);
 
   async function handleDelete(entry) {
     if (!(await confirm(`Supprimer ce créneau (${entry.matiere}) ?`, { confirmLabel: 'Supprimer' }))) return;
     const { error: deleteError } = await supabase.from('schedule_entries').delete().eq('id', entry.id);
     if (deleteError) { setError(deleteError.message); return; }
     reload();
+  }
+
+  // Verrouillage par le plan : un utilisateur en Découverte qui tape
+  // /emploi-du-temps directement dans l'URL ne voit plus la grille, même
+  // si l'entrée a déjà disparu de la sidebar (Shell.jsx). Placé APRÈS
+  // tous les hooks, comme dans Staff.jsx — la règle des hooks React exige
+  // que le nombre d'appels soit constant entre deux rendus.
+  if (!hasSchedule) {
+    return (
+      <div>
+        <SchoolTabs />
+        <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Emploi du temps</p>
+        <PlanLocked currentPlanLabel={getPlanLabel(plan)} requiredPlanLabel={featurePlanRequired('emploi_du_temps')} featureDescription="l'emploi du temps (créneaux horaires, affectation des cours aux classes et aux enseignants)" />
+      </div>
+    );
   }
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
