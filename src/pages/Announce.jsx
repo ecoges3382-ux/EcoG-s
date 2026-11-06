@@ -192,7 +192,8 @@ export default function Announce() {
 
 function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onSaved, onError }) {
   const showToast = useToast();
-  const [audience, setAudience] = useState(editing?.audience || 'parents');
+  // On utilise un tableau pour stocker les cases cochées
+  const [audiences, setAudiences] = useState(editing?.audience || ['parents']); 
   const [portee, setPortee] = useState(editing ? (editing.classe_cible_id ? 'Une classe' : 'École entière') : 'École entière');
   const [classeCibleId, setClasseCibleId] = useState(editing?.classe_cible_id || '');
   const [titre, setTitre] = useState(editing?.titre || '');
@@ -204,18 +205,29 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     if (portee === 'Une classe' && !classeCibleId && classes.length) setClasseCibleId(classes[0].id);
   }, [portee, classes, classeCibleId]);
 
+  const toggleAudience = (val) => {
+    setAudiences(prev => 
+      prev.includes(val) ? prev.filter(item => item !== val) : [...prev, val]
+    );
+  };
+
   async function submit(statut) {
     if (!titre.trim()) { onError('Le titre est obligatoire.'); return; }
-    if (audience === 'parents' && portee === 'Une classe' && !classeCibleId) { onError('Choisis une classe.'); return; }
+    if (audiences.length === 0) { onError('Sélectionnez au moins un destinataire.'); return; }
+    if (audiences.includes('parents') && portee === 'Une classe' && !classeCibleId) { onError('Choisis une classe.'); return; }
     
     setSubmitting(statut);
     onError('');
+    
+    // On force le ciblage sur "École entière" si "Parents" n'est pas coché
+    const finalPortee = audiences.includes('parents') ? portee : 'École entière';
+    
     const payload = {
       titre: titre.trim(),
       contenu: contenu.trim(),
-      audience,
-      portee: audience === 'personnel' ? 'École entière' : portee,
-      classe_cible_id: (audience === 'parents' && portee === 'Une classe') ? classeCibleId : null,
+      audience: audiences, // Tableau ex: ['parents', 'enseignants']
+      portee: finalPortee,
+      classe_cible_id: (audiences.includes('parents') && finalPortee === 'Une classe') ? classeCibleId : null,
       date_expiration: dateExpiration || null,
       statut,
       school_year_id: activeYear?.id || null,
@@ -236,6 +248,18 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     onSaved();
   }
 
+  const Checkbox = ({ id, label }) => (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', padding: '6px 0' }}>
+      <input 
+        type="checkbox" 
+        checked={audiences.includes(id)} 
+        onChange={() => toggleAudience(id)}
+        style={{ width: 16, height: 16, accentColor: 'var(--forest)', cursor: 'pointer' }}
+      />
+      {label}
+    </label>
+  );
+
   return (
     <div className="card-bold" style={{ padding: '20px 22px', marginBottom: 20, maxWidth: 640 }}>
       <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 600 }}>
@@ -243,26 +267,18 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
       </p>
       
       <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 5 }}>Destinataires</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[
-            { id: 'parents', label: 'Parents' },
-            { id: 'personnel', label: 'Enseignants / Équipe' },
-            { id: 'tous', label: 'Parents et Personnel' }
-          ].map((a) => (
-            <button
-              type="button" key={a.id} onClick={() => setAudience(a.id)}
-              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: audience === a.id ? 'none' : '1px solid var(--line-strong)', background: audience === a.id ? 'var(--clay)' : 'var(--paper)', color: audience === a.id ? '#fff' : 'var(--ink)' }}
-            >
-              {a.label}
-            </button>
-          ))}
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 8 }}>Destinataires</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', background: 'var(--cream)', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--line)' }}>
+          <Checkbox id="parents" label="Parents" />
+          <Checkbox id="enseignants" label="Enseignants" />
+          <Checkbox id="equipe" label="Équipe (Direction)" />
+          <Checkbox id="personnel" label="Tout le Personnel" />
         </div>
       </div>
 
-      {audience === 'parents' && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>Ciblage :</span>
+      {audiences.includes('parents') && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', background: 'var(--forest-light)', padding: '12px 16px', borderRadius: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-dark)' }}>Ciblage Parents :</span>
           {['École entière', 'Une classe'].map((p) => (
             <button
               type="button" key={p} onClick={() => setPortee(p)}
@@ -339,14 +355,22 @@ function timeAgo(dateStr) {
 function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDelete }) {
   const confirm = useConfirm();
   const cibleLabel = a.portee === 'Une classe' ? (a.classes?.nom || a.classe_cible || 'Classe') : a.portee;
-  const audienceLabel = a.audience === 'tous' ? 'Parents & Personnel' : a.audience === 'personnel' ? 'Personnel' : 'Parents';
+  
+  // Construction des labels d'audience
+  const audienceLabels = [];
+  if (a.audience?.includes('parents')) audienceLabels.push('Parents');
+  if (a.audience?.includes('enseignants')) audienceLabels.push('Enseignants');
+  if (a.audience?.includes('equipe')) audienceLabels.push('Équipe');
+  if (a.audience?.includes('personnel')) audienceLabels.push('Personnel');
+  const audienceText = audienceLabels.length > 0 ? audienceLabels.join(' & ') : 'Tous';
+
   const expiree = a.date_expiration && a.date_expiration < todayIso() && a.statut === 'publiee';
   const st = STATUT_LABELS[a.statut] || STATUT_LABELS.publiee;
   const [waSending, setWaSending] = useState(false);
   const [waResult, setWaResult] = useState(null);
 
   async function diffuserWhatsApp() {
-    if (!(await confirm(`Diffuser « ${a.titre} » par WhatsApp à ${audienceLabel} ?`, { confirmLabel: 'Diffuser', danger: false }))) return;
+    if (!(await confirm(`Diffuser « ${a.titre} » par WhatsApp à ${audienceText} ?`, { confirmLabel: 'Diffuser', danger: false }))) return;
     setWaSending(true);
     setWaResult(null);
     try {
@@ -362,9 +386,9 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
     <div style={{ padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'var(--gold-light)', color: 'var(--clay-dark)' }}>
-          {audienceLabel}
+          {audienceText}
         </span>
-        {a.audience !== 'personnel' && (
+        {a.audience?.includes('parents') && (
           <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
             {cibleLabel}
           </span>
