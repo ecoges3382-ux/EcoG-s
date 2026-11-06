@@ -57,6 +57,7 @@ export default function Recouvrement() {
   const { students, error, offline } = useEnrollmentsForYear(schoolYear);
   const [inscriptionByStudent, setInscriptionByStudent] = useState(null);
   const [remindersByStudent, setRemindersByStudent] = useState({});
+  const [manualRemindersByStudent, setManualRemindersByStudent] = useState({});
   const [search, setSearch] = useState('');
   const [searchPriority, setSearchPriority] = useState('');
   const [filterClasse, setFilterClasse] = useState('toutes');
@@ -102,24 +103,34 @@ export default function Recouvrement() {
     return () => { cancelled = true; };
   }, [schoolYear?.id, inscriptionTypeId]);
 
+  // On charge TOUTES les relances (auto + manuelles) en une seule requête
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
     supabase
       .from('whatsapp_messages')
-      .select('student_id, template_name, created_at')
+      .select('student_id, template_name, created_at, statut')
       .eq('school_id', profile.school_id)
       .eq('type', 'relance_paiement')
-      .like('template_name', 'rappel_j%')
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (cancelled) return;
-        const map = {};
+        const autoMap = {};
+        const manualMap = {};
         (data || []).forEach((m) => {
-          if (!map[m.student_id]) map[m.student_id] = [];
-          map[m.student_id].push(m);
+          const isAuto = m.template_name && m.template_name.startsWith('rappel_j');
+          if (isAuto) {
+            if (!autoMap[m.student_id]) autoMap[m.student_id] = [];
+            autoMap[m.student_id].push(m);
+          } else {
+            // Relance manuelle : on ne garde que la plus récente et réussie
+            if (!manualMap[m.student_id] && m.statut === 'envoye') {
+              manualMap[m.student_id] = m;
+            }
+          }
         });
-        setRemindersByStudent(map);
+        setRemindersByStudent(autoMap);
+        setManualRemindersByStudent(manualMap);
       });
     return () => { cancelled = true; };
   }, [schoolYear?.id, profile.school_id]);
@@ -179,7 +190,8 @@ export default function Recouvrement() {
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
       const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
-      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe };
+      const derniereManuelle = manualRemindersByStudent[s.id] || null;
+      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe, derniereManuelle };
     })
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
@@ -231,6 +243,19 @@ export default function Recouvrement() {
     try {
       await sendWhatsAppMessage({ type: 'relance_paiement', student_id: studentId });
       showToast('Relance envoyée !');
+      // Recharger les relances manuelles pour mettre à jour le badge
+      const { data } = await supabase
+        .from('whatsapp_messages')
+        .select('student_id, template_name, created_at, statut')
+        .eq('school_id', profile.school_id)
+        .eq('type', 'relance_paiement')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data && data.statut === 'envoye' && !data.template_name?.startsWith('rappel_j')) {
+        setManualRemindersByStudent(prev => ({ ...prev, [studentId]: data }));
+      }
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -253,6 +278,23 @@ export default function Recouvrement() {
     setBulkSending(false);
     if (clearSelectionFn) clearSelectionFn();
     showToast(`${count} relance${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} !`);
+    // Recharger toutes les relances manuelles
+    const { data } = await supabase
+      .from('whatsapp_messages')
+      .select('student_id, template_name, created_at, statut')
+      .eq('school_id', profile.school_id)
+      .eq('type', 'relance_paiement')
+      .order('created_at', { ascending: false });
+    if (data) {
+      const manualMap = {};
+      data.forEach((m) => {
+        const isAuto = m.template_name && m.template_name.startsWith('rappel_j');
+        if (!isAuto && m.statut === 'envoye' && !manualMap[m.student_id]) {
+          manualMap[m.student_id] = m;
+        }
+      });
+      setManualRemindersByStudent(manualMap);
+    }
   }
 
   function togglePrioritySelection(id) {
@@ -435,9 +477,9 @@ export default function Recouvrement() {
           </div>
         </div>
 
-        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
-          <div style={{ minWidth: 860 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+        <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 350, overflowY: 'auto' }}>
+          <div style={{ minWidth: 980 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
               <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <input
                   type="checkbox"
@@ -450,13 +492,14 @@ export default function Recouvrement() {
               <span>Reste Écolage</span>
               <span>Reste Connexes</span>
               <span>Total Dû</span>
+              <span>Dernière relance</span>
               <span></span>
             </div>
             {elevesPrioritaires.map((s, i) => (
               <div
                 key={s.id}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
                 <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input
@@ -478,13 +521,30 @@ export default function Recouvrement() {
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(s.totalReste)}</span>
 
+                <div>
+                  {s.derniereManuelle ? (
+                    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ background: 'var(--success-light)', color: 'var(--success)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                        ✅ Relancé
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'var(--muted)', paddingLeft: 4 }}>
+                        le {new Date(s.derniereManuelle.created_at).toLocaleDateString('fr-FR')}
+                      </span>
+                    </span>
+                  ) : (
+                    <span style={{ background: '#F0EDE5', color: 'var(--muted)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                      ⏳ Jamais relancé
+                    </span>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => handleRelance(s.id)}
                     disabled={sendingId === s.id || bulkSending}
                     style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: '1px solid #25D366', background: 'var(--paper)', color: '#0A7A4F', cursor: (sendingId === s.id || bulkSending) ? 'default' : 'pointer', opacity: (sendingId === s.id || bulkSending) ? 0.5 : 1 }}
                   >
-                    {sendingId === s.id ? '…' : 'Relancer'}
+                    {sendingId === s.id ? '…' : (s.derniereManuelle ? 'Relancer à nouveau' : 'Relancer')}
                   </button>
                 </div>
               </div>
