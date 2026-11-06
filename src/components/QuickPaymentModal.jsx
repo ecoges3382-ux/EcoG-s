@@ -25,7 +25,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
   const [error, setError] = useState('');
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
-  // 🔥 Nouveaux states pour l'auto-print
   const [createdPayment, setCreatedPayment] = useState(null);
   const [schoolYearInfo, setSchoolYearInfo] = useState(null);
 
@@ -38,7 +37,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
   if (typeFrais === 'scolarite' && resteEcolage <= 0) dejaPaye = true;
   if (typeFrais === 'connexe' && resteConnexe <= 0) dejaPaye = true;
 
-  // 🔥 Charge l'année scolaire (pour les dates de tranches → reçu détaillé)
   useEffect(() => {
     if (!student.school_year_id) return;
     supabase.from('school_years')
@@ -97,7 +95,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       .select('id, montant, type_frais, mode, tranche, date, note')
       .single();
 
-    // Gestion de l'erreur anti-double clic
     if (insertError && insertError.code === '23505') {
       const { data: existing, error: fetchError } = await supabase
         .from('payments')
@@ -117,7 +114,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         && existing.tranche === payload.tranche
         && existing.date === payload.date;
       if (matches) {
-        // 🔥 Affiche le reçu existant
         setCreatedPayment(existing);
         return;
       }
@@ -129,7 +125,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
     if (insertError) { setError(translateError(insertError)); return; }
 
     showToast('Paiement enregistré');
-    // 🔥 Affiche le reçu au lieu d'appeler onSaved tout de suite
     if (inserted) {
       setCreatedPayment(inserted);
       return;
@@ -140,7 +135,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
   const canSubmit = !dejaPaye && !submitting && montant !== '';
 
-  // 🔥 Rendu du reçu après paiement
   if (createdPayment && schoolYearInfo) {
     const updatedEnrollment = {
       montant_du: Number(student.montant_du) || 0,
@@ -161,7 +155,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         enrollment={updatedEnrollment}
         schoolYear={schoolYearInfo}
         feeSchedule={currentFeeSchedule}
-        autoPrint={true}
+        autoPrint={false} // 👈 MODIFICATION ICI
         onClose={onSaved}
       />
     );
