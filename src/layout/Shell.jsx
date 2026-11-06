@@ -11,7 +11,6 @@ import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 
 const SIDEBAR_ITEMS = [
-  // Le Tableau de bord a maintenant sa propre permission
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet', perm: 'finance' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', perm: 'finance', tourId: 'sidebar-recouvrement' },
@@ -72,9 +71,8 @@ export default function Shell() {
   const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
   const plan = profile?.schools?.plan || 'decouverte';
 
-  // RÈGLE STRICTE ICI
   const hasAccess = (perm) => {
-    if (!perm) return true; 
+    if (!perm) return true;
     if (profile?.role === 'fondateur') return true;
     return profile?.permissions?.[perm] === true;
   };
@@ -91,74 +89,73 @@ export default function Shell() {
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
-    <div id="app">
-      <div className="topbar-row" style={{ background: 'var(--forest)', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
-            {profile?.schools?.logo_url
-              ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+      <div id="app">
+        <div className="topbar-row" style={{ background: 'var(--forest)', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
+              {profile?.schools?.logo_url
+                ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+            </div>
+            <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {schoolName}
+            </p>
           </div>
-          <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {schoolName}
-          </p>
-        </div>
-        <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
-          <SchoolYearSelector />
-          {isPlatformAdmin && (
-            <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-              <ShieldIcon /><span className="logout-label">Administration</span>
-            </NavLink>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20 }}>
-            <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
-            <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
-          </div>
-          
-          <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
-            <HelpIcon />
-          </Link>
+          <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+            <SchoolYearSelector />
+            {isPlatformAdmin && (
+              <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                <ShieldIcon /><span className="logout-label">Administration</span>
+              </NavLink>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20 }}>
+              <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
+              <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
+            </div>
 
-          <button onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}>
-            <span aria-hidden="true">⏻</span> <span className="logout-label">Se déconnecter</span>
-          </button>
-        </div>
-      </div>
+            <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
+              <HelpIcon />
+            </Link>
 
-      <div id="layout">
-        <div id="sidebar" data-tour="sidebar">
-          <SidebarMenu plan={plan} hasAccess={hasAccess} />
-        </div>
-        <div id="screen">
-          <div key={location.pathname} className="page-transition">
-            <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
-              <Outlet />
-            </Suspense>
+            <button onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 10, color: 'rgba(255,255,255,0.85)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', flexShrink: 0 }}>
+              <span aria-hidden="true">⏻</span> <span className="logout-label">Se déconnecter</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      <div id="bottomnav">
-        {BOTTOM_NAV_ITEMS.map((item) => {
-          if (!hasAccess(item.perm)) return null;
+        <div id="layout">
+          <div id="sidebar" data-tour="sidebar">
+            <SidebarMenu plan={plan} hasAccess={hasAccess} />
+          </div>
+          <div id="screen">
+            <div key={location.pathname} className="page-transition" style={{ paddingBottom: '48px' }}>
+              <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
+                <Outlet />
+              </Suspense>
+            </div>
+          </div>
+        </div>
 
-          const isActive = item.group
-            ? item.group.some((p) => location.pathname.startsWith(p))
-            : (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={`navlink${isActive ? ' active' : ''}`}
-              data-tour={item.tourId}
-            >
-              <i className={`ti ${item.icon}`} aria-hidden="true"></i>
-              <span>{item.shortLabel}</span>
-            </NavLink>
-          );
-        })}
+        <div id="bottomnav">
+          {BOTTOM_NAV_ITEMS.map((item) => {
+            if (!hasAccess(item.perm)) return null;
+            const isActive = item.group
+              ? item.group.some((p) => location.pathname.startsWith(p))
+              : (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={`navlink${isActive ? ' active' : ''}`}
+                data-tour={item.tourId}
+              >
+                <i className={`ti ${item.icon}`} aria-hidden="true"></i>
+                <span>{item.shortLabel}</span>
+              </NavLink>
+            );
+          })}
+        </div>
       </div>
-    </div>
     </SchoolYearProvider>
   );
 }
