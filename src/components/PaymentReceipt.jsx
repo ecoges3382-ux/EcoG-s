@@ -156,7 +156,6 @@ function ReceiptBody({ payment, studentName, classeNom, studentMatricule, school
         </div>
       )}
 
-      {/* 👇 MODIFICATION ICI : Mention de l'école au lieu d'EcoGès */}
       <p style={{ margin: 0, fontSize: smallFont, color: 'var(--muted)' }}>
         Généré le {new Date().toLocaleDateString('fr-FR')} — atteste d'un paiement enregistré à {school?.name || "l'école"}.
       </p>
