@@ -143,7 +143,18 @@ export default function StaffDetail() {
         <Row label="Salaire mensuel" value={person.salaire_mensuel != null ? fmtF(person.salaire_mensuel) : '—'} topBorder />
       </div>
 
-      {schoolYear && <SalariesCard staffId={id} schoolId={profile.school_id} schoolYear={schoolYear} salaries={salaries} canManage={canManage} onChanged={reloadSalaries} createdBy={profile.id} />}
+      {schoolYear && (
+        <SalariesCard
+          staffId={id}
+          schoolId={profile.school_id}
+          schoolYear={schoolYear}
+          salaireMensuel={person.salaire_mensuel}
+          salaries={salaries}
+          canManage={canManage}
+          onChanged={() => { reloadSalaries(); }}
+          createdBy={profile.id}
+        />
+      )}
 
       <AdvancesCard advances={advances} />
 
@@ -182,7 +193,19 @@ function Row({ label, value, topBorder }) {
   );
 }
 
-function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onChanged, createdBy }) {
+// Carte "Salaires versés" : liste des versements déjà enregistrés + formulaire
+// pour en ajouter un. Deux particularités voulues :
+//
+// 1) Quand ce membre a des avances approuvées non soldées, un encart les
+//    affiche et le montant par défaut du formulaire est pré-rempli à
+//    "salaire prévu - avances" (le net à verser). La personne qui paie n'a
+//    donc rien à calculer à la main.
+//
+// 2) À l'enregistrement, les avances concernées sont automatiquement soldées
+//    via "montant_rembourse" — exactement comme dans Staff.jsx et Money.jsx
+//    (le trigger SQL trg_recompute_advance_solde recalcule "solde" tout seul).
+//    Sans cette étape, une avance serait déduite chaque mois à l'infini.
+function SalariesCard({ staffId, schoolId, schoolYear, salaireMensuel, salaries, canManage, onChanged, createdBy }) {
   const showToast = useToast();
   const confirm = useConfirm();
   const [mois, setMois] = useState('');
@@ -192,8 +215,42 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [avancesOuvertes, setAvancesOuvertes] = useState(null);
 
   const total = (salaries || []).reduce((a, s) => a + Number(s.montant), 0);
+  const avanceTotale = (avancesOuvertes || []).reduce((a, av) => a + (Number(av.solde) || 0), 0);
+  const prevu = Number(salaireMensuel) || 0;
+  const netSuggere = Math.max(0, prevu - avanceTotale);
+
+  // Charge les avances approuvées non soldées de ce membre à chaque montage,
+  // et après chaque paiement réussi (onChanged est aussi rappelé par le
+  // parent donc pas de double-fetch inutile, juste ce qu'il faut).
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('salary_advances')
+      .select('id, montant, montant_rembourse, solde')
+      .eq('staff_id', staffId)
+      .eq('statut', 'approuvee')
+      .gt('solde', 0)
+      .order('created_at', { ascending: true })
+      .then(({ data, error: e }) => {
+        if (cancelled) return;
+        if (e) { setFormError(translateError(e)); return; }
+        setAvancesOuvertes(data || []);
+      });
+    return () => { cancelled = true; };
+  }, [staffId, salaries]);
+
+  // Pré-remplit le montant à payer avec le net suggéré au premier rendu
+  // (et à chaque fois que l'avance totale ou le salaire prévu change, tant
+  // que l'utilisateur n'a pas encore touché le champ lui-même).
+  const [montantTouched, setMontantTouched] = useState(false);
+  useEffect(() => {
+    if (montantTouched) return;
+    if (avancesOuvertes === null) return;
+    if (prevu > 0) setMontant(String(netSuggere));
+  }, [avancesOuvertes, prevu, netSuggere, montantTouched]);
 
   async function handleDelete(s) {
     if (!(await confirm(`Supprimer ce versement de ${fmtF(s.montant)} (${s.mois}) ? Attention, tu ne pourras pas revenir en arrière.`, { confirmLabel: 'Supprimer' }))) return;
@@ -208,6 +265,29 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
     if (!mois.trim() || !montant) { setFormError('Le mois et le montant sont obligatoires.'); return; }
     setSubmitting(true);
     setFormError('');
+
+    // 1) Solder les avances déduites AVANT d'enregistrer le salaire. Le
+    //    trigger SQL recalcule "solde" à partir de "montant_rembourse". Fait
+    //    avant pour qu'on ne puisse jamais avoir un salaire enregistré avec
+    //    des avances encore actives (double déduction le mois suivant sinon).
+    if (avanceTotale > 0) {
+      let resteARembourser = avanceTotale;
+      for (const av of (avancesOuvertes || [])) {
+        if (resteARembourser <= 0) break;
+        const soldeActuel = Number(av.solde) || 0;
+        const dejaRembourse = Number(av.montant_rembourse) || 0;
+        const aRembourser = Math.min(resteARembourser, soldeActuel);
+        if (aRembourser <= 0) continue;
+        const { error: advErr } = await supabase
+          .from('salary_advances')
+          .update({ montant_rembourse: dejaRembourse + aRembourser })
+          .eq('id', av.id);
+        if (advErr) { setSubmitting(false); setFormError(translateError(advErr)); return; }
+        resteARembourser -= aRembourser;
+      }
+    }
+
+    // 2) Enregistrer le salaire.
     const { error: insertError } = await supabase.from('staff_salaries').insert({
       school_id: schoolId, staff_id: staffId, school_year_id: schoolYear.id,
       montant: Number(montant), mois: mois.trim(), mode, date, note: note.trim() || null,
@@ -215,7 +295,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
     });
     setSubmitting(false);
     if (insertError) { setFormError(translateError(insertError)); return; }
-    setMois(''); setMontant(''); setNote('');
+    setMois(''); setMontant(''); setNote(''); setMontantTouched(false);
     showToast('Enregistré');
     onChanged();
   }
@@ -257,10 +337,21 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaries, canManage, onCh
         </div>
       )}
 
+      {canManage && avanceTotale > 0 && (
+        <div style={{ background: 'var(--amber-light)', padding: '10px 14px', borderRadius: 8, marginBottom: 14, border: '1px solid var(--amber)' }}>
+          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
+            Avance à déduire : {fmtF(avanceTotale)}
+          </p>
+          <p style={{ margin: '3px 0 0', fontSize: 11.5, color: 'var(--clay-dark)', lineHeight: 1.5 }}>
+            Le montant ci-dessous a été pré-rempli avec le net à verser. L'avance sera soldée automatiquement à l'enregistrement.
+          </p>
+        </div>
+      )}
+
       {canManage && (
         <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={mois} onChange={(e) => setMois(e.target.value)} placeholder="Mois (ex. Janvier 2026)" style={{ ...smallInput, flex: '2 1 160px' }} />
-          <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ ...smallInput, flex: '1 1 130px' }} />
+          <MoneyInput value={montant} onChange={(v) => { setMontantTouched(true); setMontant(v); }} suffix="F CFA" style={{ ...smallInput, flex: '1 1 130px' }} />
           <Dropdown
             value={mode}
             onChange={setMode}
