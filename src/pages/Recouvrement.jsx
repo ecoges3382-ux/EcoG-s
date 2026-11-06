@@ -41,6 +41,15 @@ function matchStatut(s, statut) {
   return s.statutKey === statut;
 }
 
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default function Recouvrement() {
   const showToast = useToast();
   const { profile } = useAuth();
@@ -52,7 +61,7 @@ export default function Recouvrement() {
   const [searchPriority, setSearchPriority] = useState('');
   const [filterClasse, setFilterClasse] = useState('toutes');
   
-  // 👇 SÉLECTIONS SÉPARÉES
+  // Sélections séparées pour chaque tableau
   const [selectedPriorityIds, setSelectedPriorityIds] = useState([]);
   const [selectedDetailIds, setSelectedDetailIds] = useState([]);
   
@@ -167,23 +176,14 @@ export default function Recouvrement() {
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
 
+  // ==========================================
+  // CARTE 1 : PRIORITÉ (Relances manuelles - Retards)
+  // ==========================================
   const elevesPrioritairesBase = enrichis
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
       const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
-      const studentReminders = remindersByStudent[s.id] || [];
-      const lastReminder = studentReminders[0];
-      let relanceInfo = null;
-      if (lastReminder) {
-        const match = lastReminder.template_name.match(/rappel_j(\d+)_/);
-        if (match) {
-          relanceInfo = {
-            label: `J-${match[1]} envoyé`,
-            date: new Date(lastReminder.created_at).toLocaleDateString('fr-FR'),
-          };
-        }
-      }
-      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe, relanceInfo };
+      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe };
     })
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
@@ -192,6 +192,50 @@ export default function Recouvrement() {
     !searchPriority.trim() || s.full_name.toLowerCase().includes(searchPriority.trim().toLowerCase())
   );
 
+  // ==========================================
+  // CARTE 2 : ÉCHÉANCES PROCHES (Relance Auto - J-15, J-7, J-3)
+  // ==========================================
+  const elevesEcheancesProches = enrichis
+    .filter((s) => {
+      if (s.resteEcolage <= 0 && s.resteConnexe <= 0) return false;
+      
+      const echeances = [];
+      if (schoolYear?.date_tranche1 && s.resteEcolage > 0) echeances.push({ type: 'tranche1', date: schoolYear.date_tranche1 });
+      if (schoolYear?.date_tranche2 && s.resteEcolage > 0) echeances.push({ type: 'tranche2', date: schoolYear.date_tranche2 });
+      if (schoolYear?.date_tranche3 && s.resteEcolage > 0) echeances.push({ type: 'tranche3', date: schoolYear.date_tranche3 });
+      if (schoolYear?.date_connexe && s.resteConnexe > 0) echeances.push({ type: 'connexe', date: schoolYear.date_connexe });
+
+      return echeances.some(e => [15, 7, 3].includes(daysUntil(e.date)));
+    })
+    .map((s) => {
+      const echeances = [];
+      if (schoolYear?.date_tranche1 && s.resteEcolage > 0) echeances.push({ type: 'tranche1', date: schoolYear.date_tranche1, label: '1ère tranche' });
+      if (schoolYear?.date_tranche2 && s.resteEcolage > 0) echeances.push({ type: 'tranche2', date: schoolYear.date_tranche2, label: '2ème tranche' });
+      if (schoolYear?.date_tranche3 && s.resteEcolage > 0) echeances.push({ type: 'tranche3', date: schoolYear.date_tranche3, label: '3ème tranche' });
+      if (schoolYear?.date_connexe && s.resteConnexe > 0) echeances.push({ type: 'connexe', date: schoolYear.date_connexe, label: 'Frais connexes' });
+
+      const prochaine = echeances.find(e => [15, 7, 3].includes(daysUntil(e.date)));
+      const jours = daysUntil(prochaine.date);
+      
+      const studentReminders = remindersByStudent[s.id] || [];
+      const templateName = `rappel_j${jours}_${prochaine.type}`;
+      const lastReminder = studentReminders.find(m => m.template_name === templateName);
+
+      let relanceInfo = null;
+      if (lastReminder) {
+        relanceInfo = {
+          label: `J-${jours} envoyé`,
+          date: new Date(lastReminder.created_at).toLocaleDateString('fr-FR'),
+        };
+      }
+
+      return { ...s, echeanceProche: prochaine, joursRestants: jours, relanceInfo };
+    })
+    .sort((a, b) => a.joursRestants - b.joursRestants);
+
+  // ==========================================
+  // FONCTIONS D'ACTION
+  // ==========================================
   async function handleRelance(studentId) {
     setSendingId(studentId);
     try {
@@ -288,6 +332,7 @@ export default function Recouvrement() {
         </span>
       </div>
 
+      {/* KPIs */}
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 18, marginBottom: 24 }}>
         <div className="card-bold" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Répartition des élèves</p>
@@ -361,22 +406,22 @@ export default function Recouvrement() {
         <TypeCard label="Frais connexes" du={totalConnexeDu} paye={totalConnexePaye} reste={totalConnexeReste} taux={tauxConnexe} />
       </div>
 
-      {/* ===================== TABLEAU PRIORITÉ ===================== */}
+      {/* ===================== CARTE 1 : PRIORITÉ ===================== */}
       <div data-tour="recouvrement-priority" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
-            Priorité du jour (Élèves pas encore échus)
+            Priorité (Relance manuelle)
           </p>
           
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <input
               value={searchPriority}
               onChange={(e) => setSearchPriority(e.target.value)}
-              placeholder="Rechercher un élève prioritaire…"
+              placeholder="Rechercher un élève…"
               style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', fontSize: 12.5, width: 220, boxSizing: 'border-box', color: 'var(--ink)' }}
             />
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'var(--danger-light)', padding: '4px 10px', borderRadius: 20 }}>
-              {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''}
+              {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''} en retard
             </span>
             
             <button
@@ -403,7 +448,7 @@ export default function Recouvrement() {
         
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
           <div style={{ minWidth: 860 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
               <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <input 
                   type="checkbox" 
@@ -416,14 +461,13 @@ export default function Recouvrement() {
               <span>Reste Écolage</span>
               <span>Reste Connexes</span>
               <span>Total Dû</span>
-              <span>Relance Auto</span>
               <span></span>
             </div>
             {elevesPrioritaires.map((s, i) => (
               <div
                 key={s.id}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input 
@@ -444,20 +488,7 @@ export default function Recouvrement() {
                   {s.resteConnexe > 0 ? fmtF(s.resteConnexe) : '—'}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(s.totalReste)}</span>
-                <div>
-                  {s.relanceInfo ? (
-                    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ background: 'var(--success-light)', color: 'var(--success)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
-                        ✅ {s.relanceInfo.label}
-                      </span>
-                      <span style={{ fontSize: '10px', color: 'var(--muted)', paddingLeft: 4 }}>le {s.relanceInfo.date}</span>
-                    </span>
-                  ) : (
-                    <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
-                      ⏳ En attente
-                    </span>
-                  )}
-                </div>
+                
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     onClick={() => handleRelance(s.id)}
@@ -472,35 +503,87 @@ export default function Recouvrement() {
             {elevesPrioritaires.length === 0 && (
               <p style={{ padding: 20, color: 'var(--success)', fontSize: 13, textAlign: 'center', fontWeight: 600 }}>
                 <i className="ti ti-check" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
-                Aucun élève dans cette section.
+                Aucun élève en retard ! Tout est à jour.
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* ===================== TABLEAU DÉTAIL (TOUS LES ÉLÈVES) ===================== */}
+      {/* ===================== CARTE 2 : ÉCHÉANCES PROCHES (Relance Auto) ===================== */}
+      {elevesEcheancesProches.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+            <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
+              Échéances proches (Relance Auto)
+            </p>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-light)', padding: '4px 10px', borderRadius: 20 }}>
+              {elevesEcheancesProches.length} élève{elevesEcheancesProches.length > 1 ? 's' : ''} · Échéance dans 15, 7 ou 3 jours
+            </span>
+          </div>
+          
+          <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
+            <div style={{ minWidth: 860 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px 12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+                <span>Élève</span>
+                <span>Total Dû</span>
+                <span>Échéance</span>
+                <span>Statut Relance Auto</span>
+                <span></span>
+              </div>
+              {elevesEcheancesProches.map((s, i) => (
+                <div
+                  key={s.id}
+                  style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px', alignItems: 'center', borderBottom: i < elevesEcheancesProches.length - 1 ? '1px solid var(--line)' : 'none' }}
+                >
+                  <div>
+                    <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                    {fmtF(s.resteEcolage + s.resteConnexe)}
+                  </span>
+                  <div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)' }}>
+                      {s.echeanceProche.label}
+                    </span>
+                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
+                      dans {s.joursRestants} jours
+                    </p>
+                  </div>
+                  <div>
+                    {s.relanceInfo ? (
+                      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ background: 'var(--success-light)', color: 'var(--success)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                          ✅ {s.relanceInfo.label}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--muted)', paddingLeft: 4 }}>le {s.relanceInfo.date}</span>
+                      </span>
+                    ) : (
+                      <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                        ⏳ En attente
+                      </span>
+                    )}
+                  </div>
+                  <div></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================== CARTE 3 : DÉTAIL PAR ÉLÈVE ===================== */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
-          Détail par élève (Tous les élèves)
+          Détail par élève (Tous)
         </p>
         
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* 👇 BOUTON RELANCER LA SÉLECTION DÉTAIL */}
           <button
             onClick={() => handleBulkRelance(selectedDetailIds, () => setSelectedDetailIds([]))}
             disabled={selectedDetailIds.length === 0 || bulkSending}
-            style={{ 
-              fontSize: 12, 
-              fontWeight: 600, 
-              padding: '6px 12px', 
-              borderRadius: 8, 
-              border: 'none', 
-              background: selectedDetailIds.length > 0 ? '#ff8c00' : 'var(--line)', 
-              color: selectedDetailIds.length > 0 ? '#fff' : 'var(--muted)', 
-              cursor: (selectedDetailIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', 
-              opacity: (selectedDetailIds.length === 0 || bulkSending) ? 0.7 : 1 
-            }}
+            style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: selectedDetailIds.length > 0 ? '#ff8c00' : 'var(--line)', color: selectedDetailIds.length > 0 ? '#fff' : 'var(--muted)', cursor: (selectedDetailIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', opacity: (selectedDetailIds.length === 0 || bulkSending) ? 0.7 : 1 }}
           >
             <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
             {bulkSending ? 'Envoi…' : `Relancer la sélection (${selectedDetailIds.length})`}
@@ -556,7 +639,6 @@ export default function Recouvrement() {
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 860 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-            {/* 👇 CHECKBOX TOUT SELECTIONNER DÉTAIL */}
             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <input 
                 type="checkbox" 
@@ -579,7 +661,6 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
-                {/* 👇 CHECKBOX PAR LIGNE DÉTAIL */}
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input 
                     type="checkbox" 
@@ -590,17 +671,7 @@ export default function Recouvrement() {
                 </span>
                 
                 <Link to={`/eleves/${s.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                  <div style={{ 
-                    position: 'sticky', 
-                    left: 0, 
-                    zIndex: 10, 
-                    backgroundColor: '#ffffff', 
-                    boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    height: '100%',
-                  }}>
+                  <div style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: '#ffffff', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
                     <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                   </div>
