@@ -14,23 +14,6 @@ import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow, SkeletonLine } from '../components/Skeleton.jsx';
 import ModalContainer from '../components/ModalContainer.jsx';
 
-function useStudentsForLinking(schoolYearId) {
-  const [students, setStudents] = useState(null);
-  useEffect(() => {
-    if (!schoolYearId) return;
-    supabase
-      .from('enrollments')
-      .select('students ( id, full_name ), classes ( nom )')
-      .eq('school_year_id', schoolYearId)
-      .then(({ data }) => {
-        setStudents((data || [])
-          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
-          .sort((a, b) => a.full_name.localeCompare(b.full_name)));
-      });
-  }, [schoolYearId]);
-  return students;
-}
-
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -47,6 +30,23 @@ const PERMISSIONS_LABELS = {
   documents: 'Documents',
   rapports: 'Rapports',
 };
+
+function useStudentsForLinking(schoolYearId) {
+  const [students, setStudents] = useState(null);
+  useEffect(() => {
+    if (!schoolYearId) return;
+    supabase
+      .from('enrollments')
+      .select('students ( id, full_name ), classes ( nom )')
+      .eq('school_year_id', schoolYearId)
+      .then(({ data }) => {
+        setStudents((data || [])
+          .map((e) => ({ id: e.students.id, full_name: e.students.full_name, niveau: e.classes?.nom || '—' }))
+          .sort((a, b) => a.full_name.localeCompare(b.full_name)));
+      });
+  }, [schoolYearId]);
+  return students;
+}
 
 async function describeFunctionError(fnError) {
   if (!fnError) return null;
@@ -93,9 +93,10 @@ function StaffAccounts() {
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
+  
+  // Gestion de la modale (création ou édition)
   const [modalOpen, setModalOpen] = useState(false);
-  const [menuForId, setMenuForId] = useState(null);
-  const [editing, setEditing] = useState(null);
+  const [editingAccount, setEditingAccount] = useState(null);
 
   async function reload() {
     await guardedFetch({
@@ -126,6 +127,11 @@ function StaffAccounts() {
     reload();
   }
 
+  function openEdit(account) {
+    setEditingAccount(account);
+    setModalOpen(true);
+  }
+
   if (!isFondateur) {
     return (
       <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
@@ -140,7 +146,7 @@ function StaffAccounts() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Directeur, secrétaire, enseignant — chacun avec son propre e-mail et mot de passe.</p>
-        <button onClick={() => setModalOpen(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0 }}>
+        <button onClick={() => { setEditingAccount(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0 }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouveau compte
         </button>
       </div>
@@ -159,10 +165,7 @@ function StaffAccounts() {
               avatarColor="var(--forest)"
               subtitle={`${a.email || '—'}${a.phone ? ` · ${a.phone}` : ''}`}
               isLast={i === accounts.length - 1}
-              menuOpen={menuForId === a.id}
-              onToggleMenu={() => setMenuForId((prev) => (prev === a.id ? null : a.id))}
-              onCloseMenu={() => setMenuForId(null)}
-              onSelectField={(field) => { setMenuForId(null); setEditing({ account: a, field }); }}
+              onEdit={() => openEdit(a)}
               canDelete={a.role !== 'fondateur' && a.id !== profile.id}
               onDelete={() => handleDelete(a)}
               badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>{ROLES[a.role]?.label || a.role}</span>}
@@ -172,38 +175,34 @@ function StaffAccounts() {
       )}
 
       {modalOpen && (
-        <NewStaffAccountModal
-          onClose={() => setModalOpen(false)}
-          onCreated={() => { setModalOpen(false); reload(); }}
-        />
-      )}
-
-      {editing && (
-        <EditFieldModal
-          account={editing.account}
-          field={editing.field}
-          functionName="manage-staff-account"
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); reload(); }}
+        <StaffAccountModal
+          editing={editingAccount}
+          onClose={() => { setModalOpen(false); setEditingAccount(null); }}
+          onSaved={() => { setModalOpen(false); setEditingAccount(null); reload(); }}
         />
       )}
     </div>
   );
 }
 
-function NewStaffAccountModal({ onClose, onCreated }) {
+// Ce composant gère à la fois la CRÉATION et la MODIFICATION
+function StaffAccountModal({ editing, onClose, onSaved }) {
   const showToast = useToast();
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState(CREATABLE_STAFF_ROLES[0]);
-  const [email, setEmail] = useState('');
-  const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
-  const [phoneLocal, setPhoneLocal] = useState('');
+  const isEditing = !!editing;
+
+  const [fullName, setFullName] = useState(editing?.full_name || '');
+  const [role, setRole] = useState(editing?.role || CREATABLE_STAFF_ROLES[0]);
+  const [email, setEmail] = useState(editing?.email || '');
+  
+  const initialPhone = decomposePhone(editing?.phone || '');
+  const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
+  const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
+  
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // NOUVEAU : État pour les permissions
-  const [permissions, setPermissions] = useState({
+  const [permissions, setPermissions] = useState(editing?.permissions || {
     eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
     notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
     annonces: true, documents: true, rapports: false, finance: false
@@ -215,29 +214,35 @@ function NewStaffAccountModal({ onClose, onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!fullName.trim() || !email.trim() || !password) {
-      setError('Tous les champs sont obligatoires.');
+    if (!fullName.trim() || !email.trim()) {
+      setError('Le nom et l\'e-mail sont obligatoires.');
       return;
     }
-    if (password.length < 8) {
+    if (!isEditing && !password) {
+      setError('Le mot de passe est obligatoire pour un nouveau compte.');
+      return;
+    }
+    if (password && password.length < 8) {
       setError('Le mot de passe doit faire au moins 8 caractères.');
       return;
     }
+    
     setSubmitting(true);
     setError('');
     
-    // NOUVEAU : On envoie les permissions à la fonction Edge
-    const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', {
-      body: { 
-        action: 'create', 
-        full_name: fullName.trim(), 
-        email: email.trim(), 
-        phone: composePhone(phoneDial, phoneLocal), 
-        password, 
-        role,
-        permissions // Ajouté ici
-      },
-    });
+    const body = { 
+      action: isEditing ? 'update' : 'create', 
+      full_name: fullName.trim(), 
+      email: email.trim(), 
+      phone: composePhone(phoneDial, phoneLocal), 
+      role,
+      permissions 
+    };
+    
+    if (isEditing) body.profileId = editing.id;
+    if (password) body.password = password;
+
+    const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', { body });
     
     setSubmitting(false);
     if (fnError || data?.error) {
@@ -245,11 +250,11 @@ function NewStaffAccountModal({ onClose, onCreated }) {
       return;
     }
     showToast('Enregistré');
-    onCreated();
+    onSaved();
   }
 
   return (
-    <ModalShell title="Nouveau compte utilisateur" onClose={onClose}>
+    <ModalShell title={isEditing ? "Modifier le compte utilisateur" : "Nouveau compte utilisateur"} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <label style={labelStyle}>Nom complet</label>
         <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
@@ -257,10 +262,9 @@ function NewStaffAccountModal({ onClose, onCreated }) {
         <label style={labelStyle}>Rôle</label>
         <Dropdown value={role} onChange={setRole} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
 
-        {/* NOUVEAU : Grille de permissions */}
         {role !== 'fondateur' && (
           <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès de ce compte</p>
+            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
               {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)' }}>
@@ -275,15 +279,15 @@ function NewStaffAccountModal({ onClose, onCreated }) {
         <label style={labelStyle}>E-mail</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
 
-        <label style={labelStyle}>Téléphone (facultatif — permet aussi de se connecter par téléphone)</label>
+        <label style={labelStyle}>Téléphone (facultatif)</label>
         <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
 
-        <label style={labelStyle}>Mot de passe</label>
+        <label style={labelStyle}>{isEditing ? "Nouveau mot de passe (laisser vide pour ne pas changer)" : "Mot de passe"}</label>
         <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
-        <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Créer" submittingLabel="Création…" />
+        <ModalActions onCancel={onClose} submitting={submitting} submitLabel={isEditing ? "Enregistrer" : "Créer"} submittingLabel="Enregistrement…" />
       </form>
     </ModalShell>
   );
@@ -443,32 +447,23 @@ function NewParentAccessModal({ onClose, onCreated }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!nom.trim()) {
-      setError('Le nom est obligatoire.');
-      return;
-    }
-    if (selectedIds.length === 0) {
-      setError('Sélectionne au moins un élève.');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
+    if (!nom.trim()) { setError('Le nom est obligatoire.'); return; }
+    if (selectedIds.length === 0) { setError('Sélectionne au moins un élève.'); return; }
+    setSubmitting(true); setError('');
 
     let created = null;
     for (let attempt = 0; attempt < 5 && !created; attempt++) {
       const { data, error: insertError } = await supabase.from('parent_access').insert({
         school_id: profile.school_id,
         full_name: displayName(nom.trim(), prenom.trim()),
-        nom: nom.trim(),
-        prenom: prenom.trim(),
+        nom: nom.trim(), prenom: prenom.trim(),
         phone: composePhone(phoneDial, phoneLocal) || null,
-        email: email.trim() || null,
-        code: generateAccessCode(),
+        email: email.trim() || null, code: generateAccessCode(),
       }).select().single();
       if (!insertError) { created = data; break; }
       if (insertError.code !== '23505') { setSubmitting(false); setError(insertError.message); return; }
     }
-    if (!created) { setSubmitting(false); setError('Impossible de générer un code unique, réessaie.'); return; }
+    if (!created) { setSubmitting(false); setError('Impossible de générer un code unique.'); return; }
 
     const { error: linkError } = await supabase.from('parent_access_students').insert(
       selectedIds.map((student_id) => ({ parent_access_id: created.id, student_id })),
@@ -476,8 +471,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
     setSubmitting(false);
     if (linkError) {
       await supabase.from('parent_access').delete().eq('id', created.id);
-      setError(linkError.message);
-      return;
+      setError(linkError.message); return;
     }
     showToast('Enregistré');
     onCreated();
@@ -487,26 +481,20 @@ function NewParentAccessModal({ onClose, onCreated }) {
     <ModalShell title="Nouvel accès parent" onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Nom</label>
-            <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Prénom</label>
-            <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
-          </div>
+          <div><label style={labelStyle}>Nom</label><NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Prénom</label><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></div>
         </div>
 
-        <label style={labelStyle}>Téléphone (facultatif, pour info seulement)</label>
+        <label style={labelStyle}>Téléphone (facultatif)</label>
         <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
 
-        <label style={labelStyle}>E-mail (facultatif, pour info seulement)</label>
+        <label style={labelStyle}>E-mail (facultatif)</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
 
         <label style={labelStyle}>Élève(s) rattaché(s)</label>
         <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
           {students === null && <SkeletonLine width="70%" />}
-          {students?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun élève inscrit pour l'instant.</p>}
+          {students?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun élève inscrit.</p>}
           {students?.map((s) => (
             <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
@@ -514,9 +502,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
             </label>
           ))}
         </div>
-
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Créer" submittingLabel="Création…" />
       </form>
     </ModalShell>
@@ -540,12 +526,8 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (selectedIds.length === 0) {
-      setError('Sélectionne au moins un élève.');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
+    if (selectedIds.length === 0) { setError('Sélectionne au moins un élève.'); return; }
+    setSubmitting(true); setError('');
     const { error: deleteError } = await supabase.from('parent_access_students').delete().eq('parent_access_id', access.id);
     if (deleteError) { setSubmitting(false); setError(deleteError.message); return; }
     const { error: insertError } = await supabase.from('parent_access_students').insert(
@@ -553,8 +535,7 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
     );
     setSubmitting(false);
     if (insertError) { setError(insertError.message); return; }
-    showToast('Enregistré');
-    onSaved();
+    showToast('Enregistré'); onSaved();
   }
 
   return (
@@ -569,9 +550,7 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
             </label>
           ))}
         </div>
-
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
       </form>
     </ModalShell>
@@ -591,47 +570,31 @@ function EditParentAccessInfoModal({ access, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!nom.trim()) {
-      setError('Le nom est obligatoire.');
-      return;
-    }
-    setSubmitting(true);
-    setError('');
+    if (!nom.trim()) { setError('Le nom est obligatoire.'); return; }
+    setSubmitting(true); setError('');
     const { error: updateError } = await supabase.from('parent_access').update({
       full_name: displayName(nom.trim(), prenom.trim()),
-      nom: nom.trim(),
-      prenom: prenom.trim(),
+      nom: nom.trim(), prenom: prenom.trim(),
       phone: composePhone(phoneDial, phoneLocal) || null,
       email: email.trim() || null,
     }).eq('id', access.id);
     setSubmitting(false);
     if (updateError) { setError(updateError.message); return; }
-    showToast('Enregistré');
-    onSaved();
+    showToast('Enregistré'); onSaved();
   }
 
   return (
     <ModalShell title={`Informations — ${access.full_name}`} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Nom</label>
-            <NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Prénom</label>
-            <NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} />
-          </div>
+          <div><label style={labelStyle}>Nom</label><NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Prénom</label><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></div>
         </div>
-
-        <label style={labelStyle}>Téléphone (facultatif, pour info seulement)</label>
+        <label style={labelStyle}>Téléphone (facultatif)</label>
         <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
-
-        <label style={labelStyle}>E-mail (facultatif, pour info seulement)</label>
+        <label style={labelStyle}>E-mail (facultatif)</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
-
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
       </form>
     </ModalShell>
@@ -705,10 +668,10 @@ function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onEditInfo
   );
 }
 
-function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen, onToggleMenu, onCloseMenu, onSelectField, canDelete, onDelete, badge }) {
+function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, canDelete, onDelete, badge }) {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
-      <div onClick={onToggleMenu} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minWidth: 0, flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
         <div style={{ width: 34, height: 34, borderRadius: 9, background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: avatarColor, flexShrink: 0 }}>
           {initials(account.full_name)}
         </div>
@@ -719,7 +682,7 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         {badge}
-        <button onClick={(e) => { e.stopPropagation(); onToggleMenu(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
+        <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
           <PencilIcon />
         </button>
         {canDelete && (
@@ -728,118 +691,7 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, menuOpen
           </button>
         )}
       </div>
-
-      {menuOpen && (
-        <AccountActionsMenu
-          onSelect={onSelectField}
-          onClose={onCloseMenu}
-        />
-      )}
     </div>
-  );
-}
-
-function AccountActionsMenu({ onSelect, onClose }) {
-  const items = [
-    { field: 'email', label: "Modifier l'adresse e-mail" },
-    { field: 'phone', label: 'Modifier le numéro de téléphone' },
-    { field: 'password', label: 'Modifier le mot de passe' },
-  ];
-  return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 29 }} />
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 30, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 230, overflow: 'hidden' }}
-      >
-        {items.map((it, i) => (
-          <button
-            key={it.field}
-            type="button"
-            onClick={() => onSelect(it.field)}
-            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', border: 'none', background: 'none', borderBottom: i < items.length - 1 ? '1px solid var(--line)' : 'none' }}
-          >
-            {it.label}
-          </button>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function EditFieldModal({ account, field, functionName, onClose, onSaved }) {
-  const showToast = useToast();
-  const [email, setEmail] = useState(account.email || '');
-  const initialPhone = decomposePhone(account.phone);
-  const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
-  const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const titles = {
-    email: "Modifier l'adresse e-mail",
-    phone: 'Modifier le numéro de téléphone',
-    password: 'Modifier le mot de passe',
-  };
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const body = { action: 'update', profileId: account.id };
-
-    if (field === 'email') {
-      if (!email.trim()) { setError("L'e-mail est obligatoire."); return; }
-      body.email = email.trim();
-    }
-    if (field === 'phone') {
-      const composed = composePhone(phoneDial, phoneLocal);
-      if (!composed) { setError('Numéro de téléphone invalide.'); return; }
-      body.phone = composed;
-    }
-    if (field === 'password') {
-      if (!password || password.length < 8) { setError('Le mot de passe doit faire au moins 8 caractères.'); return; }
-      body.password = password;
-    }
-
-    setSubmitting(true);
-    setError('');
-    const { data, error: fnError } = await supabase.functions.invoke(functionName, { body });
-    setSubmitting(false);
-    if (fnError || data?.error) {
-      setError(data?.error || (await describeFunctionError(fnError)));
-      return;
-    }
-    showToast('Enregistré');
-    onSaved();
-  }
-
-  return (
-    <ModalShell title={`${titles[field]} — ${account.full_name}`} onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        {field === 'email' && (
-          <>
-            <label style={labelStyle}>Nouvelle adresse e-mail</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
-          </>
-        )}
-        {field === 'phone' && (
-          <>
-            <label style={labelStyle}>Nouveau numéro de téléphone</label>
-            <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 18 }} />
-          </>
-        )}
-        {field === 'password' && (
-          <>
-            <label style={labelStyle}>Nouveau mot de passe</label>
-            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
-          </>
-        )}
-
-        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
-
-        <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
-      </form>
-    </ModalShell>
   );
 }
 
