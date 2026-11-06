@@ -192,20 +192,23 @@ const MONTH_LABELS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Ao
 function buildMonthsForChart(schoolYear) {
   const today = new Date();
   let startDate;
-  
+
   if (schoolYear?.date_debut) {
     startDate = new Date(schoolYear.date_debut);
   } else {
     const match = schoolYear?.label?.match(/^(\d{4})-(\d{4})$/);
     const startYear = match ? Number(match[1]) : today.getFullYear();
-    startDate = new Date(startYear, 8, 1);
+    // On commence en Août (mois 7) pour englober les pré-inscriptions
+    startDate = new Date(startYear, 7, 1);
   }
 
-  const endDate = today;
+  // 👇 LA CORRECTION EST ICI : On affiche toute l'année scolaire jusqu'à Juillet de l'année suivante
+  const endDate = new Date(startDate.getFullYear() + 1, 6, 31);
+
   const months = [];
   let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
   const endCursor = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-  
+
   while (cursor <= endCursor) {
     months.push({
       key: `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`,
@@ -213,7 +216,7 @@ function buildMonthsForChart(schoolYear) {
     });
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
-  
+
   return months;
 }
 
@@ -226,7 +229,7 @@ function TrendsSection({ schoolYear, attendance }) {
     let cancelled = false;
 
     guardedFetch({
-      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v3`, 
+      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v4`, // Cache vidé
       hasData: false,
       load: async () => {
         const { data, error: e } = await supabase
@@ -423,11 +426,11 @@ function DemographicsSection({ students }) {
                   cx="50%"
                   cy="50%"
                   outerRadius={95}
-                  innerRadius={60} // Crée l'effet donut
+                  innerRadius={60}
                   stroke="#ffffff"
                   strokeWidth={2}
                   paddingAngle={3}
-                  cornerRadius={6} // Coins arrondis
+                  cornerRadius={6}
                   labelLine={false}
                   label={renderCustomizedLabel}
                 >
@@ -441,7 +444,6 @@ function DemographicsSection({ students }) {
                 />
               </PieChart>
             </ResponsiveContainer>
-            {/* Texte au centre du donut */}
             <div style={{
               position: 'absolute',
               top: '50%',
