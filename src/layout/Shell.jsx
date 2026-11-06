@@ -119,7 +119,7 @@ export default function Shell() {
             </p>
           </div>
 
-          {/* 👇 NOUVELLE BARRE DE RECHERCHE VISUELLE AU CENTRE 👇 */}
+          {/* BARRE DE RECHERCHE POUR ORDINATEUR */}
           <button 
             onClick={() => setSearchOpen(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 14px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', width: '100%', maxWidth: 320, transition: 'background 0.2s' }}
@@ -132,7 +132,6 @@ export default function Shell() {
               <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>K</kbd>
             </div>
           </button>
-          {/* 👆 FIN DE LA BARRE DE RECHERCHE 👆 */}
 
           <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0, flex: '1 1 0', justifyContent: 'flex-end' }}>
             <SchoolYearSelector />
@@ -146,7 +145,7 @@ export default function Shell() {
               <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
             </div>
 
-                        {/* 👇 AJOUTER CE BOUTON POUR MOBILE 👇 */}
+            {/* BOUTON LOUPE POUR MOBILE */}
             <button
               onClick={() => setSearchOpen(true)}
               className="show-on-mobile"
@@ -155,11 +154,7 @@ export default function Shell() {
             >
               <i className="ti ti-search" style={{ fontSize: 20 }} aria-hidden="true"></i>
             </button>
-            {/* 👆 FIN DE L'AJOUT 👆 */}
 
-            <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
-              <HelpIcon />
-            </Link>
             <Link to="/aide" title="Centre d'aide" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', flexShrink: 0, textDecoration: 'none' }}>
               <HelpIcon />
             </Link>
