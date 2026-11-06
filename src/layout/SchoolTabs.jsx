@@ -26,7 +26,6 @@ export default function SchoolTabs() {
     containerRef.current?.querySelector('a.active')?.scrollIntoView({ inline: 'center', block: 'nearest' });
   }, [location.pathname]);
 
-  // RÈGLE STRICTE ICI AUSSI
   const visibleTabs = TABS.filter((t) => {
     if (profile?.role === 'fondateur') return true;
     return profile?.permissions?.[t.perm] === true;
