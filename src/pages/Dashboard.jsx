@@ -398,7 +398,7 @@ function DemographicsSection({ students }) {
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     if (percent < 0.05) return null;
     return (
-      <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight="bold">
+      <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold">
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     );
@@ -418,29 +418,6 @@ function DemographicsSection({ students }) {
           <div style={{ width: '100%', height: 260, marginTop: 10 }}>
             <ResponsiveContainer>
               <PieChart>
-                {/* 1. La couche 3D (décalée vers le bas, sans ombre grise) */}
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  cx="50%"
-                  cy="52%"
-                  outerRadius={95}
-                  innerRadius={0}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  paddingAngle={0} // Plus de V vert !
-                  isAnimationActive={false}
-                >
-                  {data.map((entry, index) => (
-                    <Cell 
-                      key={`cell-shadow-${index}`} 
-                      fill={COLORS[entry.name]} 
-                      style={{ filter: 'brightness(0.85)' }} // On assombrit la couleur pour l'effet de profondeur
-                    />
-                  ))}
-                </Pie>
-
-                {/* 2. La couche du dessus (couleurs vives) */}
                 <Pie
                   data={data}
                   dataKey="value"
@@ -449,8 +426,9 @@ function DemographicsSection({ students }) {
                   outerRadius={95}
                   innerRadius={0}
                   stroke="#ffffff"
-                  strokeWidth={2}
-                  paddingAngle={0}
+                  strokeWidth={3}
+                  paddingAngle={5} 
+                  cornerRadius={4} 
                   labelLine={false}
                   label={renderCustomizedLabel}
                 >
