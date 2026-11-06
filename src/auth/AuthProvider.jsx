@@ -60,9 +60,8 @@ export function AuthProvider({ children }) {
   }, [session?.user?.id]);
 
   async function loadOrProvisionProfile(user) {
-    // La colonne "plan" est indispensable : elle détermine le menu latéral
-    // et les fonctionnalités accessibles selon le forfait souscrit.
-    const select = 'id, full_name, role, school_id, schools ( id, name, color, logo_url, adresse, telephone, email, plan )';
+    // La colonne "permissions" a été ajoutée ici, ainsi que "plan"
+    const select = 'id, full_name, role, school_id, permissions, schools ( id, name, color, logo_url, adresse, telephone, email, plan )';
     const { data, error } = await supabase
       .from('profiles')
       .select(select)
@@ -104,9 +103,10 @@ export function AuthProvider({ children }) {
 
   async function refreshProfile() {
     if (!session?.user) return;
+    // Ajout de permissions ici aussi
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, role, school_id, schools ( id, name, color, logo_url, adresse, telephone, email, plan )')
+      .select('id, full_name, role, school_id, permissions, schools ( id, name, color, logo_url, adresse, telephone, email, plan )')
       .eq('id', session.user.id)
       .maybeSingle();
     if (data) setProfile(data);
