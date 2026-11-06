@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, Sector
 } from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
@@ -198,11 +198,10 @@ function buildMonthsForChart(schoolYear) {
   } else {
     const match = schoolYear?.label?.match(/^(\d{4})-(\d{4})$/);
     const startYear = match ? Number(match[1]) : today.getFullYear();
-    // On commence en Août (mois 7) pour englober les pré-inscriptions
-    startDate = new Date(startYear, 7, 1);
+    startDate = new Date(startYear, 7, 1); // Commence en Août
   }
 
-  // 👇 LA CORRECTION EST ICI : On affiche toute l'année scolaire jusqu'à Juillet de l'année suivante
+  // Affiche toute l'année jusqu'à Juillet de l'année suivante
   const endDate = new Date(startDate.getFullYear() + 1, 6, 31);
 
   const months = [];
@@ -229,7 +228,7 @@ function TrendsSection({ schoolYear, attendance }) {
     let cancelled = false;
 
     guardedFetch({
-      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v4`, // Cache vidé
+      cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v5`, 
       hasData: false,
       load: async () => {
         const { data, error: e } = await supabase
@@ -374,6 +373,7 @@ function TrendsSection({ schoolYear, attendance }) {
   );
 }
 
+// 👇 NOUVELLE VERSION DU GRAPHIQUE (3D ÉCLATÉ) 👇
 function DemographicsSection({ students }) {
   const boys = students.filter((s) => s.sexe === 'M').length;
   const girls = students.filter((s) => s.sexe === 'F').length;
@@ -393,16 +393,44 @@ function DemographicsSection({ students }) {
     'Non renseigné': '#999999',
   };
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  // Effet "Explosé" pour écarter les parts du centre
+  const renderActiveShape = (props) => {
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    if (percent < 0.05) return null;
+    const { cx, cy, midAngle, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent } = props;
+    const sin = Math.sin(-RADIAN * midAngle);
+    const cos = Math.cos(-RADIAN * midAngle);
+    
+    // On écarte les parts de 15px du centre
+    const offset = 15;
+    const sx = cx + offset * cos;
+    const sy = cy + offset * sin;
+
     return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={13} fontWeight="bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
+      <g>
+        <Sector
+          cx={sx}
+          cy={sy}
+          innerRadius={innerRadius}
+          outerRadius={outerRadius}
+          startAngle={startAngle}
+          endAngle={endAngle}
+          fill={fill}
+          stroke="#ffffff"
+          strokeWidth={2}
+          style={{ filter: 'drop-shadow(0px 10px 8px rgba(0,0,0,0.25))' }} // Effet 3D ombré
+        />
+        <text
+          x={sx}
+          y={sy}
+          dy={6}
+          textAnchor="middle"
+          fill="#fff"
+          fontWeight="bold"
+          fontSize={14}
+        >
+          {`${(percent * 100).toFixed(0)}%`}
+        </text>
+      </g>
     );
   };
 
@@ -417,7 +445,7 @@ function DemographicsSection({ students }) {
         {total === 0 ? (
           <p style={{ fontSize: 13, color: 'var(--muted)', fontStyle: 'italic' }}>Aucun élève inscrit.</p>
         ) : (
-          <div style={{ width: '100%', height: 250, marginTop: 10 }}>
+          <div style={{ width: '100%', height: 260, marginTop: 10 }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie
@@ -425,14 +453,12 @@ function DemographicsSection({ students }) {
                   dataKey="value"
                   cx="50%"
                   cy="50%"
-                  outerRadius={95}
-                  innerRadius={60}
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  paddingAngle={3}
-                  cornerRadius={6}
+                  outerRadius={80}
+                  innerRadius={0} // Plus de trou au milieu
+                  paddingAngle={4} // Espace entre les parts
+                  activeIndex={[0, 1, 2]} // Active toutes les parts (pour l'effet explosé)
+                  activeShape={renderActiveShape} // Applique notre effet 3D/Explosé
                   labelLine={false}
-                  label={renderCustomizedLabel}
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
@@ -444,17 +470,6 @@ function DemographicsSection({ students }) {
                 />
               </PieChart>
             </ResponsiveContainer>
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              textAlign: 'center',
-              pointerEvents: 'none'
-            }}>
-              <p style={{ margin: 0, fontSize: 24, fontWeight: 700, fontFamily: 'var(--serif)' }}>{total}</p>
-              <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Élèves</p>
-            </div>
           </div>
         )}
       </div>
@@ -471,6 +486,7 @@ function DemographicsSection({ students }) {
     </div>
   );
 }
+// 👆 FIN DE LA NOUVELLE VERSION 👆
 
 function ClassBreakdown({ students, attendance, classResults }) {
   const attendanceByStudent = new Map();
