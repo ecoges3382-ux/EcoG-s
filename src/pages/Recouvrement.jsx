@@ -44,6 +44,7 @@ export default function Recouvrement() {
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const { students, error, offline } = useEnrollmentsForYear(schoolYear);
   const [inscriptionByStudent, setInscriptionByStudent] = useState(null);
+  const [remindersByStudent, setRemindersByStudent] = useState({}); // 👈 NOUVEAU
   const [search, setSearch] = useState('');
   const [filterClasse, setFilterClasse] = useState('toutes');
   const tour = usePageTour('recouvrement');
@@ -81,6 +82,29 @@ export default function Recouvrement() {
       });
     return () => { cancelled = true; };
   }, [schoolYear?.id, inscriptionTypeId]);
+
+  // 👇 NOUVEAU : Charger l'historique des relances envoyées
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
+    supabase
+      .from('whatsapp_messages')
+      .select('student_id, template_name, created_at')
+      .eq('school_id', profile.school_id)
+      .eq('type', 'relance_paiement')
+      .like('template_name', 'rappel_j%')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const map = {};
+        (data || []).forEach((m) => {
+          if (!map[m.student_id]) map[m.student_id] = [];
+          map[m.student_id].push(m);
+        });
+        setRemindersByStudent(map);
+      });
+    return () => { cancelled = true; };
+  }, [schoolYear?.id, profile.school_id]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students || inscriptionByStudent === null) {
@@ -133,11 +157,28 @@ export default function Recouvrement() {
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
 
+  // 👇 NOUVEAU : On enrichit les élèves prioritaires avec l'info de relance
   const elevesPrioritaires = enrichis
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
       const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
-      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe };
+      
+      // On cherche si une relance a déjà été envoyée à cet élève
+      const studentReminders = remindersByStudent[s.id] || [];
+      const lastReminder = studentReminders[0]; // Le plus récent
+      
+      let relanceInfo = null;
+      if (lastReminder) {
+        const match = lastReminder.template_name.match(/rappel_j(\d+)_/);
+        if (match) {
+          relanceInfo = {
+            label: `J-${match[1]} envoyé`,
+            date: new Date(lastReminder.created_at).toLocaleDateString('fr-FR'),
+          };
+        }
+      }
+
+      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe, relanceInfo };
     })
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
@@ -280,7 +321,7 @@ export default function Recouvrement() {
               <span>Reste Écolage</span>
               <span>Reste Connexes</span>
               <span>Total Dû</span>
-              <span>Statut</span>
+              <span>Relance Auto</span> {/* 👈 CHANGEMENT ICI */}
             </div>
             {elevesPrioritaires.map((s, i) => (
               <Link
@@ -289,7 +330,6 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                {/* 👇 CORRECTION ICI : #ffffff OPAQUE + OMBRE 👇 */}
                 <div style={{ 
                   position: 'sticky', 
                   left: 0, 
@@ -314,9 +354,22 @@ export default function Recouvrement() {
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
                   {fmtF(s.totalReste)}
                 </span>
-                <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
-                  À relancer
-                </span>
+                
+                {/* 👇 NOUVEAU : Affichage du statut de la relance */}
+                <div>
+                  {s.relanceInfo ? (
+                    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ background: 'var(--success-light)', color: 'var(--success)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                        ✅ {s.relanceInfo.label}
+                      </span>
+                      <span style={{ fontSize: '10px', color: 'var(--muted)', paddingLeft: 4 }}>le {s.relanceInfo.date}</span>
+                    </span>
+                  ) : (
+                    <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                      ⏳ En attente
+                    </span>
+                  )}
+                </div>
               </Link>
             ))}
             {elevesPrioritaires.length === 0 && (
@@ -399,7 +452,6 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
               >
-                {/* 👇 CORRECTION ICI : #ffffff OPAQUE + OMBRE 👇 */}
                 <div style={{ 
                   position: 'sticky', 
                   left: 0, 
