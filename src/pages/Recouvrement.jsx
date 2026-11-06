@@ -49,7 +49,7 @@ export default function Recouvrement() {
   const [inscriptionByStudent, setInscriptionByStudent] = useState(null);
   const [remindersByStudent, setRemindersByStudent] = useState({});
   const [search, setSearch] = useState('');
-  const [searchPriority, setSearchPriority] = useState(''); // 👈 Recherche Priorité
+  const [searchPriority, setSearchPriority] = useState('');
   const [filterClasse, setFilterClasse] = useState('toutes');
   const [selectedIds, setSelectedIds] = useState([]);
   const [sendingId, setSendingId] = useState(null);
@@ -163,7 +163,6 @@ export default function Recouvrement() {
   const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
   const nbAvecSolde = enrichis.length - nbAJour;
 
-  // Filtrage de base de la Priorité (avant recherche locale)
   const elevesPrioritairesBase = enrichis
     .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
     .map((s) => {
@@ -185,7 +184,6 @@ export default function Recouvrement() {
     .filter((s) => s.enRetard)
     .sort((a, b) => b.totalReste - a.totalReste);
 
-  // 👇 Filtrage avec la barre de recherche Priorité
   const elevesPrioritaires = elevesPrioritairesBase.filter((s) =>
     !searchPriority.trim() || s.full_name.toLowerCase().includes(searchPriority.trim().toLowerCase())
   );
@@ -357,7 +355,6 @@ export default function Recouvrement() {
           </p>
           
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* 👇 BARRE DE RECHERCHE PRIORITÉ */}
             <input
               value={searchPriority}
               onChange={(e) => setSearchPriority(e.target.value)}
@@ -367,17 +364,27 @@ export default function Recouvrement() {
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'var(--danger-light)', padding: '4px 10px', borderRadius: 20 }}>
               {elevesPrioritaires.length} élève{elevesPrioritaires.length > 1 ? 's' : ''} en retard
             </span>
-            {/* 👇 BOUTON RELANCER LA SELECTION (Apparaît si sélection) */}
-            {selectedIds.length > 0 && (
-              <button
-                onClick={() => handleBulkRelance(selectedIds)}
-                disabled={bulkSending}
-                style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: '#ff8c00', color: '#fff', cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
-              >
-                <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
-                {bulkSending ? 'Envoi…' : `Relancer la sélection (${selectedIds.length})`}
-              </button>
-            )}
+            
+            {/* 👇 BOUTON RELANCER LA SÉLECTION (toujours visible, grisé si 0) */}
+            <button
+              onClick={() => handleBulkRelance(selectedIds)}
+              disabled={selectedIds.length === 0 || bulkSending}
+              style={{ 
+                fontSize: 12, 
+                fontWeight: 600, 
+                padding: '6px 12px', 
+                borderRadius: 8, 
+                border: 'none', 
+                background: selectedIds.length > 0 ? '#ff8c00' : 'var(--line)', 
+                color: selectedIds.length > 0 ? '#fff' : 'var(--muted)', 
+                cursor: (selectedIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', 
+                opacity: (selectedIds.length === 0 || bulkSending) ? 0.7 : 1 
+              }}
+            >
+              <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+              {bulkSending ? 'Envoi…' : `Relancer la sélection (${selectedIds.length})`}
+            </button>
+
             {/* 👇 BOUTON TOUT RELANCER */}
             {elevesPrioritaires.length > 0 && (
               <button
@@ -394,9 +401,8 @@ export default function Recouvrement() {
         
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
           <div style={{ minWidth: 860 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '40px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-              {/* 👇 CHECKBOX TOUT SELECTIONNER (élargie) */}
-              <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <input 
                   type="checkbox" 
                   checked={selectedIds.length > 0 && selectedIds.length === elevesPrioritaires.length}
@@ -415,10 +421,9 @@ export default function Recouvrement() {
               <div
                 key={s.id}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '40px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.1fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
-                {/* 👇 CHECKBOX PAR LIGNE (élargie) */}
-                <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input 
                     type="checkbox" 
                     checked={selectedIds.includes(s.id)}
@@ -485,26 +490,6 @@ export default function Recouvrement() {
           </div>
         </div>
       </div>
-
-      {/* 👇 BARRE FLOTTANTE DE SELECTION (conservée en plus du bouton en haut) */}
-      {selectedIds.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--forest-dark)', color: '#fff', padding: '10px 20px', borderRadius: 30, display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.4)', zIndex: 9999 }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedIds.length} élève{selectedIds.length > 1 ? 's' : ''} sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
-          <button
-            onClick={() => handleBulkRelance(selectedIds)}
-            disabled={bulkSending}
-            style={{ background: '#ff8c00', color: '#fff', border: 'none', padding: '7px 14px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
-          >
-            {bulkSending ? 'Envoi en cours…' : 'Relancer la sélection'}
-          </button>
-          <button
-            onClick={() => setSelectedIds([])}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, padding: 4 }}
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>
