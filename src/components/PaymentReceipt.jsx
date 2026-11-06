@@ -8,7 +8,7 @@ export default function PaymentReceipt({
   payment, studentName, classeNom, studentMatricule, schoolYearLabel, school,
   montantDu, montantPaye,
   enrollment, schoolYear, feeSchedule,
-  autoPrint = false,
+  autoPrint = false, // 👈 Modifié : false par défaut
   onClose,
 }) {
   const reference = payment.id ? payment.id.slice(0, 8).toUpperCase() : '—';
@@ -33,7 +33,7 @@ export default function PaymentReceipt({
     return () => { document.body.style.overflow = oldOverflow; };
   }, []);
 
-  // Auto-print (après un petit délai pour laisser le DOM se rendre)
+  // Auto-print (si demandé explicitement)
   useEffect(() => {
     if (!autoPrint) return undefined;
     const timer = setTimeout(() => triggerPrint(), 400);
@@ -156,9 +156,11 @@ function ReceiptBody({ payment, studentName, classeNom, studentMatricule, school
         </div>
       )}
 
+      {/* 👇 MODIFICATION ICI : Mention de l'école au lieu d'EcoGès */}
       <p style={{ margin: 0, fontSize: smallFont, color: 'var(--muted)' }}>
-        Généré le {new Date().toLocaleDateString('fr-FR')} — atteste d'un paiement enregistré dans EcoGès.
+        Généré le {new Date().toLocaleDateString('fr-FR')} — atteste d'un paiement enregistré à {school?.name || "l'école"}.
       </p>
+      
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: compact ? 8 : 26, fontSize: smallFont, color: 'var(--muted)' }}>
         <span>Signature / cachet</span>
       </div>
