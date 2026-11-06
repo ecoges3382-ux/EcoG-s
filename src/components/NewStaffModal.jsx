@@ -12,20 +12,6 @@ import DatePicker from './DatePicker.jsx';
 const ROLES = ['Enseignant', 'Censeur', 'Secrétaire', 'Directeur', 'Fondateur'];
 const PREFIXES = { Enseignant: 'ENS', Censeur: 'CEN', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
 
-const PERMISSIONS_LABELS = {
-  eleves: 'Gestion des élèves',
-  parents: 'Portail parents',
-  personnel: 'Gestion du personnel',
-  notes: 'Notes & évaluations',
-  bulletins: 'Bulletins',
-  finance: 'Gestion financière (Argent)',
-  presences: 'Présences',
-  emploi_du_temps: 'Emploi du temps',
-  annonces: 'Annonces',
-  documents: 'Documents',
-  rapports: 'Rapports',
-};
-
 function nextMatricule(existingStaff, role) {
   const count = existingStaff.filter((p) => p.role === role).length + 1;
   return `${PREFIXES[role] || 'PER'}-${String(count).padStart(4, '0')}`;
@@ -123,19 +109,9 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [dateEntree, setDateEntree] = useState(editing?.date_entree || '');
   const [salaireMensuel, setSalaireMensuel] = useState(editing?.salaire_mensuel ?? '');
   const [photoUrl, setPhotoUrl] = useState(editing?.photo_url || '');
-  
-  const [permissions, setPermissions] = useState(editing?.permissions || {
-    eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
-    notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
-    annonces: true, documents: true, rapports: false, finance: false
-  });
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const togglePermission = (key) => {
-    setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -149,6 +125,14 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     const finalClasses = (role === 'Enseignant' || dispenseCours) ? classNames : [];
     const finalSubjectIds = (role === 'Enseignant' || dispenseCours) ? subjectIds : [];
 
+    // Les droits d'accès (permissions) sont volontairement absents de ce
+    // payload : ils se gèrent exclusivement depuis Comptes → Modifier un
+    // compte (StaffAccountModal dans Accounts.jsx), qui écrit dans
+    // profiles.permissions — la seule colonne réellement lue par l'app
+    // pour filtrer les accès. La colonne staff.permissions existait bien
+    // en base et était remplie ici, mais n'était consultée nulle part :
+    // un fondateur qui cochait des cases dans ce formulaire croyait à
+    // tort donner des droits. Une information = un écran.
     const payload = {
       full_name: displayName(nom.trim(), prenom.trim()),
       nom: nom.trim(),
@@ -161,7 +145,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       date_entree: dateEntree || null,
       salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
       photo_url: photoUrl || null,
-      permissions,
     };
 
     const { data: savedRow, error: saveError } = editing
@@ -222,21 +205,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
             <input value={niveauEtudes} onChange={(e) => setNiveauEtudes(e.target.value)} placeholder="ex. Licence en Lettres" style={inputStyle} />
           </Field>
         </div>
-
-        {/* NOUVEAU : Section des permissions */}
-        {role !== 'Fondateur' && (
-          <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès de ce compte</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
-              {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)' }}>
-                  <input type="checkbox" checked={permissions[key]} onChange={() => togglePermission(key)} style={{ accentColor: 'var(--forest)', width: 15, height: 15 }} />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Case à cocher pour les non-enseignants */}
         {role !== 'Enseignant' && (
