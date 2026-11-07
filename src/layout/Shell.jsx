@@ -1,274 +1,299 @@
-:root {
-  color-scheme: light;
-  --ink:#1A2E27;
-  --forest:#0F4C3A;
-  --forest-dark:#0A3A2C;
-  --forest-light:#E4EEE9;
-  --clay:#C4622D;
-  --clay-light:#FBEADE;
-  --clay-dark:#8F4620;
-  --gold:#C99A3D;
-  --gold-light:#FBF1DD;
-  --cream:#FAF8F4;
-  --dark-bg:#1C1C1E;
-  --paper:#FFFFFF;
-  --line: rgba(26,46,39,0.12);
-  --line-strong: rgba(26,46,39,0.22);
-  --muted: #6B7A73;
-  --danger:#B23A2E;
-  --danger-light:#FBEAE7;
-  --success:#2E6B47;
-  --success-light:#E5F1E9;
-  --amber:#A5680E;
-  --amber-light:#FAEFDA;
-  --radius: 14px;
-  --serif: 'Fraunces', Georgia, serif;
-  --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+import { Suspense, useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../auth/AuthProvider.jsx';
+import { ROLES } from '../lib/utils.js';
+import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme } from '../lib/theme.js';
+import { SchoolYearProvider, useSelectedSchoolYear } from '../lib/schoolYear.jsx';
+import { useConfirm } from '../components/ConfirmDialog.jsx';
+import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
+import { SkeletonScreen } from '../components/Skeleton.jsx';
+import { supabase } from '../lib/supabase.js';
+import { hasFeature } from '../lib/plan.js';
+import GlobalSearch from '../components/GlobalSearch.jsx';
+
+const SIDEBAR_ITEMS = [
+  { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
+  { to: '/argent', label: 'Argent', icon: 'ti-wallet', perm: 'finance' },
+  { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', perm: 'finance', tourId: 'sidebar-recouvrement' },
+  { to: '/eleves', label: 'Élèves', icon: 'ti-users', perm: 'eleves', countKey: 'students', tourId: 'sidebar-eleves' },
+  { to: '/parents', label: 'Parents', icon: 'ti-users-group', perm: 'parents', countKey: 'parents', feature: 'parent_portal' },
+  { to: '/personnel', label: 'Personnel', icon: 'ti-id-badge-2', perm: 'personnel', countKey: 'staff', feature: 'personnel' },
+  { to: '/classes', label: 'Classes', icon: 'ti-building', perm: 'classes', countKey: 'classes' },
+  { to: '/matieres', label: 'Matières', icon: 'ti-book-2', perm: 'matieres', countKey: 'subjects' },
+  { to: '/notes', label: 'Notes', icon: 'ti-pencil', perm: 'notes' },
+  { to: '/bulletins', label: 'Bulletins', icon: 'ti-certificate', perm: 'bulletins' },
+  { to: '/emploi-du-temps', label: 'Emploi du temps', icon: 'ti-calendar-time', perm: 'emploi_du_temps', feature: 'emploi_du_temps' },
+  { to: '/presences', label: 'Présences', icon: 'ti-clipboard-check', perm: 'presences' },
+  { to: '/annonces', label: 'Annonces', icon: 'ti-speakerphone', perm: 'annonces' },
+  { to: '/documents', label: 'Documents', icon: 'ti-file', perm: 'documents', feature: 'documents' },
+  { to: '/rapports', label: 'Rapports', icon: 'ti-chart-bar', perm: 'rapports', feature: 'rapports_avances' },
+  { to: '/parametres', label: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'sidebar-parametres' },
+];
+
+const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/matieres', '/notes', '/bulletins', '/emploi-du-temps', '/presences', '/annonces', '/documents', '/rapports'];
+
+const BOTTOM_NAV_ITEMS = [
+  { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
+  { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet', perm: 'finance' },
+  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', perm: 'finance', tourId: 'bottomnav-recouvrement' },
+  { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', perm: 'eleves', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
+  { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
+];
+
+function ShieldIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M12 3l8 3v6c0 4.5 -3 7.5 -8 9c-5 -1.5 -8 -4.5 -8 -9v-6l8 -3z" /><path d="M12 11m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0" /><path d="M12 12.5v2.5" />
+    </svg>
+  );
 }
 
-/* ========== MODE SOMBRE (Variables) ========== */
-html.dark-mode, body.dark-mode {
-  color-scheme: dark;
-  --ink: #F3F4F6;
-  --cream: #111827;
-  --paper: #1F2937;
-  --line: rgba(255,255,255,0.08);
-  --line-strong: rgba(255,255,255,0.18);
-  --muted: #9CA3AF;
+function HelpIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.75.35-1.25 1.1-1.25 2.2" /><path d="M12 17.5v.01" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
+function sidebarLinkStyle(isActive) {
+  return {
+    display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
+    borderRadius: 10, cursor: 'pointer', marginBottom: 3, textDecoration: 'none',
+    background: isActive ? 'rgba(255,255,255,0.14)' : 'transparent',
+  };
+}
+
+export default function Shell() {
+  const { profile, signOut, isPlatformAdmin } = useAuth();
+  const confirm = useConfirm();
+  const location = useLocation();
+  const schoolName = profile?.schools?.name || 'EcoGès';
+  const roleLabel = ROLES[profile?.role]?.label || profile?.role || '';
+  const plan = profile?.schools?.plan || 'decouverte';
   
-  --danger: #F87171;
-  --success: #34D399;
-  --amber: #FBBF24;
-  --gold: #FCD34D;
-  --forest: #34D399;
-  
-  --forest-light: #064E3B;
-  --danger-light: #450A0A;
-  --success-light: #064E3B;
-  --amber-light: #78350F;
-  --clay-light: #7C2D12;
-  --gold-light: #78350F;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    const next = toggleTheme();
+    setTheme(next);
+  };
+
+  const hasAccess = (perm) => {
+    if (!perm) return true;
+    if (profile?.role === 'fondateur') return true;
+    return profile?.permissions?.[perm] === true;
+  };
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.add('app-mode');
+    return () => document.body.classList.remove('app-mode');
+  }, []);
+
+  useEffect(() => {
+    applySchoolColor(profile?.schools?.color);
+    return () => resetSchoolColor();
+  }, [profile?.schools?.color]);
+
+  return (
+    <SchoolYearProvider schoolId={profile?.school_id}>
+      {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
+
+      <div id="app">
+        <div className="topbar-row">
+          <div className="topbar-inner">
+            <div className="topbar-brand">
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
+                {profile?.schools?.logo_url
+                  ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+              </div>
+              <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {schoolName}
+              </p>
+            </div>
+
+            <div className="topbar-actions">
+              <div className="topbar-desktop-context">
+                <SchoolYearSelector />
+                {isPlatformAdmin && (
+                  <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    <ShieldIcon /><span>Administration</span>
+                  </NavLink>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20 }}>
+                  <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
+                  <span style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
+                </div>
+              </div>
+
+              <div className="topbar-icons">
+                <button onClick={() => setSearchOpen(true)} className="hide-on-mobile topbar-search-btn">
+                  <i className="ti ti-search" style={{ fontSize: 16 }} aria-hidden="true"></i>
+                  <span>Rechercher...</span>
+                  <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                    <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>Ctrl</kbd>
+                    <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>K</kbd>
+                  </div>
+                </button>
+
+                <button onClick={() => setSearchOpen(true)} className="show-on-mobile topbar-action-btn" title="Rechercher">
+                  <i className="ti ti-search" style={{ fontSize: 20 }} aria-hidden="true"></i>
+                </button>
+                
+                <button onClick={handleToggleTheme} className="topbar-action-btn" title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
+                  {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                </button>
+
+                <Link to="/aide" title="Centre d'aide" className="topbar-action-btn">
+                  <HelpIcon />
+                </Link>
+
+                <button onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }} className="topbar-action-btn" title="Se déconnecter">
+                  <span aria-hidden="true" style={{ fontSize: 16, fontWeight: 700 }}>⏻</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="topbar-mobile-context">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <SchoolYearSelector />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: 20 }}>
+                <i className="ti ti-user-circle" style={{ fontSize: 15, color: '#fff' }} aria-hidden="true"></i>
+                <span style={{ fontSize: '11.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
+              </div>
+            </div>
+            {isPlatformAdmin && (
+              <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '11.5px', fontWeight: 600 }}>
+                <ShieldIcon /><span>Admin</span>
+              </NavLink>
+            )}
+          </div>
+        </div>
+
+        <div id="layout">
+          <div id="sidebar" data-tour="sidebar">
+            <SidebarMenu plan={plan} hasAccess={hasAccess} />
+          </div>
+          <div id="screen">
+            <div key={location.pathname} className="page-transition" style={{ paddingBottom: '48px' }}>
+              <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
+                <Outlet />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+
+        <div id="bottomnav">
+          {BOTTOM_NAV_ITEMS.map((item) => {
+            if (!hasAccess(item.perm)) return null;
+            const isActive = item.group
+              ? item.group.some((p) => location.pathname.startsWith(p))
+              : (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
+            return (
+              <NavLink key={item.to} to={item.to} className={`navlink${isActive ? ' active' : ''}`} data-tour={item.tourId}>
+                <i className={`ti ${item.icon}`} aria-hidden="true"></i>
+                <span>{item.shortLabel}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      </div>
+    </SchoolYearProvider>
+  );
 }
 
-* { box-sizing: border-box; }
+function SidebarMenu({ plan, hasAccess }) {
+  const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile?.school_id);
+  const [counts, setCounts] = useState({});
 
-body { overflow-x: hidden; }
-body {
-  margin:0; padding: 0; background: var(--cream);
-  font-family: var(--sans); color: var(--ink);
-  color-scheme: light;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
+  useEffect(() => {
+    if (!schoolYear) return;
+    let cancelled = false;
 
-html.dark-mode body {
-  color-scheme: dark;
-}
+    async function loadCounts() {
+      const [
+        { count: cStudents },
+        { count: cParents },
+        { count: cStaff },
+        { count: cClasses },
+        { count: cSubjects }
+      ] = await Promise.all([
+        supabase.from('enrollments').select('id', { count: 'exact', head: true }).eq('school_year_id', schoolYear.id),
+        supabase.from('parent_access').select('id', { count: 'exact', head: true }),
+        supabase.from('staff').select('id', { count: 'exact', head: true }).eq('statut', 'actif'),
+        supabase.from('classes').select('id', { count: 'exact', head: true }),
+        supabase.from('subjects').select('id', { count: 'exact', head: true })
+      ]);
 
-button { font-family: var(--sans); cursor: pointer; }
-button:not(:disabled) { transition: transform 0.15s ease, background-color 0.3s ease; }
-button:not(:disabled):hover { transform: translateY(-1px); }
-button:active { transform: scale(0.97); }
+      if (!cancelled) {
+        setCounts({
+          students: cStudents || 0,
+          parents: cParents || 0,
+          staff: cStaff || 0,
+          classes: cClasses || 0,
+          subjects: cSubjects || 0,
+        });
+      }
+    }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
-::selection { background: var(--ink); color: var(--cream); }
-input { caret-color: var(--ink); }
-.navlink { transition: background 0.1s; text-decoration: none; color: inherit; }
-.navlink:hover { background: rgba(255,255,255,0.08) !important; }
-.card { background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); transition: background 0.3s, border-color 0.3s; }
-.card-bold { background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); transition: background 0.3s, border-color 0.3s; }
+    loadCounts();
+    return () => { cancelled = true; };
+  }, [schoolYear?.id]);
 
-.row-link {
-  --row-bg: var(--paper);
-  background-color: var(--row-bg);
-  transition: background-color 0.15s ease;
-}
-.row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
+  const visibleItems = SIDEBAR_ITEMS.filter((item) => {
+    if (item.feature && !hasFeature(plan, item.feature)) return false;
+    if (!hasAccess(item.perm)) return false;
+    return true;
+  });
 
-/* ---- Layout shell ---- */
-#app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
-#layout { display: flex; flex: 1; overflow-x: hidden; }
-#sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
-#screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
-
-.topbar-row { position: sticky; top: 0; z-index: 30; }
-
-body.app-mode { background: var(--dark-bg); }
-html.dark-mode body.app-mode { background: var(--cream); }
-body.app-mode .page-title { color: var(--ink) !important; }
-#screen p, #screen span, #screen div, #screen li { color: inherit; }
-#bottomnav { display: none; }
-.sidebar-label { font-size: 13.5px; color: #fff; font-weight: 500; }
-
-/* ---- Mobile layout (<= 780px) ---- */
-@media (max-width: 780px) {
-  #layout { flex-direction: column; }
-  #sidebar { display: none; }
-  
-  .topbar-row {
-    height: auto !important;
-    min-height: 64px !important;
-    padding-top: max(env(safe-area-inset-top, 0px), 10px) !important;
-    box-sizing: content-box !important;
-  }
-
-  #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
-  #bottomnav {
-    display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
-    background: var(--paper); border-top: 1px solid var(--line);
-    padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
-    z-index: 20;
-  }
-  .selection-bar { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
-  #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 14px; border-radius: 10px; min-width: 0; }
-  #bottomnav .navlink i { font-size: 20px; color: var(--ink); }
-  #bottomnav .navlink span { font-size: 9.5px; color: var(--ink); font-weight: 600; white-space: nowrap; }
-  #bottomnav .navlink.active { background: var(--forest) !important; }
-  #bottomnav .navlink.active i,
-  #bottomnav .navlink.active span { color: #fff; }
-  .topbar-title { font-size: 13.5px !important; line-height: 1.2; }
-  .topbar-sub { display: none; }
-  .topbar-role-group { gap: 6px !important; }
-  .desktop-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
-  .desktop-grid-3 { grid-template-columns: 1fr !important; }
-  .desktop-grid-2 { grid-template-columns: 1fr !important; }
-  .desktop-split { grid-template-columns: 1fr !important; }
-  .schedule-grid { grid-template-columns: 1fr 1fr !important; }
-  .role-badge-label { font-size: 11px; }
-  .logout-label { display: none; }
-  input, select, textarea { font-size: 16px !important; }
-  .school-tabs-mobile { display: flex !important; }
-}
-
-.school-tabs-mobile { display: none; gap: 7px; overflow-x: auto; margin: 0 -14px 18px; padding: 0 14px 4px; }
-.school-tabs-mobile a {
-  flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px 15px;
-  border-radius: 20px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
-  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
-  text-decoration: none;
-}
-.school-tabs-mobile a.active { border-color: var(--forest); background: var(--forest); color: #fff; }
-
-@keyframes screenPageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.page-transition { animation: screenPageIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
-@keyframes emptyStateIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
-.empty-state-in { animation: emptyStateIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
-
-@keyframes confirmDialogIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
-.confirm-dialog-in { animation: confirmDialogIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
-
-@keyframes skeletonShimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
-.skeleton-shimmer {
-  background: linear-gradient(90deg, var(--line) 25%, var(--line-strong) 37%, var(--line) 63%);
-  background-size: 400px 100%;
-  animation: skeletonShimmer 1.6s ease-in-out infinite;
-}
-@keyframes skeletonBrandPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-.skeleton-brand { animation: skeletonBrandPulse 1.6s ease-in-out infinite; }
-
-@keyframes statCardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-.stat-in { animation: statCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.desktop-grid-2 > .stat-in:nth-child(1), .desktop-grid-3 > .stat-in:nth-child(1), .desktop-grid-4 > .stat-in:nth-child(1) { animation-delay: 0ms; }
-.desktop-grid-2 > .stat-in:nth-child(2), .desktop-grid-3 > .stat-in:nth-child(2), .desktop-grid-4 > .stat-in:nth-child(2) { animation-delay: 70ms; }
-.desktop-grid-3 > .stat-in:nth-child(3), .desktop-grid-4 > .stat-in:nth-child(3) { animation-delay: 140ms; }
-.desktop-grid-4 > .stat-in:nth-child(4) { animation-delay: 210ms; }
-
-@keyframes fillBar { from { width: 0; } }
-.fill-bar { animation: fillBar 1.1s cubic-bezier(0.22, 1, 0.36, 1) 150ms; }
-
-@media (prefers-reduced-motion: reduce) {
-  .page-transition, .empty-state-in, .stat-in, .fill-bar, .confirm-dialog-in, .skeleton-shimmer, .skeleton-brand { animation: none !important; }
-  button:not(:disabled):hover { transform: none !important; }
-}
-
-/* Impression - On force le blanc pour les documents */
-@media print {
-  @page { size: A4; margin: 14mm; }
-  body { background: #fff !important; color: #000 !important; }
-  body * { visibility: hidden; }
-  .print-sheet, .print-sheet * { visibility: visible; }
-  .print-sheet { position: absolute; top: 0; left: 0; width: 100%; margin: 0 !important; box-shadow: none !important; border: none !important; background: #fff !important; }
-  .no-print { display: none !important; }
-  #sidebar, #bottomnav, .topbar-row { display: none !important; }
-  
-  body.receipt-printing > *:not(.receipt-modal-overlay) { display: none !important; }
-  body.receipt-printing .receipt-modal-overlay { position: static !important; background: none !important; padding: 0 !important; display: block !important; inset: auto !important; }
-  body.receipt-printing .receipt-modal-content { box-shadow: none !important; border: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; background: none !important; border-radius: 0 !important; padding: 0 !important; }
-  body.receipt-printing .receipt-screen-only, body.receipt-printing .receipt-buttons { display: none !important; }
-  body.receipt-printing .receipt-quad-print { display: grid !important; grid-template-columns: 105mm 105mm !important; grid-template-rows: 148.5mm 148.5mm !important; width: 210mm !important; height: 297mm !important; background: white !important; }
-  body.receipt-printing .receipt-copy { width: 105mm !important; height: 148.5mm !important; padding: 5mm !important; box-sizing: border-box !important; overflow: hidden !important; border-right: 1px dashed #ccc !important; border-bottom: 1px dashed #ccc !important; }
-  body.receipt-printing .receipt-copy:nth-child(2n) { border-right: none !important; }
-  body.receipt-printing .receipt-copy:nth-child(n+3) { border-bottom: none !important; }
-}
-
-@media (max-width: 780px) {
-  #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
-  html, body { scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
-  .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
-}
-
-/* ============================================================
-   CORRECTIFS GLOBAUX POUR LE MODE SOMBRE
-   Ce bloc écrase tous les styles en ligne (inline) blancs ou noirs
-   qui auraient été oubliés dans les fichiers React.
-   ============================================================ */
-html.dark-mode {
-  /* 1. Forcer tous les inputs (recherche, formulaires) à être sombres */
-  input, select, textarea {
-    background-color: var(--paper) !important;
-    color: var(--ink) !important;
-    border-color: var(--line-strong) !important;
-  }
-  
-  /* 2. Les placeholders doivent être visibles */
-  input::placeholder, select::placeholder, textarea::placeholder {
-    color: var(--muted) !important;
-    opacity: 0.7 !important;
-  }
-
-  /* 3. Cibler les fonds blancs ou très clairs codés en dur via style="" */
-  /* (Le navigateur convertit souvent #fff en rgb(255, 255, 255)) */
-  *[style*="background-color: rgb(255, 255, 255)"],
-  *[style*="background-color: #fff"],
-  *[style*="background-color: #ffffff"],
-  *[style*="background-color: white"],
-  *[style*="background: rgb(255, 255, 255)"],
-  *[style*="background: #fff"],
-  *[style*="background: #ffffff"],
-  *[style*="background: white"],
-  *[style*="background-color: #F0EDE5"], /* Couleur claire spécifique à l'app */
-  *[style*="background-color: #FAF8F4"] {
-    background-color: var(--paper) !important;
-  }
-
-  /* 4. Cibler les textes noirs codés en dur via style="" */
-  *[style*="color: rgb(0, 0, 0)"],
-  *[style*="color: #000"],
-  *[style*="color: #000000"],
-  *[style*="color: black"],
-  *[style*="color: #333"],
-  *[style*="color: #1A2E27"] {
-    color: var(--ink) !important;
-  }
-
-  /* 5. S'assurer que les cartes ont toujours le bon texte */
-  .card, .card-bold, .row-link {
-    color: var(--ink) !important;
-  }
-
-  /* 6. Corriger les tableaux et bordures */
-  table, th, td {
-    border-color: var(--line-strong) !important;
-  }
-
-  /* 7. Corriger les boutons qui ont un fond clair et un texte clair */
-  button[style*="background-color: rgb(255, 255, 255)"],
-  button[style*="background-color: #fff"] {
-    color: var(--ink) !important;
-  }
-  
-  /* 8. La classe spécifique au texte sur les cartes de Stats */
-  .stat-in p {
-    color: inherit;
-  }
+  return (
+    <>
+      {visibleItems.map((item) => (
+        <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)} data-tour={item.tourId}>
+          <i className={`ti ${item.icon}`} style={{ fontSize: 18, color: '#fff' }} aria-hidden="true"></i>
+          <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
+          {item.countKey && counts[item.countKey] !== undefined && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: 10 }}>
+              {counts[item.countKey]}
+            </span>
+          )}
+        </NavLink>
+      ))}
+    </>
+  );
 }
