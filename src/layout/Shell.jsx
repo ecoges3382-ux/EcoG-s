@@ -127,6 +127,10 @@ export default function Shell() {
     return () => resetSchoolColor();
   }, [profile?.schools?.color]);
 
+  const handleLogout = async () => {
+    if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut();
+  };
+
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
@@ -134,6 +138,8 @@ export default function Shell() {
       <div id="app">
         <div className="topbar-row">
           <div className="topbar-inner">
+            
+            {/* GAUCHE : Logo + Nom de l'école */}
             <div className="topbar-brand">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
                 {profile?.schools?.logo_url
@@ -145,32 +151,18 @@ export default function Shell() {
               </p>
             </div>
 
-            <div className="topbar-actions">
-              <div className="topbar-desktop-context">
-                <SchoolYearSelector />
-                {isPlatformAdmin && (
-                  <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    <ShieldIcon /><span>Administration</span>
-                  </NavLink>
-                )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20 }}>
-                  <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
-                  <span style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
-                </div>
-              </div>
-
-              <div className="topbar-icons">
-                <button onClick={() => setSearchOpen(true)} className="hide-on-mobile topbar-search-btn">
+            {/* DROITE : Outils + Contexte + Déconnexion */}
+            <div className="topbar-right">
+              
+              {/* Outils PC (Recherche, Mode, Aide) */}
+              <div className="topbar-pc-tools hide-on-mobile">
+                <button onClick={() => setSearchOpen(true)} className="topbar-search-btn">
                   <i className="ti ti-search" style={{ fontSize: 16 }} aria-hidden="true"></i>
                   <span>Rechercher...</span>
                   <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                     <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>Ctrl</kbd>
                     <kbd style={{ background: 'rgba(255,255,255,0.15)', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontFamily: 'monospace' }}>K</kbd>
                   </div>
-                </button>
-
-                <button onClick={() => setSearchOpen(true)} className="show-on-mobile topbar-action-btn" title="Rechercher">
-                  <i className="ti ti-search" style={{ fontSize: 20 }} aria-hidden="true"></i>
                 </button>
                 
                 <button onClick={handleToggleTheme} className="topbar-action-btn" title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
@@ -180,27 +172,53 @@ export default function Shell() {
                 <Link to="/aide" title="Centre d'aide" className="topbar-action-btn">
                   <HelpIcon />
                 </Link>
-
-                <button onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }} className="topbar-action-btn" title="Se déconnecter">
-                  <span aria-hidden="true" style={{ fontSize: 16, fontWeight: 700 }}>⏻</span>
-                </button>
               </div>
+
+              {/* Contexte (Année + Rôle) - Visible sur PC et Mobile */}
+              <div className="topbar-context">
+                <SchoolYearSelector />
+                
+                {isPlatformAdmin && (
+                  <NavLink to="/admin" className="topbar-admin-badge">
+                    <ShieldIcon />
+                    <span className="hide-on-mobile">Administration</span>
+                    <span className="show-on-mobile">Admin</span>
+                  </NavLink>
+                )}
+
+                <div className="topbar-role-badge">
+                  <i className="ti ti-user-circle" style={{ fontSize: 17, color: '#fff' }} aria-hidden="true"></i>
+                  <span>{roleLabel}</span>
+                </div>
+              </div>
+
+              {/* Déconnexion PC */}
+              <button onClick={handleLogout} className="topbar-action-btn hide-on-mobile" title="Se déconnecter">
+                <span aria-hidden="true" style={{ fontSize: 16, fontWeight: 700 }}>⏻</span>
+              </button>
             </div>
           </div>
 
-          <div className="topbar-mobile-context">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <SchoolYearSelector />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: 20 }}>
-                <i className="ti ti-user-circle" style={{ fontSize: 15, color: '#fff' }} aria-hidden="true"></i>
-                <span style={{ fontSize: '11.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
-              </div>
+          {/* LIGNE MOBILE : Barre de recherche + Icônes */}
+          <div className="topbar-mobile-row show-on-mobile">
+            <button onClick={() => setSearchOpen(true)} className="topbar-mobile-search">
+              <i className="ti ti-search" style={{ fontSize: 18 }} aria-hidden="true"></i>
+              <span>Rechercher un élève, une classe...</span>
+            </button>
+
+            <div className="topbar-mobile-icons">
+              <button onClick={handleToggleTheme} className="topbar-action-btn" title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
+                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+              </button>
+
+              <Link to="/aide" title="Centre d'aide" className="topbar-action-btn">
+                <HelpIcon />
+              </Link>
+
+              <button onClick={handleLogout} className="topbar-action-btn" title="Se déconnecter">
+                <span aria-hidden="true" style={{ fontSize: 16, fontWeight: 700 }}>⏻</span>
+              </button>
             </div>
-            {isPlatformAdmin && (
-              <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '11.5px', fontWeight: 600 }}>
-                <ShieldIcon /><span>Admin</span>
-              </NavLink>
-            )}
           </div>
         </div>
 
