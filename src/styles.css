@@ -83,8 +83,14 @@ input { caret-color: var(--ink); }
 /* ---- Layout shell ---- */
 #app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 #layout { display: flex; flex: 1; overflow-x: hidden; }
-#sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
+
+/* CORRECTION ICI : Texte en blanc pour le menu de gauche */
+#sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; color: #fff; }
+
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
+
+/* CORRECTION ICI : Cacher la barre du bas sur ordinateur */
+#bottomnav { display: none; }
 
 /* ============================================================
    EN-TÊTE PREMIUM (TOPBAR)
@@ -271,6 +277,8 @@ input { caret-color: var(--ink); }
   .topbar-admin-badge { padding: 5px 10px; font-size: 11px; }
 
   #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
+  
+  /* Afficher la barre du bas uniquement sur mobile */
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--paper); border-top: 1px solid var(--line);
@@ -411,11 +419,8 @@ html.dark-mode {
 
 /* ============================================================
    🛡️ LE BOUCLIER ANTI-BLANC ULTIME (Infaillible) 🛡️
-   Corrige automatiquement TOUS les fonds clairs et textes 
-   invisibles, peu importe comment ils ont été codés dans l'app.
    ============================================================ */
 
-/* 1. On cible TOUTES les boîtes qui ont un fond clair en mode sombre */
 html.dark-mode [style*="background: white"],
 html.dark-mode [style*="background: #fff"],
 html.dark-mode [style*="background: #ffffff"],
@@ -435,12 +440,11 @@ html.dark-mode .bg-slate-50,
 html.dark-mode .bg-slate-100,
 html.dark-mode .bg-zinc-50,
 html.dark-mode .bg-zinc-100 {
-  background-color: var(--paper) !important; /* On transforme le fond en gris foncé */
-  color: var(--ink) !important; /* On met le texte en clair */
+  background-color: var(--paper) !important;
+  color: var(--ink) !important;
   border-color: var(--line-strong) !important;
 }
 
-/* 2. On force TOUS les textes à l'intérieur de ces boîtes à être lisibles */
 html.dark-mode [style*="background: white"] *,
 html.dark-mode [style*="background: #fff"] *,
 html.dark-mode [style*="background: #ffffff"] *,
@@ -459,7 +463,6 @@ html.dark-mode .bg-slate-100 * {
   color: var(--ink) !important;
 }
 
-/* 3. Sécurité : On écrase les textes noirs ou blancs codés en dur */
 html.dark-mode *[style*="color: rgb(0, 0, 0)"],
 html.dark-mode *[style*="color: #000"],
 html.dark-mode *[style*="color: #000000"],
@@ -472,7 +475,6 @@ html.dark-mode *[style*="color: #ffffff"] {
   color: var(--ink) !important;
 }
 
-/* 4. On sauve les tableaux et les bordures */
 html.dark-mode table,
 html.dark-mode tr,
 html.dark-mode td,
@@ -481,7 +483,6 @@ html.dark-mode th {
   border-color: var(--line-strong) !important;
 }
 
-/* 5. Sécurité pour les icônes et les SVG qui seraient noirs */
 html.dark-mode svg[stroke="black"],
 html.dark-mode svg[stroke="#000"],
 html.dark-mode svg[stroke="#1A2E27"] {
