@@ -156,7 +156,8 @@ export default function Aide() {
       <Section title="6. Passer à l'année suivante" icon={<CheckCircle />}>
         <p style={{ marginTop: 0 }}>En fin d'année scolaire, voici comment préparer la rentrée suivante :</p>
         <ol style={{ paddingLeft: 20, color: 'var(--muted)' }}>
-          <li>Allez dans « Paramètres » > « Année scolaire ».</li>
+          {/* CORRECTION ICI : Le > a été remplacé par &gt; */}
+          <li>Allez dans « Paramètres » &gt; « Année scolaire ».</li>
           <li>Cliquez sur « Préparer la prochaine année ».</li>
           <li>EcoGès vous proposera de faire « Passer » ou « Redoubler » chaque élève. Vous pouvez ajuster.</li>
           <li>Une fois prêt, cliquez sur « Activer l'année ». L'ancienne année reste consultable en historique.</li>
