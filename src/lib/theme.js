@@ -1,10 +1,4 @@
-// Applique la couleur principale choisie par l'école (Paramètres →
-// Identité de l'établissement) aux variables CSS du thème — jusqu'ici le
-// champ enregistrait bien schools.color en base, mais rien ne le relisait
-// pour l'appliquer à l'écran : changer la couleur n'avait strictement
-// aucun effet visible. --forest-dark/--forest-light sont dérivées de la
-// couleur choisie (assombrie/éclaircie) puisque le sélecteur ne capture
-// qu'une seule teinte alors que le thème en utilise trois.
+// Applique la couleur principale choisie par l'école
 function hexToRgb(hex) {
   const clean = hex.replace('#', '');
   const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
@@ -17,7 +11,6 @@ function rgbToHex({ r, g, b }) {
   return `#${[r, g, b].map((n) => clamp(n).toString(16).padStart(2, '0')).join('')}`;
 }
 
-// Mélange vers le noir (amount>0 = assombrir) ou le blanc (éclaircir).
 function mix(hex, target, amount) {
   const c = hexToRgb(hex);
   const t = hexToRgb(target);
@@ -41,4 +34,32 @@ export function resetSchoolColor() {
   root.removeProperty('--forest');
   root.removeProperty('--forest-dark');
   root.removeProperty('--forest-light');
+}
+
+// ========== GESTION DU MODE SOMBRE ==========
+const THEME_KEY = 'ecoges_theme';
+
+export function getInitialTheme() {
+  if (typeof window === 'undefined') return 'light';
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'dark' || saved === 'light') return saved;
+  // Si pas de sauvegarde, on utilise la préférence du système
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+export function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'dark') {
+    root.classList.add('dark-mode');
+  } else {
+    root.classList.remove('dark-mode');
+  }
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+export function toggleTheme() {
+  const current = document.documentElement.classList.contains('dark-mode') ? 'dark' : 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  return next;
 }
