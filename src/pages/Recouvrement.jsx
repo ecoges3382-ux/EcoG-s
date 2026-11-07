@@ -412,7 +412,6 @@ export default function Recouvrement() {
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Aperçu des montants</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             
-            {/* CORRECTION ICI : On utilise var(--paper) pour garantir un bon contraste */}
             <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', padding: '16px', borderRadius: 12 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Taux de recouvrement global</p>
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 32, fontWeight: 700, color: tauxGlobal >= 75 ? 'var(--success)' : tauxGlobal >= 50 ? 'var(--amber)' : 'var(--danger)' }}>{tauxGlobal}%</p>
@@ -426,7 +425,6 @@ export default function Recouvrement() {
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totalEncaisse)}</p>
             </div>
             
-            {/* CORRECTION ICI : La fameuse boîte qui posait problème */}
             <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', padding: '16px', borderRadius: 12 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Total attendu</p>
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(totalAttendu)}</p>
@@ -485,7 +483,7 @@ export default function Recouvrement() {
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 350, overflowY: 'auto' }}>
           <div style={{ minWidth: 980 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-              <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="sticky-header" style={{ position: 'sticky', left: 0, zIndex: 21, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <input
                   type="checkbox"
                   checked={selectedPriorityIds.length > 0 && selectedPriorityIds.length === elevesPrioritaires.length}
@@ -493,7 +491,7 @@ export default function Recouvrement() {
                   style={{ cursor: 'pointer' }}
                 />
               </span>
-              <span style={{ position: 'sticky', left: 50, zIndex: 21, background: 'var(--forest-light)', display: 'block', width: '100%' }}>Élève</span>
+              <span className="sticky-header" style={{ position: 'sticky', left: 50, zIndex: 21, display: 'block', width: '100%' }}>Élève</span>
               <span>Reste Écolage</span>
               <span>Reste Connexes</span>
               <span>Total Dû</span>
@@ -506,7 +504,7 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
-                <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="sticky-col" style={{ position: 'sticky', left: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input
                     type="checkbox"
                     checked={selectedPriorityIds.includes(s.id)}
@@ -514,7 +512,7 @@ export default function Recouvrement() {
                     style={{ cursor: 'pointer' }}
                   />
                 </span>
-                <div style={{ position: 'sticky', left: 50, zIndex: 10, backgroundColor: 'var(--paper)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                <div className="sticky-col" style={{ position: 'sticky', left: 50, zIndex: 10, boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
@@ -579,7 +577,7 @@ export default function Recouvrement() {
           <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
             <div style={{ minWidth: 860 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px 12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-                <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', display: 'block', width: '100%' }}>Élève</span>
+                <span className="sticky-header" style={{ position: 'sticky', left: 0, zIndex: 21, display: 'block', width: '100%' }}>Élève</span>
                 <span>Total Dû</span>
                 <span>Échéance</span>
                 <span>Statut Relance Auto</span>
@@ -590,7 +588,7 @@ export default function Recouvrement() {
                   key={s.id}
                   style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px', alignItems: 'center', borderBottom: i < elevesEcheancesProches.length - 1 ? '1px solid var(--line)' : 'none' }}
                 >
-                  <div style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--paper)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                  <div className="sticky-col" style={{ position: 'sticky', left: 0, zIndex: 10, boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
                     <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                   </div>
@@ -693,7 +691,7 @@ export default function Recouvrement() {
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 860 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
-            <span style={{ position: 'sticky', left: 0, zIndex: 21, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="sticky-header" style={{ position: 'sticky', left: 0, zIndex: 21, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <input
                 type="checkbox"
                 checked={selectedDetailIds.length > 0 && selectedDetailIds.length === filtered.length}
@@ -701,7 +699,7 @@ export default function Recouvrement() {
                 style={{ cursor: 'pointer' }}
               />
             </span>
-            <span style={{ position: 'sticky', left: 50, zIndex: 21, background: 'var(--forest-light)', display: 'block', width: '100%' }}>Élève</span>
+            <span className="sticky-header" style={{ position: 'sticky', left: 50, zIndex: 21, display: 'block', width: '100%' }}>Élève</span>
             <span>Écolage</span>
             <span>Inscription</span>
             <span>Connexes</span>
@@ -715,7 +713,7 @@ export default function Recouvrement() {
                 className="row-link"
                 style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
-                <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="sticky-col" style={{ position: 'sticky', left: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input
                     type="checkbox"
                     checked={selectedDetailIds.includes(s.id)}
@@ -724,11 +722,10 @@ export default function Recouvrement() {
                   />
                 </span>
 
-                <Link to={`/eleves/${s.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                  <div style={{ position: 'sticky', left: 50, zIndex: 10, backgroundColor: 'var(--paper)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                    <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
-                  </div>
+                {/* CORRECTION ICI : La balise Link elle-même est maintenant "sticky" */}
+                <Link to={`/eleves/${s.id}`} className="sticky-col" style={{ position: 'sticky', left: 50, zIndex: 10, boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', textDecoration: 'none', color: 'inherit' }}>
+                  <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </Link>
 
                 <Link to={`/eleves/${s.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
