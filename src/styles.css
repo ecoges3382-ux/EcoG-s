@@ -428,3 +428,38 @@ html.dark-mode {
   .recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: var(--line-strong) !important; }
   .recharts-legend-item-text { color: var(--ink) !important; }
 }
+
+/* ============================================================
+   PANSEMENT MAGIQUE POUR LES CARTES BLANCHES EN MODE SOMBRE
+   (Ajouté pour réparer le bug "blanc sur blanc")
+   ============================================================ */
+html.dark-mode .card,
+html.dark-mode .card-bold,
+html.dark-mode [class*="card"],
+html.dark-mode [style*="background: white"],
+html.dark-mode [style*="background: #fff"],
+html.dark-mode [style*="background-color: white"],
+html.dark-mode [style*="background-color: #fff"] {
+  background-color: var(--paper) !important;
+  color: var(--ink) !important;
+}
+
+/* On force les textes à l'intérieur de ces cartes à être lisibles (gris clair ou blanc) */
+html.dark-mode .card *,
+html.dark-mode .card-bold *,
+html.dark-mode [class*="card"] *,
+html.dark-mode [style*="background: white"] *,
+html.dark-mode [style*="background: #fff"] *,
+html.dark-mode [style*="background-color: white"] *,
+html.dark-mode [style*="background-color: #fff"] * {
+  color: inherit !important;
+}
+
+/* On force les gros chiffres (comme 30% ou 52.675.000) à être bien visibles */
+html.dark-mode .stat-in p,
+html.dark-mode .stat-in h1,
+html.dark-mode .stat-in h2,
+html.dark-mode .stat-in h3,
+html.dark-mode .stat-in span {
+  color: var(--ink) !important;
+}
