@@ -8,12 +8,11 @@ export default function PaymentReceipt({
   payment, studentName, classeNom, studentMatricule, schoolYearLabel, school,
   montantDu, montantPaye,
   enrollment, schoolYear, feeSchedule,
-  autoPrint = false, // 👈 Modifié : false par défaut
+  autoPrint = false,
   onClose,
 }) {
   const reference = payment.id ? payment.id.slice(0, 8).toUpperCase() : '—';
 
-  // Décomposition par tranche (uniquement pour paiement écolage)
   const breakdown = useMemo(() => {
     if (payment.type_frais !== 'scolarite') return null;
     if (!enrollment || !schoolYear) return null;
@@ -26,14 +25,12 @@ export default function PaymentReceipt({
     }
   }, [payment.type_frais, enrollment, schoolYear, feeSchedule]);
 
-  // Bloque le scroll du body quand la modale est ouverte
   useEffect(() => {
     const oldOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = oldOverflow; };
   }, []);
 
-  // Auto-print (si demandé explicitement)
   useEffect(() => {
     if (!autoPrint) return undefined;
     const timer = setTimeout(() => triggerPrint(), 400);
@@ -62,12 +59,10 @@ export default function PaymentReceipt({
       <div className="receipt-modal-content" onClick={(e) => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 14, maxWidth: 460, width: '100%', maxHeight: '90vh', overflow: 'auto',
       }}>
-        {/* Aperçu à l'écran */}
         <div className="receipt-screen-only" style={{ padding: '26px 24px' }}>
           <ReceiptBody {...copyProps} compact={false} />
         </div>
 
-        {/* 4 copies pour l'impression (2×2 sur A4) */}
         <div className="receipt-quad-print">
           <div className="receipt-copy"><ReceiptBody {...copyProps} compact={true} /></div>
           <div className="receipt-copy"><ReceiptBody {...copyProps} compact={true} /></div>
@@ -75,7 +70,6 @@ export default function PaymentReceipt({
           <div className="receipt-copy"><ReceiptBody {...copyProps} compact={true} /></div>
         </div>
 
-        {/* Boutons (cachés à l'impression) */}
         <div className="receipt-buttons" style={{ display: 'flex', gap: 10, padding: '14px 24px 20px', borderTop: '1px solid var(--line)' }}>
           <button
             type="button"
