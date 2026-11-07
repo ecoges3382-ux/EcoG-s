@@ -373,7 +373,7 @@ input { caret-color: var(--ink); }
 }
 
 /* ============================================================
-   CORRECTIFS POUR LE MODE SOMBRE
+   CORRECTIFS DE BASE POUR LE MODE SOMBRE
    ============================================================ */
 html.dark-mode {
   input, select, textarea {
@@ -384,26 +384,6 @@ html.dark-mode {
   input::placeholder, select::placeholder, textarea::placeholder {
     color: var(--muted) !important;
     opacity: 0.7 !important;
-  }
-  *[style*="background-color: rgb(255, 255, 255)"],
-  *[style*="background-color: #fff"],
-  *[style*="background-color: #ffffff"],
-  *[style*="background-color: white"],
-  *[style*="background: rgb(255, 255, 255)"],
-  *[style*="background: #fff"],
-  *[style*="background: #ffffff"],
-  *[style*="background: white"],
-  *[style*="background-color: #F0EDE5"],
-  *[style*="background-color: #FAF8F4"] {
-    background-color: var(--paper) !important;
-  }
-  *[style*="color: rgb(0, 0, 0)"],
-  *[style*="color: #000"],
-  *[style*="color: #000000"],
-  *[style*="color: black"],
-  *[style*="color: #333"],
-  *[style*="color: #1A2E27"] {
-    color: var(--ink) !important;
   }
   .card, .card-bold, .row-link {
     color: var(--ink) !important;
@@ -430,36 +410,80 @@ html.dark-mode {
 }
 
 /* ============================================================
-   PANSEMENT MAGIQUE POUR LES CARTES BLANCHES EN MODE SOMBRE
-   (Ajouté pour réparer le bug "blanc sur blanc")
+   🛡️ LE BOUCLIER ANTI-BLANC ULTIME (Infaillible) 🛡️
+   Corrige automatiquement TOUS les fonds clairs et textes 
+   invisibles, peu importe comment ils ont été codés dans l'app.
    ============================================================ */
-html.dark-mode .card,
-html.dark-mode .card-bold,
-html.dark-mode [class*="card"],
+
+/* 1. On cible TOUTES les boîtes qui ont un fond clair en mode sombre */
 html.dark-mode [style*="background: white"],
 html.dark-mode [style*="background: #fff"],
+html.dark-mode [style*="background: #ffffff"],
 html.dark-mode [style*="background-color: white"],
-html.dark-mode [style*="background-color: #fff"] {
-  background-color: var(--paper) !important;
-  color: var(--ink) !important;
+html.dark-mode [style*="background-color: #fff"],
+html.dark-mode [style*="background-color: #ffffff"],
+html.dark-mode [style*="background: rgb(255, 255, 255)"],
+html.dark-mode [style*="background-color: rgb(255, 255, 255)"],
+html.dark-mode [style*="background: #FAF8F4"],
+html.dark-mode [style*="background-color: #FAF8F4"],
+html.dark-mode [style*="background: #F0EDE5"],
+html.dark-mode [style*="background-color: #F0EDE5"],
+html.dark-mode .bg-white,
+html.dark-mode .bg-gray-50,
+html.dark-mode .bg-gray-100,
+html.dark-mode .bg-slate-50,
+html.dark-mode .bg-slate-100,
+html.dark-mode .bg-zinc-50,
+html.dark-mode .bg-zinc-100 {
+  background-color: var(--paper) !important; /* On transforme le fond en gris foncé */
+  color: var(--ink) !important; /* On met le texte en clair */
+  border-color: var(--line-strong) !important;
 }
 
-/* On force les textes à l'intérieur de ces cartes à être lisibles (gris clair ou blanc) */
-html.dark-mode .card *,
-html.dark-mode .card-bold *,
-html.dark-mode [class*="card"] *,
+/* 2. On force TOUS les textes à l'intérieur de ces boîtes à être lisibles */
 html.dark-mode [style*="background: white"] *,
 html.dark-mode [style*="background: #fff"] *,
+html.dark-mode [style*="background: #ffffff"] *,
 html.dark-mode [style*="background-color: white"] *,
-html.dark-mode [style*="background-color: #fff"] * {
-  color: inherit !important;
+html.dark-mode [style*="background-color: #fff"] *,
+html.dark-mode [style*="background-color: #ffffff"] *,
+html.dark-mode [style*="background: #FAF8F4"] *,
+html.dark-mode [style*="background-color: #FAF8F4"] *,
+html.dark-mode [style*="background: #F0EDE5"] *,
+html.dark-mode [style*="background-color: #F0EDE5"] *,
+html.dark-mode .bg-white *,
+html.dark-mode .bg-gray-50 *,
+html.dark-mode .bg-gray-100 *,
+html.dark-mode .bg-slate-50 *,
+html.dark-mode .bg-slate-100 * {
+  color: var(--ink) !important;
 }
 
-/* On force les gros chiffres (comme 30% ou 52.675.000) à être bien visibles */
-html.dark-mode .stat-in p,
-html.dark-mode .stat-in h1,
-html.dark-mode .stat-in h2,
-html.dark-mode .stat-in h3,
-html.dark-mode .stat-in span {
+/* 3. Sécurité : On écrase les textes noirs ou blancs codés en dur */
+html.dark-mode *[style*="color: rgb(0, 0, 0)"],
+html.dark-mode *[style*="color: #000"],
+html.dark-mode *[style*="color: #000000"],
+html.dark-mode *[style*="color: black"],
+html.dark-mode *[style*="color: #333"],
+html.dark-mode *[style*="color: #1A2E27"],
+html.dark-mode *[style*="color: white"],
+html.dark-mode *[style*="color: #fff"],
+html.dark-mode *[style*="color: #ffffff"] {
   color: var(--ink) !important;
+}
+
+/* 4. On sauve les tableaux et les bordures */
+html.dark-mode table,
+html.dark-mode tr,
+html.dark-mode td,
+html.dark-mode th {
+  color: var(--ink) !important;
+  border-color: var(--line-strong) !important;
+}
+
+/* 5. Sécurité pour les icônes et les SVG qui seraient noirs */
+html.dark-mode svg[stroke="black"],
+html.dark-mode svg[stroke="#000"],
+html.dark-mode svg[stroke="#1A2E27"] {
+  stroke: var(--ink) !important;
 }
