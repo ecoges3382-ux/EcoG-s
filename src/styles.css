@@ -29,23 +29,27 @@
 /* ========== MODE SOMBRE ========== */
 html.dark-mode, body.dark-mode {
   color-scheme: dark;
-  --ink: #F3F4F6; /* Texte principal (gris très clair) */
-  --cream: #111827; /* Fond principal (gris très foncé) */
-  --paper: #1F2937; /* Fond des cartes (gris foncé) */
+  --ink: #F3F4F6;          /* Texte principal */
+  --cream: #111827;        /* Fond général */
+  --paper: #1F2937;        /* Fond des cartes/tables */
   --line: rgba(255,255,255,0.08);
   --line-strong: rgba(255,255,255,0.18);
-  --muted: #9CA3AF; /* Texte secondaire */
+  --muted: #9CA3AF;
   
-  /* Ajustement des couleurs claires pour qu'elles restent lisibles sur fond sombre */
+  /* Couleurs fonctionnelles plus claires pour contraster sur fond sombre */
+  --danger: #F87171;
+  --success: #34D399;
+  --amber: #FBBF24;
+  --gold: #FCD34D;
+  --forest: #34D399;       /* Le vert principal devient clair pour le texte */
+  
+  /* Fonds de "light" assombris pour correspondre au thème */
   --forest-light: #064E3B;
-  --clay-light: #7C2D12;
-  --gold-light: #78350F;
-  --danger-light: #7F1D1D;
+  --danger-light: #450A0A;
   --success-light: #064E3B;
   --amber-light: #78350F;
-  
-  /* On garde le texte des boutons en noir sur les fonds clairs */
-  --ink-on-light: #1A2E27;
+  --clay-light: #7C2D12;
+  --gold-light: #78350F;
 }
 
 * { box-sizing: border-box; }
@@ -84,7 +88,7 @@ input { caret-color: var(--ink); }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
 /* ---- Layout shell ---- */
-#app { display: flex; flex-direction: column; min-height: 100vh; }
+#app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 #layout { display: flex; flex: 1; overflow-x: hidden; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
@@ -102,6 +106,14 @@ body.app-mode .page-title { color: var(--ink) !important; }
 @media (max-width: 780px) {
   #layout { flex-direction: column; }
   #sidebar { display: none; }
+  
+  .topbar-row {
+    height: auto !important;
+    min-height: 64px !important;
+    padding-top: max(env(safe-area-inset-top, 0px), 10px) !important;
+    box-sizing: content-box !important;
+  }
+
   #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
@@ -118,7 +130,6 @@ body.app-mode .page-title { color: var(--ink) !important; }
   #bottomnav .navlink.active span { color: #fff; }
   .topbar-title { font-size: 13.5px !important; line-height: 1.2; }
   .topbar-sub { display: none; }
-  .topbar-row { padding: 0 14px !important; gap: 8px !important; }
   .topbar-role-group { gap: 6px !important; }
   .desktop-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
   .desktop-grid-3 { grid-template-columns: 1fr !important; }
@@ -182,7 +193,6 @@ body.app-mode .page-title { color: var(--ink) !important; }
   .no-print { display: none !important; }
   #sidebar, #bottomnav, .topbar-row { display: none !important; }
   
-  /* Le reçu quad-print */
   body.receipt-printing > *:not(.receipt-modal-overlay) { display: none !important; }
   body.receipt-printing .receipt-modal-overlay { position: static !important; background: none !important; padding: 0 !important; display: block !important; inset: auto !important; }
   body.receipt-printing .receipt-modal-content { box-shadow: none !important; border: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; background: none !important; border-radius: 0 !important; padding: 0 !important; }
