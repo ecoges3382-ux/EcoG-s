@@ -26,7 +26,7 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ========== MODE SOMBRE ========== */
+/* ========== MODE SOMBRE (Variables) ========== */
 html.dark-mode, body.dark-mode {
   color-scheme: dark;
   --ink: #F3F4F6;
@@ -75,7 +75,6 @@ button:active { transform: scale(0.97); }
 input { caret-color: var(--ink); }
 .navlink { transition: background 0.1s; text-decoration: none; color: inherit; }
 .navlink:hover { background: rgba(255,255,255,0.08) !important; }
-
 .card { background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); transition: background 0.3s, border-color 0.3s; }
 .card-bold { background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); transition: background 0.3s, border-color 0.3s; }
 
@@ -100,38 +99,6 @@ body.app-mode .page-title { color: var(--ink) !important; }
 #screen p, #screen span, #screen div, #screen li { color: inherit; }
 #bottomnav { display: none; }
 .sidebar-label { font-size: 13.5px; color: #fff; font-weight: 500; }
-
-/* ========== CORRECTIFS DE COMPOSANTS TIERS (RECHARTS) ========== */
-/* Tooltips des graphiques */
-.recharts-default-tooltip {
-  background-color: var(--paper) !important;
-  border: 1px solid var(--line-strong) !important;
-  border-radius: 8px !important;
-  color: var(--ink) !important;
-}
-.recharts-tooltip-item {
-  color: var(--ink) !important;
-}
-.recharts-text {
-  fill: var(--muted) !important;
-}
-.recharts-cartesian-axis-line,
-.recharts-cartesian-axis-tick-line {
-  stroke: var(--line-strong) !important;
-}
-.recharts-legend-item-text {
-  color: var(--ink) !important;
-}
-
-/* ========== CORRECTIFS DES INPUTS ========== */
-input, select, textarea, .Dropdown-trigger {
-  background-color: var(--paper) !important;
-  color: var(--ink) !important;
-  border-color: var(--line-strong) !important;
-}
-input::placeholder {
-  color: var(--muted) !important;
-}
 
 /* ---- Mobile layout (<= 780px) ---- */
 @media (max-width: 780px) {
@@ -214,7 +181,7 @@ input::placeholder {
   button:not(:disabled):hover { transform: none !important; }
 }
 
-/* Impression */
+/* Impression - On force le blanc pour les documents */
 @media print {
   @page { size: A4; margin: 14mm; }
   body { background: #fff !important; color: #000 !important; }
@@ -238,4 +205,70 @@ input::placeholder {
   #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
   html, body { scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
   .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
+}
+
+/* ============================================================
+   CORRECTIFS GLOBAUX POUR LE MODE SOMBRE
+   Ce bloc écrase tous les styles en ligne (inline) blancs ou noirs
+   qui auraient été oubliés dans les fichiers React.
+   ============================================================ */
+html.dark-mode {
+  /* 1. Forcer tous les inputs (recherche, formulaires) à être sombres */
+  input, select, textarea {
+    background-color: var(--paper) !important;
+    color: var(--ink) !important;
+    border-color: var(--line-strong) !important;
+  }
+  
+  /* 2. Les placeholders doivent être visibles */
+  input::placeholder, select::placeholder, textarea::placeholder {
+    color: var(--muted) !important;
+    opacity: 0.7 !important;
+  }
+
+  /* 3. Cibler les fonds blancs ou très clairs codés en dur via style="" */
+  /* (Le navigateur convertit souvent #fff en rgb(255, 255, 255)) */
+  *[style*="background-color: rgb(255, 255, 255)"],
+  *[style*="background-color: #fff"],
+  *[style*="background-color: #ffffff"],
+  *[style*="background-color: white"],
+  *[style*="background: rgb(255, 255, 255)"],
+  *[style*="background: #fff"],
+  *[style*="background: #ffffff"],
+  *[style*="background: white"],
+  *[style*="background-color: #F0EDE5"], /* Couleur claire spécifique à l'app */
+  *[style*="background-color: #FAF8F4"] {
+    background-color: var(--paper) !important;
+  }
+
+  /* 4. Cibler les textes noirs codés en dur via style="" */
+  *[style*="color: rgb(0, 0, 0)"],
+  *[style*="color: #000"],
+  *[style*="color: #000000"],
+  *[style*="color: black"],
+  *[style*="color: #333"],
+  *[style*="color: #1A2E27"] {
+    color: var(--ink) !important;
+  }
+
+  /* 5. S'assurer que les cartes ont toujours le bon texte */
+  .card, .card-bold, .row-link {
+    color: var(--ink) !important;
+  }
+
+  /* 6. Corriger les tableaux et bordures */
+  table, th, td {
+    border-color: var(--line-strong) !important;
+  }
+
+  /* 7. Corriger les boutons qui ont un fond clair et un texte clair */
+  button[style*="background-color: rgb(255, 255, 255)"],
+  button[style*="background-color: #fff"] {
+    color: var(--ink) !important;
+  }
+  
+  /* 8. La classe spécifique au texte sur les cartes de Stats */
+  .stat-in p {
+    color: inherit;
+  }
 }
