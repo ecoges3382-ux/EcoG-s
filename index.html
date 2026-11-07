@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>EcoGès - Gestion scolaire</title>
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -20,8 +20,10 @@
       * { scrollbar-width: auto !important; scrollbar-color: #ffffff rgba(0,0,0,0.1) !important; }
       body, button, input, select, textarea, a, span, p, div, table, th, td, label { font-family: 'Poppins', sans-serif !important; }
       :root { --sans: 'Poppins', sans-serif !important; }
-      html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden !important; }
-      #app { height: 100vh !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
+      
+      /* Utilisation de 100dvh pour s'adapter à la barre d'adresse mobile */
+      html, body { margin: 0; padding: 0; height: 100vh; height: 100dvh; overflow: hidden !important; }
+      #app { height: 100vh !important; height: 100dvh !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
       #layout { display: flex !important; flex: 1 !important; overflow: hidden !important; }
       #sidebar { height: 100% !important; overflow-y: auto !important; flex-shrink: 0 !important; }
       #screen { height: 100% !important; overflow-y: auto !important; flex: 1 !important; }
