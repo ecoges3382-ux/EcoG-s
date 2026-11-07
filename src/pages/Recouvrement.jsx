@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase.js';
@@ -103,7 +103,6 @@ export default function Recouvrement() {
     return () => { cancelled = true; };
   }, [schoolYear?.id, inscriptionTypeId]);
 
-  // On charge TOUTES les relances (auto + manuelles) en une seule requête
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -123,7 +122,6 @@ export default function Recouvrement() {
             if (!autoMap[m.student_id]) autoMap[m.student_id] = [];
             autoMap[m.student_id].push(m);
           } else {
-            // Relance manuelle : on ne garde que la plus récente et réussie
             if (!manualMap[m.student_id] && m.statut === 'envoye') {
               manualMap[m.student_id] = m;
             }
@@ -135,115 +133,141 @@ export default function Recouvrement() {
     return () => { cancelled = true; };
   }, [schoolYear?.id, profile.school_id]);
 
-  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
-  if (!students || inscriptionByStudent === null) {
-    return (
-      <div>
-        {isHistorical && <HistoricalYearBanner year={schoolYear} />}
-        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
-          <SkeletonCard /><SkeletonCard /><SkeletonCard />
-        </div>
-        <div className="card-bold"><SkeletonTableRows count={6} columns={6} /></div>
-      </div>
-    );
-  }
-
-  const calendrierConfigure = !!(schoolYear && (
+  const calendrierConfigure = useMemo(() => !!(schoolYear && (
     schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe
-  ));
+  )), [schoolYear]);
 
-  const enrichis = students.map((s) => {
-    const resteEcolage = Number(s.montant_du) - Number(s.montant_paye);
-    const resteConnexe = Number(s.frais_connexe_du) - Number(s.frais_connexe_paye);
-    const inscriptionPaye = inscriptionByStudent[s.id] || 0;
-    const relance = computeRelance(s, schoolYear, s.feeSchedule);
-    let statutKey;
-    if (relance.moratoireExpirant) statutKey = 'moratoire_expirant';
-    else if (relance.moratoire) statutKey = 'moratoire';
-    else if (resteEcolage <= 0 && resteConnexe <= 0) statutKey = 'a_jour';
-    else if (calendrierConfigure) statutKey = (relance.relance || relance.relanceConnexe) ? 'a_relancer' : 'dans_les_delais';
-    else statutKey = 'solde_restant';
-    return { ...s, resteEcolage, resteConnexe, inscriptionPaye, relance, statutKey };
-  });
+  // 🚀 OPTIMISATION 1 : On mémorise le calcul de base des élèves
+  const enrichis = useMemo(() => {
+    if (!students || inscriptionByStudent === null) return [];
+    return students.map((s) => {
+      const resteEcolage = Number(s.montant_du) - Number(s.montant_paye);
+      const resteConnexe = Number(s.frais_connexe_du) - Number(s.frais_connexe_paye);
+      const inscriptionPaye = inscriptionByStudent[s.id] || 0;
+      const relance = computeRelance(s, schoolYear, s.feeSchedule);
+      let statutKey;
+      if (relance.moratoireExpirant) statutKey = 'moratoire_expirant';
+      else if (relance.moratoire) statutKey = 'moratoire';
+      else if (resteEcolage <= 0 && resteConnexe <= 0) statutKey = 'a_jour';
+      else if (calendrierConfigure) statutKey = (relance.relance || relance.relanceConnexe) ? 'a_relancer' : 'dans_les_delais';
+      else statutKey = 'solde_restant';
+      return { ...s, resteEcolage, resteConnexe, inscriptionPaye, relance, statutKey };
+    });
+  }, [students, inscriptionByStudent, schoolYear, calendrierConfigure]);
 
-  const totalEcolageDu = enrichis.reduce((a, s) => a + Number(s.montant_du), 0);
-  const totalEcolagePaye = enrichis.reduce((a, s) => a + Number(s.montant_paye), 0);
-  const totalEcolageReste = Math.max(totalEcolageDu - totalEcolagePaye, 0);
-  const tauxEcolage = totalEcolageDu > 0 ? Math.round((totalEcolagePaye / totalEcolageDu) * 100) : 0;
+  // 🚀 OPTIMISATION 2 : On mémorise les totaux
+  const totaux = useMemo(() => {
+    const totalEcolageDu = enrichis.reduce((a, s) => a + Number(s.montant_du), 0);
+    const totalEcolagePaye = enrichis.reduce((a, s) => a + Number(s.montant_paye), 0);
+    const totalEcolageReste = Math.max(totalEcolageDu - totalEcolagePaye, 0);
+    const tauxEcolage = totalEcolageDu > 0 ? Math.round((totalEcolagePaye / totalEcolageDu) * 100) : 0;
 
-  const totalConnexeDu = enrichis.reduce((a, s) => a + Number(s.frais_connexe_du), 0);
-  const totalConnexePaye = enrichis.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
-  const totalConnexeReste = Math.max(totalConnexeDu - totalConnexePaye, 0);
-  const tauxConnexe = totalConnexeDu > 0 ? Math.round((totalConnexePaye / totalConnexeDu) * 100) : 0;
+    const totalConnexeDu = enrichis.reduce((a, s) => a + Number(s.frais_connexe_du), 0);
+    const totalConnexePaye = enrichis.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
+    const totalConnexeReste = Math.max(totalConnexeDu - totalConnexePaye, 0);
+    const tauxConnexe = totalConnexeDu > 0 ? Math.round((totalConnexePaye / totalConnexeDu) * 100) : 0;
 
-  const totalInscriptionPaye = enrichis.reduce((a, s) => a + s.inscriptionPaye, 0);
-  const nbInscriptionPayes = enrichis.filter((s) => s.inscriptionPaye > 0).length;
+    const totalInscriptionPaye = enrichis.reduce((a, s) => a + s.inscriptionPaye, 0);
+    const nbInscriptionPayes = enrichis.filter((s) => s.inscriptionPaye > 0).length;
 
-  const totalAttendu = totalEcolageDu + totalConnexeDu;
-  const totalEncaisse = totalEcolagePaye + totalConnexePaye;
-  const totalReste = totalEcolageReste + totalConnexeReste;
-  const tauxGlobal = totalAttendu > 0 ? Math.round((totalEncaisse / totalAttendu) * 100) : 0;
-  const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
-  const nbAvecSolde = enrichis.length - nbAJour;
+    const totalAttendu = totalEcolageDu + totalConnexeDu;
+    const totalEncaisse = totalEcolagePaye + totalConnexePaye;
+    const totalReste = totalEcolageReste + totalConnexeReste;
+    const tauxGlobal = totalAttendu > 0 ? Math.round((totalEncaisse / totalAttendu) * 100) : 0;
+    const nbAJour = enrichis.filter((s) => s.statutKey === 'a_jour').length;
+    const nbAvecSolde = enrichis.length - nbAJour;
 
-  const elevesPrioritairesBase = enrichis
-    .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
-    .map((s) => {
-      const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
-      const derniereManuelle = manualRemindersByStudent[s.id] || null;
-      return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe, derniereManuelle };
-    })
-    .filter((s) => s.enRetard)
-    .sort((a, b) => b.totalReste - a.totalReste);
+    return {
+      totalEcolageDu, totalEcolagePaye, totalEcolageReste, tauxEcolage,
+      totalConnexeDu, totalConnexePaye, totalConnexeReste, tauxConnexe,
+      totalInscriptionPaye, nbInscriptionPayes,
+      totalAttendu, totalEncaisse, totalReste, tauxGlobal, nbAJour, nbAvecSolde
+    };
+  }, [enrichis]);
 
-  const elevesPrioritaires = elevesPrioritairesBase.filter((s) =>
-    !searchPriority.trim() || s.full_name.toLowerCase().includes(searchPriority.trim().toLowerCase())
-  );
+  // 🚀 OPTIMISATION 3 : On mémorise la liste prioritaire
+  const elevesPrioritairesBase = useMemo(() => {
+    return enrichis
+      .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
+      .map((s) => {
+        const enRetard = (calendrierConfigure && (s.relance.relance || s.relance.relanceConnexe)) || !calendrierConfigure;
+        const derniereManuelle = manualRemindersByStudent[s.id] || null;
+        return { ...s, enRetard, totalReste: s.resteEcolage + s.resteConnexe, derniereManuelle };
+      })
+      .filter((s) => s.enRetard)
+      .sort((a, b) => b.totalReste - a.totalReste);
+  }, [enrichis, calendrierConfigure, manualRemindersByStudent]);
 
-  const elevesEcheancesProches = enrichis
-    .filter((s) => {
-      if (s.resteEcolage <= 0 && s.resteConnexe <= 0) return false;
+  const elevesPrioritaires = useMemo(() => {
+    return elevesPrioritairesBase.filter((s) =>
+      !searchPriority.trim() || s.full_name.toLowerCase().includes(searchPriority.trim().toLowerCase())
+    );
+  }, [elevesPrioritairesBase, searchPriority]);
 
-      const echeances = [];
-      if (schoolYear?.date_tranche1 && s.resteEcolage > 0) echeances.push({ type: 'tranche1', date: schoolYear.date_tranche1 });
-      if (schoolYear?.date_tranche2 && s.resteEcolage > 0) echeances.push({ type: 'tranche2', date: schoolYear.date_tranche2 });
-      if (schoolYear?.date_tranche3 && s.resteEcolage > 0) echeances.push({ type: 'tranche3', date: schoolYear.date_tranche3 });
-      if (schoolYear?.date_connexe && s.resteConnexe > 0) echeances.push({ type: 'connexe', date: schoolYear.date_connexe });
+  // 🚀 OPTIMISATION 4 : On mémorise les échéances proches
+  const elevesEcheancesProches = useMemo(() => {
+    return enrichis
+      .filter((s) => {
+        if (s.resteEcolage <= 0 && s.resteConnexe <= 0) return false;
+        const echeances = [];
+        if (schoolYear?.date_tranche1 && s.resteEcolage > 0) echeances.push({ type: 'tranche1', date: schoolYear.date_tranche1 });
+        if (schoolYear?.date_tranche2 && s.resteEcolage > 0) echeances.push({ type: 'tranche2', date: schoolYear.date_tranche2 });
+        if (schoolYear?.date_tranche3 && s.resteEcolage > 0) echeances.push({ type: 'tranche3', date: schoolYear.date_tranche3 });
+        if (schoolYear?.date_connexe && s.resteConnexe > 0) echeances.push({ type: 'connexe', date: schoolYear.date_connexe });
+        return echeances.some(e => [15, 7, 3].includes(daysUntil(e.date)));
+      })
+      .map((s) => {
+        const echeances = [];
+        if (schoolYear?.date_tranche1 && s.resteEcolage > 0) echeances.push({ type: 'tranche1', date: schoolYear.date_tranche1, label: '1ère tranche' });
+        if (schoolYear?.date_tranche2 && s.resteEcolage > 0) echeances.push({ type: 'tranche2', date: schoolYear.date_tranche2, label: '2ème tranche' });
+        if (schoolYear?.date_tranche3 && s.resteEcolage > 0) echeances.push({ type: 'tranche3', date: schoolYear.date_tranche3, label: '3ème tranche' });
+        if (schoolYear?.date_connexe && s.resteConnexe > 0) echeances.push({ type: 'connexe', date: schoolYear.date_connexe, label: 'Frais connexes' });
 
-      return echeances.some(e => [15, 7, 3].includes(daysUntil(e.date)));
-    })
-    .map((s) => {
-      const echeances = [];
-      if (schoolYear?.date_tranche1 && s.resteEcolage > 0) echeances.push({ type: 'tranche1', date: schoolYear.date_tranche1, label: '1ère tranche' });
-      if (schoolYear?.date_tranche2 && s.resteEcolage > 0) echeances.push({ type: 'tranche2', date: schoolYear.date_tranche2, label: '2ème tranche' });
-      if (schoolYear?.date_tranche3 && s.resteEcolage > 0) echeances.push({ type: 'tranche3', date: schoolYear.date_tranche3, label: '3ème tranche' });
-      if (schoolYear?.date_connexe && s.resteConnexe > 0) echeances.push({ type: 'connexe', date: schoolYear.date_connexe, label: 'Frais connexes' });
+        const prochaine = echeances.find(e => [15, 7, 3].includes(daysUntil(e.date)));
+        const jours = daysUntil(prochaine.date);
+        const studentReminders = remindersByStudent[s.id] || [];
+        const templateName = `rappel_j${jours}_${prochaine.type}`;
+        const lastReminder = studentReminders.find(m => m.template_name === templateName);
 
-      const prochaine = echeances.find(e => [15, 7, 3].includes(daysUntil(e.date)));
-      const jours = daysUntil(prochaine.date);
+        let relanceInfo = null;
+        if (lastReminder) {
+          relanceInfo = {
+            label: `J-${jours} envoyé`,
+            date: new Date(lastReminder.created_at).toLocaleDateString('fr-FR'),
+          };
+        }
+        return { ...s, echeanceProche: prochaine, joursRestants: jours, relanceInfo };
+      })
+      .sort((a, b) => a.joursRestants - b.joursRestants);
+  }, [enrichis, schoolYear, remindersByStudent]);
 
-      const studentReminders = remindersByStudent[s.id] || [];
-      const templateName = `rappel_j${jours}_${prochaine.type}`;
-      const lastReminder = studentReminders.find(m => m.template_name === templateName);
+  const classes = useMemo(() => {
+    return [...new Set(students?.map((s) => s.niveau) || [])].sort();
+  }, [students]);
 
-      let relanceInfo = null;
-      if (lastReminder) {
-        relanceInfo = {
-          label: `J-${jours} envoyé`,
-          date: new Date(lastReminder.created_at).toLocaleDateString('fr-FR'),
-        };
-      }
+  // 🚀 OPTIMISATION 5 : On mémorise la liste filtrée finale
+  const filtered = useMemo(() => {
+    return enrichis
+      .filter((s) => !search.trim() || s.full_name.toLowerCase().includes(search.trim().toLowerCase()))
+      .filter((s) => filterClasse === 'toutes' || s.niveau === filterClasse)
+      .filter((s) => matchStatut(s, filterStatut))
+      .sort((a, b) => (b.resteEcolage + b.resteConnexe) - (a.resteEcolage + a.resteConnexe));
+  }, [enrichis, search, filterClasse, filterStatut]);
 
-      return { ...s, echeanceProche: prochaine, joursRestants: jours, relanceInfo };
-    })
-    .sort((a, b) => a.joursRestants - b.joursRestants);
+  const pieData = useMemo(() => {
+    return [
+      { name: 'Payé en totalité', value: totaux.nbAJour, color: 'var(--success)' },
+      { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant' || s.statutKey === 'moratoire' || s.statutKey === 'moratoire_expirant').length, color: 'var(--amber)' },
+      { name: 'Impayé / En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
+    ].filter(d => d.value > 0);
+  }, [enrichis, totaux.nbAJour]);
+
 
   async function handleRelance(studentId) {
     setSendingId(studentId);
     try {
       await sendWhatsAppMessage({ type: 'relance_paiement', student_id: studentId });
       showToast('Relance envoyée !');
-      // Recharger les relances manuelles pour mettre à jour le badge
       const { data } = await supabase
         .from('whatsapp_messages')
         .select('student_id, template_name, created_at, statut')
@@ -278,7 +302,6 @@ export default function Recouvrement() {
     setBulkSending(false);
     if (clearSelectionFn) clearSelectionFn();
     showToast(`${count} relance${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} !`);
-    // Recharger toutes les relances manuelles
     const { data } = await supabase
       .from('whatsapp_messages')
       .select('student_id, template_name, created_at, statut')
@@ -315,13 +338,6 @@ export default function Recouvrement() {
     setSelectedDetailIds(prev => prev.length === allIds.length ? [] : allIds);
   }
 
-  const classes = [...new Set(students.map((s) => s.niveau))].sort();
-  const filtered = enrichis
-    .filter((s) => !search.trim() || s.full_name.toLowerCase().includes(search.trim().toLowerCase()))
-    .filter((s) => filterClasse === 'toutes' || s.niveau === filterClasse)
-    .filter((s) => matchStatut(s, filterStatut))
-    .sort((a, b) => (b.resteEcolage + b.resteConnexe) - (a.resteEcolage + a.resteConnexe));
-
   function exportCsv() {
     const header = [
       'Élève', 'Classe',
@@ -340,11 +356,18 @@ export default function Recouvrement() {
     downloadCsv(`recouvrement-${schoolYear.label.replace(/\s+/g, '_')}.csv`, [header, ...lines]);
   }
 
-  const pieData = [
-    { name: 'Payé en totalité', value: nbAJour, color: 'var(--success)' },
-    { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant' || s.statutKey === 'moratoire' || s.statutKey === 'moratoire_expirant').length, color: 'var(--amber)' },
-    { name: 'Impayé / En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
-  ].filter(d => d.value > 0);
+  if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
+  if (!students || inscriptionByStudent === null) {
+    return (
+      <div>
+        {isHistorical && <HistoricalYearBanner year={schoolYear} />}
+        <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }}>
+          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+        </div>
+        <div className="card-bold"><SkeletonTableRows count={6} columns={6} /></div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -414,20 +437,20 @@ export default function Recouvrement() {
             
             <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', padding: '16px', borderRadius: 12 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Taux de recouvrement global</p>
-              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 32, fontWeight: 700, color: tauxGlobal >= 75 ? 'var(--success)' : tauxGlobal >= 50 ? 'var(--amber)' : 'var(--danger)' }}>{tauxGlobal}%</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 32, fontWeight: 700, color: totaux.tauxGlobal >= 75 ? 'var(--success)' : totaux.tauxGlobal >= 50 ? 'var(--amber)' : 'var(--danger)' }}>{totaux.tauxGlobal}%</p>
             </div>
             <div style={{ background: 'var(--danger-light)', padding: '16px', borderRadius: 12 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Reste à recouvrer</p>
-              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(totalReste)}</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(totaux.totalReste)}</p>
             </div>
             <div style={{ background: 'var(--success-light)', padding: '16px', borderRadius: 12 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Total encaissé</p>
-              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totalEncaisse)}</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totaux.totalEncaisse)}</p>
             </div>
             
             <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', padding: '16px', borderRadius: 12 }}>
               <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Total attendu</p>
-              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(totalAttendu)}</p>
+              <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(totaux.totalAttendu)}</p>
             </div>
 
           </div>
@@ -435,9 +458,9 @@ export default function Recouvrement() {
       </div>
 
       <div data-tour="recouvrement-kpis" className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }}>
-        <TypeCard label="Droit d'écolage" du={totalEcolageDu} paye={totalEcolagePaye} reste={totalEcolageReste} taux={tauxEcolage} />
-        <TypeCard label="Frais d'inscription" inscription paye={totalInscriptionPaye} count={nbInscriptionPayes} />
-        <TypeCard label="Frais connexes" du={totalConnexeDu} paye={totalConnexePaye} reste={totalConnexeReste} taux={tauxConnexe} />
+        <TypeCard label="Droit d'écolage" du={totaux.totalEcolageDu} paye={totaux.totalEcolagePaye} reste={totaux.totalEcolageReste} taux={totaux.tauxEcolage} />
+        <TypeCard label="Frais d'inscription" inscription paye={totaux.totalInscriptionPaye} count={totaux.nbInscriptionPayes} />
+        <TypeCard label="Frais connexes" du={totaux.totalConnexeDu} paye={totaux.totalConnexePaye} reste={totaux.totalConnexeReste} taux={totaux.tauxConnexe} />
       </div>
 
       {/* ===================== CARTE 1 : PRIORITÉ ===================== */}
@@ -769,14 +792,14 @@ export default function Recouvrement() {
           </p>
         </div>
         <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 14 }}>
-          <SynthesisStat label="Attendu total" value={fmtF(totalAttendu)} />
-          <SynthesisStat label="Encaissé total" value={fmtF(totalEncaisse)} color="var(--success)" />
-          <SynthesisStat label="Reste total à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
+          <SynthesisStat label="Attendu total" value={fmtF(totaux.totalAttendu)} />
+          <SynthesisStat label="Encaissé total" value={fmtF(totaux.totalEncaisse)} color="var(--success)" />
+          <SynthesisStat label="Reste total à recouvrer" value={fmtF(totaux.totalReste)} color="var(--danger)" />
         </div>
         <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-          <SynthesisStat label="Taux global de recouvrement" value={`${tauxGlobal}%`} color="var(--success)" />
-          <SynthesisStat label="Élèves à jour (tout confondu)" value={nbAJour} color="var(--success)" />
-          <SynthesisStat label="Élèves avec au moins un solde" value={nbAvecSolde} color={nbAvecSolde > 0 ? 'var(--danger)' : undefined} />
+          <SynthesisStat label="Taux global de recouvrement" value={`${totaux.tauxGlobal}%`} color="var(--success)" />
+          <SynthesisStat label="Élèves à jour (tout confondu)" value={totaux.nbAJour} color="var(--success)" />
+          <SynthesisStat label="Élèves avec au moins un solde" value={totaux.nbAvecSolde} color={totaux.nbAvecSolde > 0 ? 'var(--danger)' : undefined} />
         </div>
       </div>
 
