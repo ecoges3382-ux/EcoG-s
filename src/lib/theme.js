@@ -22,6 +22,7 @@ function mix(hex, target, amount) {
 }
 
 export function applySchoolColor(hex) {
+  if (typeof window === 'undefined') return;
   if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
   const root = document.documentElement.style;
   root.setProperty('--forest', hex);
@@ -30,6 +31,7 @@ export function applySchoolColor(hex) {
 }
 
 export function resetSchoolColor() {
+  if (typeof window === 'undefined') return;
   const root = document.documentElement.style;
   root.removeProperty('--forest');
   root.removeProperty('--forest-dark');
@@ -41,22 +43,32 @@ const THEME_KEY = 'ecoges_theme';
 
 export function getInitialTheme() {
   if (typeof window === 'undefined') return 'light';
-  const saved = localStorage.getItem(THEME_KEY);
-  if (saved === 'dark' || saved === 'light') return saved;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch (e) {
+    return 'light';
+  }
 }
 
 export function applyTheme(theme) {
+  if (typeof window === 'undefined') return;
   const root = document.documentElement;
   if (theme === 'dark') {
     root.classList.add('dark-mode');
   } else {
     root.classList.remove('dark-mode');
   }
-  localStorage.setItem(THEME_KEY, theme);
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (e) {
+    // Ignore les erreurs de localStorage (navigation privée)
+  }
 }
 
 export function toggleTheme() {
+  if (typeof window === 'undefined') return 'light';
   const current = document.documentElement.classList.contains('dark-mode') ? 'dark' : 'light';
   const next = current === 'dark' ? 'light' : 'dark';
   applyTheme(next);
