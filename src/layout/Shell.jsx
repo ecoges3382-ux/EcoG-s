@@ -77,6 +77,7 @@ function sidebarLinkStyle(isActive) {
     display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
     borderRadius: 10, cursor: 'pointer', marginBottom: 3, textDecoration: 'none',
     background: isActive ? 'rgba(255,255,255,0.14)' : 'transparent',
+    color: '#fff', // CORRECTION ICI
   };
 }
 
