@@ -47,7 +47,7 @@ export function getInitialTheme() {
     const saved = localStorage.getItem(THEME_KEY);
     if (saved === 'dark' || saved === 'light') return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  } catch (e) {
+  } catch {
     return 'light';
   }
 }
@@ -62,7 +62,7 @@ export function applyTheme(theme) {
   }
   try {
     localStorage.setItem(THEME_KEY, theme);
-  } catch (e) {
+  } catch {
     // Ignore les erreurs de localStorage (navigation privée)
   }
 }
