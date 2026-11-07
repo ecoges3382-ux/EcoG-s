@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES, supportWhatsappLink } from '../lib/utils.js';
-import { applySchoolColor, resetSchoolColor } from '../lib/theme.js';
+import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme } from '../lib/theme.js';
 import { SchoolYearProvider, useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
@@ -56,6 +56,22 @@ function HelpIcon() {
   );
 }
 
+function SunIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
 function sidebarLinkStyle(isActive) {
   return {
     display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
@@ -73,6 +89,16 @@ export default function Shell() {
   const plan = profile?.schools?.plan || 'decouverte';
   
   const [searchOpen, setSearchOpen] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    const next = toggleTheme();
+    setTheme(next);
+  };
 
   const hasAccess = (perm) => {
     if (!perm) return true;
@@ -80,7 +106,6 @@ export default function Shell() {
     return profile?.permissions?.[perm] === true;
   };
 
-  // Raccourci clavier global pour la recherche (Cmd+K ou Ctrl+K)
   useEffect(() => {
     function handleKeyDown(e) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -119,7 +144,6 @@ export default function Shell() {
             </p>
           </div>
 
-          {/* BARRE DE RECHERCHE POUR ORDINATEUR */}
           <button 
             onClick={() => setSearchOpen(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '8px 14px', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', width: '100%', maxWidth: 320, transition: 'background 0.2s' }}
@@ -135,6 +159,16 @@ export default function Shell() {
 
           <div className="topbar-role-group" style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0, flex: '1 1 0', justifyContent: 'flex-end' }}>
             <SchoolYearSelector />
+            
+            {/* BOUTON MODE SOMBRE */}
+            <button
+              onClick={handleToggleTheme}
+              title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', flexShrink: 0, cursor: 'pointer' }}
+            >
+              {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            </button>
+
             {isPlatformAdmin && (
               <NavLink to="/admin" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.1)', padding: '7px 14px', borderRadius: 20, color: '#fff', textDecoration: 'none', fontSize: '12.5px', fontWeight: 600, whiteSpace: 'nowrap' }}>
                 <ShieldIcon /><span className="logout-label">Administration</span>
@@ -145,7 +179,6 @@ export default function Shell() {
               <span className="role-badge-label" style={{ fontSize: '12.5px', color: '#fff', fontWeight: 600, whiteSpace: 'nowrap' }}>{roleLabel}</span>
             </div>
 
-            {/* BOUTON LOUPE POUR MOBILE */}
             <button
               onClick={() => setSearchOpen(true)}
               className="show-on-mobile"
