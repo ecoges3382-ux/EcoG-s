@@ -25,40 +25,57 @@
   --serif: 'Fraunces', Georgia, serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
+/* ========== MODE SOMBRE ========== */
+html.dark-mode, body.dark-mode {
+  color-scheme: dark;
+  --ink: #F3F4F6; /* Texte principal (gris très clair) */
+  --cream: #111827; /* Fond principal (gris très foncé) */
+  --paper: #1F2937; /* Fond des cartes (gris foncé) */
+  --line: rgba(255,255,255,0.08);
+  --line-strong: rgba(255,255,255,0.18);
+  --muted: #9CA3AF; /* Texte secondaire */
+  
+  /* Ajustement des couleurs claires pour qu'elles restent lisibles sur fond sombre */
+  --forest-light: #064E3B;
+  --clay-light: #7C2D12;
+  --gold-light: #78350F;
+  --danger-light: #7F1D1D;
+  --success-light: #064E3B;
+  --amber-light: #78350F;
+  
+  /* On garde le texte des boutons en noir sur les fonds clairs */
+  --ink-on-light: #1A2E27;
+}
+
 * { box-sizing: border-box; }
-/* Sur html ET body à la fois (plutôt que l'un des deux seulement), ce garde-
-   fou contre un débordement horizontal parasite a un effet de bord : il
-   fait de body un second conteneur de défilement concurrent de html,
-   piégeant tout position:sticky (comme .topbar-row plus bas) au lieu de le
-   laisser s'accrocher au défilement réel de la page. */
+
 body { overflow-x: hidden; }
 body {
   margin:0; padding: 0; background: var(--cream);
   font-family: var(--sans); color: var(--ink);
   color-scheme: light;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+html.dark-mode body {
+  color-scheme: dark;
+}
+
 button { font-family: var(--sans); cursor: pointer; }
-/* Rebond visible pour toute action au clic, léger soulèvement au survol —
-   fonctionne aussi bien sur un bouton coloré qu'un bouton d'icône
-   transparent (translateY ne dépend d'aucun fond). */
-button:not(:disabled) { transition: transform 0.15s ease; }
+button:not(:disabled) { transition: transform 0.15s ease, background-color 0.3s ease; }
 button:not(:disabled):hover { transform: translateY(-1px); }
 button:active { transform: scale(0.97); }
+
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
-::selection { background: var(--ink); color: #fff; }
-input { caret-color: #000; }
+::selection { background: var(--ink); color: var(--cream); }
+input { caret-color: var(--ink); }
 .navlink { transition: background 0.1s; text-decoration: none; color: inherit; }
 .navlink:hover { background: rgba(255,255,255,0.08) !important; }
-.card { background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); }
-.card-bold { background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); }
+.card { background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); transition: background 0.3s, border-color 0.3s; }
+.card-bold { background:var(--paper); border:2px solid var(--ink); border-radius:var(--radius); transition: background 0.3s, border-color 0.3s; }
 
-/* ---- Lignes de tableau/liste cliquables (Tableau de bord, Élèves,
-   Personnel, Argent, Parents) : survol et pression cohérents partout.
-   --row-bg est repris par la cellule figée de stickyColStyle (lib/utils.js,
-   voir ses appels avec 'var(--row-bg)') pour qu'elle change de fond EN MÊME
-   TEMPS que le reste de la ligne, au lieu de rester un carré blanc isolé
-   pendant que tout autour d'elle devient vert pâle. */
 .row-link {
   --row-bg: var(--paper);
   background-color: var(--row-bg);
@@ -67,25 +84,16 @@ input { caret-color: #000; }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
 /* ---- Layout shell ---- */
-/* overflow-x (contre un débordement horizontal parasite) posé sur #layout
-   plutôt que #app : sur #app, il aurait aussi — par une règle CSS peu
-   connue — basculé l'overflow-y en "auto", transformant #app en second
-   conteneur de défilement et cassant le position:sticky de .topbar-row
-   ci-dessous (la barre du haut se serait mise à défiler avec la page). */
 #app { display: flex; flex-direction: column; min-height: 100vh; }
 #layout { display: flex; flex: 1; overflow-x: hidden; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; }
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
 
-/* Reste visible en permanence au défilement (année scolaire, rôle, aide,
-   déconnexion toujours à portée de main) — un modal ouvert par-dessus reste
-   au-dessus grâce au portail vers document.body (voir les composants
-   *Modal.jsx), donc pas de conflit avec le z-index ici. */
 .topbar-row { position: sticky; top: 0; z-index: 30; }
 
-/* Mode application (après connexion) : fond sombre */
 body.app-mode { background: var(--dark-bg); }
-body.app-mode .page-title { color: #fff !important; }
+html.dark-mode body.app-mode { background: var(--cream); }
+body.app-mode .page-title { color: var(--ink) !important; }
 #screen p, #screen span, #screen div, #screen li { color: inherit; }
 #bottomnav { display: none; }
 .sidebar-label { font-size: 13.5px; color: #fff; font-weight: 500; }
@@ -94,17 +102,6 @@ body.app-mode .page-title { color: #fff !important; }
 @media (max-width: 780px) {
   #layout { flex-direction: column; }
   #sidebar { display: none; }
-  /* margin:0 auto (règle desktop, plus haut) sert à centrer #screen sous
-     le plafond de 1200px quand #layout est en ligne (barre latérale à
-     gauche, contenu à droite) : ces marges automatiques absorbent l'espace
-     sur l'axe principal du flex. Mais sur mobile, #layout passe en colonne
-     (ligne ci-dessus) — le même axe horizontal devient alors l'axe
-     transverse, où une marge auto empêche l'étirement par défaut
-     (align-items: stretch) et fait rétrécir #screen à la largeur de son
-     contenu au lieu de remplir l'écran. D'où des cartes à contenu compact
-     (ex. fiche personnel) qui semblaient minuscules et centrées au milieu
-     d'un grand vide, alors que tout le CSS de la carte elle-même était
-     correct. */
   #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
@@ -112,8 +109,6 @@ body.app-mode .page-title { color: #fff !important; }
     padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
     z-index: 20;
   }
-  /* Au-dessus de la barre de navigation du bas (z-index 20), sinon la
-     barre de sélection se retrouve cachée derrière. */
   .selection-bar { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
   #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 14px; border-radius: 10px; min-width: 0; }
   #bottomnav .navlink i { font-size: 20px; color: var(--ink); }
@@ -145,9 +140,6 @@ body.app-mode .page-title { color: #fff !important; }
 }
 .school-tabs-mobile a.active { border-color: var(--forest); background: var(--forest); color: #fff; }
 
-/* ---- Transition entre pages (Shell.jsx enveloppe <Outlet/> dans une div
-   clé par pathname, donc remontée = rejoue l'animation à chaque
-   navigation) et état vide (EmptyState.jsx) ---- */
 @keyframes screenPageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .page-transition { animation: screenPageIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes emptyStateIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -156,8 +148,6 @@ body.app-mode .page-title { color: #fff !important; }
 @keyframes confirmDialogIn { from { opacity: 0; transform: translateY(12px) scale(0.96); } to { opacity: 1; transform: none; } }
 .confirm-dialog-in { animation: confirmDialogIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-/* ---- Squelettes de chargement (Skeleton.jsx), à la place du texte
-   "Chargement…" ---- */
 @keyframes skeletonShimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
 .skeleton-shimmer {
   background: linear-gradient(90deg, var(--line) 25%, var(--line-strong) 37%, var(--line) 63%);
@@ -167,24 +157,13 @@ body.app-mode .page-title { color: #fff !important; }
 @keyframes skeletonBrandPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 .skeleton-brand { animation: skeletonBrandPulse 1.6s ease-in-out infinite; }
 
-/* Entrée en cascade des cartes-clé du tableau de bord — se rejoue à chaque
-   visite (Dashboard.jsx est remonté à chaque navigation, voir
-   .page-transition ci-dessus) : Dashboard.jsx pose --stat-d sur chaque
-   carte pour décaler légèrement son entrée par rapport à la précédente. */
 @keyframes statCardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .stat-in { animation: statCardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
-/* Décalage automatique par position dans la grille — fonctionne pour
-   n'importe quelle rangée de Stat (Dashboard.jsx en a 4, à 2, 3 ou 4
-   colonnes) sans avoir à calquer un délai à chaque appel. */
 .desktop-grid-2 > .stat-in:nth-child(1), .desktop-grid-3 > .stat-in:nth-child(1), .desktop-grid-4 > .stat-in:nth-child(1) { animation-delay: 0ms; }
 .desktop-grid-2 > .stat-in:nth-child(2), .desktop-grid-3 > .stat-in:nth-child(2), .desktop-grid-4 > .stat-in:nth-child(2) { animation-delay: 70ms; }
 .desktop-grid-3 > .stat-in:nth-child(3), .desktop-grid-4 > .stat-in:nth-child(3) { animation-delay: 140ms; }
 .desktop-grid-4 > .stat-in:nth-child(4) { animation-delay: 210ms; }
 
-/* Barre de recouvrement (Dashboard.jsx) : se remplit au lieu d'apparaître
-   déjà pleine. Un seul "from" suffit — l'animation rejoint la largeur
-   normale (la valeur inline déjà posée par React), jamais une valeur
-   codée en dur qui se déphaserait du vrai taux. */
 @keyframes fillBar { from { width: 0; } }
 .fill-bar { animation: fillBar 1.1s cubic-bezier(0.22, 1, 0.36, 1) 150ms; }
 
@@ -193,51 +172,29 @@ body.app-mode .page-title { color: #fff !important; }
   button:not(:disabled):hover { transform: none !important; }
 }
 
-/* ---- Impression / export PDF (bulletin, reçu, situation financière) ----
-   Un seul mécanisme réutilisé par tous les documents imprimables plutôt
-   qu'un moteur PDF séparé : chaque document se marque .print-sheet, et
-   cette règle masque tout le reste de la page (nav, filtres, boutons)
-   pendant l'impression — jamais besoin de retirer un .no-print sur chaque
-   élément d'interface au cas par cas. `visibility` (pas `display`) pour ne
-   pas perturber la mise en page au moment de basculer, puis le document
-   repositionné en (0,0) pour ne pas laisser une page blanche à l'endroit
-   qu'il occupait dans le flux normal. Exception : un contrôle interactif
-   qui doit rester À L'INTÉRIEUR d'un .print-sheet (ex. le sélecteur de
-   période d'un rapport, à côté des données qu'il filtre) se marque
-   .no-print — display:none l'enlève complètement, contrairement à
-   visibility, donc aucun espace vide ne reste à sa place à l'impression. */
+/* Impression - On force le blanc pour les documents */
 @media print {
   @page { size: A4; margin: 14mm; }
-  body { background: #fff !important; }
+  body { background: #fff !important; color: #000 !important; }
   body * { visibility: hidden; }
   .print-sheet, .print-sheet * { visibility: visible; }
-  .print-sheet {
-    position: absolute; top: 0; left: 0; width: 100%; margin: 0 !important;
-    box-shadow: none !important; border: none !important;
-  }
+  .print-sheet { position: absolute; top: 0; left: 0; width: 100%; margin: 0 !important; box-shadow: none !important; border: none !important; background: #fff !important; }
   .no-print { display: none !important; }
   #sidebar, #bottomnav, .topbar-row { display: none !important; }
+  
+  /* Le reçu quad-print */
+  body.receipt-printing > *:not(.receipt-modal-overlay) { display: none !important; }
+  body.receipt-printing .receipt-modal-overlay { position: static !important; background: none !important; padding: 0 !important; display: block !important; inset: auto !important; }
+  body.receipt-printing .receipt-modal-content { box-shadow: none !important; border: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; background: none !important; border-radius: 0 !important; padding: 0 !important; }
+  body.receipt-printing .receipt-screen-only, body.receipt-printing .receipt-buttons { display: none !important; }
+  body.receipt-printing .receipt-quad-print { display: grid !important; grid-template-columns: 105mm 105mm !important; grid-template-rows: 148.5mm 148.5mm !important; width: 210mm !important; height: 297mm !important; background: white !important; }
+  body.receipt-printing .receipt-copy { width: 105mm !important; height: 148.5mm !important; padding: 5mm !important; box-sizing: border-box !important; overflow: hidden !important; border-right: 1px dashed #ccc !important; border-bottom: 1px dashed #ccc !important; }
+  body.receipt-printing .receipt-copy:nth-child(2n) { border-right: none !important; }
+  body.receipt-printing .receipt-copy:nth-child(n+3) { border-bottom: none !important; }
 }
-/* ============================================================
-   FIX : bas de page coupé par la bottomnav + la barre Safari iOS
-   ============================================================ */
+
 @media (max-width: 780px) {
-  /* 140px couvre : bottomnav (~70px) + barre Safari portrait (~50px) + safe area (~20px) */
-  #screen {
-    padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-  html, body {
-    scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
-  }
-  /* Les pages avec un tableau scrollable interne (Élèves, Personnel) */
-  .card-bold[data-tour="students-list"],
-  .card-bold[data-tour="staff-list"] {
-    max-height: calc(100vh - 360px) !important;
-  }
-}
-/* Cache la barre de recherche au centre sur mobile pour laisser de la place au nom de l'école */
-@media (max-width: 900px) {
-  .hide-on-mobile {
-    display: none !important;
-  }
+  #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
+  html, body { scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+  .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
 }
