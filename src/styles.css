@@ -116,23 +116,53 @@ input { caret-color: var(--ink); }
   flex: 1 1 0;
 }
 
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-shrink: 0;
-}
-
-.topbar-desktop-context {
+.topbar-right {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;
 }
 
-.topbar-icons {
+.topbar-pc-tools {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.topbar-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-admin-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.1);
+  padding: 7px 14px;
+  border-radius: 20px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topbar-role-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.1);
+  padding: 7px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.topbar-role-badge span {
+  font-size: 12.5px;
+  color: #fff;
+  font-weight: 600;
 }
 
 .topbar-search-btn {
@@ -170,12 +200,51 @@ input { caret-color: var(--ink); }
   background: rgba(255,255,255,0.2);
 }
 
-.topbar-mobile-context {
+/* LIGNE MOBILE (Cachée sur PC) */
+.topbar-mobile-row {
   display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 12px;
+  padding-left: max(18px, env(safe-area-inset-left, 0px) + 12px);
+  padding-right: max(18px, env(safe-area-inset-right, 0px) + 12px);
+  background: rgba(0,0,0,0.15);
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
 
-/* ---- Mobile layout (<= 780px) ---- */
-@media (max-width: 780px) {
+.topbar-mobile-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s;
+}
+.topbar-mobile-search:hover {
+  background: rgba(255,255,255,0.15);
+}
+.topbar-mobile-search span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-mobile-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---- Mobile layout (<= 900px) ---- */
+@media (max-width: 900px) {
   #layout { flex-direction: column; }
   #sidebar { display: none; }
   
@@ -184,30 +253,23 @@ input { caret-color: var(--ink); }
   }
 
   .topbar-inner {
-    padding: 0 18px;
-    padding-left: max(18px, env(safe-area-inset-left, 0px) + 12px);
-    padding-right: max(18px, env(safe-area-inset-right, 0px) + 12px);
+    padding: 0 14px;
     height: 56px;
   }
 
-  .topbar-desktop-context {
-    display: none !important;
+  .topbar-mobile-row {
+    display: flex !important;
   }
 
-  .topbar-mobile-context {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end; /* 👈 MODIFICATION ICI : aligne à droite */
-    gap: 10px;
-    padding: 8px 18px 12px;
-    padding-left: max(18px, env(safe-area-inset-left, 0px) + 12px);
-    padding-right: max(18px, env(safe-area-inset-right, 0px) + 12px);
-    background: rgba(0,0,0,0.15);
-    border-top: 1px solid rgba(255,255,255,0.05);
-  }
-
-  .topbar-title { font-size: 15px !important; }
+  .topbar-brand { gap: 10px; }
+  .topbar-title { font-size: 16px !important; }
+  .topbar-context { gap: 6px; }
   
+  .topbar-role-badge { padding: 5px 10px; }
+  .topbar-role-badge span { font-size: 11px; }
+  .topbar-role-badge i { font-size: 14px !important; }
+  .topbar-admin-badge { padding: 5px 10px; font-size: 11px; }
+
   #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
@@ -304,7 +366,7 @@ input { caret-color: var(--ink); }
   body.receipt-printing .receipt-copy:nth-child(n+3) { border-bottom: none !important; }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 900px) {
   #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
   html, body { scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
   .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
