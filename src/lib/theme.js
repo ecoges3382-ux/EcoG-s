@@ -26,7 +26,9 @@ export function applySchoolColor(hex) {
   if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
   const root = document.documentElement.style;
   root.setProperty('--forest', hex);
-  root.setProperty('--forest-dark', mix(hex, '#000000', 0.28));
+  // La sidebar est très assombrie pour garantir la lisibilité du texte blanc
+  root.setProperty('--forest-dark', mix(hex, '#000000', 0.35));
+  // La version claire pour les fonds (badges, surbrillances)
   root.setProperty('--forest-light', mix(hex, '#ffffff', 0.88));
 }
 
@@ -62,9 +64,7 @@ export function applyTheme(theme) {
   }
   try {
     localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    // Ignore les erreurs de localStorage (navigation privée)
-  }
+  } catch {}
 }
 
 export function toggleTheme() {
