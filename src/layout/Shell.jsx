@@ -10,6 +10,7 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 import GlobalSearch from '../components/GlobalSearch.jsx';
+import UpdateButton from '../components/UpdateButton.jsx'; // 👈 NOUVEL IMPORT ICI
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
@@ -308,6 +309,10 @@ export default function Shell() {
             );
           })}
         </div>
+
+        {/* 👇 LA BANNIÈRE FLOTTANTE EST ICI 👇 */}
+        <UpdateButton />
+        
       </div>
     </SchoolYearProvider>
   );
