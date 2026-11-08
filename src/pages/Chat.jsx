@@ -27,7 +27,6 @@ function formatConvDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
 }
 
-// 🎵 Jouer un petit son de notification (Web Audio API, sans fichier externe)
 function playNotificationSound() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -61,14 +60,17 @@ export default function Chat() {
   const [activeConv, setActiveConv] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [pendingFile, setPendingFile] = useState(null); // { file, preview, type }
+  const [pendingFile, setPendingFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [staff, setStaff] = useState([]);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showConvMenu, setShowConvMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
-  const [isMobile, setIsMobile] = useState(false);
+
+  // 🚀 CORRECTION : Détection immédiate (dès le premier rendu) pour éviter l'auto-ouverture sur mobile
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+
   const [unreadCounts, setUnreadCounts] = useState({});
   const [lastMessages, setLastMessages] = useState({});
   const [searchConv, setSearchConv] = useState('');
@@ -81,7 +83,6 @@ export default function Chat() {
 
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth < 768); }
-    checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -119,6 +120,8 @@ export default function Chat() {
       setConversations(visibleConvs);
       await loadUnreadCounts(visibleConvs);
       await loadLastMessages(visibleConvs);
+      
+      // 🚀 SUR DESKTOP : on ouvre le Général par défaut. SUR MOBILE : on reste sur la liste.
       if (firstGeneral && !isMobile && !activeConv) setActiveConv(firstGeneral);
     }
     load();
@@ -179,7 +182,7 @@ export default function Chat() {
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         if (payload.new.sender_id !== profile.id) {
           markAsRead(activeConv.id);
-          playNotificationSound(); // 🎵 Son !
+          playNotificationSound();
         }
         setLastMessages(prev => ({ ...prev, [activeConv.id]: payload.new }));
       })
@@ -209,17 +212,12 @@ export default function Chat() {
     setShowScrollDown(false);
   }
 
-  // 🚀 Sélection d'un fichier
   function handleFileSelect(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { setError('Fichier trop lourd (max 10 Mo).'); return; }
     const isImage = file.type.startsWith('image/');
-    setPendingFile({
-      file,
-      preview: isImage ? URL.createObjectURL(file) : null,
-      type: isImage ? 'image' : 'file',
-    });
+    setPendingFile({ file, preview: isImage ? URL.createObjectURL(file) : null, type: isImage ? 'image' : 'file' });
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -228,7 +226,6 @@ export default function Chat() {
     setPendingFile(null);
   }
 
-  // 🚀 Upload du fichier vers Supabase Storage
   async function uploadFile(file) {
     const ext = file.name.split('.').pop() || 'bin';
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
@@ -251,9 +248,7 @@ export default function Chat() {
     setError('');
 
     try {
-      let fileUrl = null;
-      let fileType = null;
-      let fileName = null;
+      let fileUrl = null, fileType = null, fileName = null;
       if (fileToSend) {
         fileUrl = await uploadFile(fileToSend.file);
         fileType = fileToSend.type;
@@ -276,12 +271,7 @@ export default function Chat() {
         const pushBody = fileType ? `📎 ${fileName}` : content;
         try {
           await supabase.functions.invoke('send-message-push', {
-            body: {
-              conversation_id: activeConv.id,
-              sender_name: profile.full_name,
-              message_content: pushBody,
-              sender_id: profile.id
-            },
+            body: { conversation_id: activeConv.id, sender_name: profile.full_name, message_content: pushBody, sender_id: profile.id },
             headers: { 'x-api-key': import.meta.env.VITE_PUSH_API_SECRET }
           });
         } catch {}
@@ -379,7 +369,6 @@ export default function Chat() {
     </div>
   );
 
-  // 🚀 Affichage du contenu d'un message (texte + fichier)
   const MessageContent = ({ m, isMe }) => {
     if (m.file_type === 'image' && m.file_url) {
       return (
@@ -551,7 +540,6 @@ export default function Chat() {
               </button>
             )}
 
-            {/* 🚀 Preview du fichier en cours */}
             {pendingFile && (
               <div style={{ padding: '10px 20px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 12 }}>
                 {pendingFile.type === 'image' && pendingFile.preview ? (
