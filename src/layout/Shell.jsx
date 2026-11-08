@@ -13,6 +13,7 @@ import GlobalSearch from '../components/GlobalSearch.jsx';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
+  { to: '/chat', label: 'Messagerie', icon: 'ti-message-circle', perm: null },
   { to: '/argent', label: 'Argent', icon: 'ti-wallet', perm: 'finance' },
   { to: '/recouvrement', label: 'Recouvrement', icon: 'ti-report-money', perm: 'finance', tourId: 'sidebar-recouvrement' },
   { to: '/eleves', label: 'Élèves', icon: 'ti-users', perm: 'eleves', countKey: 'students', tourId: 'sidebar-eleves' },
@@ -35,7 +36,7 @@ const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/m
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet', perm: 'finance' },
-  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', perm: 'finance', tourId: 'bottomnav-recouvrement' },
+  { to: '/chat', shortLabel: 'Chat', icon: 'ti-message-circle', perm: null },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', perm: 'eleves', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
 ];
@@ -77,7 +78,7 @@ function sidebarLinkStyle(isActive) {
     display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
     borderRadius: 10, cursor: 'pointer', marginBottom: 3, textDecoration: 'none',
     background: isActive ? 'rgba(255,255,255,0.14)' : 'transparent',
-    color: '#fff', // CORRECTION ICI
+    color: '#fff',
   };
 }
 
@@ -140,7 +141,6 @@ export default function Shell() {
         <div className="topbar-row">
           <div className="topbar-inner">
             
-            {/* GAUCHE : Logo + Nom de l'école */}
             <div className="topbar-brand">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
                 {profile?.schools?.logo_url
@@ -152,10 +152,8 @@ export default function Shell() {
               </p>
             </div>
 
-            {/* DROITE : Outils + Contexte + Déconnexion */}
             <div className="topbar-right">
               
-              {/* Outils PC (Recherche, Mode, Aide) */}
               <div className="topbar-pc-tools hide-on-mobile">
                 <button onClick={() => setSearchOpen(true)} className="topbar-search-btn">
                   <i className="ti ti-search" style={{ fontSize: 16 }} aria-hidden="true"></i>
@@ -175,7 +173,6 @@ export default function Shell() {
                 </Link>
               </div>
 
-              {/* Contexte (Année + Rôle) - Visible sur PC et Mobile */}
               <div className="topbar-context">
                 <SchoolYearSelector />
                 
@@ -193,14 +190,12 @@ export default function Shell() {
                 </div>
               </div>
 
-              {/* Déconnexion PC */}
               <button onClick={handleLogout} className="topbar-action-btn hide-on-mobile" title="Se déconnecter">
                 <span aria-hidden="true" style={{ fontSize: 16, fontWeight: 700 }}>⏻</span>
               </button>
             </div>
           </div>
 
-          {/* LIGNE MOBILE : Barre de recherche + Icônes */}
           <div className="topbar-mobile-row show-on-mobile">
             <button onClick={() => setSearchOpen(true)} className="topbar-mobile-search">
               <i className="ti ti-search" style={{ fontSize: 18 }} aria-hidden="true"></i>
