@@ -1,18 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-// Remplace <select> partout dans l'app. Le panneau s'ouvre par-dessus le
-// reste de la page (portail vers document.body, position:fixed ancrée sous
-// le bouton), jamais en poussant le contenu qui suit vers le bas — c'était
-// le comportement d'origine (accordéon en flux normal), changé après retour
-// terrain : sur un écran déjà chargé (bulletin, formulaire…), pousser tout
-// le contenu en dessous à chaque ouverture rendait la page instable et
-// donnait une impression peu soignée. Le portail règle par la même
-// occasion l'ancien bug de recadrage qui avait motivé le choix du flux
-// normal (menu position:absolute coupé par un ancêtre overflow:hidden,
-// voir Comptes/Accès parents) : un portail échappe entièrement à n'importe
-// quel ancêtre, plus de recadrage possible. Coche verte sur l'option
-// sélectionnée, liste déroulante scrollable si longue.
 export default function Dropdown({ value, onChange, options, placeholder = 'Choisir…', label, style, wrapperStyle, disabled, className, title, textColor, chevronColor }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
@@ -20,13 +8,24 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
   const triggerRef = useRef(null);
   const listRef = useRef(null);
 
-  // Position calculée à l'ouverture (juste sous le bouton, même largeur
-  // mini que lui) — un portail n'hérite d'aucune position par le flux
-  // normal, il faut la lui donner explicitement.
+  // 🚀 DÉTECTION INTELLIGENTE : Si pas assez de place en bas, on ouvre vers le haut
   useLayoutEffect(() => {
     if (!open) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setCoords({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    const MIN_SPACE = 280; // maxHeight (260) + marge de sécurité
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    // On ouvre vers le haut si : pas assez de place en bas ET plus de place en haut
+    const openUp = spaceBelow < MIN_SPACE && spaceAbove > spaceBelow;
+    
+    setCoords({
+      left: rect.left,
+      width: rect.width,
+      openUp,
+      top: openUp ? undefined : rect.bottom + 6,
+      bottom: openUp ? window.innerHeight - rect.top + 6 : undefined,
+    });
   }, [open]);
 
   useEffect(() => {
@@ -36,9 +35,6 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
       if (listRef.current?.contains(e.target)) return;
       setOpen(false);
     }
-    // Le panneau étant ancré (pas repositionné en continu), un défilement
-    // pendant qu'il est ouvert le décalerait de son bouton — plus simple et
-    // plus prévisible de le refermer, comme la plupart des menus flottants.
     function handleScrollOrResize() { setOpen(false); }
     document.addEventListener('mousedown', handleClick);
     window.addEventListener('scroll', handleScrollOrResize, true);
@@ -75,13 +71,13 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
           ref={listRef}
           style={{
             ...listStyle,
-            position: 'fixed', top: coords.top, left: coords.left,
-            // width: max-content + minWidth : le panneau s'adapte à son
-            // propre contenu au lieu d'hériter bêtement de la largeur du
-            // bouton fermé — utile quand ce dernier est volontairement
-            // compact (ex. le sélecteur d'année scolaire dans la barre du
-            // haut, qui doit rester étroit une fois refermé).
-            width: 'max-content', minWidth: coords.width, maxWidth: 280,
+            position: 'fixed',
+            left: coords.left,
+            // 👇 On utilise soit 'top' (vers le bas), soit 'bottom' (vers le haut)
+            ...(coords.openUp ? { bottom: coords.bottom } : { top: coords.top }),
+            width: 'max-content',
+            minWidth: coords.width,
+            maxWidth: 280,
           }}
         >
           {normalized.map((o, i) => {
