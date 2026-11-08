@@ -27,6 +27,15 @@ function formatConvDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
 }
 
+// 🚀 Marque une conversation comme lue (base + localStorage) + log d'erreur
+function markAsRead(conversationId) {
+  const iso = new Date().toISOString();
+  try { localStorage.setItem(`chat_read_${conversationId}`, iso); } catch {}
+  supabase.rpc('mark_conversation_read', { p_conversation_id: conversationId }).then(({ error }) => {
+    if (error) console.warn('🔴 [Chat] mark_conversation_read a échoué :', error.message);
+  });
+}
+
 export default function Chat() {
   const { profile } = useAuth();
   const [conversations, setConversations] = useState([]);
@@ -77,26 +86,40 @@ export default function Chat() {
         return;
       }
       
-      const visibleConvs = (convs || []).filter(c => 
-        c.type === 'general' || (c.chat_participants && c.chat_participants.some(p => p.user_id === profile.id))
-      );
+      // 🚀 Filtre anti-doublon : on ne garde qu'UNE conversation générale (la plus ancienne)
+      const generals = (convs || []).filter(c => c.type === 'general').sort((a, b) => (a.id < b.id ? -1 : 1));
+      const firstGeneral = generals[0];
+      const privates = (convs || []).filter(c => c.type === 'private' && c.chat_participants && c.chat_participants.some(p => p.user_id === profile.id));
+      
+      const visibleConvs = firstGeneral ? [firstGeneral, ...privates] : privates;
 
       setConversations(visibleConvs);
       await loadUnreadCounts(visibleConvs);
       await loadLastMessages(visibleConvs);
 
-      const general = visibleConvs.find(c => c.type === 'general');
-      if (general && !isMobile) setActiveConv(general);
+      if (firstGeneral && !isMobile) setActiveConv(firstGeneral);
     }
     load();
   }, [profile.school_id, profile.id, isMobile]);
 
+  // 🚀 COMPTE LES NON-LUS en utilisant le MAX entre la base et localStorage
   async function loadUnreadCounts(convs) {
     const counts = {};
     for (const conv of convs) {
       const me = conv.chat_participants?.find(p => p.user_id === profile.id);
-      // 🚀 CORRECTION : Si pas de participant, on considère last_read_at = null (donc count 0 pour éviter le bug)
-      const lastRead = me?.last_read_at || null;
+      const dbLastRead = me?.last_read_at || null;
+      
+      let localLastRead = null;
+      try { localLastRead = localStorage.getItem(`chat_read_${conv.id}`); } catch {}
+      
+      // On prend la date la plus récente des deux
+      let lastRead = null;
+      if (dbLastRead && localLastRead) {
+        lastRead = new Date(dbLastRead) > new Date(localLastRead) ? dbLastRead : localLastRead;
+      } else {
+        lastRead = dbLastRead || localLastRead;
+      }
+      
       if (!lastRead) { counts[conv.id] = 0; continue; }
       
       const { count } = await supabase
@@ -137,7 +160,8 @@ export default function Chat() {
       .then(({ data }) => {
         setMessages(data || []);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        supabase.rpc('mark_conversation_read', { p_conversation_id: activeConv.id });
+        // 🚀 Marquer comme lu (base + localStorage)
+        markAsRead(activeConv.id);
         setUnreadCounts(prev => ({ ...prev, [activeConv.id]: 0 }));
       });
 
@@ -147,8 +171,9 @@ export default function Chat() {
         setMessages(prev => [...prev, { ...payload.new, profiles: author }]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         
+        // 🚀 Si on reçoit un message d'un autre, on marque comme lu
         if (payload.new.sender_id !== profile.id) {
-          supabase.rpc('mark_conversation_read', { p_conversation_id: activeConv.id });
+          markAsRead(activeConv.id);
         }
 
         setLastMessages(prev => ({ ...prev, [activeConv.id]: payload.new }));
@@ -187,21 +212,13 @@ export default function Chat() {
     setShowScrollDown(false);
   }
 
-  // 🚀 ENVOI AVEC LOGS DE DIAGNOSTIC
   async function sendMessage(e) {
     e.preventDefault();
-    console.log('🔵 [Chat] Bouton Envoyer cliqué');
-    
-    if (!newMessage.trim() || !activeConv) {
-      console.log('🔴 [Chat] Bloqué :', { hasMessage: !!newMessage.trim(), hasConv: !!activeConv });
-      return;
-    }
+    if (!newMessage.trim() || !activeConv) return;
     
     const content = newMessage.trim();
     const convId = activeConv.id;
     setNewMessage('');
-    
-    console.log('🔵 [Chat] Envoi :', { content, convId, senderId: profile.id });
     
     const { data: inserted, error: sendErr } = await supabase.from('chat_messages').insert({
       conversation_id: convId,
@@ -209,17 +226,14 @@ export default function Chat() {
       content
     }).select('id').single();
 
-    console.log('🟡 [Chat] Résultat insert :', { inserted, sendErr });
-
     if (sendErr) {
       setError("Impossible d'envoyer : " + sendErr.message);
       return;
     }
 
     if (inserted) {
-      console.log('🟢 [Chat] Message inséré, appel de send-message-push...');
       try {
-        const result = await supabase.functions.invoke('send-message-push', {
+        await supabase.functions.invoke('send-message-push', {
           body: {
             conversation_id: convId,
             sender_name: profile.full_name,
@@ -228,9 +242,8 @@ export default function Chat() {
           },
           headers: { 'x-api-key': import.meta.env.VITE_PUSH_API_SECRET }
         });
-        console.log('🟢 [Chat] Réponse push :', result);
       } catch (err) {
-        console.error('🔴 [Chat] Erreur push :', err);
+        console.warn("Notification push non envoyée :", err);
       }
     }
   }
@@ -240,7 +253,11 @@ export default function Chat() {
     if (rpcError) { setError("Erreur chat privé : " + rpcError.message); return; }
     
     const { data: convs } = await supabase.from('chat_conversations').select('*, chat_participants ( user_id, last_read_at, profiles ( full_name, role ) )');
-    const visibleConvs = (convs || []).filter(c => c.type === 'general' || c.chat_participants.some(p => p.user_id === profile.id));
+    const generals = (convs || []).filter(c => c.type === 'general').sort((a, b) => (a.id < b.id ? -1 : 1));
+    const firstGeneral = generals[0];
+    const privates = (convs || []).filter(c => c.type === 'private' && c.chat_participants.some(p => p.user_id === profile.id));
+    const visibleConvs = firstGeneral ? [firstGeneral, ...privates] : privates;
+    
     setConversations(visibleConvs);
     await loadUnreadCounts(visibleConvs);
     await loadLastMessages(visibleConvs);
