@@ -27,7 +27,6 @@ function formatConvDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
 }
 
-// 🚀 Marque une conversation comme lue (base + localStorage) + log d'erreur
 function markAsRead(conversationId) {
   const iso = new Date().toISOString();
   try { localStorage.setItem(`chat_read_${conversationId}`, iso); } catch {}
@@ -44,6 +43,8 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState('');
   const [staff, setStaff] = useState([]);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showConvMenu, setShowConvMenu] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
@@ -53,6 +54,7 @@ export default function Chat() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const convMenuRef = useRef(null);
 
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth < 768); }
@@ -60,6 +62,18 @@ export default function Chat() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Fermer le menu au clic extérieur
+  useEffect(() => {
+    if (!showConvMenu) return;
+    function handleClick(e) {
+      if (convMenuRef.current && !convMenuRef.current.contains(e.target)) {
+        setShowConvMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showConvMenu]);
 
   useEffect(() => {
     async function load() {
@@ -86,7 +100,6 @@ export default function Chat() {
         return;
       }
       
-      // 🚀 Filtre anti-doublon : on ne garde qu'UNE conversation générale (la plus ancienne)
       const generals = (convs || []).filter(c => c.type === 'general').sort((a, b) => (a.id < b.id ? -1 : 1));
       const firstGeneral = generals[0];
       const privates = (convs || []).filter(c => c.type === 'private' && c.chat_participants && c.chat_participants.some(p => p.user_id === profile.id));
@@ -97,12 +110,11 @@ export default function Chat() {
       await loadUnreadCounts(visibleConvs);
       await loadLastMessages(visibleConvs);
 
-      if (firstGeneral && !isMobile) setActiveConv(firstGeneral);
+      if (firstGeneral && !isMobile && !activeConv) setActiveConv(firstGeneral);
     }
     load();
   }, [profile.school_id, profile.id, isMobile]);
 
-  // 🚀 COMPTE LES NON-LUS en utilisant le MAX entre la base et localStorage
   async function loadUnreadCounts(convs) {
     const counts = {};
     for (const conv of convs) {
@@ -112,7 +124,6 @@ export default function Chat() {
       let localLastRead = null;
       try { localLastRead = localStorage.getItem(`chat_read_${conv.id}`); } catch {}
       
-      // On prend la date la plus récente des deux
       let lastRead = null;
       if (dbLastRead && localLastRead) {
         lastRead = new Date(dbLastRead) > new Date(localLastRead) ? dbLastRead : localLastRead;
@@ -160,7 +171,6 @@ export default function Chat() {
       .then(({ data }) => {
         setMessages(data || []);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        // 🚀 Marquer comme lu (base + localStorage)
         markAsRead(activeConv.id);
         setUnreadCounts(prev => ({ ...prev, [activeConv.id]: 0 }));
       });
@@ -171,7 +181,6 @@ export default function Chat() {
         setMessages(prev => [...prev, { ...payload.new, profiles: author }]);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         
-        // 🚀 Si on reçoit un message d'un autre, on marque comme lu
         if (payload.new.sender_id !== profile.id) {
           markAsRead(activeConv.id);
         }
@@ -248,6 +257,48 @@ export default function Chat() {
     }
   }
 
+  // 🚀 SUPPRESSION DE CONVERSATION
+  async function handleDeleteConversation() {
+    if (!activeConv) return;
+    setShowConvMenu(false);
+
+    const isGeneral = activeConv.type === 'general';
+    const confirmMessage = isGeneral
+      ? `⚠️ Voulez-vous effacer TOUT l'historique du canal "${activeConv.name || 'Général'}" ?\n\nCette action supprimera tous les messages pour TOUS les participants et est IRRÉVERSIBLE.`
+      : `⚠️ Voulez-vous supprimer cette conversation privée ?\n\nElle sera supprimée pour vous ET pour votre interlocuteur. Cette action est IRRÉVERSIBLE.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeleting(true);
+    try {
+      if (isGeneral) {
+        // Canal général : on supprime seulement les messages
+        const { error: delErr } = await supabase
+          .from('chat_messages')
+          .delete()
+          .eq('conversation_id', activeConv.id);
+        if (delErr) throw delErr;
+        
+        setMessages([]);
+        setLastMessages(prev => ({ ...prev, [activeConv.id]: null }));
+      } else {
+        // Conversation privée : on supprime la conversation entière
+        const { error: delErr } = await supabase
+          .from('chat_conversations')
+          .delete()
+          .eq('id', activeConv.id);
+        if (delErr) throw delErr;
+        
+        setConversations(prev => prev.filter(c => c.id !== activeConv.id));
+        setActiveConv(null);
+        setMessages([]);
+      }
+    } catch (err) {
+      setError("Erreur de suppression : " + err.message);
+    }
+    setDeleting(false);
+  }
+
   async function startPrivateChat(otherUserId) {
     const { data: convId, error: rpcError } = await supabase.rpc('create_private_chat', { p_other_user_id: otherUserId });
     if (rpcError) { setError("Erreur chat privé : " + rpcError.message); return; }
@@ -270,12 +321,13 @@ export default function Chat() {
 
   function openConversation(c) {
     setActiveConv(c);
+    setShowConvMenu(false);
     if (isMobile) setShowNewChat(false);
   }
 
   const getConvInfo = (c) => {
     if (c.type === 'general') {
-      return { name: 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
+      return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
     }
     const other = c.chat_participants?.find(p => p.user_id !== profile.id);
     const name = other?.profiles?.full_name || 'Conversation privée';
@@ -318,10 +370,10 @@ export default function Chat() {
   const Avatar = ({ text, color, size = 42, isGroup }) => (
     <div style={{
       width: size, height: size, borderRadius: '50%',
-      background: isGroup ? 'linear-gradient(135deg, var(--forest), var(--forest-dark))' : `linear-gradient(135deg, ${color}, ${color}cc)`,
+      background: isGroup ? 'var(--forest)' : color,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: '#fff', fontWeight: 700, fontSize: size * 0.35,
-      flexShrink: 0, boxShadow: `0 2px 8px ${isGroup ? 'rgba(15,76,58,0.3)' : color + '55'}`,
+      flexShrink: 0,
     }}>
       {text}
     </div>
@@ -335,12 +387,11 @@ export default function Chat() {
       border: '1px solid var(--line)',
       overflow: 'hidden',
       height: 'calc(100vh - 120px)',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ padding: '18px 20px 14px', background: 'linear-gradient(180deg, var(--forest-light), transparent)', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
-            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--forest-dark)', letterSpacing: '-0.02em' }}>
+            <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>
               Messagerie
             </p>
             <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
@@ -352,14 +403,9 @@ export default function Chat() {
             title="Nouveau message privé"
             style={{
               width: 40, height: 40, borderRadius: '50%', border: 'none',
-              background: 'linear-gradient(135deg, var(--forest), var(--forest-dark))',
-              color: '#fff', cursor: 'pointer',
+              background: 'var(--forest-dark)', color: '#fff', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(15,76,58,0.3)',
-              transition: 'transform 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
           >
             <i className="ti ti-plus" style={{ fontSize: 20 }}></i>
           </button>
@@ -406,7 +452,7 @@ export default function Chat() {
                   display: 'flex', alignItems: 'center', gap: 10,
                   width: '100%', padding: '8px 10px', borderRadius: 10,
                   border: 'none', background: 'transparent', cursor: 'pointer',
-                  textAlign: 'left', transition: 'background 0.15s',
+                  textAlign: 'left',
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--paper)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -441,9 +487,8 @@ export default function Chat() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 16px', cursor: 'pointer',
-                background: isActive ? 'var(--forest-light)' : 'transparent',
+                background: isActive ? 'var(--cream)' : 'transparent',
                 borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent',
-                transition: 'background 0.15s',
               }}
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
@@ -502,7 +547,7 @@ export default function Chat() {
         border: '1px solid var(--line)',
         overflow: 'hidden',
         height: 'calc(100vh - 120px)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+        position: 'relative',
       }}>
         {error && (
           <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)' }}>
@@ -515,7 +560,7 @@ export default function Chat() {
             <div style={{
               padding: '14px 20px',
               borderBottom: '1px solid var(--line)',
-              background: 'linear-gradient(180deg, var(--forest-light), transparent)',
+              background: 'var(--paper)',
               display: 'flex', alignItems: 'center', gap: 12,
             }}>
               {isMobile && (
@@ -534,13 +579,56 @@ export default function Chat() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
                   {info.isGroup ? (
                     <>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 0 2px rgba(46,107,71,0.2)' }}></span>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }}></span>
                       <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>En ligne · {conversations.length} participant{conversations.length > 1 ? 's' : ''}</span>
                     </>
                   ) : (
                     <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>{info.subtitle}</span>
                   )}
                 </div>
+              </div>
+
+              {/* 🗑️ Menu suppression */}
+              <div ref={convMenuRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowConvMenu(v => !v)}
+                  disabled={deleting}
+                  title="Options"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--muted)', fontSize: 20, padding: 4,
+                    display: 'flex', alignItems: 'center', opacity: deleting ? 0.5 : 1,
+                  }}
+                >
+                  <i className="ti ti-dots-vertical"></i>
+                </button>
+
+                {showConvMenu && (
+                  <div style={{
+                    position: 'absolute', top: '100%', right: 0, marginTop: 4,
+                    background: 'var(--paper)', border: '1px solid var(--line-strong)',
+                    borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+                    minWidth: 220, zIndex: 50, overflow: 'hidden',
+                  }}>
+                    <button
+                      onClick={handleDeleteConversation}
+                      disabled={deleting}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        width: '100%', padding: '11px 14px',
+                        fontSize: 13, fontWeight: 600, color: 'var(--danger)',
+                        cursor: deleting ? 'not-allowed' : 'pointer',
+                        border: 'none', background: 'none',
+                        textAlign: 'left', opacity: deleting ? 0.5 : 1,
+                      }}
+                      onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = 'var(--danger-light)'; }}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <i className="ti ti-trash" style={{ fontSize: 16 }}></i>
+                      {activeConv.type === 'general' ? 'Effacer l\'historique' : 'Supprimer la conversation'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -552,18 +640,12 @@ export default function Chat() {
                 padding: '20px 20px 10px',
                 display: 'flex', flexDirection: 'column', gap: 2,
                 background: 'var(--cream)',
-                position: 'relative',
               }}
             >
               {messages.length === 0 && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
-                  <div style={{
-                    width: 80, height: 80, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--forest-light), var(--gold-light))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginBottom: 16,
-                  }}>
-                    <i className="ti ti-message-circle-heart" style={{ fontSize: 38, color: 'var(--forest)' }}></i>
+                  <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <i className="ti ti-message-circle-heart" style={{ fontSize: 38, color: 'var(--muted)' }}></i>
                   </div>
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Aucun message pour l'instant</p>
                   <p style={{ margin: '6px 0 0', fontSize: 12.5, color: 'var(--muted)', maxWidth: 280, lineHeight: 1.5 }}>
@@ -622,9 +704,7 @@ export default function Chat() {
                         </div>
                       )}
                       <div style={{
-                        background: isMe 
-                          ? 'linear-gradient(135deg, var(--forest), var(--forest-dark))' 
-                          : 'var(--paper)',
+                        background: isMe ? 'var(--forest-dark)' : 'var(--paper)',
                         color: isMe ? '#fff' : 'var(--ink)',
                         padding: '10px 14px',
                         borderRadius: 18,
@@ -632,9 +712,6 @@ export default function Chat() {
                         borderBottomLeftRadius: isMe ? 18 : 4,
                         fontSize: 13.5,
                         lineHeight: 1.45,
-                        boxShadow: isMe 
-                          ? '0 3px 10px rgba(15,76,58,0.25)' 
-                          : '0 1px 3px rgba(0,0,0,0.06)',
                         border: isMe ? 'none' : '1px solid var(--line)',
                         wordBreak: 'break-word',
                         whiteSpace: 'pre-wrap',
@@ -660,7 +737,6 @@ export default function Chat() {
                   background: 'var(--paper)', border: '1px solid var(--line-strong)',
                   color: 'var(--forest)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
                   zIndex: 5,
                 }}
               >
@@ -688,10 +764,7 @@ export default function Chat() {
                   background: 'var(--cream)',
                   color: 'var(--ink)',
                   fontFamily: 'inherit',
-                  transition: 'border-color 0.15s, background 0.15s',
                 }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--forest)'; e.currentTarget.style.background = 'var(--paper)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--line-strong)'; e.currentTarget.style.background = 'var(--cream)'; }}
               />
               <button
                 type="submit"
@@ -699,14 +772,10 @@ export default function Chat() {
                 style={{
                   width: 44, height: 44, borderRadius: '50%',
                   border: 'none',
-                  background: newMessage.trim() 
-                    ? 'linear-gradient(135deg, var(--forest), var(--forest-dark))' 
-                    : 'var(--line)',
+                  background: newMessage.trim() ? 'var(--forest-dark)' : 'var(--line)',
                   color: '#fff',
                   cursor: newMessage.trim() ? 'pointer' : 'not-allowed',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: newMessage.trim() ? '0 4px 12px rgba(15,76,58,0.3)' : 'none',
-                  transition: 'all 0.15s',
                 }}
               >
                 <i className="ti ti-send" style={{ fontSize: 18, marginLeft: -2 }}></i>
@@ -715,13 +784,8 @@ export default function Chat() {
           </>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, textAlign: 'center' }}>
-            <div style={{
-              width: 100, height: 100, borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--forest-light), var(--gold-light))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 20,
-            }}>
-              <i className="ti ti-message-chatbot" style={{ fontSize: 46, color: 'var(--forest)' }}></i>
+            <div style={{ width: 100, height: 100, borderRadius: '50%', background: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <i className="ti ti-message-chatbot" style={{ fontSize: 46, color: 'var(--muted)' }}></i>
             </div>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>
               Bienvenue dans la messagerie
