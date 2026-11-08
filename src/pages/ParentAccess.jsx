@@ -17,6 +17,7 @@ import ChildList from '../components/parent/ChildList.jsx';
 import ChildFinance from '../components/parent/ChildFinance.jsx';
 import ChildAttendance from '../components/parent/ChildAttendance.jsx';
 import ChildBulletin from '../components/parent/ChildBulletin.jsx';
+import ParentPushButton from '../components/parent/ParentPushButton.jsx'; // 👈 NOUVEL IMPORT
 
 const STORAGE_KEY = 'ecoges_parent_access_code';
 
@@ -155,7 +156,13 @@ export default function ParentAccess() {
     );
   }
 
-  return <ChildList summary={summary} offline={offline} changeCode={changeCode} openStudent={openStudent} />;
+  // 🚀 AJOUT DU BOUTON ICI : On l'affiche quand le parent est connecté et voit sa liste d'enfants
+  return (
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px' }}>
+      <ParentPushButton code={code} />
+      <ChildList summary={summary} offline={offline} changeCode={changeCode} openStudent={openStudent} />
+    </div>
+  );
 }
 
 // Sous-composant gérant l'assemblage de la fiche d'un enfant
