@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // 🚀 CORRECTIF MIME TYPE : Force les chemins absolus depuis la racine
+  base: '/',
+  
   plugins: [
     react(),
     VitePWA({
@@ -12,9 +15,9 @@ export default defineConfig({
         name: 'EcoGès - Gestion scolaire',
         short_name: 'EcoGès',
         description: 'Application de gestion scolaire moderne et rapide.',
-        theme_color: '#0F4C3A', // Le vert de ta barre en haut
-        background_color: '#FAF8F4', // La couleur de fond au démarrage
-        display: 'standalone', // Force le mode "vraie application" (sans barre d'adresse)
+        theme_color: '#0F4C3A',
+        background_color: '#FAF8F4',
+        display: 'standalone',
         orientation: 'portrait',
         icons: [
           {
@@ -29,7 +32,7 @@ export default defineConfig({
           }
         ]
       },
-      // 👇 LA NOUVELLE PARTIE POUR LES NOTIFICATIONS 👇
+      // 🚀 On garde le script pour les notifications push
       workbox: {
         importScripts: ['/push-sw.js']
       }
