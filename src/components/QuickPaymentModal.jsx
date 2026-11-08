@@ -46,21 +46,27 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       .then(({ data }) => setSchoolYearInfo(data));
   }, [student.school_year_id]);
 
+  // 🚀 CORRECTIF : Calcul du montant avec prise en charge de "Moitié" et autres
   useEffect(() => {
     if (!currentFeeSchedule) return;
     let amount = '';
+    
     if (typeFrais === 'scolarite') {
       if (tranche === 'tranche1') amount = currentFeeSchedule.montant_tranche1;
       else if (tranche === 'tranche2') amount = currentFeeSchedule.montant_tranche2;
       else if (tranche === 'tranche3') amount = currentFeeSchedule.montant_tranche3;
       else if (tranche === 'complet') amount = currentFeeSchedule.montant_scolarite;
+      else if (tranche === 'moitie') amount = Number(currentFeeSchedule.montant_scolarite) / 2;
     } else if (typeFrais === 'connexe') {
       if (tranche === 'complet') amount = currentFeeSchedule.montant_connexe;
+      else if (tranche === 'moitie') amount = Number(currentFeeSchedule.montant_connexe) / 2;
     } else if (typeFrais === 'inscription') {
       if (tranche === 'complet') amount = currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription;
+      else if (tranche === 'moitie') amount = (Number(currentFeeSchedule.montant_inscription) || Number(currentFeeSchedule.montant_reinscription)) / 2;
     }
-    if (amount !== '' && amount !== null && amount !== undefined && tranche !== 'autre') {
-      setMontant(String(amount));
+
+    if (amount !== '' && amount !== null && amount !== undefined && tranche !== 'autre' && typeFrais !== 'autre') {
+      setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
       setMontant('');
     }
@@ -126,14 +132,14 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
 
     showToast('Paiement enregistré');
 
-    // 🚀 NOTIFICATION PUSH : On prévient les directeurs
+    // 🚀 Notification push avec le bon montant
     if (inserted) {
       try {
         await supabase.functions.invoke('send-payment-push', {
           body: {
             school_id: profile.school_id,
             student_name: student.full_name,
-            amount: Number(montant),
+            amount: Number(payload.montant), // On utilise le montant enregistré
             type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
           },
           headers: { 
