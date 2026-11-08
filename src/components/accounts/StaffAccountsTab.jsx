@@ -53,8 +53,21 @@ async function describeFunctionError(fnError) {
   return fnError.message;
 }
 
-function PencilIcon() { /* ... icône inchangée ... */ return (<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" /></svg>); }
-function TrashIcon() { /* ... icône inchangée ... */ return (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>); }
+function PencilIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+    </svg>
+  );
+}
 
 export default function StaffAccountsTab() {
   const { profile } = useAuth();
@@ -161,14 +174,12 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
   const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
   
-  // 👇 NOUVELLE LOGIQUE DE PERMISSIONS ICI 👇
   const [permissions, setPermissions] = useState(editing?.permissions || ROLE_PERMISSIONS[role]);
-  const [customize, setCustomize] = useState(!!editing); // Si on modifie, on laisse la possibilité de personnaliser par défaut
+  const [customize, setCustomize] = useState(!!editing); 
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Quand le rôle change, on met à jour les permissions par défaut (si on n'est pas en mode personnalisé)
   const handleRoleChange = (newRole) => {
     setRole(newRole);
     if (!customize) {
@@ -193,7 +204,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
       email: email.trim(), 
       phone: composePhone(phoneDial, phoneLocal), 
       role,
-      permissions // On envoie les permissions (qu'elles soient par défaut ou personnalisées)
+      permissions
     };
     
     if (isEditing) body.profileId = editing.id;
@@ -223,7 +234,13 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
 
           <label style={labelStyle}>Rôle</label>
-          <Dropdown value={role} onChange={handleRoleChange} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
+          <Dropdown value={role} onChange={handleRoleChange} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={{ ...inputStyle, marginBottom: 4 }} />
+
+          {/* 👇 LE TEXTE D'EXPLICATION REMIS ICI 👇 */}
+          <p style={{ margin: '0 0 16px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4 }}>
+            <i className="ti ti-info-circle" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+            Les droits d'accès par défaut seront automatiquement appliqués selon ce rôle.
+          </p>
 
           <label style={labelStyle}>E-mail</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} disabled={isEditing} title={isEditing ? "L'e-mail ne peut pas être modifié" : ""} />
@@ -238,23 +255,34 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
             </p>
           )}
 
-          {/* 👇 SECTION PERSONNALISATION DES DROITS 👇 */}
+          {/* 👇 LE BOUTON GLISSANT (SWITCH) 👇 */}
           <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: customize ? 14 : 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: customize ? 14 : 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Personnaliser les droits d'accès</span>
+              
+              {/* L'interface du Switch */}
+              <div style={{ position: 'relative', width: 44, height: 24, background: customize ? 'var(--forest)' : 'var(--line-strong)', borderRadius: 24, transition: 'background 0.3s' }}>
+                <div style={{ 
+                  position: 'absolute', top: 2, left: customize ? 22 : 2, 
+                  width: 20, height: 20, background: '#fff', borderRadius: '50%', 
+                  transition: 'left 0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+                }} />
+              </div>
+              
+              {/* L'input invisible qui gère l'état */}
               <input 
                 type="checkbox" 
                 checked={customize} 
                 onChange={(e) => {
                   setCustomize(e.target.checked);
-                  if (!e.target.checked) setPermissions(ROLE_PERMISSIONS[role] || {}); // Remet les droits par défaut
+                  if (!e.target.checked) setPermissions(ROLE_PERMISSIONS[role] || {});
                 }} 
-                style={{ accentColor: 'var(--forest)', width: 16, height: 16 }} 
+                style={{ display: 'none' }} 
               />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Personnaliser les droits d'accès</span>
             </label>
 
             {customize && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--line)' }}>
                 {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
                   <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
                     <input 
