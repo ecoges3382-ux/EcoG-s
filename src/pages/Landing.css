@@ -450,4 +450,149 @@
 .lp-final h2 { font-family: var(--serif); font-weight: 700; font-size: clamp(38px, 6vw, 78px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 auto 20px; max-width: 900px; position: relative; }
 .lp-final h2 .lp-gold { color: var(--lp-gold); }
 .lp-final p { position: relative; font-size: 17px; color: rgba(255, 255, 255, 0.7); margin: 0 0 36px; }
-.lp
+.lp-final .lp-ctas { justify-content: center; position: relative; }
+
+.lp-footer { background: #041B14; color: rgba(255, 255, 255, 0.6); padding: 30px 0; font-size: 13px; }
+.lp-footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.lp-footer a { color: rgba(255, 255, 255, 0.72); text-decoration: none; font-weight: 600; }
+.lp-footer a:hover { color: #fff; }
+
+/* ---------- Cartes de tarif (hover géré en CSS, plus stable) ---------- */
+.lp-plan-card { transition: transform 0.3s var(--lp-ease), box-shadow 0.3s var(--lp-ease); }
+.lp-plan-card:hover { transform: translateY(-6px); }
+
+/* ---------- Bouton "Retour en haut" ---------- */
+.lp-back-top {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: var(--lp-deep);
+  color: var(--lp-gold);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+  transition: opacity 0.25s var(--lp-ease), transform 0.25s var(--lp-ease);
+  z-index: 40;
+}
+.lp-back-top.is-visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.lp-back-top:hover {
+  background: var(--lp-forest);
+  color: #fff;
+}
+@media (max-width: 780px) {
+  .lp-back-top { bottom: 84px; right: 16px; width: 42px; height: 42px; }
+}
+
+/* ---------- CTA sticky mobile ---------- */
+.lp-sticky-cta {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: rgba(250, 248, 244, 0.96);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+  z-index: 45;
+  transform: translateY(100%);
+  transition: transform 0.3s var(--lp-ease);
+}
+.lp-sticky-cta.is-visible { transform: none; }
+.lp-sticky-cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  background: var(--lp-deep);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14.5px;
+  box-shadow: 0 10px 24px -8px rgba(6, 37, 28, 0.6);
+}
+@media (max-width: 780px) {
+  .lp-sticky-cta { display: block; }
+}
+
+/* ---------- Tablette ---------- */
+@media (max-width: 1020px) {
+  .lp-mods, .lp-pillars { grid-template-columns: repeat(2, 1fr); }
+  .lp-scene { gap: 40px; }
+}
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 780px) {
+  .lp-nav-links { display: none; }
+  .lp-hero { padding: 96px 0 40px; min-height: 0; }
+  .lp-hero-grid { grid-template-columns: 1fr; gap: 20px; }
+  .lp-h1 { margin: 18px 0 16px; }
+  .lp-lead { margin-bottom: 26px; }
+  .lp-ctas .lp-btn { flex: 1 1 100%; }
+  .lp-checks { gap: 8px 16px; margin-top: 22px; }
+  .lp-stage { min-height: 560px; transform: scale(0.86); margin: -30px 0 -40px; }
+  .lp-orbit-1 { width: 400px; height: 400px; }
+  .lp-orbit-2 { width: 540px; height: 540px; }
+  .lp-h1-line { white-space: normal; }
+  .lp-notif.n1, .lp-notif.n2, .lp-notif.n3 { top: auto; bottom: 44px; left: 0; right: 0; margin: 0 auto; width: max-content; min-width: 0; }
+  .lp-scroll-cue { display: none; }
+  .lp-bands { height: 130px; margin-top: -30px; }
+  .lp-band-1 { top: 38px; }
+  .lp-band-2 { top: 42px; }
+  .lp-track span { font-size: 20px; gap: 16px; padding-right: 16px; }
+  .lp-section { padding: 72px 0; }
+  .lp-gone li { gap: 12px; padding: 16px 0; }
+  .lp-gone .x { width: 28px; height: 28px; }
+  .lp-scene { grid-template-columns: 1fr; gap: 30px; padding: 50px 0; }
+  .lp-scene.flip .lp-scene-art { order: 0; }
+  .lp-scene-art { min-height: 380px; }
+  .lp-mods { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .lp-mod { padding: 18px 16px; }
+  .lp-mod b { font-size: 14.5px; }
+  .lp-mod p { font-size: 12.5px; }
+  .lp-pillars { grid-template-columns: 1fr; }
+  .lp-steps { grid-template-columns: 1fr; gap: 36px; }
+  .lp-steps-line { top: 32px; bottom: 32px; left: 31px; right: auto; width: 2px; height: auto; }
+  .lp-steps-line i { width: 100%; height: 100%; transform: scaleY(0); transform-origin: top; }
+  .is-in .lp-steps-line i { transform: scaleY(1); }
+  .lp-step { display: grid; grid-template-columns: 64px 1fr; gap: 18px; text-align: left; align-items: start; }
+  .lp-step-n { margin: 0; }
+  .lp-step p { margin: 0; }
+  .lp-price { padding: 40px 22px; }
+  .lp-final { padding: 96px 0; }
+  .lp-final .lp-ctas .lp-btn { flex: 1 1 100%; }
+}
+@media (max-width: 380px) {
+  .lp-mods { grid-template-columns: 1fr; }
+}
+@media (hover: none) {
+  .lp-par-phone, .lp-par-1, .lp-par-2 { transform: none; }
+}
+
+/* Personne ne doit avoir le mal des transports pour découvrir une école. */
+@media (prefers-reduced-motion: reduce) {
+  .lp *, .lp *::before, .lp *::after { animation: none !important; transition: none !important; }
+  .lp-reveal, .lp-mask > span, .lp-phone-in, .lp-pay, .lp-grade, .lp-msg, .lp-pop, .lp-notif, .lp-stamp, .lp-typing { opacity: 1 !important; transform: none !important; }
+  .lp-notif.n2, .lp-notif.n3, .lp-typing { display: none; }
+  .lp-bars i, .lp-cell, .lp-steps-line i { transform: none !important; }
+  .lp-meter i { transform: scaleX(var(--w, 1)) !important; }
+  .lp-underline path { stroke-dashoffset: 0 !important; }
+  .lp-ring .v { stroke-dashoffset: 39 !important; }
+}
