@@ -19,7 +19,6 @@ import SelectionBar from '../../components/SelectionBar.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { translateError } from '../../lib/errors.js';
 import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
-import StudentLink from '../../components/StudentLink.jsx'; // 👈 NOUVEL IMPORT
 
 export default function Payments() {
   const { profile } = useAuth();
@@ -177,10 +176,7 @@ export default function Payments() {
                   <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
                 )}
                 <div>
-                  {/* 🚀 NOM CLIQUABLE */}
-                  <p style={{ margin: '0 0 3px', fontSize: '13.5px' }}>
-                    <StudentLink studentId={p.student_id} name={p.students?.full_name || '—'} style={{ fontWeight: 600 }} />
-                  </p>
+                  <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
                   <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
                     {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
                   </p>
@@ -333,20 +329,23 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
 
+    // 🚀 Envoi du push + WhatsApp avec student_id et date
     try {
       await supabase.functions.invoke('send-payment-push', {
         body: {
           school_id: schoolId,
+          student_id: studentId,
           student_name: currentStudent?.full_name || 'Un élève',
           amount: Number(payload.montant),
-          type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
+          type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais',
+          date: date,
         },
         headers: { 
           'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
         }
       });
     } catch (err) {
-      console.warn("La notification push n'a pas pu être envoyée :", err);
+      console.warn("La notification push/WhatsApp n'a pas pu être envoyée :", err);
     }
 
     if (inserted) { setCreatedPayment(inserted); return; }
