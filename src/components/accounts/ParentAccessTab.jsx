@@ -11,6 +11,7 @@ import OfflineBanner from '../OfflineBanner.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { SkeletonRow, SkeletonLine } from '../Skeleton.jsx';
 import ModalContainer from '../ModalContainer.jsx';
+import Dropdown from '../Dropdown.jsx';
 
 const PARENT_MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
@@ -171,6 +172,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
   const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const students = useStudentsForLinking(schoolYear?.id);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [civilite, setCivilite] = useState('M');
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
@@ -194,6 +196,7 @@ function NewParentAccessModal({ onClose, onCreated }) {
       const { data, error: insertError } = await supabase.from('parent_access').insert({
         school_id: profile.school_id,
         full_name: displayName(nom.trim(), prenom.trim()),
+        civilite,
         nom: nom.trim(), prenom: prenom.trim(),
         phone: composePhone(phoneDial, phoneLocal) || null,
         email: email.trim() || null, code: generateAccessCode(),
@@ -219,12 +222,21 @@ function NewParentAccessModal({ onClose, onCreated }) {
     <ModalShell title="Nouvel accès parent" onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Civilité</label>
+            <Dropdown 
+              value={civilite} 
+              onChange={setCivilite} 
+              options={[{ value: 'M', label: 'Monsieur' }, { value: 'Mme', label: 'Madame' }]} 
+              style={inputStyle} 
+            />
+          </div>
           <div><label style={labelStyle}>Nom</label><NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} /></div>
-          <div><label style={labelStyle}>Prénom</label><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></div>
         </div>
-
-        <label style={labelStyle}>Téléphone (facultatif)</label>
-        <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div><label style={labelStyle}>Prénom</label><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Téléphone (facultatif)</label><PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} /></div>
+        </div>
 
         <label style={labelStyle}>E-mail (facultatif)</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
@@ -297,6 +309,7 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
 
 function EditParentAccessInfoModal({ access, onClose, onSaved }) {
   const showToast = useToast();
+  const [civilite, setCivilite] = useState(access.civilite || 'M');
   const [nom, setNom] = useState(access.nom || '');
   const [prenom, setPrenom] = useState(access.prenom || '');
   const initialPhone = decomposePhone(access.phone);
@@ -311,6 +324,7 @@ function EditParentAccessInfoModal({ access, onClose, onSaved }) {
     if (!nom.trim()) { setError('Le nom est obligatoire.'); return; }
     setSubmitting(true); setError('');
     const { error: updateError } = await supabase.from('parent_access').update({
+      civilite,
       full_name: displayName(nom.trim(), prenom.trim()),
       nom: nom.trim(), prenom: prenom.trim(),
       phone: composePhone(phoneDial, phoneLocal) || null,
@@ -325,11 +339,21 @@ function EditParentAccessInfoModal({ access, onClose, onSaved }) {
     <ModalShell title={`Informations — ${access.full_name}`} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Civilité</label>
+            <Dropdown 
+              value={civilite} 
+              onChange={setCivilite} 
+              options={[{ value: 'M', label: 'Monsieur' }, { value: 'Mme', label: 'Madame' }]} 
+              style={inputStyle} 
+            />
+          </div>
           <div><label style={labelStyle}>Nom</label><NameInput mode="upper" value={nom} onChange={setNom} style={inputStyle} /></div>
-          <div><label style={labelStyle}>Prénom</label><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></div>
         </div>
-        <label style={labelStyle}>Téléphone (facultatif)</label>
-        <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div><label style={labelStyle}>Prénom</label><NameInput mode="title" value={prenom} onChange={setPrenom} style={inputStyle} /></div>
+          <div><label style={labelStyle}>Téléphone</label><PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} /></div>
+        </div>
         <label style={labelStyle}>E-mail (facultatif)</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 18 }} />
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
@@ -341,6 +365,7 @@ function EditParentAccessInfoModal({ access, onClose, onSaved }) {
 
 function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, onCopyLink, onRegenerate, onEditStudents, onEditInfo, onDelete, copied }) {
   const children = (access.parent_access_students || []).map((row) => row.students?.full_name).filter(Boolean);
+  const prefix = access.civilite === 'Mme' ? 'Mme' : 'M.';
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
       <div onClick={onToggleMenu} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minWidth: 0, flex: 1 }}>
@@ -348,7 +373,7 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
           {initials(access.full_name)}
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{access.full_name}</p>
+          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{prefix} {access.full_name}</p>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <span style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }}>{access.code}</span> · {children.length ? children.join(', ') : 'aucun enfant relié'}
           </p>
