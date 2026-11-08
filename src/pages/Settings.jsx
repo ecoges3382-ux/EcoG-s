@@ -232,6 +232,10 @@ export default function Settings() {
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
         </Link>
 
+        {/* 👇👇 C'EST ICI QUE J'AI MIS LE BOUTON 👇👇 */}
+        <EnableNotifications />
+        {/* 👆👆 FIN DU BOUTON 👆👆 */}
+
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visites guidées</p>
           <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>
