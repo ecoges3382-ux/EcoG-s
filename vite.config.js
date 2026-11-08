@@ -3,9 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  // 🚀 CORRECTIF MIME TYPE : Force les chemins absolus depuis la racine
   base: '/',
-  
   plugins: [
     react(),
     VitePWA({
@@ -32,7 +30,6 @@ export default defineConfig({
           }
         ]
       },
-      // 🚀 On garde le script pour les notifications push
       workbox: {
         importScripts: ['/push-sw.js']
       }
