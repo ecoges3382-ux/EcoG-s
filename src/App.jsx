@@ -40,6 +40,7 @@ const FirstTimeSetup = lazy(() => import('./pages/FirstTimeSetup.jsx'));
 const CGU = lazy(() => import('./pages/CGU.jsx'));
 const Confidentialite = lazy(() => import('./pages/Confidentialite.jsx'));
 const Aide = lazy(() => import('./pages/Aide.jsx'));
+const Chat = lazy(() => import('./pages/Chat.jsx'));
 
 function SetupNeeded() {
   return (
@@ -112,23 +113,15 @@ function RedirectIfAuthed({ children }) {
 function HomeRedirect() {
   const { profile } = useAuth();
   
-  // Le fondateur voit toujours le tableau de bord
   if (profile?.role === 'fondateur') return <Dashboard />;
-  
-  // Si on a coché la case Tableau de bord
   if (profile?.permissions?.dashboard === true) return <Dashboard />;
-  
-  // Sinon, on redirige vers la première page autorisée (dans l'ordre de priorité)
   if (profile?.permissions?.eleves === true) return <Navigate to="/eleves" replace />;
   if (profile?.permissions?.finance === true) return <Navigate to="/argent" replace />;
   if (profile?.permissions?.notes === true) return <Navigate to="/notes" replace />;
   if (profile?.permissions?.classes === true) return <Navigate to="/classes" replace />;
   if (profile?.permissions?.presences === true) return <Navigate to="/presences" replace />;
-  // Fallback : un compte qui n'a QUE l'accès Paramètres ne doit pas tomber
-  // sur "Accès restreint" — on l'y envoie directement.
   if (profile?.permissions?.parametres === true) return <Navigate to="/parametres" replace />;
   
-  // Si vraiment aucune permission, on affiche un message d'erreur
   return (
     <div style={{ padding: 40, textAlign: 'center' }}>
       <p style={{ fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 600, marginBottom: 10 }}>Accès restreint</p>
@@ -142,6 +135,7 @@ function RoleRouter() {
     <Routes>
       <Route path="/" element={<Shell />}>
         <Route index element={<HomeRedirect />} />
+        <Route path="chat" element={<Chat />} />
         <Route path="argent" element={<Money />} />
         <Route path="recouvrement" element={<Recouvrement />} />
         <Route path="eleves" element={<Students />} />
