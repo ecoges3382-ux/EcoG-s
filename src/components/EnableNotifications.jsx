@@ -28,24 +28,32 @@ export default function EnableNotifications() {
     try {
       if (!profile) throw new Error("Profil introuvable.");
       
-      // On envoie l'ID directement dans le body
-      const { data, error } = await supabase.functions.invoke('send-test-push', {
-        body: { user_id: profile.id }
-      });
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-test-push`;
       
-      // Si on a une erreur, on essaie de lire le vrai message
-      if (error) {
-        let realError = error.message;
-        try {
-          if (error.context && typeof error.context.json === 'function') {
-            const errBody = await error.context.json();
-            if (errBody && errBody.error) realError = errBody.error;
-          }
-        } catch (e) { /* ignore */ }
-        throw new Error(realError);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({ user_id: profile.id })
+      });
+
+      const rawText = await res.text();
+      console.log("Réponse brute du serveur :", rawText);
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        throw new Error(`Erreur ${res.status} : ${rawText.substring(0, 150)}...`);
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Erreur inconnue");
       }
       
-      if (data?.error) throw new Error(data.error);
       showToast('Notification de test envoyée !', 'success');
     } catch (err) {
       showToast("Erreur : " + err.message, 'error');
