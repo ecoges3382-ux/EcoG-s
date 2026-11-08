@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [attendance, setAttendance] = useState(null);
   const [classResults, setClassResults] = useState(null);
   const [offlineExtra, setOffline] = useState(false);
+  const [extraError, setExtraError] = useState('');
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const tour = usePageTour(isMobile ? 'welcome_mobile' : 'welcome_desktop');
@@ -44,6 +45,8 @@ export default function Dashboard() {
       setData: setAttendance,
       setOffline,
       isCancelled: () => cancelled,
+      onError: (err) => { if (!cancelled) setExtraError(err.message || "Erreur de chargement des présences"); },
+      onSuccess: () => { if (!cancelled) setExtraError(''); }
     });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
@@ -61,6 +64,8 @@ export default function Dashboard() {
       setData: setClassResults,
       setOffline,
       isCancelled: () => cancelled,
+      onError: (err) => { if (!cancelled) setExtraError(err.message || "Erreur de chargement des résultats"); },
+      onSuccess: () => { if (!cancelled) setExtraError(''); }
     });
     return () => { cancelled = true; };
   }, [schoolYear?.id]);
@@ -106,6 +111,7 @@ export default function Dashboard() {
       </p>
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {(offline || offlineExtra) && <OfflineBanner />}
+      {extraError && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{extraError}</p>}
       {!isHistorical && <OnboardingBanner />}
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
