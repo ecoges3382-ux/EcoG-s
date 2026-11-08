@@ -5,17 +5,37 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
-    <!-- 🚀 COULEUR DE LA BARRE D'ÉTAT (Sera modifiée par theme.js) -->
     <meta name="theme-color" content="#0F4C3A" />
-    
-    <title>EcoGès - Gestion scolaire</title>
+
+    <title>EcoGès — Gestion scolaire pour les écoles privées d'Afrique de l'Ouest</title>
+    <meta name="description" content="Élèves, écolage, bulletins, présences, personnel et parents : EcoGès remplace les cahiers et les fichiers Excel par une seule application, claire et rapide. Aucune installation, fonctionne sur téléphone et ordinateur." />
+    <meta name="keywords" content="gestion scolaire, école privée, Bénin, Afrique de l'Ouest, écolage, bulletins, présences, portail parents, logiciel scolaire" />
+    <meta name="author" content="EcoGès" />
+    <link rel="canonical" href="https://eco-ges.vercel.app/" />
+
+    <!-- Open Graph (WhatsApp, Facebook, LinkedIn, iMessage…) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="EcoGès" />
+    <meta property="og:title" content="EcoGès — Toute votre école, dans votre poche." />
+    <meta property="og:description" content="Élèves, écolage, bulletins, présences, personnel et parents : une seule application pour gérer votre école. Aucune installation." />
+    <meta property="og:url" content="https://eco-ges.vercel.app/" />
+    <meta property="og:image" content="https://eco-ges.vercel.app/pwa-512x512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="Logo EcoGès — Gestion scolaire" />
+    <meta property="og:locale" content="fr_FR" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EcoGès — Toute votre école, dans votre poche." />
+    <meta name="twitter:description" content="Gestion scolaire pour les écoles privées d'Afrique de l'Ouest. Élèves, écolage, bulletins, présences." />
+    <meta name="twitter:image" content="https://eco-ges.vercel.app/pwa-512x512.png" />
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 
     <style>
@@ -35,50 +55,15 @@
       .hide-scrollbar::-webkit-scrollbar { display: none !important; }
       .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
-      @media screen {
-        .receipt-quad-print { display: none !important; }
-      }
+      @media screen { .receipt-quad-print { display: none !important; } }
       @media print {
         @page { size: A4; margin: 0; }
         body.receipt-printing > *:not(.receipt-modal-overlay) { display: none !important; }
-        body.receipt-printing .receipt-modal-overlay {
-          position: static !important;
-          background: none !important;
-          padding: 0 !important;
-          display: block !important;
-          inset: auto !important;
-        }
-        body.receipt-printing .receipt-modal-content {
-          box-shadow: none !important;
-          border: none !important;
-          max-width: none !important;
-          max-height: none !important;
-          overflow: visible !important;
-          background: none !important;
-          border-radius: 0 !important;
-          padding: 0 !important;
-        }
-        body.receipt-printing .receipt-screen-only,
-        body.receipt-printing .receipt-buttons {
-          display: none !important;
-        }
-        body.receipt-printing .receipt-quad-print {
-          display: grid !important;
-          grid-template-columns: 105mm 105mm !important;
-          grid-template-rows: 148.5mm 148.5mm !important;
-          width: 210mm !important;
-          height: 297mm !important;
-          background: white !important;
-        }
-        body.receipt-printing .receipt-copy {
-          width: 105mm !important;
-          height: 148.5mm !important;
-          padding: 5mm !important;
-          box-sizing: border-box !important;
-          overflow: hidden !important;
-          border-right: 1px dashed #ccc !important;
-          border-bottom: 1px dashed #ccc !important;
-        }
+        body.receipt-printing .receipt-modal-overlay { position: static !important; background: none !important; padding: 0 !important; display: block !important; inset: auto !important; }
+        body.receipt-printing .receipt-modal-content { box-shadow: none !important; border: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; background: none !important; border-radius: 0 !important; padding: 0 !important; }
+        body.receipt-printing .receipt-screen-only, body.receipt-printing .receipt-buttons { display: none !important; }
+        body.receipt-printing .receipt-quad-print { display: grid !important; grid-template-columns: 105mm 105mm !important; grid-template-rows: 148.5mm 148.5mm !important; width: 210mm !important; height: 297mm !important; background: white !important; }
+        body.receipt-printing .receipt-copy { width: 105mm !important; height: 148.5mm !important; padding: 5mm !important; box-sizing: border-box !important; overflow: hidden !important; border-right: 1px dashed #ccc !important; border-bottom: 1px dashed #ccc !important; }
         body.receipt-printing .receipt-copy:nth-child(2n) { border-right: none !important; }
         body.receipt-printing .receipt-copy:nth-child(n+3) { border-bottom: none !important; }
       }
