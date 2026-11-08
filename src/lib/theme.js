@@ -26,10 +26,19 @@ export function applySchoolColor(hex) {
   if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
   const root = document.documentElement.style;
   root.setProperty('--forest', hex);
-  // La sidebar est très assombrie pour garantir la lisibilité du texte blanc
   root.setProperty('--forest-dark', mix(hex, '#000000', 0.35));
-  // La version claire pour les fonds (badges, surbrillances)
   root.setProperty('--forest-light', mix(hex, '#ffffff', 0.88));
+
+  // 🚀 MISE À JOUR DE LA BARRE D'ÉTAT (Android/iOS)
+  // On utilise la couleur "dark" (assombrie) car la barre d'état a un texte blanc
+  const darkColor = mix(hex, '#000000', 0.35);
+  let metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (!metaTheme) {
+    metaTheme = document.createElement('meta');
+    metaTheme.name = 'theme-color';
+    document.head.appendChild(metaTheme);
+  }
+  metaTheme.setAttribute('content', darkColor);
 }
 
 export function resetSchoolColor() {
@@ -38,6 +47,12 @@ export function resetSchoolColor() {
   root.removeProperty('--forest');
   root.removeProperty('--forest-dark');
   root.removeProperty('--forest-light');
+
+  // Remettre la couleur par défaut (vert)
+  let metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute('content', '#0F4C3A');
+  }
 }
 
 // ========== GESTION DU MODE SOMBRE ==========
