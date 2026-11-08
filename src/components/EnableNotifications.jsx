@@ -12,21 +12,19 @@ export default function EnableNotifications() {
   const [done, setDone] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // 🚀 NOUVEAU : Vérifier au chargement si un abonnement existe déjà
+  // 🚀 NOUVEAU : On vérifie côté SERVEUR (fiable sur tous les appareils)
   useEffect(() => {
     async function checkExistingSubscription() {
+      if (!profile?.id) return;
+      
       try {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-          setChecking(false);
-          return;
-        }
+        const { data, error } = await supabase
+          .from('push_subscriptions')
+          .select('id')
+          .eq('user_id', profile.id)
+          .limit(1);
 
-        // Attendre que le service worker soit prêt
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-
-        if (subscription) {
-          // Un abonnement local existe → on considère que c'est activé
+        if (!error && data && data.length > 0) {
           setDone(true);
         }
       } catch (err) {
@@ -35,7 +33,7 @@ export default function EnableNotifications() {
       setChecking(false);
     }
     checkExistingSubscription();
-  }, []);
+  }, [profile?.id]);
 
   const handleClick = async () => {
     setLoading(true);
@@ -70,11 +68,10 @@ export default function EnableNotifications() {
     setTesting(false);
   };
 
-  // Pendant la vérification initiale, on affiche un état neutre
   if (checking) {
     return (
       <div className="card-bold" style={{ padding: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <i className="ti ti-bell" style={{ fontSize: 20, color: 'var(--forest-dark)' }} aria-hidden="true"></i>
           </div>
@@ -91,7 +88,7 @@ export default function EnableNotifications() {
     return (
       <div className="card-bold" style={{ padding: 20, background: 'var(--success-light)', borderColor: 'var(--success)' }}>
         <p style={{ margin: '0 0 12px', fontWeight: 600, color: 'var(--success)' }}>
-          ✅ Les notifications sont activées sur cet appareil.
+          ✅ Les notifications sont activées.
         </p>
         <button
           onClick={handleTest}
@@ -103,6 +100,16 @@ export default function EnableNotifications() {
           }}
         >
           {testing ? 'Envoi en cours...' : 'Tester la notification'}
+        </button>
+        <button
+          onClick={() => { setDone(false); }}
+          style={{
+            width: '100%', marginTop: 8, padding: '8px', borderRadius: 8, border: '1px solid var(--line-strong)',
+            background: 'transparent', color: 'var(--muted)', fontWeight: 600, fontSize: 12,
+            cursor: 'pointer'
+          }}
+        >
+          Réactiver sur cet appareil
         </button>
       </div>
     );
