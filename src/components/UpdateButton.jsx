@@ -50,30 +50,29 @@ export default function UpdateButton() {
     }
   };
 
+  // On n'affiche RIEN si tout est à jour (pour ne pas gêner l'utilisateur)
+  if (!hasUpdate) return null;
+
   return (
-    <div>
-      <button
-        onClick={handleUpdate}
+    <div style={{
+      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+      background: 'var(--ink)', color: '#fff', padding: '12px 20px', borderRadius: 50,
+      display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+      zIndex: 9999, animation: 'slideUp 0.3s ease-out'
+    }}>
+      <span style={{ fontSize: 13.5, fontWeight: 500 }}>Une nouvelle version est disponible.</span>
+      <button 
+        onClick={handleUpdate} 
         disabled={updating}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '9px 16px', borderRadius: 8, border: '1px solid var(--line-strong)',
-          background: hasUpdate ? 'var(--forest)' : 'var(--paper)',
-          color: hasUpdate ? '#fff' : 'var(--ink)',
-          fontSize: 13, fontWeight: 600, cursor: updating ? 'wait' : 'pointer',
-          boxShadow: hasUpdate ? '0 2px 10px rgba(15, 76, 58, 0.3)' : 'none',
-          transition: 'all 0.3s'
+        style={{ 
+          background: 'var(--forest)', color: '#fff', border: 'none', padding: '8px 16px', 
+          borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: updating ? 'wait' : 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6
         }}
       >
-        <i className={`ti ti-refresh ${updating ? 'animate-spin' : ''}`} style={{ fontSize: 16 }} aria-hidden="true"></i>
-        {updating ? 'Mise à jour en cours...' : hasUpdate ? 'Mettre à jour l\'application' : 'Forcer l\'actualisation'}
+        <i className={`ti ti-refresh ${updating ? 'animate-spin' : ''}`} style={{ fontSize: 14 }} aria-hidden="true"></i>
+        {updating ? 'Mise à jour…' : 'Mettre à jour'}
       </button>
-      
-      {hasUpdate && (
-        <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--success)', fontWeight: 600 }}>
-          <i className="ti ti-check" aria-hidden="true"></i> Une nouvelle version est prête !
-        </p>
-      )}
     </div>
   );
 }
