@@ -289,6 +289,7 @@ input { caret-color: var(--ink); }
   .topbar-admin-badge { padding: 5px 10px; font-size: 11px; }
 
   #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
+  
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--paper); border-top: 1px solid var(--line);
@@ -297,7 +298,10 @@ input { caret-color: var(--ink); }
     box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
   }
   .selection-bar { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
-  #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 14px; border-radius: 10px; min-width: 0; }
+  
+  /* 🚀 CORRECTIF : padding réduit à 6px pour faire tenir 6 onglets */
+  #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 6px; border-radius: 10px; min-width: 0; }
+  
   #bottomnav .navlink i { font-size: 20px; color: var(--ink); }
   #bottomnav .navlink span { font-size: 9.5px; color: var(--ink); font-weight: 600; white-space: nowrap; }
   #bottomnav .navlink.active { background: var(--forest) !important; }
@@ -366,6 +370,7 @@ input { caret-color: var(--ink); }
   button:not(:disabled):hover { transform: none !important; }
 }
 
+/* Impression */
 @media print {
   @page { size: A4; margin: 14mm; }
   body { background: #fff !important; color: #000 !important; }
