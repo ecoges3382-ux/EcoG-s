@@ -26,6 +26,10 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* ============================================================
+   MODE SOMBRE : On garde les couleurs de l'école (--forest) 
+   pour le header et la sidebar. Seuls les fonds neutres changent.
+   ============================================================ */
 html.dark-mode, body.dark-mode {
   color-scheme: dark;
   --ink: #F3F4F6;
@@ -38,8 +42,10 @@ html.dark-mode, body.dark-mode {
   --success: #34D399;
   --amber: #FBBF24;
   --gold: #FCD34D;
-  --forest: #34D399;
-  --forest-light: #064E3B;
+  
+  /* ⚠️ IMPORTANT : On ne redéfinit PLUS --forest, --forest-dark, --forest-light
+     pour que la couleur de l'école reste active sur le header et la sidebar. */
+  
   --danger-light: #450A0A;
   --success-light: #064E3B;
   --amber-light: #78350F;
@@ -47,6 +53,7 @@ html.dark-mode, body.dark-mode {
   --gold-light: #78350F;
 }
 
+/* 🚀 CORRECTIF ZOOM MOBILE */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -91,12 +98,16 @@ input { caret-color: var(--ink); }
 }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
+/* ---- Layout shell ---- */
 #app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 #layout { display: flex; flex: 1; overflow-x: hidden; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; color: #fff; }
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
 #bottomnav { display: none; }
 
+/* ============================================================
+   EN-TÊTE PREMIUM (TOPBAR)
+   ============================================================ */
 .topbar-row { 
   position: sticky; 
   top: 0; 
@@ -250,6 +261,7 @@ input { caret-color: var(--ink); }
   flex-shrink: 0;
 }
 
+/* ---- Mobile layout (<= 900px) ---- */
 @media (max-width: 900px) {
   #layout { flex-direction: column; }
   #sidebar { display: none; }
@@ -298,7 +310,11 @@ input { caret-color: var(--ink); }
   .desktop-split { grid-template-columns: 1fr !important; }
   .schedule-grid { grid-template-columns: 1fr 1fr !important; }
   
-  input, select, textarea { font-size: 16px !important; }
+  input, select, textarea, input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], input[type="tel"], input[type="search"] {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100% !important;
+  }
+  
   .school-tabs-mobile { display: flex !important; }
 }
 
@@ -375,6 +391,9 @@ input { caret-color: var(--ink); }
   .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
 }
 
+/* ============================================================
+   CORRECTIFS DE BASE POUR LE MODE SOMBRE
+   ============================================================ */
 html.dark-mode {
   input, select, textarea {
     background-color: var(--paper) !important;
@@ -407,6 +426,9 @@ html.dark-mode {
   .recharts-legend-item-text { color: var(--ink) !important; }
 }
 
+/* ============================================================
+   BOUCLIER ANTI-BLANC ULTIME
+   ============================================================ */
 html.dark-mode [style*="background: white"],
 html.dark-mode [style*="background: #fff"],
 html.dark-mode [style*="background: #ffffff"],
