@@ -11,6 +11,13 @@ import { translateError } from '../lib/errors.js';
 import ModalContainer from './ModalContainer.jsx';
 import PaymentReceipt from './PaymentReceipt.jsx';
 
+// 🚀 Fonction utilitaire pour détecter "moitié" quel que soit l'ID
+function isMoitie(tranche) {
+  if (!tranche) return false;
+  const t = String(tranche).toLowerCase();
+  return t === 'moitie' || t === 'moitié' || t === 'demi' || t.includes('moiti') || t.includes('demi');
+}
+
 export default function QuickPaymentModal({ student, feeSchedules, onClose, onSaved }) {
   const showToast = useToast();
   const { profile } = useAuth();
@@ -46,26 +53,33 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       .then(({ data }) => setSchoolYearInfo(data));
   }, [student.school_year_id]);
 
-  // 🚀 CORRECTIF : Calcul du montant avec prise en charge de "Moitié" et autres
+  // 🚀 CORRECTIF : Détection robuste de "moitié"
   useEffect(() => {
     if (!currentFeeSchedule) return;
-    let amount = '';
+
+    const scolarite = Number(currentFeeSchedule.montant_scolarite) || 0;
+    const connexe = Number(currentFeeSchedule.montant_connexe) || 0;
+    const inscription = Number(currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription) || 0;
+
+    let amount = null;
     
     if (typeFrais === 'scolarite') {
-      if (tranche === 'tranche1') amount = currentFeeSchedule.montant_tranche1;
-      else if (tranche === 'tranche2') amount = currentFeeSchedule.montant_tranche2;
-      else if (tranche === 'tranche3') amount = currentFeeSchedule.montant_tranche3;
-      else if (tranche === 'complet') amount = currentFeeSchedule.montant_scolarite;
-      else if (tranche === 'moitie') amount = Number(currentFeeSchedule.montant_scolarite) / 2;
+      if (tranche === 'tranche1') amount = Number(currentFeeSchedule.montant_tranche1) || 0;
+      else if (tranche === 'tranche2') amount = Number(currentFeeSchedule.montant_tranche2) || 0;
+      else if (tranche === 'tranche3') amount = Number(currentFeeSchedule.montant_tranche3) || 0;
+      else if (tranche === 'complet') amount = scolarite;
+      else if (isMoitie(tranche)) amount = scolarite / 2;
     } else if (typeFrais === 'connexe') {
-      if (tranche === 'complet') amount = currentFeeSchedule.montant_connexe;
-      else if (tranche === 'moitie') amount = Number(currentFeeSchedule.montant_connexe) / 2;
+      if (tranche === 'complet') amount = connexe;
+      else if (isMoitie(tranche)) amount = connexe / 2;
     } else if (typeFrais === 'inscription') {
-      if (tranche === 'complet') amount = currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription;
-      else if (tranche === 'moitie') amount = (Number(currentFeeSchedule.montant_inscription) || Number(currentFeeSchedule.montant_reinscription)) / 2;
+      if (tranche === 'complet') amount = inscription;
+      else if (isMoitie(tranche)) amount = inscription / 2;
     }
 
-    if (amount !== '' && amount !== null && amount !== undefined && tranche !== 'autre' && typeFrais !== 'autre') {
+    console.log('[Paiement] typeFrais:', typeFrais, '| tranche:', tranche, '| montant calculé:', amount);
+
+    if (amount !== null && !isNaN(amount)) {
       setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
       setMontant('');
@@ -79,6 +93,8 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais. Choisis « Autre » pour un paiement exceptionnel.");
       return;
     }
+
+    console.log('[Paiement] Envoi :', { typeFrais, tranche, montant });
 
     setSubmitting(true);
     setError('');
@@ -110,7 +126,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
 
       setSubmitting(false);
       if (fetchError || !existing) {
-        setError("Ce paiement semble déjà avoir été enregistré, mais impossible de le confirmer. Vérifie la liste des paiements avant de réessayer.");
+        setError("Ce paiement semble déjà avoir été enregistré, mais impossible de le confirmer.");
         return;
       }
       const matches = existing.student_id === payload.student_id
@@ -123,7 +139,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         setCreatedPayment(existing);
         return;
       }
-      setError(`Un paiement a déjà été enregistré pour cette même saisie, mais avec des données différentes (${fmtF(existing.montant)} au lieu de ${fmtF(payload.montant)}). Vérifie la liste des paiements plutôt que de réessayer.`);
+      setError(`Un paiement a déjà été enregistré pour cette même saisie, mais avec des données différentes.`);
       return;
     }
 
@@ -132,14 +148,13 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
 
     showToast('Paiement enregistré');
 
-    // 🚀 Notification push avec le bon montant
     if (inserted) {
       try {
         await supabase.functions.invoke('send-payment-push', {
           body: {
             school_id: profile.school_id,
             student_name: student.full_name,
-            amount: Number(payload.montant), // On utilise le montant enregistré
+            amount: Number(payload.montant),
             type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
           },
           headers: { 
@@ -226,9 +241,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
             <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
               Cet élève a déjà tout payé pour ce type de frais.
-            </p>
-            <p style={{ margin: '4px 0 0', fontSize: 11.5, color: 'var(--clay-dark)', lineHeight: 1.5 }}>
-              Si tu veux quand même enregistrer un paiement, choisis le type de frais « Autre ».
             </p>
           </div>
         )}
