@@ -323,7 +323,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
 
-    // 🚀 NOUVEAU : Déclencher la notification push pour le directeur
+    // 🚀 Notification push sécurisée
     try {
       await supabase.functions.invoke('send-payment-push', {
         body: {
@@ -331,6 +331,9 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           student_name: currentStudent?.full_name || 'Un élève',
           amount: Number(montant),
           type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
+        },
+        headers: { 
+          'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
         }
       });
     } catch (err) {
