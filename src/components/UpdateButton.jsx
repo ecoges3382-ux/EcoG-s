@@ -7,9 +7,6 @@ export default function UpdateButton() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then((registration) => {
-        
-        // 👇 LA LIGNE MAGIQUE POUR LE MOBILE 👇
-        // Force le navigateur mobile à aller voir sur Vercel s'il y a une nouvelle version
         registration.update();
 
         if (registration.waiting) setHasUpdate(true);
@@ -18,7 +15,6 @@ export default function UpdateButton() {
           const newWorker = registration.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
-              // Si le nouveau worker est installé et qu'un ancien tourne encore
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 setHasUpdate(true);
               }
@@ -60,23 +56,44 @@ export default function UpdateButton() {
 
   return (
     <div style={{
-      position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-      background: 'var(--ink)', color: '#fff', padding: '12px 20px', borderRadius: 50,
-      display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-      zIndex: 9999, animation: 'slideUp 0.3s ease-out', width: 'max-content', maxWidth: '90vw'
+      position: 'fixed', 
+      bottom: 20, 
+      left: 16, 
+      right: 16, 
+      margin: '0 auto', 
+      maxWidth: 400,
+      background: '#1a1a1a', // Fond sombre profond
+      color: '#fff', 
+      padding: '18px 20px', 
+      borderRadius: 16, // Bords plus doux
+      display: 'flex', 
+      flexDirection: 'column', // Force le texte en haut et le bouton en bas
+      gap: 14, 
+      boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+      zIndex: 9999, 
+      animation: 'slideUp 0.3s ease-out'
     }}>
-      <span style={{ fontSize: 13.5, fontWeight: 500 }}>Une nouvelle version est disponible.</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ background: 'rgba(255,255,255,0.1)', padding: 8, borderRadius: 10 }}>
+           <i className="ti ti-sparkles" style={{ fontSize: 20, color: 'var(--gold)' }} aria-hidden="true"></i>
+        </div>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>
+          Une nouvelle version d'EcoGès est disponible !
+        </p>
+      </div>
+
       <button 
         onClick={handleUpdate} 
         disabled={updating}
         style={{ 
-          background: 'var(--forest)', color: '#fff', border: 'none', padding: '8px 16px', 
-          borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: updating ? 'wait' : 'pointer',
-          display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0
+          background: 'var(--forest)', color: '#fff', border: 'none', padding: '12px', 
+          borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: updating ? 'wait' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          width: '100%', transition: 'background 0.2s'
         }}
       >
-        <i className={`ti ti-refresh ${updating ? 'animate-spin' : ''}`} style={{ fontSize: 14 }} aria-hidden="true"></i>
-        {updating ? 'Mise à jour…' : 'Mettre à jour'}
+        <i className={`ti ti-refresh ${updating ? 'animate-spin' : ''}`} style={{ fontSize: 18 }} aria-hidden="true"></i>
+        {updating ? 'Mise à jour en cours...' : 'Mettre à jour maintenant'}
       </button>
     </div>
   );
