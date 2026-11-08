@@ -42,6 +42,10 @@ const BOTTOM_NAV_ITEMS = [
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
 ];
 
+// 🛡️ Pages accessibles même si l'école n'a aucune année active
+// (pour que le fondateur puisse créer une année et réparer)
+const NO_YEAR_ALLOWED_PATHS = ['/parametres', '/premiers-pas', '/comptes', '/aide', '/chat'];
+
 function ShieldIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
@@ -84,6 +88,58 @@ function sidebarLinkStyle(isActive) {
     fontWeight: isActive ? 600 : 500,
     transition: 'all 0.15s ease',
   };
+}
+
+// 🛡️ Garde défensif : bloque l'affichage des pages annuelles si aucune année active
+function SchoolYearGuard({ children }) {
+  const location = useLocation();
+  const { activeYear, loading, refresh } = useSelectedSchoolYear();
+  const [retrying, setRetrying] = useState(false);
+
+  const isAllowed = NO_YEAR_ALLOWED_PATHS.some(
+    (p) => location.pathname === p || location.pathname.startsWith(p + '/')
+  );
+  if (isAllowed) return children;
+
+  if (loading) return <SkeletonScreen minHeight="60vh" />;
+
+  if (!activeYear) {
+    const handleRetry = async () => {
+      setRetrying(true);
+      try { await refresh(); } finally { setRetrying(false); }
+    };
+    return (
+      <div style={{ maxWidth: 520, margin: '60px auto', padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--amber-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+          <i className="ti ti-calendar-off" style={{ fontSize: 34, color: 'var(--amber)' }}></i>
+        </div>
+        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>
+          Aucune année scolaire active
+        </p>
+        <p style={{ margin: '10px 0 24px', fontSize: 14, color: 'var(--muted)', lineHeight: 1.6 }}>
+          Cette école n'a pas d'année scolaire en cours. Le fondateur ou le directeur doit en créer une depuis les paramètres.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            style={{ padding: '10px 20px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, cursor: retrying ? 'not-allowed' : 'pointer', opacity: retrying ? 0.6 : 1 }}
+          >
+            <i className="ti ti-refresh" style={{ fontSize: 14, marginRight: 6 }}></i>
+            {retrying ? 'Vérification…' : 'Réessayer'}
+          </button>
+          <Link
+            to="/parametres/annee-scolaire"
+            style={{ padding: '10px 20px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, textDecoration: 'none' }}
+          >
+            Gérer les années
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
 }
 
 export default function Shell() {
@@ -228,9 +284,12 @@ export default function Shell() {
           </div>
           <div id="screen">
             <div key={location.pathname} className="page-transition" style={{ paddingBottom: '48px' }}>
-              <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
-                <Outlet />
-              </Suspense>
+              {/* 🛡️ Le guard protège toutes les pages annuelles */}
+              <SchoolYearGuard>
+                <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
+                  <Outlet />
+                </Suspense>
+              </SchoolYearGuard>
             </div>
           </div>
         </div>
