@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { subscribeToPush } from '../lib/push.js';
 import { useToast } from './Toast.jsx';
+import { supabase } from '../lib/supabase.js';
 
 export default function EnableNotifications() {
   const { profile } = useAuth();
   const showToast = useToast();
   const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [done, setDone] = useState(false);
 
   const handleClick = async () => {
@@ -21,12 +23,36 @@ export default function EnableNotifications() {
     setLoading(false);
   };
 
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-test-push');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      showToast('Notification de test envoyée !', 'success');
+    } catch (err) {
+      showToast("Erreur d'envoi : " + err.message, 'error');
+    }
+    setTesting(false);
+  };
+
   if (done) {
     return (
       <div className="card-bold" style={{ padding: 20, background: 'var(--success-light)', borderColor: 'var(--success)' }}>
-        <p style={{ margin: 0, fontWeight: 600, color: 'var(--success)' }}>
+        <p style={{ margin: '0 0 12px', fontWeight: 600, color: 'var(--success)' }}>
           ✅ Les notifications sont activées sur cet appareil.
         </p>
+        <button
+          onClick={handleTest}
+          disabled={testing}
+          style={{
+            width: '100%', padding: '10px', borderRadius: 8, border: 'none',
+            background: 'var(--success)', color: '#fff', fontWeight: 600,
+            cursor: testing ? 'not-allowed' : 'pointer', opacity: testing ? 0.7 : 1
+          }}
+        >
+          {testing ? 'Envoi en cours...' : 'Tester la notification'}
+        </button>
       </div>
     );
   }
