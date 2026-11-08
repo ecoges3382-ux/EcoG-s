@@ -13,12 +13,12 @@ import ModalContainer from '../ModalContainer.jsx';
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 
-// 🧠 RÈGLE D'OR : Les permissions par défaut selon le rôle (Fini les cases à cocher !)
+// 🧠 RÈGLE D'OR : Les permissions par défaut selon le rôle
 const ROLE_PERMISSIONS = {
   directeur: {
     dashboard: true, eleves: true, parents: true, personnel: true, classes: true, matieres: true,
     notes: true, bulletins: true, emploi_du_temps: true, presences: true, annonces: true,
-    documents: true, rapports: true, finance: true, parametres: false // Un directeur n'a pas accès aux paramètres critiques
+    documents: true, rapports: true, finance: true, parametres: false
   },
   censeur: {
     dashboard: true, eleves: true, parents: true, personnel: false, classes: true, matieres: true,
@@ -37,6 +37,13 @@ const ROLE_PERMISSIONS = {
   }
 };
 
+const PERMISSIONS_LABELS = {
+  dashboard: 'Tableau de bord', eleves: 'Gestion des élèves', parents: 'Portail parents',
+  personnel: 'Gestion du personnel', notes: 'Notes & évaluations', bulletins: 'Bulletins',
+  finance: 'Gestion financière (Argent)', presences: 'Présences', emploi_du_temps: 'Emploi du temps',
+  annonces: 'Annonces', documents: 'Documents', rapports: 'Rapports', parametres: 'Accès aux paramètres',
+};
+
 async function describeFunctionError(fnError) {
   if (!fnError) return null;
   try {
@@ -46,21 +53,8 @@ async function describeFunctionError(fnError) {
   return fnError.message;
 }
 
-function PencilIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
-    </svg>
-  );
-}
+function PencilIcon() { /* ... icône inchangée ... */ return (<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" /></svg>); }
+function TrashIcon() { /* ... icône inchangée ... */ return (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>); }
 
 export default function StaffAccountsTab() {
   const { profile } = useAuth();
@@ -70,7 +64,6 @@ export default function StaffAccountsTab() {
   const [accounts, setAccounts] = useState(null);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
-  
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
 
@@ -135,15 +128,10 @@ export default function StaffAccountsTab() {
         <div className="card-bold">
           {accounts.map((a, i) => (
             <AccountRow
-              key={a.id}
-              account={a}
-              avatarBg="var(--forest-light)"
-              avatarColor="var(--forest)"
+              key={a.id} account={a} avatarBg="var(--forest-light)" avatarColor="var(--forest)"
               subtitle={`${a.email || '—'}${a.phone ? ` · ${a.phone}` : ''}`}
-              isLast={i === accounts.length - 1}
-              onEdit={() => openEdit(a)}
-              canDelete={a.role !== 'fondateur' && a.id !== profile.id}
-              onDelete={() => handleDelete(a)}
+              isLast={i === accounts.length - 1} onEdit={() => openEdit(a)}
+              canDelete={a.role !== 'fondateur' && a.id !== profile.id} onDelete={() => handleDelete(a)}
               badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>{ROLES[a.role]?.label || a.role}</span>}
             />
           ))}
@@ -173,8 +161,24 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
   const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
   
+  // 👇 NOUVELLE LOGIQUE DE PERMISSIONS ICI 👇
+  const [permissions, setPermissions] = useState(editing?.permissions || ROLE_PERMISSIONS[role]);
+  const [customize, setCustomize] = useState(!!editing); // Si on modifie, on laisse la possibilité de personnaliser par défaut
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Quand le rôle change, on met à jour les permissions par défaut (si on n'est pas en mode personnalisé)
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+    if (!customize) {
+      setPermissions(ROLE_PERMISSIONS[newRole] || {});
+    }
+  };
+
+  const togglePermission = (key) => {
+    setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -182,9 +186,6 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
     
     setSubmitting(true);
     setError('');
-    
-    // On attribue automatiquement les permissions selon le rôle choisi
-    const defaultPermissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.secretaire;
 
     const body = { 
       action: isEditing ? 'update' : 'create', 
@@ -192,7 +193,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
       email: email.trim(), 
       phone: composePhone(phoneDial, phoneLocal), 
       role,
-      permissions: defaultPermissions
+      permissions // On envoie les permissions (qu'elles soient par défaut ou personnalisées)
     };
     
     if (isEditing) body.profileId = editing.id;
@@ -210,7 +211,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   }
 
   return (
-    <ModalContainer onClose={onClose} maxWidth={440}>
+    <ModalContainer onClose={onClose} maxWidth={460}>
       <div style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? "Modifier le compte" : "Nouveau compte"}</p>
@@ -222,14 +223,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
 
           <label style={labelStyle}>Rôle</label>
-          <Dropdown value={role} onChange={setRole} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
-
-          <div style={{ marginBottom: 16, padding: '12px 14px', background: 'var(--forest-light)', borderRadius: 9, border: '1px solid var(--forest)', display: 'flex', gap: 10 }}>
-             <i className="ti ti-info-circle" style={{ fontSize: 18, color: 'var(--forest-dark)', flexShrink: 0 }} aria-hidden="true"></i>
-             <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', lineHeight: 1.5 }}>
-               Les droits d'accès (élèves, finances, notes...) sont configurés <strong>automatiquement</strong> selon le rôle sélectionné.
-             </p>
-          </div>
+          <Dropdown value={role} onChange={handleRoleChange} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
 
           <label style={labelStyle}>E-mail</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} disabled={isEditing} title={isEditing ? "L'e-mail ne peut pas être modifié" : ""} />
@@ -243,6 +237,38 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
               Un e-mail sera envoyé à cette adresse pour que l'utilisateur crée son propre mot de passe.
             </p>
           )}
+
+          {/* 👇 SECTION PERSONNALISATION DES DROITS 👇 */}
+          <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: customize ? 14 : 0 }}>
+              <input 
+                type="checkbox" 
+                checked={customize} 
+                onChange={(e) => {
+                  setCustomize(e.target.checked);
+                  if (!e.target.checked) setPermissions(ROLE_PERMISSIONS[role] || {}); // Remet les droits par défaut
+                }} 
+                style={{ accentColor: 'var(--forest)', width: 16, height: 16 }} 
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Personnaliser les droits d'accès</span>
+            </label>
+
+            {customize && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px' }}>
+                {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
+                  <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
+                    <input 
+                      type="checkbox" 
+                      checked={!!permissions[key]} 
+                      onChange={() => togglePermission(key)} 
+                      style={{ accentColor: 'var(--forest)', width: 15, height: 15, marginTop: 2, flexShrink: 0 }} 
+                    />
+                    <span style={{ paddingTop: 1 }}>{label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
 
           {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
