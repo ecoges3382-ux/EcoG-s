@@ -36,6 +36,7 @@ const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/m
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet', perm: 'finance' },
+  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', perm: 'finance', tourId: 'bottomnav-recouvrement' },
   { to: '/chat', shortLabel: 'Chat', icon: 'ti-message-circle', perm: null },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', perm: 'eleves', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
@@ -73,14 +74,13 @@ function MoonIcon() {
   );
 }
 
-// 🚀 TAILLE DE POLICE EXACTEMENT À 13px
 function sidebarLinkStyle(isActive) {
   return {
     display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px',
     borderRadius: 10, cursor: 'pointer', marginBottom: 2, textDecoration: 'none',
     background: isActive ? 'rgba(255,255,255,0.14)' : 'transparent',
     color: '#fff',
-    fontSize: '13px', // 👈 Taille de police exacte
+    fontSize: '13px',
     fontWeight: isActive ? 600 : 500,
     transition: 'all 0.15s ease',
   };
@@ -303,7 +303,6 @@ function SidebarMenu({ plan, hasAccess }) {
     <>
       {visibleItems.map((item) => (
         <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)} data-tour={item.tourId}>
-          {/* 🚀 Icône légèrement réduite à 16px pour s'harmoniser avec le texte à 13px */}
           <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: '#fff' }} aria-hidden="true"></i>
           <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
           {item.countKey && counts[item.countKey] !== undefined && (
