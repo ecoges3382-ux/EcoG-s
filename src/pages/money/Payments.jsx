@@ -20,13 +20,6 @@ import { guardedFetch } from '../../lib/offlineCache.js';
 import { translateError } from '../../lib/errors.js';
 import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
 
-// 🚀 Fonction utilitaire pour détecter "moitié" quel que soit l'ID
-function isMoitie(tranche) {
-  if (!tranche) return false;
-  const t = String(tranche).toLowerCase();
-  return t === 'moitie' || t === 'moitié' || t === 'demi' || t.includes('moiti') || t.includes('demi');
-}
-
 export default function Payments() {
   const { profile } = useAuth();
   const showToast = useToast();
@@ -280,47 +273,56 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       .then(({ data }) => setSchoolYearInfo(data));
   }, [schoolYearId]);
 
-  // 🚀 CORRECTIF : Détection robuste de "moitié"
+  // 🚀 CALCUL ROBUSTE : Source = montant dû de l'élève (visible dans "Écolage dû")
   useEffect(() => {
-    if (!currentFeeSchedule) return;
-
-    const scolarite = Number(currentFeeSchedule.montant_scolarite) || 0;
-    const connexe = Number(currentFeeSchedule.montant_connexe) || 0;
-    const inscription = Number(currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription) || 0;
+    // On utilise les montants dûs de l'élève (montant_du) comme source de vérité,
+    // pas la grille tarifaire (fee_schedules) qui peut ne pas être configurée.
+    const scolarite = Number(currentStudent?.montant_du) || Number(currentFeeSchedule?.montant_scolarite) || 0;
+    const connexe = Number(currentStudent?.frais_connexe_du) || Number(currentFeeSchedule?.montant_connexe) || 0;
+    const inscription = Number(currentFeeSchedule?.montant_inscription || currentFeeSchedule?.montant_reinscription) || 0;
 
     let amount = null;
     
     if (typeFrais === 'scolarite') {
-      if (tranche === 'tranche1') amount = Number(currentFeeSchedule.montant_tranche1) || 0;
-      else if (tranche === 'tranche2') amount = Number(currentFeeSchedule.montant_tranche2) || 0;
-      else if (tranche === 'tranche3') amount = Number(currentFeeSchedule.montant_tranche3) || 0;
+      if (tranche === 'tranche1') amount = Number(currentFeeSchedule?.montant_tranche1) || 0;
+      else if (tranche === 'tranche2') amount = Number(currentFeeSchedule?.montant_tranche2) || 0;
+      else if (tranche === 'tranche3') amount = Number(currentFeeSchedule?.montant_tranche3) || 0;
       else if (tranche === 'complet') amount = scolarite;
-      else if (isMoitie(tranche)) amount = scolarite / 2;
+      else if (tranche === 'moitie') amount = scolarite / 2;
     } else if (typeFrais === 'connexe') {
       if (tranche === 'complet') amount = connexe;
-      else if (isMoitie(tranche)) amount = connexe / 2;
+      else if (tranche === 'moitie') amount = connexe / 2;
     } else if (typeFrais === 'inscription') {
       if (tranche === 'complet') amount = inscription;
-      else if (isMoitie(tranche)) amount = inscription / 2;
+      else if (tranche === 'moitie') amount = inscription / 2;
     }
 
-    // 🚀 Debug : affiche dans la console ce que l'app calcule
-    console.log('[Paiement] typeFrais:', typeFrais, '| tranche:', tranche, '| montant calculé:', amount);
+    // 🔍 Log de diagnostic : ouvre la console (F12) pour voir ce qui se passe
+    console.log('🔍 [Calcul montant]', {
+      typeFrais,
+      tranche,
+      scolarite,
+      connexe,
+      inscription,
+      amount,
+      'student.montant_du': currentStudent?.montant_du,
+      'student.frais_connexe_du': currentStudent?.frais_connexe_du,
+      hasFeeSchedule: !!currentFeeSchedule
+    });
 
-    if (amount !== null && !isNaN(amount)) {
+    if (amount !== null && !isNaN(amount) && amount > 0) {
       setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
       setMontant('');
     }
-  }, [typeFrais, tranche, currentFeeSchedule]);
+  }, [typeFrais, tranche, currentStudent?.montant_du, currentStudent?.frais_connexe_du, currentFeeSchedule]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!studentId || !montant) { setError("L'élève et le montant sont obligatoires."); return; }
     if (dejaPaye) { setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais."); return; }
     
-    // 🚀 Debug : ce qu'on va envoyer
-    console.log('[Paiement] Envoi :', { typeFrais, tranche, montant });
+    console.log('🔍 [Envoi paiement]', { typeFrais, tranche, montant });
 
     setSubmitting(true);
     setError('');
