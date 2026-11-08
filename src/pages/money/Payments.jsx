@@ -19,6 +19,7 @@ import SelectionBar from '../../components/SelectionBar.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { translateError } from '../../lib/errors.js';
 import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
+import StudentLink from '../../components/StudentLink.jsx'; // 👈 NOUVEL IMPORT
 
 export default function Payments() {
   const { profile } = useAuth();
@@ -176,7 +177,10 @@ export default function Payments() {
                   <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
                 )}
                 <div>
-                  <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
+                  {/* 🚀 NOM CLIQUABLE */}
+                  <p style={{ margin: '0 0 3px', fontSize: '13.5px' }}>
+                    <StudentLink studentId={p.student_id} name={p.students?.full_name || '—'} style={{ fontWeight: 600 }} />
+                  </p>
                   <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
                     {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
                   </p>
@@ -273,7 +277,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       .then(({ data }) => setSchoolYearInfo(data));
   }, [schoolYearId]);
 
-  // 🚀 CALCUL ROBUSTE : Source = montant dû de l'élève
   useEffect(() => {
     const scolarite = Number(currentStudent?.montant_du) || Number(currentFeeSchedule?.montant_scolarite) || 0;
     const connexe = Number(currentStudent?.frais_connexe_du) || Number(currentFeeSchedule?.montant_connexe) || 0;
@@ -412,7 +415,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           </div>
         )}
 
-        {/* 🚀 NOUVELLE DISPOSITION */}
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div><label style={modalLabelStyle}>Type de frais</label><Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
           <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
