@@ -91,11 +91,13 @@ export default function Announce() {
     const { error: updateError } = await supabase.from('announcements').update(payload).eq('id', item.id);
     if (updateError) { setError(updateError.message); return; }
     
-    // Si on republie une annonce archivée, on déclenche aussi la notification
     if (statut === 'publiee') {
       try {
         await supabase.functions.invoke('send-announcement-push', {
-          body: { announcement_id: item.id }
+          body: { announcement_id: item.id },
+          headers: { 
+            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
+          }
         });
       } catch (err) {
         console.warn("Erreur push:", err);
@@ -203,7 +205,6 @@ export default function Announce() {
 
 function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onSaved, onError }) {
   const showToast = useToast();
-  // On utilise un tableau pour stocker les cases cochées
   const [audiences, setAudiences] = useState(editing?.audience || ['parents']); 
   const [portee, setPortee] = useState(editing ? (editing.classe_cible_id ? 'Une classe' : 'École entière') : 'École entière');
   const [classeCibleId, setClasseCibleId] = useState(editing?.classe_cible_id || '');
@@ -230,13 +231,12 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     setSubmitting(statut);
     onError('');
     
-    // On force le ciblage sur "École entière" si "Parents" n'est pas coché
     const finalPortee = audiences.includes('parents') ? portee : 'École entière';
     
     const payload = {
       titre: titre.trim(),
       contenu: contenu.trim(),
-      audience: audiences, // Tableau ex: ['parents', 'enseignants']
+      audience: audiences, 
       portee: finalPortee,
       classe_cible_id: (audiences.includes('parents') && finalPortee === 'Une classe') ? classeCibleId : null,
       date_expiration: dateExpiration || null,
@@ -263,11 +263,13 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     setSubmitting('');
     showToast('Enregistré');
 
-    // 🚀 NOUVEAU : Envoi automatique de la notification push si on publie
     if (statut === 'publiee' && insertedId) {
       try {
         await supabase.functions.invoke('send-announcement-push', {
-          body: { announcement_id: insertedId }
+          body: { announcement_id: insertedId },
+          headers: { 
+            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
+          }
         });
       } catch (err) {
         console.warn("Erreur push:", err);
@@ -385,7 +387,6 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
   const confirm = useConfirm();
   const cibleLabel = a.portee === 'Une classe' ? (a.classes?.nom || a.classe_cible || 'Classe') : a.portee;
   
-  // Construction des labels d'audience
   const audienceLabels = [];
   if (a.audience?.includes('parents')) audienceLabels.push('Parents');
   if (a.audience?.includes('enseignants')) audienceLabels.push('Enseignants');
@@ -419,7 +420,10 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
     setPushResult(null);
     try {
       const { data, error } = await supabase.functions.invoke('send-announcement-push', {
-        body: { announcement_id: a.id }
+        body: { announcement_id: a.id },
+        headers: { 
+          'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
+        }
       });
       if (error) throw error;
       if (data?.message) {
