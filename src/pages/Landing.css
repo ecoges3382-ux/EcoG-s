@@ -36,8 +36,6 @@
 }
 .lp-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; }
 .lp-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-/* Sur le fond sombre du haut de page, « Eco » est blanc ; une fois l'en-tête
-   solide (clair), il repasse en vert foncé — l'or de « Gès » reste le même. */
 .lp-brand-wordmark { --wm-eco: #fff; }
 .lp-nav.is-solid .lp-brand-wordmark { --wm-eco: #02352C; }
 .lp-nav-links { display: flex; gap: 28px; }
@@ -149,7 +147,6 @@
 .lp-checks li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: rgba(255, 255, 255, 0.7); font-weight: 500; }
 .lp-checks svg { color: var(--lp-gold); }
 
-/* Visuel du hero : parallaxe souris sur le conteneur, animations sur les enfants */
 .lp-stage { position: relative; display: flex; justify-content: center; align-items: center; min-height: 640px; perspective: 1400px; }
 .lp-par { transition: transform 0.6s var(--lp-ease); will-change: transform; }
 .lp-par-phone { transform: rotateY(calc(var(--mx, 0) * -9deg)) rotateX(calc(var(--my, 0) * 7deg)); transform-style: preserve-3d; }
@@ -207,8 +204,6 @@
 .lp-tabbar i { width: 18px; height: 18px; border-radius: 6px; background: #E6EEE9; display: block; }
 .lp-tabbar span.on i { background: var(--lp-forest); }
 
-/* Notifications flottantes autour du téléphone : chacune apparaît puis
-   repart à tour de rôle, en boucle. */
 .lp-notif {
   position: absolute; z-index: 6; display: flex; align-items: center; gap: 11px; padding: 11px 15px 11px 11px; border-radius: 18px;
   background: rgba(255, 255, 255, 0.96); color: var(--ink); min-width: 222px;
@@ -356,7 +351,7 @@
 .is-in .lp-cell { transform: scale(1); }
 .lp-cell.p { background: var(--lp-green); }
 .lp-cell.r { background: var(--lp-gold); }
-.lp-cell.a { background: var(--clay); }
+.lp-cell.a { background: var(--lp-clay); }
 .lp-legend { display: flex; gap: 14px; margin-top: 14px; font-size: 11px; font-weight: 600; color: var(--muted); }
 .lp-legend span { display: flex; align-items: center; gap: 6px; }
 .lp-legend i { width: 10px; height: 10px; border-radius: 3px; }
@@ -425,7 +420,7 @@
 /* ---------- Étapes ---------- */
 .lp-steps { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-top: 60px; }
 .lp-steps-line { position: absolute; top: 31px; left: 16.6%; right: 16.6%; height: 2px; background: var(--line); }
-.lp-steps-line i { display: block; height: 100%; background: linear-gradient(90deg, var(--lp-gold), var(--clay)); transform: scaleX(0); transform-origin: left; transition: transform 1.6s var(--lp-ease) 0.3s; }
+.lp-steps-line i { display: block; height: 100%; background: linear-gradient(90deg, var(--lp-gold), var(--lp-clay)); transform: scaleX(0); transform-origin: left; transition: transform 1.6s var(--lp-ease) 0.3s; }
 .is-in .lp-steps-line i { transform: scaleX(1); }
 .lp-step { position: relative; text-align: center; }
 .lp-step-n {
@@ -455,74 +450,4 @@
 .lp-final h2 { font-family: var(--serif); font-weight: 700; font-size: clamp(38px, 6vw, 78px); line-height: 1.02; letter-spacing: -0.02em; margin: 0 auto 20px; max-width: 900px; position: relative; }
 .lp-final h2 .lp-gold { color: var(--lp-gold); }
 .lp-final p { position: relative; font-size: 17px; color: rgba(255, 255, 255, 0.7); margin: 0 0 36px; }
-.lp-final .lp-ctas { justify-content: center; position: relative; }
-
-.lp-footer { background: #041B14; color: rgba(255, 255, 255, 0.6); padding: 30px 0; font-size: 13px; }
-.lp-footer-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-.lp-footer a { color: rgba(255, 255, 255, 0.72); text-decoration: none; font-weight: 600; }
-.lp-footer a:hover { color: #fff; }
-
-/* ---------- Tablette ---------- */
-@media (max-width: 1020px) {
-  .lp-mods, .lp-pillars { grid-template-columns: repeat(2, 1fr); }
-  .lp-scene { gap: 40px; }
-}
-
-/* ---------- Téléphone ---------- */
-@media (max-width: 780px) {
-  .lp-nav-links { display: none; }
-  .lp-hero { padding: 96px 0 40px; min-height: 0; }
-  .lp-hero-grid { grid-template-columns: 1fr; gap: 20px; }
-  .lp-h1 { margin: 18px 0 16px; }
-  .lp-lead { margin-bottom: 26px; }
-  .lp-ctas .lp-btn { flex: 1 1 100%; }
-  .lp-checks { gap: 8px 16px; margin-top: 22px; }
-  .lp-stage { min-height: 560px; transform: scale(0.86); margin: -30px 0 -40px; }
-  .lp-orbit-1 { width: 400px; height: 400px; }
-  .lp-orbit-2 { width: 540px; height: 540px; }
-  .lp-h1-line { white-space: normal; }
-  .lp-notif.n1, .lp-notif.n2, .lp-notif.n3 { top: auto; bottom: 44px; left: 0; right: 0; margin: 0 auto; width: max-content; min-width: 0; }
-  .lp-scroll-cue { display: none; }
-  .lp-bands { height: 130px; margin-top: -30px; }
-  .lp-band-1 { top: 38px; }
-  .lp-band-2 { top: 42px; }
-  .lp-track span { font-size: 20px; gap: 16px; padding-right: 16px; }
-  .lp-section { padding: 72px 0; }
-  .lp-gone li { gap: 12px; padding: 16px 0; }
-  .lp-gone .x { width: 28px; height: 28px; }
-  .lp-scene { grid-template-columns: 1fr; gap: 30px; padding: 50px 0; }
-  .lp-scene.flip .lp-scene-art { order: 0; }
-  .lp-scene-art { min-height: 380px; }
-  .lp-mods { grid-template-columns: 1fr 1fr; gap: 12px; }
-  .lp-mod { padding: 18px 16px; }
-  .lp-mod b { font-size: 14.5px; }
-  .lp-mod p { font-size: 12.5px; }
-  .lp-pillars { grid-template-columns: 1fr; }
-  .lp-steps { grid-template-columns: 1fr; gap: 36px; }
-  .lp-steps-line { top: 32px; bottom: 32px; left: 31px; right: auto; width: 2px; height: auto; }
-  .lp-steps-line i { width: 100%; height: 100%; transform: scaleY(0); transform-origin: top; }
-  .is-in .lp-steps-line i { transform: scaleY(1); }
-  .lp-step { display: grid; grid-template-columns: 64px 1fr; gap: 18px; text-align: left; align-items: start; }
-  .lp-step-n { margin: 0; }
-  .lp-step p { margin: 0; }
-  .lp-price { padding: 40px 22px; }
-  .lp-final { padding: 96px 0; }
-  .lp-final .lp-ctas .lp-btn { flex: 1 1 100%; }
-}
-@media (max-width: 380px) {
-  .lp-mods { grid-template-columns: 1fr; }
-}
-@media (hover: none) {
-  .lp-par-phone, .lp-par-1, .lp-par-2 { transform: none; }
-}
-
-/* Personne ne doit avoir le mal des transports pour découvrir une école. */
-@media (prefers-reduced-motion: reduce) {
-  .lp *, .lp *::before, .lp *::after { animation: none !important; transition: none !important; }
-  .lp-reveal, .lp-mask > span, .lp-phone-in, .lp-pay, .lp-grade, .lp-msg, .lp-pop, .lp-notif, .lp-stamp, .lp-typing { opacity: 1 !important; transform: none !important; }
-  .lp-notif.n2, .lp-notif.n3, .lp-typing { display: none; }
-  .lp-bars i, .lp-cell, .lp-steps-line i { transform: none !important; }
-  .lp-meter i { transform: scaleX(var(--w, 1)) !important; }
-  .lp-underline path { stroke-dashoffset: 0 !important; }
-  .lp-ring .v { stroke-dashoffset: 39 !important; }
-}
+.lp
