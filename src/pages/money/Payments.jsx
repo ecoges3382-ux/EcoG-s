@@ -322,6 +322,21 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     setSubmitting(false);
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
+
+    // 🚀 NOUVEAU : Déclencher la notification push pour le directeur
+    try {
+      await supabase.functions.invoke('send-payment-push', {
+        body: {
+          school_id: schoolId,
+          student_name: currentStudent?.full_name || 'Un élève',
+          amount: Number(montant),
+          type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
+        }
+      });
+    } catch (err) {
+      console.warn("La notification push n'a pas pu être envoyée :", err);
+    }
+
     if (inserted) { setCreatedPayment(inserted); return; }
     onCreated();
   }
