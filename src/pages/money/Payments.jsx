@@ -20,6 +20,13 @@ import { guardedFetch } from '../../lib/offlineCache.js';
 import { translateError } from '../../lib/errors.js';
 import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
 
+// 🚀 Fonction utilitaire pour détecter "moitié" quel que soit l'ID
+function isMoitie(tranche) {
+  if (!tranche) return false;
+  const t = String(tranche).toLowerCase();
+  return t === 'moitie' || t === 'moitié' || t === 'demi' || t.includes('moiti') || t.includes('demi');
+}
+
 export default function Payments() {
   const { profile } = useAuth();
   const showToast = useToast();
@@ -273,30 +280,34 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       .then(({ data }) => setSchoolYearInfo(data));
   }, [schoolYearId]);
 
-  // 🚀 CORRECTIF : Calcul du montant avec prise en charge de "Moitié"
+  // 🚀 CORRECTIF : Détection robuste de "moitié"
   useEffect(() => {
     if (!currentFeeSchedule) return;
 
-    let amount = '';
     const scolarite = Number(currentFeeSchedule.montant_scolarite) || 0;
     const connexe = Number(currentFeeSchedule.montant_connexe) || 0;
     const inscription = Number(currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription) || 0;
 
+    let amount = null;
+    
     if (typeFrais === 'scolarite') {
-      if (tranche === 'tranche1') amount = currentFeeSchedule.montant_tranche1;
-      else if (tranche === 'tranche2') amount = currentFeeSchedule.montant_tranche2;
-      else if (tranche === 'tranche3') amount = currentFeeSchedule.montant_tranche3;
+      if (tranche === 'tranche1') amount = Number(currentFeeSchedule.montant_tranche1) || 0;
+      else if (tranche === 'tranche2') amount = Number(currentFeeSchedule.montant_tranche2) || 0;
+      else if (tranche === 'tranche3') amount = Number(currentFeeSchedule.montant_tranche3) || 0;
       else if (tranche === 'complet') amount = scolarite;
-      else if (tranche === 'moitie') amount = scolarite / 2;
+      else if (isMoitie(tranche)) amount = scolarite / 2;
     } else if (typeFrais === 'connexe') {
       if (tranche === 'complet') amount = connexe;
-      else if (tranche === 'moitie') amount = connexe / 2;
+      else if (isMoitie(tranche)) amount = connexe / 2;
     } else if (typeFrais === 'inscription') {
       if (tranche === 'complet') amount = inscription;
-      else if (tranche === 'moitie') amount = inscription / 2;
+      else if (isMoitie(tranche)) amount = inscription / 2;
     }
 
-    if (amount !== '' && amount !== null && amount !== undefined && !isNaN(amount) && tranche !== 'autre') {
+    // 🚀 Debug : affiche dans la console ce que l'app calcule
+    console.log('[Paiement] typeFrais:', typeFrais, '| tranche:', tranche, '| montant calculé:', amount);
+
+    if (amount !== null && !isNaN(amount)) {
       setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
       setMontant('');
@@ -308,6 +319,9 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (!studentId || !montant) { setError("L'élève et le montant sont obligatoires."); return; }
     if (dejaPaye) { setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais."); return; }
     
+    // 🚀 Debug : ce qu'on va envoyer
+    console.log('[Paiement] Envoi :', { typeFrais, tranche, montant });
+
     setSubmitting(true);
     setError('');
     const payload = {
@@ -331,7 +345,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
 
-    // 🚀 Notification avec le bon montant + clé API
     try {
       await supabase.functions.invoke('send-payment-push', {
         body: {
