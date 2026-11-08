@@ -18,7 +18,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import SelectionBar from '../../components/SelectionBar.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { translateError } from '../../lib/errors.js';
-import { TrashIcon, UsersIcon, ReceiptIcon } from '../icons.jsx';
+import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
 
 export default function Payments() {
   const { profile } = useAuth();
@@ -273,10 +273,11 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       .then(({ data }) => setSchoolYearInfo(data));
   }, [schoolYearId]);
 
+  // 🚀 CORRECTIF : Calcul du montant avec prise en charge de "Moitié"
   useEffect(() => {
     if (!currentFeeSchedule) return;
+
     let amount = '';
-    
     const scolarite = Number(currentFeeSchedule.montant_scolarite) || 0;
     const connexe = Number(currentFeeSchedule.montant_connexe) || 0;
     const inscription = Number(currentFeeSchedule.montant_inscription || currentFeeSchedule.montant_reinscription) || 0;
@@ -295,7 +296,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       else if (tranche === 'moitie') amount = inscription / 2;
     }
 
-    if (amount !== '' && amount !== null && amount !== undefined && !isNaN(amount) && tranche !== 'autre' && typeFrais !== 'autre') {
+    if (amount !== '' && amount !== null && amount !== undefined && !isNaN(amount) && tranche !== 'autre') {
       setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
       setMontant('');
@@ -330,6 +331,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
 
+    // 🚀 Notification avec le bon montant + clé API
     try {
       await supabase.functions.invoke('send-payment-push', {
         body: {
