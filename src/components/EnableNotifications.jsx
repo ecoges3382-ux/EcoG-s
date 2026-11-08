@@ -26,7 +26,17 @@ export default function EnableNotifications() {
   const handleTest = async () => {
     setTesting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-test-push');
+      // 1. On récupère le badge d'accès de l'utilisateur connecté
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expirée. Reconnecte-toi.");
+
+      // 2. On l'envoie explicitement à la fonction Supabase
+      const { data, error } = await supabase.functions.invoke('send-test-push', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+      
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       showToast('Notification de test envoyée !', 'success');
