@@ -67,19 +67,22 @@ export default function AbsenceModal({ schoolId, schoolYearId, studentId, motifs
     if (saveError) { setError(translateError(saveError)); return; }
     showToast('Enregistré');
 
-    // 🚀 NOUVEAU : Envoi de la notification push
-    if (!editing) { // On ne notifie que si c'est une NOUVELLE absence
+    // 🚀 NOUVEAU : Envoi automatique du WhatsApp aux parents
+    if (!editing) { // Seulement pour une NOUVELLE absence
       try {
-        await supabase.functions.invoke('send-absence-push', {
+        await supabase.functions.invoke('send-absence-whatsapp', {
           body: {
             student_id: studentId,
             date: date,
             demi_journee: demiJournee,
             school_id: schoolId
+          },
+          headers: { 
+            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
           }
         });
       } catch (err) {
-        console.warn("Erreur d'envoi de la notification d'absence :", err);
+        console.warn("Erreur WhatsApp absence :", err);
       }
     }
 
