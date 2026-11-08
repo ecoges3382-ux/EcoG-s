@@ -67,10 +67,7 @@ export default function Chat() {
   const [showConvMenu, setShowConvMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
-
-  // 🚀 CORRECTION : Détection immédiate (dès le premier rendu) pour éviter l'auto-ouverture sur mobile
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-
   const [unreadCounts, setUnreadCounts] = useState({});
   const [lastMessages, setLastMessages] = useState({});
   const [searchConv, setSearchConv] = useState('');
@@ -121,7 +118,6 @@ export default function Chat() {
       await loadUnreadCounts(visibleConvs);
       await loadLastMessages(visibleConvs);
       
-      // 🚀 SUR DESKTOP : on ouvre le Général par défaut. SUR MOBILE : on reste sur la liste.
       if (firstGeneral && !isMobile && !activeConv) setActiveConv(firstGeneral);
     }
     load();
@@ -343,10 +339,34 @@ export default function Chat() {
   };
 
   const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
+
+  // 🚀 CORRECTION CLÉ : Général épinglé en haut, privés triés par date du dernier message
   const filteredConvs = useMemo(() => {
-    if (!searchConv.trim()) return conversations;
-    return conversations.filter(c => getConvInfo(c).name.toLowerCase().includes(searchConv.toLowerCase()));
-  }, [conversations, searchConv]);
+    // 1. Séparer Général et privés
+    const generals = conversations.filter(c => c.type === 'general');
+    const privates = conversations.filter(c => c.type === 'private');
+
+    // 2. Trier les privés par date du dernier message (plus récent en premier)
+    const sortedPrivates = [...privates].sort((a, b) => {
+      const lastA = lastMessages[a.id]?.created_at;
+      const lastB = lastMessages[b.id]?.created_at;
+      // Les conversations sans message en dernier
+      if (!lastA && !lastB) return 0;
+      if (!lastA) return 1;
+      if (!lastB) return -1;
+      return new Date(lastB) - new Date(lastA);
+    });
+
+    // 3. Filtrer selon la recherche
+    const searchFilter = (c) => !searchConv.trim() || getConvInfo(c).name.toLowerCase().includes(searchConv.toLowerCase());
+
+    // 4. Fusionner : Général en premier (jamais filtré par la recherche si on le veut toujours visible)
+    // Option A : le Général reste visible même si la recherche ne correspond pas
+    // Option B : le Général est filtré comme les autres
+    // On choisit A : le Général est toujours en haut, épinglé.
+    return [...generals, ...sortedPrivates.filter(searchFilter)];
+  }, [conversations, lastMessages, searchConv]);
+
   const filteredStaff = useMemo(() => {
     if (!searchStaff.trim()) return staff;
     return staff.filter(s => s.full_name.toLowerCase().includes(searchStaff.toLowerCase()));
@@ -438,13 +458,36 @@ export default function Chat() {
           const unread = unreadCounts[c.id] || 0;
           const last = lastMessages[c.id];
           const isActive = activeConv?.id === c.id && !isMobile;
+          const isPinned = c.type === 'general';
           const preview = last ? (last.file_type ? (last.file_type === 'image' ? '🖼️ Image' : '📎 Fichier') : (last.sender_id === profile.id ? 'Vous : ' : '') + last.content) : info.subtitle;
+          
           return (
-            <div key={c.id} onClick={() => openConversation(c)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: isActive ? 'var(--cream)' : 'transparent', borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent' }} onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }} onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+            <div
+              key={c.id}
+              onClick={() => openConversation(c)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 16px',
+                cursor: 'pointer',
+                background: isActive ? 'var(--cream)' : 'transparent',
+                borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent',
+                borderBottom: isPinned ? '1px solid var(--line)' : 'none',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+            >
               <Avatar text={info.initials} color={info.color} size={44} isGroup={info.isGroup} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                  <p style={{ margin: 0, fontSize: 13.5, fontWeight: unread > 0 ? 700 : 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
+                    {/* 🚀 Icône épingle pour le canal Général */}
+                    {isPinned && (
+                      <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }} title="Épinglé"></i>
+                    )}
+                    <p style={{ margin: 0, fontSize: 13.5, fontWeight: unread > 0 ? 700 : 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
+                  </div>
                   {last && <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{formatTime(last.created_at)}</span>}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 }}>
@@ -471,7 +514,12 @@ export default function Chat() {
               {isMobile && <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 22, padding: 0, display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {activeConv.type === 'general' && (
+                    <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)' }}></i>
+                  )}
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
                   {info.isGroup ? (<><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }}></span><span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>En ligne · {conversations.length} participant{conversations.length > 1 ? 's' : ''}</span></>) : (<span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>{info.subtitle}</span>)}
                 </div>
