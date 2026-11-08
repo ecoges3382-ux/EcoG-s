@@ -11,6 +11,7 @@ const SignUp = lazy(() => import('./pages/SignUp.jsx'));
 const AdminSignUp = lazy(() => import('./pages/AdminSignUp.jsx'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
+const SetPassword = lazy(() => import('./pages/SetPassword.jsx')); // <-- NOUVELLE PAGE ICI
 const ParentAccess = lazy(() => import('./pages/ParentAccess.jsx'));
 const PlatformAdmin = lazy(() => import('./pages/PlatformAdmin.jsx'));
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
@@ -177,6 +178,10 @@ export default function App() {
           <Route path="/inscription-administrateur" element={<RedirectIfAuthed><AdminSignUp /></RedirectIfAuthed>} />
           <Route path="/mot-de-passe-oublie" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />
+          
+          {/* 👇 NOUVELLE ROUTE ICI 👇 */}
+          <Route path="/creation-mot-de-passe" element={<SetPassword />} />
+          
           <Route path="/parent-access" element={<ParentAccess />} />
           <Route path="/cgu" element={<CGU />} />
           <Route path="/confidentialite" element={<Confidentialite />} />
