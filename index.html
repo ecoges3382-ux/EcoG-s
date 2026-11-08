@@ -12,9 +12,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- 👇 LIGNE AJOUTÉE ICI : Chargement des icônes Tabler 👇 -->
+    <!-- 👇 LIGNE AJOUTÉE POUR LES ICÔNES 👇 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
-    <!-- 👆 FIN DE LA LIGNE AJOUTÉE 👆 -->
+
+    <!-- 🚀 SCRIPT DE REDIRECTION POUR LES PARENTS 🚀 -->
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        var parentCode = localStorage.getItem('ecoges_parent_access_code');
+        // Si on est à la racine et qu'un code parent existe, on redirige
+        if ((path === '/' || path === '/index.html') && parentCode) {
+          window.location.replace('/parent-access?code=' + encodeURIComponent(parentCode));
+        }
+      })();
+    </script>
 
     <style>
       ::-webkit-scrollbar { -webkit-appearance: none; width: 14px !important; height: 14px !important; }
