@@ -156,7 +156,7 @@ export default function ParentAccess() {
     );
   }
 
-  // 🚀 AJOUT DU BOUTON ICI : On l'affiche quand le parent est connecté et voit sa liste d'enfants
+  // 👇 C'EST ICI QUE LE BOUTON EST AFFICHÉ 👇
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px' }}>
       <ParentPushButton code={code} />
