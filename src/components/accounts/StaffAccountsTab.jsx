@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { initials, ROLES, sortByRole } from '../../lib/utils.js';
-import PasswordInput from '../PasswordInput.jsx';
-import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../PhoneInput.jsx';
-import NameInput from '../NameInput.jsx';
+import PhoneInput, { decomposePhone, composePhone } from '../PhoneInput.jsx';
 import { useToast } from '../Toast.jsx';
 import { useConfirm } from '../ConfirmDialog.jsx';
 import Dropdown from '../Dropdown.jsx';
@@ -15,20 +13,28 @@ import ModalContainer from '../ModalContainer.jsx';
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
 
-const PERMISSIONS_LABELS = {
-  dashboard: 'Tableau de bord',
-  eleves: 'Gestion des élèves',
-  parents: 'Portail parents',
-  personnel: 'Gestion du personnel',
-  notes: 'Notes & évaluations',
-  bulletins: 'Bulletins',
-  finance: 'Gestion financière (Argent)',
-  presences: 'Présences',
-  emploi_du_temps: 'Emploi du temps',
-  annonces: 'Annonces',
-  documents: 'Documents',
-  rapports: 'Rapports',
-  parametres: 'Accès aux paramètres',
+// 🧠 RÈGLE D'OR : Les permissions par défaut selon le rôle (Fini les cases à cocher !)
+const ROLE_PERMISSIONS = {
+  directeur: {
+    dashboard: true, eleves: true, parents: true, personnel: true, classes: true, matieres: true,
+    notes: true, bulletins: true, emploi_du_temps: true, presences: true, annonces: true,
+    documents: true, rapports: true, finance: true, parametres: false // Un directeur n'a pas accès aux paramètres critiques
+  },
+  censeur: {
+    dashboard: true, eleves: true, parents: true, personnel: false, classes: true, matieres: true,
+    notes: true, bulletins: true, emploi_du_temps: true, presences: true, annonces: true,
+    documents: true, rapports: true, finance: false, parametres: false
+  },
+  secretaire: {
+    dashboard: true, eleves: true, parents: true, personnel: false, classes: false, matieres: false,
+    notes: false, bulletins: false, emploi_du_temps: false, presences: false, annonces: true,
+    documents: true, rapports: false, finance: true, parametres: false
+  },
+  enseignant: {
+    dashboard: true, eleves: false, parents: false, personnel: false, classes: false, matieres: false,
+    notes: true, bulletins: true, emploi_du_temps: true, presences: true, annonces: true,
+    documents: true, rapports: false, finance: false, parametres: false
+  }
 };
 
 async function describeFunctionError(fnError) {
@@ -36,9 +42,7 @@ async function describeFunctionError(fnError) {
   try {
     const body = await fnError.context.json();
     if (body?.error) return body.error;
-  } catch {
-    // corps non lisible en JSON
-  }
+  } catch { /* corps non lisible */ }
   return fnError.message;
 }
 
@@ -117,7 +121,7 @@ export default function StaffAccountsTab() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Directeur, secrétaire, enseignant — chacun avec son propre e-mail et mot de passe.</p>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Gérez les accès de votre équipe. Un e-mail d'invitation sera envoyé.</p>
         <button onClick={() => { setEditingAccount(null); setModalOpen(true); }} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', flexShrink: 0 }}>
           <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Nouveau compte
         </button>
@@ -169,41 +173,29 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
   const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
   
-  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const [permissions, setPermissions] = useState(editing?.permissions || {
-    dashboard: true,
-    eleves: true, parents: true, personnel: false, classes: true, matieres: true, 
-    notes: false, bulletins: false, emploi_du_temps: true, presences: true, 
-    annonces: true, documents: true, rapports: false, finance: false, parametres: false
-  });
-
-  const togglePermission = (key) => {
-    setPermissions(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!fullName.trim() || !email.trim()) { setError('Le nom et l\'e-mail sont obligatoires.'); return; }
-    if (!isEditing && !password) { setError('Le mot de passe est obligatoire pour un nouveau compte.'); return; }
-    if (password && password.length < 8) { setError('Le mot de passe doit faire au moins 8 caractères.'); return; }
     
     setSubmitting(true);
     setError('');
     
+    // On attribue automatiquement les permissions selon le rôle choisi
+    const defaultPermissions = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.secretaire;
+
     const body = { 
       action: isEditing ? 'update' : 'create', 
       full_name: fullName.trim(), 
       email: email.trim(), 
       phone: composePhone(phoneDial, phoneLocal), 
       role,
-      permissions 
+      permissions: defaultPermissions
     };
     
     if (isEditing) body.profileId = editing.id;
-    if (password) body.password = password;
 
     const { data, error: fnError } = await supabase.functions.invoke('manage-staff-account', { body });
     
@@ -212,52 +204,57 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
       setError(data?.error || (await describeFunctionError(fnError)));
       return;
     }
-    showToast('Enregistré');
+    
+    showToast(isEditing ? 'Compte mis à jour' : 'Invitation envoyée par e-mail !');
     onSaved();
   }
 
   return (
-    <ModalShell title={isEditing ? "Modifier le compte utilisateur" : "Nouveau compte utilisateur"} onClose={onClose}>
-      <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>Nom complet</label>
-        <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
+    <ModalContainer onClose={onClose} maxWidth={440}>
+      <div style={{ padding: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? "Modifier le compte" : "Nouveau compte"}</p>
+          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
+        </div>
+        
+        <form onSubmit={handleSubmit}>
+          <label style={labelStyle}>Nom complet</label>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
 
-        <label style={labelStyle}>Rôle</label>
-        <Dropdown value={role} onChange={setRole} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
+          <label style={labelStyle}>Rôle</label>
+          <Dropdown value={role} onChange={setRole} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={inputStyle} />
 
-        {role !== 'fondateur' && (
-          <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Droits d'accès</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 12px' }}>
-              {Object.entries(PERMISSIONS_LABELS).map(([key, label]) => (
-                <label key={key} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, cursor: 'pointer', fontWeight: 500, color: 'var(--ink)', lineHeight: 1.3 }}>
-                  <input 
-                    type="checkbox" 
-                    checked={permissions[key]} 
-                    onChange={() => togglePermission(key)} 
-                    style={{ accentColor: 'var(--forest)', width: 15, height: 15, marginTop: 2, flexShrink: 0 }} 
-                  />
-                  <span style={{ paddingTop: 1 }}>{label}</span>
-                </label>
-              ))}
-            </div>
+          <div style={{ marginBottom: 16, padding: '12px 14px', background: 'var(--forest-light)', borderRadius: 9, border: '1px solid var(--forest)', display: 'flex', gap: 10 }}>
+             <i className="ti ti-info-circle" style={{ fontSize: 18, color: 'var(--forest-dark)', flexShrink: 0 }} aria-hidden="true"></i>
+             <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', lineHeight: 1.5 }}>
+               Les droits d'accès (élèves, finances, notes...) sont configurés <strong>automatiquement</strong> selon le rôle sélectionné.
+             </p>
           </div>
-        )}
 
-        <label style={labelStyle}>E-mail</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
+          <label style={labelStyle}>E-mail</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} disabled={isEditing} title={isEditing ? "L'e-mail ne peut pas être modifié" : ""} />
 
-        <label style={labelStyle}>Téléphone (facultatif)</label>
-        <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
+          <label style={labelStyle}>Téléphone (facultatif)</label>
+          <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} style={{ marginBottom: 12 }} />
 
-        <label style={labelStyle}>{isEditing ? "Nouveau mot de passe (laisser vide pour ne pas changer)" : "Mot de passe"}</label>
-        <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} style={{ ...inputStyle, marginBottom: 18 }} />
+          {!isEditing && (
+            <p style={{ margin: '0 0 18px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+              <i className="ti ti-mail" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+              Un e-mail sera envoyé à cette adresse pour que l'utilisateur crée son propre mot de passe.
+            </p>
+          )}
 
-        {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
+          {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
-        <ModalActions onCancel={onClose} submitting={submitting} submitLabel={isEditing ? "Enregistrer" : "Créer"} submittingLabel="Enregistrement…" />
-      </form>
-    </ModalShell>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button type="button" onClick={onClose} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
+            <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
+              {submitting ? 'Enregistrement…' : (isEditing ? 'Enregistrer' : 'Envoyer l\'invitation')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </ModalContainer>
   );
 }
 
@@ -284,31 +281,6 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, 
           </button>
         )}
       </div>
-    </div>
-  );
-}
-
-function ModalShell({ title, onClose, children }) {
-  return (
-    <ModalContainer onClose={onClose} maxWidth={440}>
-      <div style={{ padding: 26 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{title}</p>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, lineHeight: 1 }}>×</button>
-        </div>
-        {children}
-      </div>
-    </ModalContainer>
-  );
-}
-
-function ModalActions({ onCancel, submitting, submitLabel, submittingLabel }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-      <button type="button" onClick={onCancel} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>Annuler</button>
-      <button type="submit" disabled={submitting} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', opacity: submitting ? 0.7 : 1 }}>
-        {submitting ? submittingLabel : submitLabel}
-      </button>
     </div>
   );
 }
