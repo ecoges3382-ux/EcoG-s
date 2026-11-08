@@ -11,14 +11,14 @@ import { saveCache, loadCache } from '../lib/offlineCache.js';
 import { computeEcheances } from '../lib/retard.js';
 import { toCalcEnrollment } from '../lib/parentPortal.js';
 
-// Composants isolés
 import ParentLogin from '../components/parent/ParentLogin.jsx';
 import ChildList from '../components/parent/ChildList.jsx';
 import ChildFinance from '../components/parent/ChildFinance.jsx';
 import ChildAttendance from '../components/parent/ChildAttendance.jsx';
 import ChildBulletin from '../components/parent/ChildBulletin.jsx';
-import ParentPushButton from '../components/parent/ParentPushButton.jsx'; // 👈 NOUVEL IMPORT
+import ParentPushButton from '../components/parent/ParentPushButton.jsx';
 
+// 👇 On utilise localStorage pour que le parent reste connecté même après fermeture de l'app
 const STORAGE_KEY = 'ecoges_parent_access_code';
 
 export default function ParentAccess() {
@@ -44,7 +44,7 @@ export default function ParentAccess() {
     if (data?.error) {
       setError(data.error);
       setSummary(null);
-      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       return;
     }
     if (fnError) {
@@ -53,23 +53,23 @@ export default function ParentAccess() {
         setCode(theCode);
         setSummary(cached.data);
         setOffline(true);
-        sessionStorage.setItem(STORAGE_KEY, theCode);
+        localStorage.setItem(STORAGE_KEY, theCode); // On sauvegarde
         return;
       }
       setError('Impossible de vérifier ce code. Vérifie ta connexion.');
       setSummary(null);
-      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
       return;
     }
     setCode(theCode);
     setSummary(data);
     setOffline(false);
     saveCache(cacheKey, data);
-    sessionStorage.setItem(STORAGE_KEY, theCode);
+    localStorage.setItem(STORAGE_KEY, theCode); // On sauvegarde
   }
 
   useEffect(() => {
-    const initial = searchParams.get('code') || sessionStorage.getItem(STORAGE_KEY);
+    const initial = searchParams.get('code') || localStorage.getItem(STORAGE_KEY);
     if (initial) loadSummary(initial.trim().toUpperCase());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -82,7 +82,7 @@ export default function ParentAccess() {
 
   function changeCode() {
     detailRequestId.current += 1;
-    sessionStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY); // On efface
     setSummary(null);
     setSelectedId(null);
     setDetail(null);
@@ -156,7 +156,6 @@ export default function ParentAccess() {
     );
   }
 
-  // 👇 C'EST ICI QUE LE BOUTON EST AFFICHÉ 👇
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px' }}>
       <ParentPushButton code={code} />
@@ -165,7 +164,6 @@ export default function ParentAccess() {
   );
 }
 
-// Sous-composant gérant l'assemblage de la fiche d'un enfant
 function ChildDetail({ detail, student, periode, setPeriode, backToList, onChangeYear, offline, detailError }) {
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [showStatement, setShowStatement] = useState(false);
