@@ -28,6 +28,10 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
+      },
+      // 👇 LA NOUVELLE PARTIE POUR LES NOTIFICATIONS 👇
+      workbox: {
+        importScripts: ['/push-sw.js']
       }
     })
   ]
