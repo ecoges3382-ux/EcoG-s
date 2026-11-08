@@ -12,11 +12,9 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
   useLayoutEffect(() => {
     if (!open) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    const MIN_SPACE = 280; // maxHeight (260) + marge de sécurité
+    const MIN_SPACE = 280;
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
-    
-    // On ouvre vers le haut si : pas assez de place en bas ET plus de place en haut
     const openUp = spaceBelow < MIN_SPACE && spaceAbove > spaceBelow;
     
     setCoords({
@@ -30,19 +28,33 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
 
   useEffect(() => {
     if (!open) return;
+
     function handleClick(e) {
       if (wrapperRef.current?.contains(e.target)) return;
       if (listRef.current?.contains(e.target)) return;
       setOpen(false);
     }
-    function handleScrollOrResize() { setOpen(false); }
+
+    // 🚀 CORRECTIF : Ne fermer que si le scroll vient de l'EXTÉRIEUR du menu
+    function handleScroll(e) {
+      // Si le scroll vient de l'intérieur du menu, on ne ferme PAS
+      if (listRef.current && e.target instanceof Node && listRef.current.contains(e.target)) {
+        return;
+      }
+      setOpen(false);
+    }
+    
+    function handleResize() { 
+      setOpen(false); 
+    }
+
     document.addEventListener('mousedown', handleClick);
-    window.addEventListener('scroll', handleScrollOrResize, true);
-    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
     return () => {
       document.removeEventListener('mousedown', handleClick);
-      window.removeEventListener('scroll', handleScrollOrResize, true);
-      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
     };
   }, [open]);
 
@@ -73,7 +85,6 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
             ...listStyle,
             position: 'fixed',
             left: coords.left,
-            // 👇 On utilise soit 'top' (vers le bas), soit 'bottom' (vers le haut)
             ...(coords.openUp ? { bottom: coords.bottom } : { top: coords.top }),
             width: 'max-content',
             minWidth: coords.width,
@@ -114,6 +125,8 @@ const triggerStyle = {
 const listStyle = {
   zIndex: 50, border: '1px solid var(--line-strong)', borderRadius: 10, background: 'var(--paper)',
   boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 260, overflowY: 'auto',
+  // 🚀 Empêche le scroll du parent de se propager
+  overscrollBehavior: 'contain',
 };
 
 const itemStyle = {
