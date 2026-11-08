@@ -26,8 +26,16 @@ export default function EnableNotifications() {
   const handleTest = async () => {
     setTesting(true);
     try {
-      // Supabase gère normalement l'injection du token tout seul ici
-      const { data, error } = await supabase.functions.invoke('send-test-push');
+      // On récupère la session active
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expirée. Reconnecte-toi.");
+
+      // On envoie explicitement le badge (le token) à la fonction
+      const { data, error } = await supabase.functions.invoke('send-test-push', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
       
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
