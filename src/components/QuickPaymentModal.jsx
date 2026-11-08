@@ -125,6 +125,26 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
     if (insertError) { setError(translateError(insertError)); return; }
 
     showToast('Paiement enregistré');
+
+    // 🚀 NOTIFICATION PUSH : On prévient les directeurs
+    if (inserted) {
+      try {
+        await supabase.functions.invoke('send-payment-push', {
+          body: {
+            school_id: profile.school_id,
+            student_name: student.full_name,
+            amount: Number(montant),
+            type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
+          },
+          headers: { 
+            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
+          }
+        });
+      } catch (err) {
+        console.warn("La notification push n'a pas pu être envoyée :", err);
+      }
+    }
+
     if (inserted) {
       setCreatedPayment(inserted);
       return;
@@ -155,7 +175,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         enrollment={updatedEnrollment}
         schoolYear={schoolYearInfo}
         feeSchedule={currentFeeSchedule}
-        autoPrint={false} // 👈 MODIFICATION ICI
+        autoPrint={false}
         onClose={onSaved}
       />
     );
