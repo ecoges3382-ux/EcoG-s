@@ -16,9 +16,7 @@ import ChildList from '../components/parent/ChildList.jsx';
 import ChildFinance from '../components/parent/ChildFinance.jsx';
 import ChildAttendance from '../components/parent/ChildAttendance.jsx';
 import ChildBulletin from '../components/parent/ChildBulletin.jsx';
-import ParentPushButton from '../components/parent/ParentPushButton.jsx';
 
-// 👇 On utilise localStorage pour que le parent reste connecté même après fermeture de l'app
 const STORAGE_KEY = 'ecoges_parent_access_code';
 
 export default function ParentAccess() {
@@ -44,7 +42,7 @@ export default function ParentAccess() {
     if (data?.error) {
       setError(data.error);
       setSummary(null);
-      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
       return;
     }
     if (fnError) {
@@ -53,23 +51,23 @@ export default function ParentAccess() {
         setCode(theCode);
         setSummary(cached.data);
         setOffline(true);
-        localStorage.setItem(STORAGE_KEY, theCode); // On sauvegarde
+        sessionStorage.setItem(STORAGE_KEY, theCode);
         return;
       }
       setError('Impossible de vérifier ce code. Vérifie ta connexion.');
       setSummary(null);
-      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
       return;
     }
     setCode(theCode);
     setSummary(data);
     setOffline(false);
     saveCache(cacheKey, data);
-    localStorage.setItem(STORAGE_KEY, theCode); // On sauvegarde
+    sessionStorage.setItem(STORAGE_KEY, theCode);
   }
 
   useEffect(() => {
-    const initial = searchParams.get('code') || localStorage.getItem(STORAGE_KEY);
+    const initial = searchParams.get('code') || sessionStorage.getItem(STORAGE_KEY);
     if (initial) loadSummary(initial.trim().toUpperCase());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -82,7 +80,7 @@ export default function ParentAccess() {
 
   function changeCode() {
     detailRequestId.current += 1;
-    localStorage.removeItem(STORAGE_KEY); // On efface
+    sessionStorage.removeItem(STORAGE_KEY);
     setSummary(null);
     setSelectedId(null);
     setDetail(null);
@@ -156,12 +154,7 @@ export default function ParentAccess() {
     );
   }
 
-  return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px' }}>
-      <ParentPushButton code={code} />
-      <ChildList summary={summary} offline={offline} changeCode={changeCode} openStudent={openStudent} />
-    </div>
-  );
+  return <ChildList summary={summary} offline={offline} changeCode={changeCode} openStudent={openStudent} />;
 }
 
 function ChildDetail({ detail, student, periode, setPeriode, backToList, onChangeYear, offline, detailError }) {
