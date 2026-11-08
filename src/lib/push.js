@@ -1,6 +1,5 @@
 import { supabase } from './supabase.js';
 
-// Petite fonction magique pour transformer la clé VAPID en format que le navigateur comprend
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
@@ -36,18 +35,19 @@ export async function subscribeToPush(profile) {
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
   });
 
-  // 5. Sauvegarder l'abonnement dans la base de données Supabase
   const subData = subscription.toJSON();
-  
-  const { error } = await supabase.from('push_subscriptions').upsert({
-    user_id: profile.id,
-    school_id: profile.school_id,
-    endpoint: subData.endpoint,
-    p256dh: subData.keys.p256dh,
-    auth: subData.keys.auth,
-  }, { onConflict: 'endpoint' });
 
-  if (error) throw new Error("Erreur lors de la sauvegarde en base : " + error.message);
+  // 5. 🚀 Sauvegarder l'abonnement via l'Edge Function (service_role, contourne la RLS)
+  const { data, error } = await supabase.functions.invoke('subscribe-push', {
+    body: {
+      endpoint: subData.endpoint,
+      p256dh: subData.keys.p256dh,
+      auth: subData.keys.auth,
+    }
+  });
+
+  if (error) throw new Error("Erreur d'abonnement : " + error.message);
+  if (data?.error) throw new Error(data.error);
 
   return true;
 }
