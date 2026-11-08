@@ -36,6 +36,7 @@ const SCHOOL_GROUP_PATHS = ['/eleves', '/parents', '/personnel', '/classes', '/m
 const BOTTOM_NAV_ITEMS = [
   { to: '/', shortLabel: 'Accueil', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
   { to: '/argent', shortLabel: 'Argent', icon: 'ti-wallet', perm: 'finance' },
+  { to: '/recouvrement', shortLabel: 'Recouvr.', icon: 'ti-report-money', perm: 'finance', tourId: 'bottomnav-recouvrement' },
   { to: '/chat', shortLabel: 'Chat', icon: 'ti-message-circle', perm: null },
   { to: '/eleves', shortLabel: 'École', icon: 'ti-building-bank', perm: 'eleves', group: SCHOOL_GROUP_PATHS, tourId: 'bottomnav-eleves' },
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
