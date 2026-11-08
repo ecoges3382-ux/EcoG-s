@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { subscribeToPush } from '../lib/push.js';
 import { useToast } from './Toast.jsx';
@@ -10,6 +10,32 @@ export default function EnableNotifications() {
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [done, setDone] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // 🚀 NOUVEAU : Vérifier au chargement si un abonnement existe déjà
+  useEffect(() => {
+    async function checkExistingSubscription() {
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+          setChecking(false);
+          return;
+        }
+
+        // Attendre que le service worker soit prêt
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+
+        if (subscription) {
+          // Un abonnement local existe → on considère que c'est activé
+          setDone(true);
+        }
+      } catch (err) {
+        console.warn("Erreur vérification abonnement:", err);
+      }
+      setChecking(false);
+    }
+    checkExistingSubscription();
+  }, []);
 
   const handleClick = async () => {
     setLoading(true);
@@ -43,6 +69,23 @@ export default function EnableNotifications() {
     }
     setTesting(false);
   };
+
+  // Pendant la vérification initiale, on affiche un état neutre
+  if (checking) {
+    return (
+      <div className="card-bold" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <i className="ti ti-bell" style={{ fontSize: 20, color: 'var(--forest-dark)' }} aria-hidden="true"></i>
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Notifications Push</p>
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Vérification...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (done) {
     return (
