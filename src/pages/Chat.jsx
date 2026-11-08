@@ -45,7 +45,6 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
-  // Détection mobile
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth < 768); }
     checkMobile();
@@ -53,7 +52,6 @@ export default function Chat() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // 1. Charger les conversations et le personnel
   useEffect(() => {
     async function load() {
       setError('');
@@ -93,26 +91,26 @@ export default function Chat() {
     load();
   }, [profile.school_id, profile.id, isMobile]);
 
-  // 2. Calculer les messages non lus
   async function loadUnreadCounts(convs) {
     const counts = {};
     for (const conv of convs) {
       const me = conv.chat_participants?.find(p => p.user_id === profile.id);
-      if (!me) { counts[conv.id] = 0; continue; }
+      // 🚀 CORRECTION : Si pas de participant, on considère last_read_at = null (donc count 0 pour éviter le bug)
+      const lastRead = me?.last_read_at || null;
+      if (!lastRead) { counts[conv.id] = 0; continue; }
       
       const { count } = await supabase
         .from('chat_messages')
         .select('id', { count: 'exact', head: true })
         .eq('conversation_id', conv.id)
         .neq('sender_id', profile.id)
-        .gt('created_at', me.last_read_at || '1970-01-01');
+        .gt('created_at', lastRead);
       
       counts[conv.id] = count || 0;
     }
     setUnreadCounts(counts);
   }
 
-  // 3. Charger le dernier message de chaque conversation (aperçu)
   async function loadLastMessages(convs) {
     if (convs.length === 0) return;
     const ids = convs.map(c => c.id);
@@ -129,7 +127,6 @@ export default function Chat() {
     setLastMessages(map);
   }
 
-  // 4. Écouter les nouveaux messages de la conversation active
   useEffect(() => {
     if (!activeConv) return;
 
@@ -154,7 +151,6 @@ export default function Chat() {
           supabase.rpc('mark_conversation_read', { p_conversation_id: activeConv.id });
         }
 
-        // Mettre à jour l'aperçu du dernier message
         setLastMessages(prev => ({ ...prev, [activeConv.id]: payload.new }));
       })
       .subscribe();
@@ -162,7 +158,6 @@ export default function Chat() {
     return () => { supabase.removeChannel(channel); };
   }, [activeConv?.id]);
 
-  // 5. Écouter les nouveaux messages globaux (badges)
   useEffect(() => {
     const channel = supabase.channel('all_chats')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
@@ -180,7 +175,6 @@ export default function Chat() {
     return () => { supabase.removeChannel(channel); };
   }, [activeConv, profile.id]);
 
-  // 6. Détecter le scroll pour afficher le bouton "aller en bas"
   function handleScroll() {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -193,19 +187,29 @@ export default function Chat() {
     setShowScrollDown(false);
   }
 
-  // 7. Envoyer un message
+  // 🚀 ENVOI AVEC LOGS DE DIAGNOSTIC
   async function sendMessage(e) {
     e.preventDefault();
-    if (!newMessage.trim() || !activeConv) return;
+    console.log('🔵 [Chat] Bouton Envoyer cliqué');
+    
+    if (!newMessage.trim() || !activeConv) {
+      console.log('🔴 [Chat] Bloqué :', { hasMessage: !!newMessage.trim(), hasConv: !!activeConv });
+      return;
+    }
     
     const content = newMessage.trim();
+    const convId = activeConv.id;
     setNewMessage('');
     
+    console.log('🔵 [Chat] Envoi :', { content, convId, senderId: profile.id });
+    
     const { data: inserted, error: sendErr } = await supabase.from('chat_messages').insert({
-      conversation_id: activeConv.id,
+      conversation_id: convId,
       sender_id: profile.id,
       content
     }).select('id').single();
+
+    console.log('🟡 [Chat] Résultat insert :', { inserted, sendErr });
 
     if (sendErr) {
       setError("Impossible d'envoyer : " + sendErr.message);
@@ -213,23 +217,24 @@ export default function Chat() {
     }
 
     if (inserted) {
+      console.log('🟢 [Chat] Message inséré, appel de send-message-push...');
       try {
-        await supabase.functions.invoke('send-message-push', {
+        const result = await supabase.functions.invoke('send-message-push', {
           body: {
-            conversation_id: activeConv.id,
+            conversation_id: convId,
             sender_name: profile.full_name,
             message_content: content,
             sender_id: profile.id
           },
           headers: { 'x-api-key': import.meta.env.VITE_PUSH_API_SECRET }
         });
+        console.log('🟢 [Chat] Réponse push :', result);
       } catch (err) {
-        console.warn("Notification push non envoyée :", err);
+        console.error('🔴 [Chat] Erreur push :', err);
       }
     }
   }
 
-  // 8. Démarrer une conversation privée
   async function startPrivateChat(otherUserId) {
     const { data: convId, error: rpcError } = await supabase.rpc('create_private_chat', { p_other_user_id: otherUserId });
     if (rpcError) { setError("Erreur chat privé : " + rpcError.message); return; }
@@ -246,13 +251,11 @@ export default function Chat() {
     setSearchStaff('');
   }
 
-  // 9. Ouvrir une conversation
   function openConversation(c) {
     setActiveConv(c);
     if (isMobile) setShowNewChat(false);
   }
 
-  // Helpers
   const getConvInfo = (c) => {
     if (c.type === 'general') {
       return { name: 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
@@ -271,19 +274,16 @@ export default function Chat() {
 
   const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
-  // Filtrer les conversations
   const filteredConvs = useMemo(() => {
     if (!searchConv.trim()) return conversations;
     return conversations.filter(c => getConvInfo(c).name.toLowerCase().includes(searchConv.toLowerCase()));
   }, [conversations, searchConv]);
 
-  // Filtrer les collègues
   const filteredStaff = useMemo(() => {
     if (!searchStaff.trim()) return staff;
     return staff.filter(s => s.full_name.toLowerCase().includes(searchStaff.toLowerCase()));
   }, [staff, searchStaff]);
 
-  // Grouper les messages par date
   const groupedMessages = useMemo(() => {
     const groups = [];
     let currentDate = null;
@@ -298,7 +298,6 @@ export default function Chat() {
     return groups;
   }, [messages]);
 
-  // ============== RENDER COMPOSANTS INTERNES ==============
   const Avatar = ({ text, color, size = 42, isGroup }) => (
     <div style={{
       width: size, height: size, borderRadius: '50%',
@@ -311,7 +310,6 @@ export default function Chat() {
     </div>
   );
 
-  // ============== VUE LISTE ==============
   const renderConversationList = () => (
     <div style={{
       width: isMobile ? '100%' : 340,
@@ -319,10 +317,9 @@ export default function Chat() {
       background: 'var(--paper)', borderRadius: 16,
       border: '1px solid var(--line)',
       overflow: 'hidden',
-      height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 120px)',
+      height: 'calc(100vh - 120px)',
       boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
     }}>
-      {/* Header */}
       <div style={{ padding: '18px 20px 14px', background: 'linear-gradient(180deg, var(--forest-light), transparent)', borderBottom: '1px solid var(--line)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
@@ -368,7 +365,6 @@ export default function Chat() {
         </div>
       </div>
 
-      {/* Modal nouveau chat privé */}
       {showNewChat && (
         <div style={{ padding: 16, background: 'var(--cream)', borderBottom: '1px solid var(--line)', maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input
@@ -409,7 +405,6 @@ export default function Chat() {
         </div>
       )}
 
-      {/* Liste des conversations */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {filteredConvs.length === 0 && (
           <div style={{ padding: 30, textAlign: 'center' }}>
@@ -481,7 +476,6 @@ export default function Chat() {
     </div>
   );
 
-  // ============== VUE CONVERSATION ==============
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
@@ -490,7 +484,7 @@ export default function Chat() {
         background: 'var(--paper)', borderRadius: 16,
         border: '1px solid var(--line)',
         overflow: 'hidden',
-        height: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 120px)',
+        height: 'calc(100vh - 120px)',
         boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
       }}>
         {error && (
@@ -501,7 +495,6 @@ export default function Chat() {
         
         {activeConv ? (
           <>
-            {/* Header */}
             <div style={{
               padding: '14px 20px',
               borderBottom: '1px solid var(--line)',
@@ -534,7 +527,6 @@ export default function Chat() {
               </div>
             </div>
             
-            {/* Zone messages */}
             <div
               ref={messagesContainerRef}
               onScroll={handleScroll}
@@ -642,7 +634,6 @@ export default function Chat() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Bouton scroll down */}
             {showScrollDown && (
               <button
                 onClick={scrollToBottom}
@@ -660,7 +651,6 @@ export default function Chat() {
               </button>
             )}
 
-            {/* Input zone */}
             <form onSubmit={sendMessage} style={{
               padding: '14px 20px',
               borderTop: '1px solid var(--line)',
@@ -728,7 +718,6 @@ export default function Chat() {
     );
   };
 
-  // ============== AFFICHAGE ==============
   if (isMobile) {
     return (
       <div style={{ height: 'calc(100vh - 120px)', padding: '0 4px' }}>
