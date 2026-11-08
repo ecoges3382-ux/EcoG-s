@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>EcoGès - Gestion scolaire</title>
 
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -12,7 +12,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Chargement des icônes Tabler -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 
     <style>
@@ -24,7 +23,6 @@
       body, button, input, select, textarea, a, span, p, div, table, th, td, label { font-family: 'Poppins', sans-serif !important; }
       :root { --sans: 'Poppins', sans-serif !important; }
       
-      /* Utilisation de 100dvh pour s'adapter à la barre d'adresse mobile */
       html, body { margin: 0; padding: 0; height: 100vh; height: 100dvh; overflow: hidden !important; }
       #app { height: 100vh !important; height: 100dvh !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
       #layout { display: flex !important; flex: 1 !important; overflow: hidden !important; }
@@ -33,15 +31,11 @@
       .hide-scrollbar::-webkit-scrollbar { display: none !important; }
       .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
-      /* ========== IMPRESSION DU REÇU EN 4 COPIES SUR A4 ========== */
       @media screen {
         .receipt-quad-print { display: none !important; }
       }
       @media print {
-        @page {
-          size: A4;
-          margin: 0;
-        }
+        @page { size: A4; margin: 0; }
         body.receipt-printing > *:not(.receipt-modal-overlay) { display: none !important; }
         body.receipt-printing .receipt-modal-overlay {
           position: static !important;
