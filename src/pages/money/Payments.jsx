@@ -273,10 +273,8 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       .then(({ data }) => setSchoolYearInfo(data));
   }, [schoolYearId]);
 
-  // 🚀 CALCUL ROBUSTE : Source = montant dû de l'élève (visible dans "Écolage dû")
+  // 🚀 CALCUL ROBUSTE : Source = montant dû de l'élève
   useEffect(() => {
-    // On utilise les montants dûs de l'élève (montant_du) comme source de vérité,
-    // pas la grille tarifaire (fee_schedules) qui peut ne pas être configurée.
     const scolarite = Number(currentStudent?.montant_du) || Number(currentFeeSchedule?.montant_scolarite) || 0;
     const connexe = Number(currentStudent?.frais_connexe_du) || Number(currentFeeSchedule?.montant_connexe) || 0;
     const inscription = Number(currentFeeSchedule?.montant_inscription || currentFeeSchedule?.montant_reinscription) || 0;
@@ -297,19 +295,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       else if (tranche === 'moitie') amount = inscription / 2;
     }
 
-    // 🔍 Log de diagnostic : ouvre la console (F12) pour voir ce qui se passe
-    console.log('🔍 [Calcul montant]', {
-      typeFrais,
-      tranche,
-      scolarite,
-      connexe,
-      inscription,
-      amount,
-      'student.montant_du': currentStudent?.montant_du,
-      'student.frais_connexe_du': currentStudent?.frais_connexe_du,
-      hasFeeSchedule: !!currentFeeSchedule
-    });
-
     if (amount !== null && !isNaN(amount) && amount > 0) {
       setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
@@ -322,8 +307,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (!studentId || !montant) { setError("L'élève et le montant sont obligatoires."); return; }
     if (dejaPaye) { setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais."); return; }
     
-    console.log('🔍 [Envoi paiement]', { typeFrais, tranche, montant });
-
     setSubmitting(true);
     setError('');
     const payload = {
@@ -429,17 +412,18 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           </div>
         )}
 
+        {/* 🚀 NOUVELLE DISPOSITION */}
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div><label style={modalLabelStyle}>Type de frais</label><Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
+          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
+        </div>
+
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Montant</label>
             <MoneyInput value={montant} onChange={setMontant} style={{ ...modalInputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }} suffix="F CFA" disabled={!isMontantEditable} />
           </div>
-        </div>
-
-        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div><label style={modalLabelStyle}>Mode</label><Dropdown value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m.id, label: m.label }))} style={modalInputStyle} /></div>
-          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
