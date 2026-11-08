@@ -46,7 +46,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       .then(({ data }) => setSchoolYearInfo(data));
   }, [student.school_year_id]);
 
-  // 🚀 CALCUL ROBUSTE : Source = montant dû de l'élève
   useEffect(() => {
     const scolarite = Number(student.montant_du) || Number(currentFeeSchedule?.montant_scolarite) || 0;
     const connexe = Number(student.frais_connexe_du) || Number(currentFeeSchedule?.montant_connexe) || 0;
@@ -130,25 +129,31 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
 
     showToast('Paiement enregistré');
 
+    // 🚀 Envoi du push + WhatsApp avec student_id et date
     if (inserted) {
       try {
         await supabase.functions.invoke('send-payment-push', {
           body: {
             school_id: profile.school_id,
+            student_id: student.id,
             student_name: student.full_name,
             amount: Number(payload.montant),
-            type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais'
+            type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais',
+            date: date,
           },
           headers: { 
             'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
           }
         });
       } catch (err) {
-        console.warn("La notification push n'a pas pu être envoyée :", err);
+        console.warn("La notification push/WhatsApp n'a pas pu être envoyée :", err);
       }
     }
 
-    if (inserted) { setCreatedPayment(inserted); return; }
+    if (inserted) {
+      setCreatedPayment(inserted);
+      return;
+    }
     onSaved();
   }
 
@@ -163,7 +168,21 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       frais_connexe_paye: Number(student.frais_connexe_paye) || 0,
     };
     return (
-      <PaymentReceipt payment={createdPayment} studentName={student.full_name} classeNom={student.niveau} studentMatricule={student.matricule} schoolYearLabel={schoolYearInfo.label} school={profile.schools} montantDu={Number(student.montant_du) || 0} montantPaye={updatedEnrollment.montant_paye} enrollment={updatedEnrollment} schoolYear={schoolYearInfo} feeSchedule={currentFeeSchedule} autoPrint={false} onClose={onSaved} />
+      <PaymentReceipt
+        payment={createdPayment}
+        studentName={student.full_name}
+        classeNom={student.niveau}
+        studentMatricule={student.matricule}
+        schoolYearLabel={schoolYearInfo.label}
+        school={profile.schools}
+        montantDu={Number(student.montant_du) || 0}
+        montantPaye={updatedEnrollment.montant_paye}
+        enrollment={updatedEnrollment}
+        schoolYear={schoolYearInfo}
+        feeSchedule={currentFeeSchedule}
+        autoPrint={false}
+        onClose={onSaved}
+      />
     );
   }
 
@@ -210,7 +229,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           </div>
         )}
 
-        {/* 🚀 NOUVELLE DISPOSITION */}
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Type de frais</label>
@@ -226,7 +244,13 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           <div>
             <label style={labelStyle}>Montant</label>
             <div style={{ position: 'relative' }}>
-              <MoneyInput value={montant} onChange={setMontant} style={{ ...inputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }} suffix="F CFA" disabled={!isMontantEditable} />
+              <MoneyInput
+                value={montant}
+                onChange={setMontant}
+                style={{ ...inputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }}
+                suffix="F CFA"
+                disabled={!isMontantEditable}
+              />
             </div>
             {!isMontantEditable && <p style={{ margin: '-8px 0 10px', fontSize: 10.5, color: 'var(--muted)' }}>Calculé selon la grille</p>}
           </div>
