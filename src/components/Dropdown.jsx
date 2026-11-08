@@ -7,8 +7,8 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
   const wrapperRef = useRef(null);
   const triggerRef = useRef(null);
   const listRef = useRef(null);
+  const interactingRef = useRef(false); // 🚀 Nouveau : flag d'interaction
 
-  // 🚀 DÉTECTION INTELLIGENTE : Si pas assez de place en bas, on ouvre vers le haut
   useLayoutEffect(() => {
     if (!open) return;
     const rect = triggerRef.current.getBoundingClientRect();
@@ -29,30 +29,60 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
   useEffect(() => {
     if (!open) return;
 
-    function handleClick(e) {
-      if (wrapperRef.current?.contains(e.target)) return;
-      if (listRef.current?.contains(e.target)) return;
-      setOpen(false);
+    // Reset du flag à chaque ouverture
+    interactingRef.current = false;
+
+    // 🕵️ Vérifie si des coordonnées (clic) sont visuellement dans le menu
+    function isPointInMenu(x, y) {
+      if (!listRef.current) return false;
+      const rect = listRef.current.getBoundingClientRect();
+      const M = 8; // marge de tolérance (bords arrondis, scrollbar)
+      return x >= rect.left - M && x <= rect.right + M &&
+             y >= rect.top - M && y <= rect.bottom + M;
     }
 
-    // 🚀 CORRECTIF : Ne fermer que si le scroll vient de l'EXTÉRIEUR du menu
-    function handleScroll(e) {
-      // Si le scroll vient de l'intérieur du menu, on ne ferme PAS
-      if (listRef.current && e.target instanceof Node && listRef.current.contains(e.target)) {
+    function handleMouseDown(e) {
+      // Clic dans le trigger ou dans le menu (contient aussi les options)
+      if (wrapperRef.current?.contains(e.target) || listRef.current?.contains(e.target)) {
+        interactingRef.current = true;
         return;
       }
+      // 🚀 Fallback : clic dans les bornes visuelles du menu
+      // (attrape les clics sur la scrollbar native dont la cible est souvent <body>)
+      if (isPointInMenu(e.clientX, e.clientY)) {
+        interactingRef.current = true;
+        return;
+      }
+      // Vrai clic à l'extérieur → on ferme
       setOpen(false);
     }
-    
-    function handleResize() { 
-      setOpen(false); 
+
+    function handleMouseUp() {
+      // Délai pour laisser les derniers scroll events se terminer
+      setTimeout(() => { interactingRef.current = false; }, 200);
     }
 
-    document.addEventListener('mousedown', handleClick);
+    function handleScroll(e) {
+      // 🚀 Si l'utilisateur est en train d'interagir avec le menu (drag scrollbar), on ne ferme PAS
+      if (interactingRef.current) return;
+      // Scroll provenant de l'intérieur du menu (molette) → on ne ferme PAS
+      if (listRef.current && e.target instanceof Node && listRef.current.contains(e.target)) return;
+      // Sinon, scroll de la page → on ferme
+      setOpen(false);
+    }
+
+    function handleResize() {
+      setOpen(false);
+    }
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mouseup', handleMouseUp);
     window.addEventListener('scroll', handleScroll, true);
     window.addEventListener('resize', handleResize);
+
     return () => {
-      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleResize);
     };
@@ -125,7 +155,6 @@ const triggerStyle = {
 const listStyle = {
   zIndex: 50, border: '1px solid var(--line-strong)', borderRadius: 10, background: 'var(--paper)',
   boxShadow: '0 8px 24px rgba(0,0,0,0.18)', maxHeight: 260, overflowY: 'auto',
-  // 🚀 Empêche le scroll du parent de se propager
   overscrollBehavior: 'contain',
 };
 
