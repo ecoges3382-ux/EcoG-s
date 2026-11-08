@@ -90,6 +90,17 @@ export default function Announce() {
     if (statut === 'publiee' && !item.published_at) payload.published_at = new Date().toISOString();
     const { error: updateError } = await supabase.from('announcements').update(payload).eq('id', item.id);
     if (updateError) { setError(updateError.message); return; }
+    
+    // Si on republie une annonce archivée, on déclenche aussi la notification
+    if (statut === 'publiee') {
+      try {
+        await supabase.functions.invoke('send-announcement-push', {
+          body: { announcement_id: item.id }
+        });
+      } catch (err) {
+        console.warn("Erreur push:", err);
+      }
+    }
     reload();
   }
 
@@ -234,17 +245,35 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     };
     if (statut === 'publiee' && !editing?.published_at) payload.published_at = new Date().toISOString();
 
-    const { error } = editing
-      ? await supabase.from('announcements').update(payload).eq('id', editing.id)
-      : await supabase.from('announcements').insert({
-          ...payload,
-          school_id: profile.school_id,
-          auteur: profile.full_name,
-          role: ROLES[profile.role]?.label || profile.role,
-        });
+    let insertedId = editing?.id;
+    if (editing) {
+      const { error } = await supabase.from('announcements').update(payload).eq('id', editing.id);
+      if (error) { setSubmitting(''); onError(error.message); return; }
+    } else {
+      const { data, error } = await supabase.from('announcements').insert({
+        ...payload,
+        school_id: profile.school_id,
+        auteur: profile.full_name,
+        role: ROLES[profile.role]?.label || profile.role,
+      }).select('id').single();
+      if (error) { setSubmitting(''); onError(error.message); return; }
+      insertedId = data.id;
+    }
+    
     setSubmitting('');
-    if (error) { onError(error.message); return; }
     showToast('Enregistré');
+
+    // 🚀 NOUVEAU : Envoi automatique de la notification push si on publie
+    if (statut === 'publiee' && insertedId) {
+      try {
+        await supabase.functions.invoke('send-announcement-push', {
+          body: { announcement_id: insertedId }
+        });
+      } catch (err) {
+        console.warn("Erreur push:", err);
+      }
+    }
+
     onSaved();
   }
 
@@ -368,6 +397,8 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
   const st = STATUT_LABELS[a.statut] || STATUT_LABELS.publiee;
   const [waSending, setWaSending] = useState(false);
   const [waResult, setWaResult] = useState(null);
+  const [pushSending, setPushSending] = useState(false);
+  const [pushResult, setPushResult] = useState(null);
 
   async function diffuserWhatsApp() {
     if (!(await confirm(`Diffuser « ${a.titre} » par WhatsApp à ${audienceText} ?`, { confirmLabel: 'Diffuser', danger: false }))) return;
@@ -380,6 +411,27 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
       setWaResult({ ok: false, text: err.message });
     }
     setWaSending(false);
+  }
+
+  async function diffuserPush() {
+    if (!(await confirm(`Envoyer une notification push pour « ${a.titre} » ?`, { confirmLabel: 'Envoyer', danger: false }))) return;
+    setPushSending(true);
+    setPushResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-announcement-push', {
+        body: { announcement_id: a.id }
+      });
+      if (error) throw error;
+      if (data?.message) {
+        setPushResult({ ok: true, text: data.message });
+      } else {
+        const envoyeCount = data.results.filter(r => r.status === 'envoye').length;
+        setPushResult({ ok: true, text: `Notification envoyée à ${envoyeCount} appareil(s).` });
+      }
+    } catch (err) {
+      setPushResult({ ok: false, text: err.message || "Erreur d'envoi." });
+    }
+    setPushSending(false);
   }
 
   return (
@@ -420,7 +472,11 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
               <button onClick={() => onSetStatut('archivee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Archiver</button>
               <button onClick={diffuserWhatsApp} disabled={waSending} style={actionBtnStyle('#25D366', '#fff')}>
                 <i className="ti ti-brand-whatsapp" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
-                {waSending ? 'Diffusion…' : 'Diffuser par WhatsApp'}
+                {waSending ? 'Diffusion…' : 'WhatsApp'}
+              </button>
+              <button onClick={diffuserPush} disabled={pushSending} style={actionBtnStyle('var(--forest)', '#fff')}>
+                <i className="ti ti-bell" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
+                {pushSending ? 'Envoi…' : 'Notifier'}
               </button>
             </>
           )}
@@ -436,6 +492,9 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
       )}
       {waResult && (
         <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 600, color: waResult.ok ? 'var(--success)' : 'var(--danger)' }}>{waResult.text}</p>
+      )}
+      {pushResult && (
+        <p style={{ margin: '8px 0 0', fontSize: 11.5, fontWeight: 600, color: pushResult.ok ? 'var(--success)' : 'var(--danger)' }}>{pushResult.text}</p>
       )}
     </div>
   );
