@@ -24,33 +24,34 @@ export function loadCache(key) {
   }
 }
 
-// Enrobe un seul appel Supabase avec le repli hors-ligne : si rien n'est
-// encore affiché, hydrate depuis le cache pendant que la requête part ;
-// si la requête échoue, garde ce qui est déjà affiché (en direct ou
-// depuis le cache) plutôt que de basculer sur une erreur ou un écran
-// vide — l'erreur "dure" (onError) ne sert que quand il n'y a vraiment
-// rien à montrer. `hasData` doit refléter l'état affiché AU MOMENT de
-// l'appel (ex. `students !== null`), pas relu après coup : un setState
-// ne met pas à jour la variable déjà capturée dans cette même fonction.
+// Enrobe un seul appel Supabase avec le repli hors-ligne.
 export async function guardedFetch({ cacheKey, hasData, load, setData, setOffline, onError, onSuccess, isCancelled }) {
   let effectiveHasData = hasData;
+  
   if (!effectiveHasData) {
     const cached = loadCache(cacheKey);
     if (cached) {
-      setData(cached.data);
-      setOffline(true);
+      if (typeof setData === 'function') setData(cached.data);
+      if (typeof setOffline === 'function') setOffline(true);
       effectiveHasData = true;
     }
   }
+  
   const { data, error } = await load();
-  if (isCancelled?.()) return;
+  
+  if (typeof isCancelled === 'function' && isCancelled()) return;
+  
   if (error) {
-    if (effectiveHasData) { setOffline(true); return; }
-    onError?.(error);
+    if (effectiveHasData) {
+      if (typeof setOffline === 'function') setOffline(true);
+      return;
+    }
+    if (typeof onError === 'function') onError(error);
     return;
   }
-  setData(data);
+  
+  if (typeof setData === 'function') setData(data);
   saveCache(cacheKey, data);
-  setOffline(false);
-  onSuccess?.(data);
+  if (typeof setOffline === 'function') setOffline(false);
+  if (typeof onSuccess === 'function') onSuccess(data);
 }
