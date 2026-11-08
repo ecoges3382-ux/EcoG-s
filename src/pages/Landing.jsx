@@ -87,6 +87,7 @@ const I = {
   ),
   mail: (s) => <Svg size={s}><rect x="2.5" y="4.5" width="19" height="15" rx="2" /><path d="M3 6.5l9 6.5 9-6.5" /></Svg>,
   arrow: (s) => <Svg size={s} stroke={2.4}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>,
+  arrowUp: (s) => <Svg size={s} stroke={2.4}><path d="M12 19V5M5 12l7-7 7 7" /></Svg>,
   users: (s) => <Svg size={s}><circle cx="8" cy="8" r="3.2" /><path d="M2.5 19c0-3.3 2.9-5.7 5.5-5.7s5.5 2.4 5.5 5.7" /><circle cx="16.5" cy="8.5" r="2.3" /><path d="M15 13.3c2.3.2 4 2.3 4.2 4.5" /></Svg>,
   briefcase: (s) => <Svg size={s}><rect x="3" y="8" width="18" height="11" rx="1.6" /><path d="M8.5 8V6.2c0-.9.7-1.6 1.6-1.6h3.8c.9 0 1.6.7 1.6 1.6V8M3 13h18" /></Svg>,
   clock: (s) => <Svg size={s}><rect x="3" y="4.5" width="18" height="16" rx="2" /><path d="M3 9h18M8 2.5v4M16 2.5v4M8 13h3M8 16.5h6" /></Svg>,
@@ -98,6 +99,48 @@ const I = {
   money: (s) => <Svg size={s}><rect x="2.5" y="6" width="19" height="12" rx="1.8" /><circle cx="12" cy="12" r="2.5" /></Svg>,
   doc: (s) => <Svg size={s}><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></Svg>,
 };
+
+// 🚀 Composant utilitaire : injecte du JSON-LD structuré pour Google
+function JsonLd() {
+  useEffect(() => {
+    const id = 'lp-jsonld';
+    if (document.getElementById(id)) return;
+    const script = document.createElement('script');
+    script.id = id;
+    script.type = 'application/ld+json';
+    script.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Organization',
+          name: 'EcoGès',
+          url: 'https://eco-ges.vercel.app/',
+          logo: 'https://eco-ges.vercel.app/pwa-512x512.png',
+          description: "Application de gestion scolaire pour les écoles privées d'Afrique de l'Ouest.",
+          areaServed: ['BJ', 'TG', 'CI', 'SN', 'BF', 'NE', 'ML'],
+        },
+        {
+          '@type': 'SoftwareApplication',
+          name: 'EcoGès',
+          applicationCategory: 'BusinessApplication',
+          operatingSystem: 'Web',
+          offers: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'XOF',
+            description: 'Plan Découverte gratuit, plans payants à partir de 10 000 F CFA/mois.',
+          },
+        },
+      ],
+    });
+    document.head.appendChild(script);
+    return () => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    };
+  }, []);
+  return null;
+}
 
 function Nav() {
   const [solid, setSolid] = useState(false);
@@ -236,7 +279,7 @@ function Hero() {
       <div className="lp-wrap lp-hero-grid">
         <div>
           <div className="lp-reveal" style={{ '--d': '0ms' }}>
-            <span className="lp-chip"><span className="lp-live" />Pour les écoles privées d’Afrique de l’Ouest</span>
+            <span className="lp-chip"><span className="lp-live" />Pour les écoles privées d'Afrique de l'Ouest</span>
           </div>
           <h1 className="lp-h1">
             <span className="lp-h1-line"><Words text="Toute votre école." startDelay={120} /></span>
@@ -750,6 +793,8 @@ function Price() {
 
         <InView threshold={0.3} style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
           <div
+            role="group"
+            aria-label="Période de facturation"
             style={{
               display: 'inline-flex',
               background: 'var(--paper)',
@@ -762,6 +807,7 @@ function Price() {
             <button
               type="button"
               onClick={() => setPeriod('mensuel')}
+              aria-pressed={period === 'mensuel'}
               style={{
                 padding: '10px 22px',
                 borderRadius: 999,
@@ -779,6 +825,7 @@ function Price() {
             <button
               type="button"
               onClick={() => setPeriod('annuel')}
+              aria-pressed={period === 'annuel'}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -894,7 +941,7 @@ function PlanCard({ plan, period, index }) {
 
   return (
     <div
-      className="lp-reveal"
+      className="lp-reveal lp-plan-card"
       style={{
         position: 'relative',
         display: 'flex',
@@ -907,11 +954,8 @@ function PlanCard({ plan, period, index }) {
         boxShadow: isHighlight
           ? '0 30px 60px -25px rgba(15, 76, 58, 0.45), 0 0 0 1px var(--lp-gold) inset'
           : '0 10px 30px -20px rgba(0,0,0,0.15)',
-        transition: 'transform 0.3s var(--lp-ease)',
         '--d': `${index * 80}ms`,
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-6px)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
     >
       {plan.badge && (
         <span
@@ -951,7 +995,7 @@ function PlanCard({ plan, period, index }) {
           </>
         ) : (
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 34, fontWeight: 700, lineHeight: 1, color: textColor, letterSpacing: '-0.02em', display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 4 }}>
-            {fmtPrice(price)} 
+            {fmtPrice(price)}
             <span style={{ fontSize: 18, fontWeight: 600, opacity: 0.65 }}>F CFA</span>
             <span style={{ fontSize: 18, fontWeight: 600, color: mutedColor }}>
               / {period === 'annuel' ? 'an' : 'mois'}
@@ -1075,6 +1119,58 @@ function PlanCard({ plan, period, index }) {
   );
 }
 
+// 🚀 Bouton "Retour en haut" qui apparaît après 60% de scroll
+function BackToTop() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    function onScroll() {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setVisible(max > 0 && window.scrollY > max * 0.6);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      aria-label="Retour en haut de page"
+      className={`lp-back-top ${visible ? 'is-visible' : ''}`}
+      onClick={() => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })}
+    >
+      {I.arrowUp(18)}
+    </button>
+  );
+}
+
+// 🚀 CTA sticky mobile : apparaît quand on est dans la section Tarifs ou plus bas
+function StickyMobileCTA() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const target = document.getElementById('tarifs');
+    if (!target || !('IntersectionObserver' in window)) return undefined;
+    const io = new IntersectionObserver(([entry]) => {
+      setShow(entry.isIntersecting);
+    }, { threshold: 0.1 });
+    io.observe(target);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div className={`lp-sticky-cta ${show ? 'is-visible' : ''}`}>
+      <a
+        className="lp-sticky-cta-btn"
+        href={WA_HELLO}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {I.whatsapp(18)} Demander un accès
+      </a>
+    </div>
+  );
+}
+
 function Final() {
   return (
     <InView as="section" className="lp-final" threshold={0.3}>
@@ -1116,9 +1212,7 @@ export default function Landing() {
           position: static !important;
           display: block !important;
         }
-        html {
-          scroll-behavior: auto !important;
-        }
+        html { scroll-behavior: auto !important; }
       `;
       document.head.appendChild(styleEl);
     }
@@ -1130,15 +1224,18 @@ export default function Landing() {
 
   return (
     <div className="lp">
+      <JsonLd />
       <Nav />
       <Hero />
       <Bands />
-      <Gone />
-      <Scenes />
-      <Modules />
-      <Terrain />
-      <Steps />
-      <Price />
+      <main>
+        <Gone />
+        <Scenes />
+        <Modules />
+        <Terrain />
+        <Steps />
+        <Price />
+      </main>
       <Final />
       <footer className="lp-footer">
         <div className="lp-wrap lp-footer-inner">
@@ -1152,6 +1249,8 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+      <BackToTop />
+      <StickyMobileCTA />
     </div>
   );
 }
