@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { useToast } from '../components/Toast.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function SetPassword() {
@@ -10,7 +9,6 @@ export default function SetPassword() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const showToast = useToast();
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -36,7 +34,6 @@ export default function SetPassword() {
       return;
     }
 
-    showToast('Mot de passe créé avec succès !');
     // On l'envoie vers son tableau de bord
     navigate('/'); 
   }
