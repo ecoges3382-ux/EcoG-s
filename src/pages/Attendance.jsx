@@ -11,6 +11,7 @@ import DatePicker from '../components/DatePicker.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
+import StudentLink from '../components/StudentLink.jsx'; // 👈 NOUVEL IMPORT
 
 const STATUTS = [
   { id: 'present', label: 'Présent', bg: 'var(--success-light)', fg: 'var(--success)' },
@@ -33,7 +34,6 @@ export default function Attendance() {
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState('appel');
 
-  // 1. Chargement de la liste des élèves
   useEffect(() => {
     if (!schoolYear) return;
     let cancelled = false;
@@ -66,7 +66,6 @@ export default function Attendance() {
   const niveaux = useMemo(() => [...new Set((students || []).map((s) => s.niveau))].sort(), [students]);
   const studentsInNiveau = (students || []).filter((s) => s.niveau === niveau);
 
-  // 2. Chargement des statuts existants pour la classe et la date sélectionnées
   useEffect(() => {
     if (!schoolYear || !niveau || studentsInNiveau.length === 0) { setStatuts({}); return; }
     setLoadingRecords(true);
@@ -108,8 +107,6 @@ export default function Attendance() {
 
   const counts = { present: 0, absent: 0, retard: 0 };
   studentsInNiveau.forEach((s) => { counts[statuts[s.id] || 'present'] += 1; });
-
-  // --- RENDU ---
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <div className="card-bold" style={{ padding: 20 }}><SkeletonRow count={6} /></div>;
@@ -171,7 +168,8 @@ export default function Attendance() {
                   <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
                     {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
                   </div>
-                  <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</span>
+                  {/* 🚀 NOM CLIQUABLE */}
+                  <StudentLink studentId={s.id} name={s.full_name} style={{ fontSize: '13.5px', fontWeight: 600 }} />
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {STATUTS.map((st) => (
@@ -211,8 +209,6 @@ export default function Attendance() {
 }
 
 function AttendanceStats({ schoolYear, niveaux, students }) {
-  // ... (Le code des statistiques reste identique, je ne le remets pas pour la lisibilité, 
-  // mais il est bien présent dans le fichier complet que tu vas copier)
   return <div>Statistiques en construction</div>;
 }
 
