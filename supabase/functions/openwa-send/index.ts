@@ -21,7 +21,6 @@ function fmtF(n: number): string {
 }
 
 // ... (Les fonctions trancheSlots, computeEcheances et buildRelanceMessage restent inchangées) ...
-// (Je les ai raccourcies ici pour la lisibilité, gardez celles de votre fichier actuel)
 function trancheSlots(montantDu: number, feeSchedule: any, nbDelais: number) { /* ... */ return []; }
 function computeEcheances(enrollment: any, schoolYear: any, feeSchedule: any) { /* ... */ return []; }
 function buildRelanceMessage(params: any): string { /* ... */ return ""; }
@@ -167,30 +166,40 @@ Deno.serve(async (req) => {
          return jsonResponse({ ok: true, results: [{ statut: 'echec', erreur: 'Aucun destinataire trouvé (numéros manquants ?)' }] });
        }
 
-       for (const r of recipients) {
-          const { data: inserted } = await adminClient.from('whatsapp_messages').insert({
-             school_id: schoolId, 
-             parent_access_id: audiences.includes('parents') && recipients.find(x => x.phone === r.phone) ? r.id : null, 
-             student_id: null, 
-             announcement_id: announcementId,
-             type: type, 
-             destinataire_phone: r.phone, 
-             contenu: messageText, 
-             template_name: 'openwa_free_text',
-             statut: 'en_attente', 
-             created_by: user.id,
-          }).select('id').single();
+       // 🚀 OPTIMISATION : Envoi par lots (chunks) de 20 pour éviter le Timeout
+       const CHUNK_SIZE = 20;
+       for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
+         const chunk = recipients.slice(i, i + CHUNK_SIZE);
+         
+         await Promise.all(chunk.map(async (r) => {
+           const { data: inserted } = await adminClient.from('whatsapp_messages').insert({
+              school_id: schoolId, 
+              parent_access_id: audiences.includes('parents') && recipients.find(x => x.phone === r.phone) ? r.id : null, 
+              student_id: null, 
+              announcement_id: announcementId,
+              type: type, 
+              destinataire_phone: r.phone, 
+              contenu: messageText, 
+              template_name: 'openwa_free_text',
+              statut: 'en_attente', 
+              created_by: user.id,
+           }).select('id').single();
 
-          if (!inserted) { results.push({ statut: 'echec', erreur: 'Erreur insertion' }); continue; }
+           if (!inserted) {
+             results.push({ statut: 'echec', erreur: 'Erreur insertion' });
+             return;
+           }
 
-          const result = await sendOpenWAText({ base_url: config.base_url, session_id: config.session_id, api_key: apiKey }, r.phone, messageText);
-          if (result.ok) {
-             await adminClient.from('whatsapp_messages').update({ statut: 'envoye', updated_at: new Date().toISOString() }).eq('id', inserted.id);
-             results.push({ statut: 'envoye' });
-          } else {
-             await adminClient.from('whatsapp_messages').update({ statut: 'echec', erreur: result.error, updated_at: new Date().toISOString() }).eq('id', inserted.id);
-             results.push({ statut: 'echec', erreur: result.error });
-          }
+           const result = await sendOpenWAText({ base_url: config.base_url, session_id: config.session_id, api_key: apiKey }, r.phone, messageText);
+           
+           if (result.ok) {
+              await adminClient.from('whatsapp_messages').update({ statut: 'envoye', updated_at: new Date().toISOString() }).eq('id', inserted.id);
+              results.push({ statut: 'envoye' });
+           } else {
+              await adminClient.from('whatsapp_messages').update({ statut: 'echec', erreur: result.error, updated_at: new Date().toISOString() }).eq('id', inserted.id);
+              results.push({ statut: 'echec', erreur: result.error });
+           }
+         }));
        }
        return jsonResponse({ ok: true, results });
 
