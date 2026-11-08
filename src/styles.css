@@ -47,6 +47,11 @@ html.dark-mode, body.dark-mode {
   --gold-light: #78350F;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 * { box-sizing: border-box; }
 
 body { overflow-x: hidden; }
@@ -55,9 +60,15 @@ body {
   font-family: var(--sans); color: var(--ink);
   color-scheme: light;
   transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html.dark-mode body { color-scheme: dark; }
+
+input, select, textarea, button, a, [role="button"] {
+  touch-action: manipulation;
+}
 
 button { font-family: var(--sans); cursor: pointer; }
 button:not(:disabled) { transition: transform 0.15s ease, background-color 0.3s ease; }
@@ -80,21 +91,12 @@ input { caret-color: var(--ink); }
 }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
-/* ---- Layout shell ---- */
 #app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 #layout { display: flex; flex: 1; overflow-x: hidden; }
-
-/* CORRECTION ICI : Texte en blanc pour le menu de gauche */
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; color: #fff; }
-
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
-
-/* CORRECTION ICI : Cacher la barre du bas sur ordinateur */
 #bottomnav { display: none; }
 
-/* ============================================================
-   EN-TÊTE PREMIUM (TOPBAR)
-   ============================================================ */
 .topbar-row { 
   position: sticky; 
   top: 0; 
@@ -206,7 +208,6 @@ input { caret-color: var(--ink); }
   background: rgba(255,255,255,0.2);
 }
 
-/* LIGNE MOBILE (Cachée sur PC) */
 .topbar-mobile-row {
   display: none;
   align-items: center;
@@ -249,7 +250,6 @@ input { caret-color: var(--ink); }
   flex-shrink: 0;
 }
 
-/* ---- Mobile layout (<= 900px) ---- */
 @media (max-width: 900px) {
   #layout { flex-direction: column; }
   #sidebar { display: none; }
@@ -277,8 +277,6 @@ input { caret-color: var(--ink); }
   .topbar-admin-badge { padding: 5px 10px; font-size: 11px; }
 
   #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
-  
-  /* Afficher la barre du bas uniquement sur mobile */
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
     background: var(--paper); border-top: 1px solid var(--line);
@@ -313,7 +311,6 @@ input { caret-color: var(--ink); }
 }
 .school-tabs-mobile a.active { border-color: var(--forest); background: var(--forest); color: #fff; }
 
-/* Utilitaires d'affichage */
 .show-on-mobile { display: none !important; }
 .hide-on-mobile { display: flex !important; }
 @media (max-width: 900px) {
@@ -321,7 +318,6 @@ input { caret-color: var(--ink); }
   .show-on-mobile { display: flex !important; }
 }
 
-/* Animations */
 @keyframes screenPageIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .page-transition { animation: screenPageIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
 @keyframes emptyStateIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -354,7 +350,6 @@ input { caret-color: var(--ink); }
   button:not(:disabled):hover { transform: none !important; }
 }
 
-/* Impression */
 @media print {
   @page { size: A4; margin: 14mm; }
   body { background: #fff !important; color: #000 !important; }
@@ -380,9 +375,6 @@ input { caret-color: var(--ink); }
   .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
 }
 
-/* ============================================================
-   CORRECTIFS DE BASE POUR LE MODE SOMBRE
-   ============================================================ */
 html.dark-mode {
   input, select, textarea {
     background-color: var(--paper) !important;
@@ -403,9 +395,7 @@ html.dark-mode {
   button[style*="background-color: #fff"] {
     color: var(--ink) !important;
   }
-  .stat-in p {
-    color: inherit;
-  }
+  .stat-in p { color: inherit; }
   .recharts-default-tooltip {
     background-color: var(--paper) !important;
     border: 1px solid var(--line-strong) !important;
@@ -416,10 +406,6 @@ html.dark-mode {
   .recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: var(--line-strong) !important; }
   .recharts-legend-item-text { color: var(--ink) !important; }
 }
-
-/* ============================================================
-   🛡️ LE BOUCLIER ANTI-BLANC ULTIME (Infaillible) 🛡️
-   ============================================================ */
 
 html.dark-mode [style*="background: white"],
 html.dark-mode [style*="background: #fff"],
@@ -487,4 +473,33 @@ html.dark-mode svg[stroke="black"],
 html.dark-mode svg[stroke="#000"],
 html.dark-mode svg[stroke="#1A2E27"] {
   stroke: var(--ink) !important;
+}
+
+/* ============================================================
+   🚀 CORRECTIF DÉFINITIF ANTI-ZOOM (Android + iOS)
+   ============================================================ */
+input,
+select,
+textarea,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+input[type="tel"],
+input[type="search"],
+input[type="url"] {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+
+html, body {
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
+
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation !important;
 }
