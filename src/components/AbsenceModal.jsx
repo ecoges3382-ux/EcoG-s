@@ -6,15 +6,6 @@ import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { translateError } from '../lib/errors.js';
 
-// Formulaire de saisie d'une absence détaillée. Complète (ne remplace pas)
-// l'appel rapide d'attendance_records : une absence précise avec demi-
-// journée, motif codifié, justificatif et santé. La durée est saisie en
-// heures + minutes séparés pour rester lisible ("3h30", pas "3.5"), mais
-// stockée en décimal en base (duree_heures).
-//
-// editing : si fourni, bascule en mode modification. Sinon, création.
-// motifs : liste chargée par le parent AbsencesPanel — on évite une requête
-// par ouverture de modale.
 export default function AbsenceModal({ schoolId, schoolYearId, studentId, motifs, editing, onClose, onSaved }) {
   const showToast = useToast();
   const [date, setDate] = useState(editing?.date || new Date().toISOString().slice(0, 10));
@@ -34,10 +25,6 @@ export default function AbsenceModal({ schoolId, schoolYearId, studentId, motifs
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Quand on choisit un motif, on aligne automatiquement le flag "justifié"
-  // sur la catégorie du motif choisi — le contraire ferait des données
-  // incohérentes ("motif non justifiée" + "justifié oui"). Mais on laisse
-  // l'utilisateur modifier ensuite : la catégorie n'est qu'une suggestion.
   const selectedMotif = motifs.find((m) => m.id === motifId);
   useEffect(() => {
     if (!selectedMotif) return;
@@ -79,6 +66,23 @@ export default function AbsenceModal({ schoolId, schoolYearId, studentId, motifs
     setSubmitting(false);
     if (saveError) { setError(translateError(saveError)); return; }
     showToast('Enregistré');
+
+    // 🚀 NOUVEAU : Envoi de la notification push
+    if (!editing) { // On ne notifie que si c'est une NOUVELLE absence
+      try {
+        await supabase.functions.invoke('send-absence-push', {
+          body: {
+            student_id: studentId,
+            date: date,
+            demi_journee: demiJournee,
+            school_id: schoolId
+          }
+        });
+      } catch (err) {
+        console.warn("Erreur d'envoi de la notification d'absence :", err);
+      }
+    }
+
     onSaved();
   }
 
