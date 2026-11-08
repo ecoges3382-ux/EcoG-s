@@ -68,13 +68,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       else if (tranche === 'moitie') amount = inscription / 2;
     }
 
-    console.log('🔍 [Calcul montant]', {
-      typeFrais, tranche, scolarite, connexe, inscription, amount,
-      'student.montant_du': student.montant_du,
-      'student.frais_connexe_du': student.frais_connexe_du,
-      hasFeeSchedule: !!currentFeeSchedule
-    });
-
     if (amount !== null && !isNaN(amount) && amount > 0) {
       setMontant(String(Math.round(amount)));
     } else if (tranche === 'autre' || typeFrais === 'autre') {
@@ -89,8 +82,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais. Choisis « Autre » pour un paiement exceptionnel.");
       return;
     }
-
-    console.log('🔍 [Envoi paiement]', { typeFrais, tranche, montant });
 
     setSubmitting(true);
     setError('');
@@ -219,11 +210,19 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           </div>
         )}
 
+        {/* 🚀 NOUVELLE DISPOSITION */}
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Type de frais</label>
             <Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
           </div>
+          <div>
+            <label style={labelStyle}>Tranche / Type</label>
+            <Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
+          </div>
+        </div>
+
+        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Montant</label>
             <div style={{ position: 'relative' }}>
@@ -231,16 +230,9 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
             </div>
             {!isMontantEditable && <p style={{ margin: '-8px 0 10px', fontSize: 10.5, color: 'var(--muted)' }}>Calculé selon la grille</p>}
           </div>
-        </div>
-
-        <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Mode</label>
             <Dropdown value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m.id, label: m.label }))} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Tranche / Type</label>
-            <Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
           </div>
         </div>
 
