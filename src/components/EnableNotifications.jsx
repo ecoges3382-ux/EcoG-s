@@ -26,22 +26,29 @@ export default function EnableNotifications() {
   const handleTest = async () => {
     setTesting(true);
     try {
-      // On récupère la session active
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Session expirée. Reconnecte-toi.");
-
-      // On envoie explicitement le badge (le token) à la fonction
+      if (!profile) throw new Error("Profil introuvable.");
+      
+      // On envoie l'ID directement dans le body
       const { data, error } = await supabase.functions.invoke('send-test-push', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
+        body: { user_id: profile.id }
       });
       
-      if (error) throw error;
+      // Si on a une erreur, on essaie de lire le vrai message
+      if (error) {
+        let realError = error.message;
+        try {
+          if (error.context && typeof error.context.json === 'function') {
+            const errBody = await error.context.json();
+            if (errBody && errBody.error) realError = errBody.error;
+          }
+        } catch (e) { /* ignore */ }
+        throw new Error(realError);
+      }
+      
       if (data?.error) throw new Error(data.error);
       showToast('Notification de test envoyée !', 'success');
     } catch (err) {
-      showToast("Erreur d'envoi : " + err.message, 'error');
+      showToast("Erreur : " + err.message, 'error');
     }
     setTesting(false);
   };
