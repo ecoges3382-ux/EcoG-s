@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import Dropdown from '../components/Dropdown.jsx';
-import UpdateButton from '../components/UpdateButton.jsx'; // 👈 Ajouté
+import UpdateButton from '../components/UpdateButton.jsx';
 
 // Sous-composants
 import { 
@@ -163,7 +163,17 @@ export default function PlatformAdmin() {
   const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--forest-dark)', padding: '28px 20px' }}>
+    // 👇 C'EST ICI QUE TOUT SE JOUE : height: 100vh et overflowY: auto forcent la barre 👇
+    <div style={{ height: '100vh', overflowY: 'auto', background: 'var(--forest-dark)', padding: '28px 20px', boxSizing: 'border-box' }}>
+      
+      {/* Style pour rendre la barre de défilement bien visible (sur PC) */}
+      <style>{`
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 6px; border: 3px solid var(--forest-dark); }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+      `}</style>
+
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
@@ -239,7 +249,6 @@ export default function PlatformAdmin() {
         }} />}
         {tab === 'journal' && <JournalTab />}
         
-        {/* 👇 BOUTON DE MISE A JOUR TOUT EN BAS 👇 */}
         <div style={{ marginTop: 40, paddingBottom: 40, display: 'flex', justifyContent: 'center' }}>
           <UpdateButton />
         </div>
