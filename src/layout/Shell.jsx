@@ -10,7 +10,8 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 import GlobalSearch from '../components/GlobalSearch.jsx';
-import UpdateButton from '../components/UpdateButton.jsx'; // 👈 NOUVEL IMPORT ICI
+import UpdateButton from '../components/UpdateButton.jsx';
+import SecureImage from '../components/SecureImage.jsx'; // 👈 NOUVEL IMPORT
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
@@ -43,8 +44,6 @@ const BOTTOM_NAV_ITEMS = [
   { to: '/parametres', shortLabel: 'Paramètres', icon: 'ti-settings', perm: 'parametres', tourId: 'bottomnav-parametres' },
 ];
 
-// 🛡️ Pages accessibles même si l'école n'a aucune année active
-// (pour que le fondateur puisse créer une année et réparer)
 const NO_YEAR_ALLOWED_PATHS = ['/parametres', '/premiers-pas', '/comptes', '/aide', '/chat'];
 
 function ShieldIcon() {
@@ -91,7 +90,6 @@ function sidebarLinkStyle(isActive) {
   };
 }
 
-// 🛡️ Garde défensif : bloque l'affichage des pages annuelles si aucune année active
 function SchoolYearGuard({ children }) {
   const location = useLocation();
   const { activeYear, loading, refresh } = useSelectedSchoolYear();
@@ -204,9 +202,14 @@ export default function Shell() {
             
             <div className="topbar-brand">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
-                {profile?.schools?.logo_url
-                  ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+                {/* 👇 MODIFICATION ICI : Utilisation de SecureImage 👇 */}
+                <SecureImage 
+                  src={profile?.schools?.logo_url} 
+                  bucket="photos"
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  fallback={(schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+                />
               </div>
               <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {schoolName}
@@ -285,7 +288,6 @@ export default function Shell() {
           </div>
           <div id="screen">
             <div key={location.pathname} className="page-transition" style={{ paddingBottom: '48px' }}>
-              {/* 🛡️ Le guard protège toutes les pages annuelles */}
               <SchoolYearGuard>
                 <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
                   <Outlet />
@@ -310,7 +312,6 @@ export default function Shell() {
           })}
         </div>
 
-        {/* 👇 LA BANNIÈRE FLOTTANTE EST ICI 👇 */}
         <UpdateButton />
         
       </div>
