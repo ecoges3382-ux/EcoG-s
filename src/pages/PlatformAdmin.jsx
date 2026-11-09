@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import Dropdown from '../components/Dropdown.jsx';
-import UpdateButton from '../components/UpdateButton.jsx';
+import UpdateButton from '../components/UpdateButton.jsx'; // 👈 Ajouté
 
 // Sous-composants
 import { 
@@ -166,7 +166,6 @@ export default function PlatformAdmin() {
     <div style={{ minHeight: '100vh', background: 'var(--forest-dark)', padding: '28px 20px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         
-        {/* EN-TÊTE */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 18, color: 'var(--forest-dark)' }}>EG</div>
@@ -177,7 +176,6 @@ export default function PlatformAdmin() {
               </p>
             </div>
           </div>
-          
           <button
             onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }}
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, color: '#ffb4a8', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', padding: '9px 14px', flexShrink: 0 }}
@@ -241,8 +239,11 @@ export default function PlatformAdmin() {
         }} />}
         {tab === 'journal' && <JournalTab />}
         
-        {/* BOUTON DE MISE A JOUR */}
-        <UpdateButton />
+        {/* 👇 BOUTON DE MISE A JOUR TOUT EN BAS 👇 */}
+        <div style={{ marginTop: 40, paddingBottom: 40, display: 'flex', justifyContent: 'center' }}>
+          <UpdateButton />
+        </div>
+
       </div>
     </div>
   );
