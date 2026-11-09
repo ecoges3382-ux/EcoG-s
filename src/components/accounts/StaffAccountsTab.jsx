@@ -18,7 +18,7 @@ const ROLE_PERMISSIONS = {
   directeur: {
     dashboard: true, eleves: true, parents: true, personnel: true, classes: true, matieres: true,
     notes: true, bulletins: true, emploi_du_temps: true, presences: true, annonces: true,
-    documents: true, rapports: true, finance: true, parametres: false
+    documents: true, rapports: true, finance: true, parametres: true // Le directeur a TOUT (sauf comptes)
   },
   censeur: {
     dashboard: true, eleves: true, parents: true, personnel: false, classes: true, matieres: true,
@@ -26,9 +26,9 @@ const ROLE_PERMISSIONS = {
     documents: true, rapports: true, finance: false, parametres: false
   },
   secretaire: {
-    dashboard: true, eleves: true, parents: true, personnel: false, classes: false, matieres: false,
+    dashboard: true, eleves: true, parents: true, personnel: false, classes: true, matieres: false,
     notes: false, bulletins: false, emploi_du_temps: false, presences: false, annonces: true,
-    documents: true, rapports: false, finance: true, parametres: false
+    documents: true, rapports: false, finance: true, parametres: true
   },
   enseignant: {
     dashboard: true, eleves: false, parents: false, personnel: false, classes: false, matieres: false,
@@ -37,11 +37,23 @@ const ROLE_PERMISSIONS = {
   }
 };
 
+// 👇 CORRECTION ICI : J'ai ajouté "classes" et "matieres" pour que toutes les pages soient gérables
 const PERMISSIONS_LABELS = {
-  dashboard: 'Tableau de bord', eleves: 'Gestion des élèves', parents: 'Portail parents',
-  personnel: 'Gestion du personnel', notes: 'Notes & évaluations', bulletins: 'Bulletins',
-  finance: 'Gestion financière (Argent)', presences: 'Présences', emploi_du_temps: 'Emploi du temps',
-  annonces: 'Annonces', documents: 'Documents', rapports: 'Rapports', parametres: 'Accès aux paramètres',
+  dashboard: 'Tableau de bord', 
+  eleves: 'Gestion des élèves', 
+  parents: 'Portail parents',
+  personnel: 'Gestion du personnel', 
+  classes: 'Gestion des classes', 
+  matieres: 'Gestion des matières',
+  notes: 'Notes & évaluations', 
+  bulletins: 'Bulletins',
+  finance: 'Gestion financière (Argent)', 
+  presences: 'Présences', 
+  emploi_du_temps: 'Emploi du temps',
+  annonces: 'Annonces', 
+  documents: 'Documents', 
+  rapports: 'Rapports', 
+  parametres: 'Accès aux paramètres',
 };
 
 async function describeFunctionError(fnError) {
@@ -222,7 +234,7 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   }
 
   return (
-    <ModalContainer onClose={onClose} maxWidth={460}>
+    <ModalContainer onClose={onClose} maxWidth={480}>
       <div style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{isEditing ? "Modifier le compte" : "Nouveau compte"}</p>
@@ -236,7 +248,6 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
           <label style={labelStyle}>Rôle</label>
           <Dropdown value={role} onChange={handleRoleChange} options={CREATABLE_STAFF_ROLES.map((r) => ({ value: r, label: ROLES[r].label }))} style={{ ...inputStyle, marginBottom: 4 }} />
 
-          {/* 👇 LE TEXTE D'EXPLICATION REMIS ICI 👇 */}
           <p style={{ margin: '0 0 16px', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.4 }}>
             <i className="ti ti-info-circle" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
             Les droits d'accès par défaut seront automatiquement appliqués selon ce rôle.
@@ -255,12 +266,10 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
             </p>
           )}
 
-          {/* 👇 LE BOUTON GLISSANT (SWITCH) 👇 */}
           <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>
             <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: customize ? 14 : 0 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Personnaliser les droits d'accès</span>
               
-              {/* L'interface du Switch */}
               <div style={{ position: 'relative', width: 44, height: 24, background: customize ? 'var(--forest)' : 'var(--line-strong)', borderRadius: 24, transition: 'background 0.3s' }}>
                 <div style={{ 
                   position: 'absolute', top: 2, left: customize ? 22 : 2, 
@@ -269,7 +278,6 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
                 }} />
               </div>
               
-              {/* L'input invisible qui gère l'état */}
               <input 
                 type="checkbox" 
                 checked={customize} 
