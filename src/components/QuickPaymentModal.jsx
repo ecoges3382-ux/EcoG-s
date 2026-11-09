@@ -129,7 +129,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
 
     showToast('Paiement enregistré');
 
-    // 🚀 Envoi du push + WhatsApp avec student_id et date
+    // 🚀 Envoi du push + WhatsApp (Sécurisé sans clé API)
     if (inserted) {
       try {
         await supabase.functions.invoke('send-payment-push', {
@@ -140,9 +140,6 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
             amount: Number(payload.montant),
             type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais',
             date: date,
-          },
-          headers: { 
-            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
           }
         });
       } catch (err) {
