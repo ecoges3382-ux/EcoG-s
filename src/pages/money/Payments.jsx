@@ -137,6 +137,61 @@ export default function Payments() {
   const totalEncaisse = payments.reduce((a, p) => a + Number(p.montant), 0);
   const partiels = payments.filter((p) => p.tranche !== 'complet').length;
 
+  const paymentsScolarite = payments.filter((p) => p.type_frais === 'scolarite');
+  const paymentsAutres = payments.filter((p) => p.type_frais !== 'scolarite');
+
+  const totalScolarite = paymentsScolarite.reduce((a, p) => a + Number(p.montant), 0);
+  const totalAutres = paymentsAutres.reduce((a, p) => a + Number(p.montant), 0);
+
+  // Fonction pour générer une ligne de paiement
+  const renderPaymentRow = (p, i, arrayLength) => (
+    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < arrayLength - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {selectMode && (
+          <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+        )}
+        <div>
+          {/* 👇 LE LIEN VERS LA FICHE ÉLÈVE EST ICI 👇 */}
+          {selectMode ? (
+            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
+          ) : (
+            <Link to={`/eleves/${p.student_id}`} style={{ textDecoration: 'none' }}>
+              <p style={{ 
+                margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600, color: 'var(--forest)', cursor: 'pointer',
+                textDecoration: 'underline', textUnderlineOffset: 2 
+              }} title="Voir la fiche élève">
+                {p.students?.full_name || '—'}
+              </p>
+            </Link>
+          )}
+          <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
+            {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
+          </p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ textAlign: 'right' }}>
+          <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
+            {trancheLabel(p.tranche)}
+          </span>
+        </div>
+        {!selectMode && (
+          <>
+            <button type="button" onClick={() => setReceiptPayment(p)} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+              <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
+            </button>
+            {canManage && (
+              <button type="button" onClick={() => handleDelete(p)} disabled={deleting} title="Supprimer" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}>
+                <TrashIcon />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div>
       {offline && <OfflineBanner />}
@@ -168,42 +223,44 @@ export default function Payments() {
           )}
         </div>
       ) : (
-        <div className="card-bold" style={{ overflow: 'hidden', maxHeight: '70vh', overflowY: 'auto' }}>
-          {payments.map((p, i) => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < payments.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {selectMode && (
-                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
-                )}
-                <div>
-                  <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
-                  <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
-                    {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16, alignItems: 'start' }}>
+          
+          {/* CARTE 1 : SCOLARITÉ */}
+          <div className="card-bold" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)', borderRadius: '12px 12px 0 0' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Scolarité</p>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{paymentsScolarite.length} paiement(s)</p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: '0 0 3px', fontSize: 14, fontWeight: 700 }}>{fmtF(p.montant)}</p>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: p.tranche === 'complet' ? 'var(--success-light)' : 'var(--amber-light)', color: p.tranche === 'complet' ? 'var(--success)' : 'var(--amber)' }}>
-                    {trancheLabel(p.tranche)}
-                  </span>
-                </div>
-                {!selectMode && (
-                  <>
-                    <button type="button" onClick={() => setReceiptPayment(p)} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-                      <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
-                    </button>
-                    {canManage && (
-                      <button type="button" onClick={() => handleDelete(p)} disabled={deleting} title="Supprimer" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}>
-                        <TrashIcon />
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totalScolarite)}</p>
             </div>
-          ))}
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {paymentsScolarite.length > 0 ? (
+                paymentsScolarite.map((p, i) => renderPaymentRow(p, i, paymentsScolarite.length))
+              ) : (
+                <p style={{ padding: 20, textAlign: 'center', fontSize: 12.5, color: 'var(--muted)' }}>Aucun paiement de scolarité.</p>
+              )}
+            </div>
+          </div>
+
+          {/* CARTE 2 : FRAIS CONNEXES & AUTRES */}
+          <div className="card-bold" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)', borderRadius: '12px 12px 0 0' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Frais connexes & autres</p>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>{paymentsAutres.length} paiement(s)</p>
+              </div>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--amber)' }}>{fmtF(totalAutres)}</p>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {paymentsAutres.length > 0 ? (
+                paymentsAutres.map((p, i) => renderPaymentRow(p, i, paymentsAutres.length))
+              ) : (
+                <p style={{ padding: 20, textAlign: 'center', fontSize: 12.5, color: 'var(--muted)' }}>Aucun frais connexe.</p>
+              )}
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -329,7 +386,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
 
-    // 🚀 Envoi du push + WhatsApp (Sécurisé sans clé API)
     try {
       await supabase.functions.invoke('send-payment-push', {
         body: {
