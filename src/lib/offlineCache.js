@@ -1,69 +1,57 @@
-// Ce fichier utilise IndexedDB (illimité) au lieu de localStorage (limité à 5 Mo)
-// L'API (saveCache, loadCache, guardedFetch) reste 100% identique pour le reste de l'app.
-
+// src/lib/offlineCache.js
 const DB_NAME = 'ecoges_offline_db';
 const STORE_NAME = 'cache';
 const DB_VERSION = 1;
 
-// 1. Initialiser la base de données
+// 🚀 OPTIMISATION : On garde la connexion ouverte en mémoire
+let dbPromise = null;
+
 function getDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
-    request.onerror = () => reject(request.error);
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-    
-    request.onsuccess = () => resolve(request.result);
-  });
+  if (!dbPromise) {
+    dbPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = () => reject(request.error);
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+  return dbPromise;
 }
 
-// 2. Sauvegarder une donnée
 export async function saveCache(key, data) {
   try {
     const db = await getDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put({ data, savedAt: Date.now() }, key);
-      
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    transaction.objectStore(STORE_NAME).put({ data, savedAt: Date.now() }, key);
   } catch (err) {
-    console.warn("Impossible de sauvegarder en cache :", err);
+    console.warn("Erreur cache:", err);
   }
 }
 
-// 3. Lire une donnée
 export async function loadCache(key) {
   try {
     const db = await getDB();
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(key);
-      
+      const request = transaction.objectStore(STORE_NAME).get(key);
       request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+      request.onerror = () => resolve(null);
     });
   } catch (err) {
     return null;
   }
 }
 
-// 4. La fonction principale (mise à jour pour être asynchrone)
 export async function guardedFetch({ cacheKey, hasData, load, setData, setOffline, onError, onSuccess, isCancelled }) {
   let effectiveHasData = hasData;
   
-  // Si on n'a pas de données en mémoire, on regarde dans IndexedDB (c'est asynchrone maintenant)
   if (!effectiveHasData) {
-    const cached = await loadCache(cacheKey); // <-- Le await est crucial ici
+    const cached = await loadCache(cacheKey);
     if (cached) {
       if (typeof setData === 'function') setData(cached.data);
       if (typeof setOffline === 'function') setOffline(true);
@@ -85,7 +73,7 @@ export async function guardedFetch({ cacheKey, hasData, load, setData, setOfflin
   }
   
   if (typeof setData === 'function') setData(data);
-  await saveCache(cacheKey, data); // <-- Ajout du await ici
+  saveCache(cacheKey, data); // 👈 On ne bloque PLUS l'affichage pour sauvegarder en cache
   if (typeof setOffline === 'function') setOffline(false);
   if (typeof onSuccess === 'function') onSuccess(data);
 }
