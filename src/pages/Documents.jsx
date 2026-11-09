@@ -124,6 +124,7 @@ export default function Documents() {
   }
 
   async function openDocument(doc) {
+    // 👇 GESTION SÉCURISÉE DES ANCIENS ET NOUVEAUX DOCUMENTS 👇
     if (!doc.storage_path) {
       if (doc.file_url) window.open(doc.file_url, '_blank', 'noopener');
       return;
