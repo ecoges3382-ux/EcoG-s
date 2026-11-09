@@ -143,6 +143,16 @@ export default function PlatformAdmin() {
   const [error, setError] = useState('');
   const [focusSchoolId, setFocusSchoolId] = useState(null);
 
+  // 👇 LA SOLUTION EST ICI : On force le navigateur à réactiver le défilement 👇
+  useEffect(() => {
+    document.body.style.overflow = 'auto';
+    document.body.style.height = 'auto';
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.height = '';
+    };
+  }, []);
+
   async function reloadSchools() {
     setError('');
     const { data, error: err } = await callPlatformAdmin({ action: 'list' });
@@ -163,17 +173,9 @@ export default function PlatformAdmin() {
   const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    // 👇 C'EST ICI QUE TOUT SE JOUE : height: 100vh et overflowY: auto forcent la barre 👇
-    <div style={{ height: '100vh', overflowY: 'auto', background: 'var(--forest-dark)', padding: '28px 20px', boxSizing: 'border-box' }}>
+    // 👇 J'ai retiré height: 100vh et overflowY. On laisse le navigateur gérer. 👇
+    <div style={{ minHeight: '100vh', background: 'var(--forest-dark)', padding: '28px 20px', boxSizing: 'border-box' }}>
       
-      {/* Style pour rendre la barre de défilement bien visible (sur PC) */}
-      <style>{`
-        ::-webkit-scrollbar { width: 12px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 6px; border: 3px solid var(--forest-dark); }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
-      `}</style>
-
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
