@@ -98,7 +98,7 @@ export default function PlatformAdmin() {
   const [error, setError] = useState('');
   const [focusSchoolId, setFocusSchoolId] = useState(null);
 
-  // 👇 LA CORRECTION EST ICI : On force la page à scroller
+  // On force le body à redevenir normal
   useEffect(() => {
     document.body.style.overflow = 'auto';
     document.body.style.height = 'auto';
@@ -125,15 +125,22 @@ export default function PlatformAdmin() {
   const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    // 👇 La hauteur est forcée à 100vh avec un overflow-y: auto
-    <div style={{ height: '100vh', overflowY: 'auto', background: 'var(--forest-dark)', padding: '28px 20px', boxSizing: 'border-box' }}>
+    // 👇 LA MAGIE EST ICI : overflowY: 'scroll' au lieu de 'auto'
+    <div style={{ height: '100vh', overflowY: 'scroll', background: 'var(--forest-dark)', padding: '28px 20px', boxSizing: 'border-box' }}>
       
-      {/* Style pour rendre la barre bien visible */}
+      {/* CSS pour forcer une belle barre de défilement bien visible */}
       <style>{`
-        ::-webkit-scrollbar { width: 12px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 6px; border: 3px solid var(--forest-dark); }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+        /* Pour Chrome, Edge, Safari */
+        ::-webkit-scrollbar { width: 14px; }
+        ::-webkit-scrollbar-track { background: #0F4C3A; } /* Le vert foncé de ton fond */
+        ::-webkit-scrollbar-thumb { background: #EBCB82; border-radius: 6px; border: 3px solid #0F4C3A; } /* La couleur Or de ton app */
+        ::-webkit-scrollbar-thumb:hover { background: #D4AF37; }
+        
+        /* Pour Firefox */
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: #EBCB82 #0F4C3A;
+        }
       `}</style>
 
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
