@@ -11,7 +11,6 @@ import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 import GlobalSearch from '../components/GlobalSearch.jsx';
 import UpdateButton from '../components/UpdateButton.jsx';
-import SecureImage from '../components/SecureImage.jsx'; // 👈 NOUVEL IMPORT
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
@@ -202,14 +201,10 @@ export default function Shell() {
             
             <div className="topbar-brand">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
-                {/* 👇 MODIFICATION ICI : Utilisation de SecureImage 👇 */}
-                <SecureImage 
-                  src={profile?.schools?.logo_url} 
-                  bucket="photos"
-                  alt=""
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                  fallback={(schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
-                />
+                {/* 👇 RETOUR À L'IMAGE SIMPLE POUR LA VITESSE 👇 */}
+                {profile?.schools?.logo_url
+                  ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
               </div>
               <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {schoolName}
