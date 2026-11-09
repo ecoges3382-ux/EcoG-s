@@ -1,15 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 
-// Sélecteur de photo partagé (logo d'école, photo d'élève, photo de
-// personnel) : upload réel vers Supabase Storage (bucket "photos"), ou
-// collage d'un lien direct.
 export default function PhotoPicker({ schoolId, value, onChange }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [urlMode, setUrlMode] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [displayUrl, setDisplayUrl] = useState(''); // 👈 Nouvel état pour l'image sécurisée
+
+  // 🔒 GESTION DES IMAGES PRIVÉES
+  useEffect(() => {
+    if (!value) { setDisplayUrl(''); return; }
+
+    // Si c'est une URL externe (ex: https://google.com/image.jpg)
+    if (value.startsWith('http') && !value.includes('/storage/v1/object/public/photos/')) {
+      setDisplayUrl(value);
+      return;
+    }
+
+    // Extraire le chemin si c'est une ancienne URL publique
+    let path = value;
+    if (value.includes('/storage/v1/object/public/photos/')) {
+      path = value.split('/storage/v1/object/public/photos/')[1];
+    }
+
+    // Générer une URL sécurisée (valable 1 heure) pour l'affichage
+    supabase.storage.from('photos').createSignedUrl(path, 3600).then(({ data }) => {
+      if (data) {
+        setDisplayUrl(data.signedUrl);
+      } else {
+        setDisplayUrl(value); // En cas d'erreur, on garde l'ancienne valeur
+      }
+    });
+  }, [value]);
 
   async function handleFile(e) {
     const file = e.target.files[0];
@@ -23,15 +47,19 @@ export default function PhotoPicker({ schoolId, value, onChange }) {
     setError('');
     const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
     const path = `${schoolId}/${crypto.randomUUID()}.${ext}`;
+    
+    // On envoie le fichier dans le bucket
     const { error: uploadError } = await supabase.storage.from('photos').upload(path, file);
     setUploading(false);
     e.target.value = '';
+    
     if (uploadError) {
       setError(uploadError.message);
       return;
     }
-    const { data } = supabase.storage.from('photos').getPublicUrl(path);
-    onChange(data.publicUrl);
+    
+    // 👇 ON SAUVEGARDE LE CHEMIN DU FICHIER (ex: "schoolId/uuid.jpg"), PAS L'URL
+    onChange(path);
   }
 
   function confirmUrl() {
@@ -43,7 +71,8 @@ export default function PhotoPicker({ schoolId, value, onChange }) {
   if (value) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <img src={value} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} />
+        {/* 👇 On affiche l'URL signée (ou l'ancienne en attendant) */}
+        <img src={displayUrl || value} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} />
         <button type="button" onClick={() => onChange('')} style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
           Retirer la photo
         </button>
@@ -73,7 +102,7 @@ export default function PhotoPicker({ schoolId, value, onChange }) {
             style={{ ...menuItemStyle, borderBottom: 'none' }}
           >
             <i className="ti ti-link" style={{ fontSize: 15, marginRight: 8 }} aria-hidden="true"></i>
-            Lien URL
+            Lien URL externe
           </div>
         </div>
       )}
