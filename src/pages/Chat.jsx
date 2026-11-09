@@ -54,6 +54,33 @@ function markAsRead(conversationId) {
   });
 }
 
+// 👇 COMPOSANT POUR AFFICHER LES IMAGES DE MANIÈRE SÉCURISÉE 👇
+function SecureChatImage({ src, isMe }) {
+  const [displayUrl, setDisplayUrl] = useState(null);
+
+  useEffect(() => {
+    if (!src) return;
+    // Si c'est une ancienne URL publique
+    if (src.startsWith('http')) {
+      setDisplayUrl(src);
+      return;
+    }
+    
+    // Sinon, on génère l'URL signée
+    supabase.storage.from('chat-files').createSignedUrl(src, 3600).then(({ data }) => {
+      if (data) setDisplayUrl(data.signedUrl);
+    });
+  }, [src]);
+
+  if (!displayUrl) return <div style={{ width: 200, height: 150, background: 'var(--line)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-loader animate-spin"></i></div>;
+
+  return (
+    <a href={displayUrl} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+      <img src={displayUrl} alt="" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 10, display: 'block', border: isMe ? '2px solid rgba(255,255,255,0.2)' : '1px solid var(--line)' }} />
+    </a>
+  );
+}
+
 export default function Chat() {
   const { profile } = useAuth();
   const [conversations, setConversations] = useState([]);
@@ -228,8 +255,9 @@ export default function Chat() {
     const path = `${profile.school_id}/${activeConv.id}/${fileName}`;
     const { error: uploadErr } = await supabase.storage.from('chat-files').upload(path, file, { upsert: false });
     if (uploadErr) throw uploadErr;
-    const { data } = supabase.storage.from('chat-files').getPublicUrl(path);
-    return data.publicUrl;
+    
+    // 👇 ON RETOURNE LE CHEMIN, PAS L'URL PUBLIQUE 👇
+    return path;
   }
 
   async function sendMessage(e) {
@@ -244,9 +272,9 @@ export default function Chat() {
     setError('');
 
     try {
-      let fileUrl = null, fileType = null, fileName = null;
+      let filePath = null, fileType = null, fileName = null;
       if (fileToSend) {
-        fileUrl = await uploadFile(fileToSend.file);
+        filePath = await uploadFile(fileToSend.file);
         fileType = fileToSend.type;
         fileName = fileToSend.file.name;
         if (fileToSend.preview) URL.revokeObjectURL(fileToSend.preview);
@@ -256,7 +284,7 @@ export default function Chat() {
         conversation_id: activeConv.id,
         sender_id: profile.id,
         content: content || null,
-        file_url: fileUrl,
+        file_url: filePath, // 👈 On stocke le chemin
         file_type: fileType,
         file_name: fileName,
       }).select('id').single();
@@ -266,11 +294,13 @@ export default function Chat() {
       if (inserted) {
         const pushBody = fileType ? `📎 ${fileName}` : content;
         try {
+          // 👇 ON SUPPRIME LA CLÉ API, LE TOKEN JWT SUFFIT 👇
           await supabase.functions.invoke('send-message-push', {
-            body: { conversation_id: activeConv.id, sender_name: profile.full_name, message_content: pushBody, sender_id: profile.id },
-            headers: { 'x-api-key': import.meta.env.VITE_PUSH_API_SECRET }
+            body: { conversation_id: activeConv.id, sender_name: profile.full_name, message_content: pushBody, sender_id: profile.id }
           });
-        } catch {}
+        } catch (err) {
+          console.warn("Push chat non envoyé", err);
+        }
       }
     } catch (err) {
       setError("Erreur d'envoi : " + err.message);
@@ -340,30 +370,20 @@ export default function Chat() {
 
   const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
-  // 🚀 CORRECTION CLÉ : Général épinglé en haut, privés triés par date du dernier message
   const filteredConvs = useMemo(() => {
-    // 1. Séparer Général et privés
     const generals = conversations.filter(c => c.type === 'general');
     const privates = conversations.filter(c => c.type === 'private');
 
-    // 2. Trier les privés par date du dernier message (plus récent en premier)
     const sortedPrivates = [...privates].sort((a, b) => {
       const lastA = lastMessages[a.id]?.created_at;
       const lastB = lastMessages[b.id]?.created_at;
-      // Les conversations sans message en dernier
       if (!lastA && !lastB) return 0;
       if (!lastA) return 1;
       if (!lastB) return -1;
       return new Date(lastB) - new Date(lastA);
     });
 
-    // 3. Filtrer selon la recherche
     const searchFilter = (c) => !searchConv.trim() || getConvInfo(c).name.toLowerCase().includes(searchConv.toLowerCase());
-
-    // 4. Fusionner : Général en premier (jamais filtré par la recherche si on le veut toujours visible)
-    // Option A : le Général reste visible même si la recherche ne correspond pas
-    // Option B : le Général est filtré comme les autres
-    // On choisit A : le Général est toujours en haut, épinglé.
     return [...generals, ...sortedPrivates.filter(searchFilter)];
   }, [conversations, lastMessages, searchConv]);
 
@@ -389,20 +409,39 @@ export default function Chat() {
     </div>
   );
 
+  // 👇 GESTION DU CLIC SUR UN FICHIER (URL SIGNÉE) 👇
+  const handleFileClick = async (e, m) => {
+    e.preventDefault();
+    if (!m.file_url) return;
+    if (m.file_url.startsWith('http')) {
+      window.open(m.file_url, '_blank', 'noopener');
+      return;
+    }
+    const { data } = await supabase.storage.from('chat-files').createSignedUrl(m.file_url, 300);
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank', 'noopener');
+    } else {
+      alert("Impossible d'ouvrir le fichier.");
+    }
+  };
+
   const MessageContent = ({ m, isMe }) => {
     if (m.file_type === 'image' && m.file_url) {
       return (
-        <a href={m.file_url} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: m.content ? 8 : 0 }}>
-          <img src={m.file_url} alt={m.file_name || ''} style={{ maxWidth: 240, maxHeight: 240, borderRadius: 10, display: 'block', border: isMe ? '2px solid rgba(255,255,255,0.2)' : '1px solid var(--line)' }} />
-        </a>
+        <div style={{ display: 'block', marginBottom: m.content ? 8 : 0 }}>
+          <SecureChatImage src={m.file_url} isMe={isMe} />
+        </div>
       );
     }
     if (m.file_type === 'file' && m.file_url) {
       return (
-        <a href={m.file_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit' }}>
+        <button 
+          onClick={(e) => handleFileClick(e, m)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+        >
           <i className="ti ti-file" style={{ fontSize: 20 }}></i>
           <span style={{ fontSize: 12.5, textDecoration: 'underline', wordBreak: 'break-all' }}>{m.file_name}</span>
-        </a>
+        </button>
       );
     }
     return null;
@@ -482,7 +521,6 @@ export default function Chat() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
-                    {/* 🚀 Icône épingle pour le canal Général */}
                     {isPinned && (
                       <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }} title="Épinglé"></i>
                     )}
