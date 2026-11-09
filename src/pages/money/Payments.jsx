@@ -329,7 +329,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     if (insertError) { setError(translateError(insertError)); return; }
     showToast('Enregistré');
 
-    // 🚀 Envoi du push + WhatsApp avec student_id et date
+    // 🚀 Envoi du push + WhatsApp (Sécurisé sans clé API)
     try {
       await supabase.functions.invoke('send-payment-push', {
         body: {
@@ -339,9 +339,6 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           amount: Number(payload.montant),
           type_frais: TYPES_FRAIS.find((t) => t.id === typeFrais)?.label || 'Frais',
           date: date,
-        },
-        headers: { 
-          'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
         }
       });
     } catch (err) {
