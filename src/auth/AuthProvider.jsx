@@ -1,16 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
+import { saveCache, loadCache } from '../lib/offlineCache.js'; // 👈 NOUVEL IMPORT
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
-  const [session, setSession] = useState(undefined); // undefined = pas encore chargé
+  const [session, setSession] = useState(undefined); 
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  // Indépendant du profil d'école : un administrateur de la plateforme n'a
-  // pas forcément de ligne "profiles" (il ne fait partie d'aucune école).
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
 
@@ -60,8 +59,9 @@ export function AuthProvider({ children }) {
   }, [session?.user?.id]);
 
   async function loadOrProvisionProfile(user) {
-    // La colonne "permissions" a été ajoutée ici, ainsi que "plan"
     const select = 'id, full_name, role, school_id, permissions, schools ( id, name, color, logo_url, adresse, telephone, email, plan )';
+    
+    // 1. On essaie de charger depuis internet
     const { data, error } = await supabase
       .from('profiles')
       .select(select)
@@ -69,14 +69,20 @@ export function AuthProvider({ children }) {
       .maybeSingle();
 
     if (error) {
-      console.error('Impossible de charger le profil :', error.message);
+      console.warn('Impossible de charger le profil depuis internet, tentative depuis le cache :', error.message);
+      // 2. Si ça échoue (hors-ligne), on récupère la carte d'identité depuis IndexedDB
+      const cached = await loadCache(`user_profile_${user.id}`);
+      if (cached) return cached.data;
       return null;
     }
-    if (data) return data;
+    
+    // 3. Si ça réussit, on met à jour le cache pour la prochaine fois
+    if (data) {
+      await saveCache(`user_profile_${user.id}`, data);
+      return data;
+    }
 
-    // Pas de profil : si ce compte vient du formulaire "Créer une école"
-    // (métadonnées posées au signUp) et que c'est la première connexion
-    // après confirmation de l'e-mail, on crée l'école + le profil fondateur.
+    // 4. Logique de création d'école (si pas de profil du tout)
     const meta = user.user_metadata || {};
     if (!meta.school_name || !meta.full_name) return null;
 
@@ -84,32 +90,30 @@ export function AuthProvider({ children }) {
       p_school_name: meta.school_name,
       p_full_name: meta.full_name,
     });
-    if (rpcError) {
-      console.error('Échec de la création de l\'école :', rpcError.message);
-      return null;
-    }
+    if (rpcError) return null;
 
     const { data: created, error: reloadError } = await supabase
       .from('profiles')
       .select(select)
       .eq('id', user.id)
       .maybeSingle();
-    if (reloadError) {
-      console.error('Impossible de recharger le profil créé :', reloadError.message);
-      return null;
-    }
+      
+    if (reloadError) return null;
+    if (created) await saveCache(`user_profile_${user.id}`, created);
     return created;
   }
 
   async function refreshProfile() {
     if (!session?.user) return;
-    // Ajout de permissions ici aussi
     const { data } = await supabase
       .from('profiles')
       .select('id, full_name, role, school_id, permissions, schools ( id, name, color, logo_url, adresse, telephone, email, plan )')
       .eq('id', session.user.id)
       .maybeSingle();
-    if (data) setProfile(data);
+    if (data) {
+      setProfile(data);
+      await saveCache(`user_profile_${session.user.id}`, data); // 👈 On sauvegarde aussi ici
+    }
   }
 
   const value = {
@@ -119,19 +123,11 @@ export function AuthProvider({ children }) {
     isPlatformAdmin,
     adminLoading: session === undefined || (session !== null && adminLoading),
     loading: session === undefined || (session !== null && profileLoading),
-    // identifier : soit un e-mail, soit un numéro de téléphone déjà au
-    // format E.164 (voir composePhone dans components/PhoneInput.jsx) —
-    // Supabase Auth distingue les deux par la forme du champ envoyé, pas
-    // par une option à part.
     signIn: (identifier, password) => (
       identifier.includes('@')
         ? supabase.auth.signInWithPassword({ email: identifier, password })
         : supabase.auth.signInWithPassword({ phone: identifier, password })
     ),
-    // Navigue vers "/" AVANT de couper la session (pas après) : RequireAuth
-    // n'affiche la vitrine publique qu'à cette route précise, sinon
-    // (ex. déconnexion depuis /parametres) il redirigerait d'abord vers
-    // /connexion, avec un aller-retour visible à l'écran.
     signOut: () => {
       navigate('/', { replace: true });
       return supabase.auth.signOut();
