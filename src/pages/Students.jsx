@@ -17,7 +17,6 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
-import SecureImage from '../components/SecureImage.jsx'; // 👈 NOUVEL IMPORT
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -404,14 +403,8 @@ export default function Students() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
-                      {/* 👇 MODIFICATION ICI : Utilisation de SecureImage 👇 */}
-                      <SecureImage 
-                        src={s.photo_url} 
-                        bucket="photos"
-                        alt=""
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                        fallback={initials(s.full_name)}
-                      />
+                      {/* 👇 RETOUR À L'IMAGE SIMPLE POUR LA VITESSE 👇 */}
+                      {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
                     </div>
                     <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3 }}>
                       {s.full_name}
