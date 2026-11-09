@@ -23,6 +23,11 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // 👇 LES 3 LIGNES MAGIQUES POUR LE HORS-LIGNE 👇
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'], // Télécharge tout le code de l'app
+        navigateFallback: 'index.html', // Si pas d'internet, sert le fichier index.html
+        navigateFallbackDenylist: [/^\/api/, /^\/functions/], // Ne bloque pas les appels API
+        
         importScripts: ['/push-sw.js'],
         skipWaiting: true,
         clientsClaim: true,
