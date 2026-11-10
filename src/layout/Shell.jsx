@@ -149,15 +149,30 @@ export default function Shell() {
   const plan = profile?.schools?.plan || 'decouverte';
   
   const [searchOpen, setSearchOpen] = useState(false);
-  const [theme, setTheme] = useState(getInitialTheme());
+  
+  // 👇 INITIALISATION DU THÈME AVEC L'ID UTILISATEUR 👇
+  const [theme, setTheme] = useState(() => getInitialTheme(profile?.id));
 
+  // 👇 ON RE-CHARGE LE THÈME SI L'UTILISATEUR CHANGE 👇
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    if (profile?.id) {
+      const userTheme = getInitialTheme(profile.id);
+      setTheme(userTheme);
+    }
+  }, [profile?.id]);
+
+  // 👇 APPLICATION DU THÈME 👇
+  useEffect(() => {
+    if (profile?.id) {
+      applyTheme(theme, profile.id);
+    }
+  }, [theme, profile?.id]);
 
   const handleToggleTheme = () => {
-    const next = toggleTheme();
-    setTheme(next);
+    if (profile?.id) {
+      const next = toggleTheme(profile.id);
+      setTheme(next);
+    }
   };
 
   const hasAccess = (perm) => {
@@ -191,16 +206,6 @@ export default function Shell() {
     if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut();
   };
 
-  // 👇 FONCTION POUR RÉPARER LES ANCIENS LOGOS 👇
-  const getLogoUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    // Si c'est un ancien chemin (ex: "school_id/image.jpg"), on le convertit en URL publique
-    return supabase.storage.from('photos').getPublicUrl(url).data.publicUrl;
-  };
-
-  const logoUrl = getLogoUrl(profile?.schools?.logo_url);
-
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
@@ -211,9 +216,8 @@ export default function Shell() {
             
             <div className="topbar-brand">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
-                {/* 👇 AFFICHAGE DU LOGO CORRIGÉ 👇 */}
-                {logoUrl
-                  ? <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                {profile?.schools?.logo_url
+                  ? <img src={profile.schools.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
               </div>
               <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
