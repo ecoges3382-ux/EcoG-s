@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 
-// Sélecteur de photo partagé (logo d'école, photo d'élève, photo de
-// personnel) : upload réel vers Supabase Storage (bucket "photos").
+// Sélecteur de photo partagé (logo d'école, photo d'élève, photo de personnel)
 export default function PhotoPicker({ schoolId, value, onChange }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [urlMode, setUrlMode] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+
+  // 👇 FONCTION POUR RÉPARER L'AFFICHAGE DES ANCIENNES IMAGES 👇
+  const getDisplayUrl = (val) => {
+    if (!val) return '';
+    if (val.startsWith('http')) return val;
+    // Si c'est un ancien chemin (ex: "id-ecole/image.jpg"), on le convertit en URL publique
+    return supabase.storage.from('photos').getPublicUrl(val).data.publicUrl;
+  };
 
   async function handleFile(e) {
     const file = e.target.files[0];
@@ -33,7 +40,7 @@ export default function PhotoPicker({ schoolId, value, onChange }) {
       return;
     }
     
-    // 👇 On récupère l'URL PUBLIQUE complète 👇
+    // 👇 On récupère l'URL PUBLIQUE complète pour la sauvegarder 👇
     const { data } = supabase.storage.from('photos').getPublicUrl(path);
     onChange(data.publicUrl);
   }
@@ -47,11 +54,12 @@ export default function PhotoPicker({ schoolId, value, onChange }) {
   if (value) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {/* 👇 Si c'est un ancien chemin, on le corrige à l'affichage (au cas où) 👇 */}
+        {/* 👇 ICI L'AFFICHAGE EST CORRIGÉ 👇 */}
         <img 
-          src={value.startsWith('http') ? value : supabase.storage.from('photos').getPublicUrl(value).data.publicUrl} 
-          alt="" 
+          src={getDisplayUrl(value)} 
+          alt="Logo" 
           style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--line-strong)' }} 
+          onError={(e) => { e.target.style.display = 'none'; }} // Cache l'image si elle est vraiment introuvable
         />
         <button type="button" onClick={() => onChange('')} style={{ fontSize: 12, fontWeight: 600, color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
           Retirer la photo
