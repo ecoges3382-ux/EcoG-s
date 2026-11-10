@@ -24,7 +24,6 @@ export default function Settings() {
   const school = profile.schools;
   const isFondateur = profile.role === 'fondateur';
   
-  // RÈGLE : Si on est fondateur OU si on a la permission 'parametres'
   const canAccessSettings = isFondateur || profile.permissions?.parametres === true;
 
   const [name, setName] = useState(school?.name || '');
@@ -197,7 +196,6 @@ export default function Settings() {
           </div>
         )}
 
-        {/* Comptes utilisateurs : Toujours réservé au fondateur pour des raisons de sécurité */}
         {isFondateur && (
           <Link to="/comptes" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textDecoration: 'none', color: 'inherit' }} className="card-bold">
             <div style={{ padding: '16px 20px' }}>
@@ -232,9 +230,7 @@ export default function Settings() {
           <i className="ti ti-chevron-right" style={{ fontSize: 18, color: 'var(--muted)', marginRight: 20 }} aria-hidden="true"></i>
         </Link>
 
-        {/* 👇👇 C'EST ICI QUE J'AI MIS LE BOUTON 👇👇 */}
         <EnableNotifications />
-        {/* 👆👆 FIN DU BOUTON 👆👆 */}
 
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visites guidées</p>
@@ -274,6 +270,7 @@ const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: 'va
 function PaymentCalendar({ schoolYear, canManage, onSaved }) {
   const showToast = useToast();
   const confirm = useConfirm();
+  const { profile } = useAuth(); // 👈 AJOUTÉ POUR LA NOTIFICATION
   const [d1, setD1] = useState(schoolYear.date_tranche1 || '');
   const [d2, setD2] = useState(schoolYear.date_tranche2 || '');
   const [d3, setD3] = useState(schoolYear.date_tranche3 || '');
@@ -304,6 +301,19 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
     if (saveError) { setError(saveError.message); return; }
     showToast('Enregistré');
     onSaved();
+
+    // 👇 NOTIFICATION ICI 👇
+    try {
+      await supabase.functions.invoke('send-admin-push', {
+        body: {
+          school_id: profile.school_id,
+          title: "📅 Calendrier modifié",
+          message: `${profile.full_name} a modifié les dates du calendrier de paiement.`,
+          url: "/parametres"
+        }
+      });
+    } catch (err) { console.warn(err); }
+    // 👆 FIN DE LA NOTIFICATION 👆
   }
 
   async function handleClear() {
@@ -321,6 +331,19 @@ function PaymentCalendar({ schoolYear, canManage, onSaved }) {
     setD1(''); setD2(''); setD3(''); setDc('');
     showToast('Calendrier effacé');
     onSaved();
+
+    // 👇 NOTIFICATION ICI 👇
+    try {
+      await supabase.functions.invoke('send-admin-push', {
+        body: {
+          school_id: profile.school_id,
+          title: "📅 Calendrier effacé",
+          message: `${profile.full_name} a effacé toutes les dates du calendrier de paiement.`,
+          url: "/parametres"
+        }
+      });
+    } catch (err) { console.warn(err); }
+    // 👆 FIN DE LA NOTIFICATION 👆
   }
 
   return (
