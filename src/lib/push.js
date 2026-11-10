@@ -23,7 +23,7 @@ export async function subscribeToPush(profile) {
 
   const registration = await navigator.serviceWorker.ready;
   const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-  if (!vapidPublicKey) throw new Error("Clé VAPID manquante.");
+  if (!vapidPublicKey) throw new Error("Clé VAPID manquante dans Vercel.");
 
   let subscription = await registration.pushManager.getSubscription();
   if (!subscription) {
@@ -35,13 +35,13 @@ export async function subscribeToPush(profile) {
 
   const subData = JSON.parse(JSON.stringify(subscription));
 
-  // 1. On supprime l'ancien abonnement s'il existe
+  // 1. On supprime l'ancien abonnement s'il existe (corrige l'erreur ON CONFLICT)
   await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
 
-  // 2. On insère le nouveau avec TOUTES les colonnes requises
+  // 2. On insère le nouveau avec school_id (corrige l'erreur NOT NULL)
   const { error } = await supabase.from('push_subscriptions').insert({
     user_id: profile.id,
-    school_id: profile.school_id, // 👈 LA CORRECTION EST ICI
+    school_id: profile.school_id,
     endpoint: subData.endpoint,
     p256dh: subData.keys.p256dh,
     auth: subData.keys.auth,
