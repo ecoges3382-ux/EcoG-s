@@ -32,19 +32,8 @@ export default function Login() {
   }
 
   return (
-    // 👇 CORRECTION ICI : position fixed et inset 0 forcent le centrage absolu 👇
-    <div style={{ 
-      position: 'fixed', 
-      inset: 0, 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      padding: 20, 
-      background: 'var(--cream)',
-      zIndex: 9999,
-      overflowY: 'auto'
-    }}>
-      <div style={{ width: '100%', maxWidth: 400, margin: 'auto' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
+      <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <Wordmark tone="onLight" height={46} style={{ margin: '0 auto 14px' }} />
           <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Connexion à votre espace de gestion scolaire</p>
@@ -115,7 +104,7 @@ export default function Login() {
         <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
           Nouvelle école ? <Link to="/inscription" style={{ color: 'var(--forest)', fontWeight: 600 }}>Créer une école</Link>
         </p>
-        <p style={{ margin: '10px 0 0', fontSize: '11.5px', color: 'var(--muted)', textAlign: 'center' }}>
+        <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center' }}>
           <Link to="/inscription-administrateur" style={{ color: 'var(--muted)' }}>Administrateur de la plateforme ? Créer un compte</Link>
         </p>
       </div>
