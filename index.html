@@ -1,76 +1,113 @@
-<!doctype html>
-<html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    
-    <meta name="theme-color" content="#0F4C3A" />
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../auth/AuthProvider.jsx';
+import PasswordInput from '../components/PasswordInput.jsx';
+import PhoneInput, { COUNTRIES, composePhone } from '../components/PhoneInput.jsx';
+import { Wordmark } from '../components/Logo.jsx';
 
-    <title>EcoGès — Gestion scolaire pour les écoles privées d'Afrique de l'Ouest</title>
-    <meta name="description" content="Élèves, écolage, bulletins, présences, personnel et parents : EcoGès remplace les cahiers et les fichiers Excel par une seule application, claire et rapide. Aucune installation, fonctionne sur téléphone et ordinateur." />
-    <meta name="keywords" content="gestion scolaire, école privée, Bénin, Afrique de l'Ouest, écolage, bulletins, présences, portail parents, logiciel scolaire" />
-    <meta name="author" content="EcoGès" />
-    <link rel="canonical" href="https://eco-ges.vercel.app/" />
+export default function Login() {
+  const { signIn } = useAuth();
+  const [method, setMethod] = useState('email');
+  const [email, setEmail] = useState('');
+  const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
+  const [phoneLocal, setPhoneLocal] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-    <!-- Open Graph (WhatsApp, Facebook, LinkedIn, iMessage…) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="EcoGès" />
-    <meta property="og:title" content="EcoGès — Toute votre école, dans votre poche." />
-    <meta property="og:description" content="Élèves, écolage, bulletins, présences, personnel et parents : une seule application pour gérer votre école. Aucune installation." />
-    <meta property="og:url" content="https://eco-ges.vercel.app/" />
-    <meta property="og:image" content="https://eco-ges.vercel.app/pwa-512x512.png" />
-    <meta property="og:image:width" content="512" />
-    <meta property="og:image:height" content="512" />
-    <meta property="og:image:alt" content="Logo EcoGès — Gestion scolaire" />
-    <meta property="og:locale" content="fr_FR" />
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    const value = method === 'email' ? email.trim() : composePhone(phoneDial, phoneLocal);
+    if (!value) {
+      setError(method === 'email' ? "L'e-mail est obligatoire." : 'Le numéro de téléphone est obligatoire.');
+      return;
+    }
+    setSubmitting(true);
+    const { error: signInError } = await signIn(value, password);
+    setSubmitting(false);
+    if (signInError) {
+      setError('Identifiant ou mot de passe incorrect.');
+    }
+  }
 
-    <!-- Twitter / X -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="EcoGès — Toute votre école, dans votre poche." />
-    <meta name="twitter:description" content="Gestion scolaire pour les écoles privées d'Afrique de l'Ouest. Élèves, écolage, bulletins, présences." />
-    <meta name="twitter:image" content="https://eco-ges.vercel.app/pwa-512x512.png" />
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
+      <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <Wordmark tone="onLight" height={46} style={{ margin: '0 auto 14px' }} />
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Connexion à votre espace de gestion scolaire</p>
+        </div>
 
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+        <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '26px 24px' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {[{ id: 'email', label: 'E-mail' }, { id: 'phone', label: 'Téléphone' }].map((m) => (
+              <button
+                type="button"
+                key={m.id}
+                onClick={() => { setMethod(m.id); setEmail(''); setPhoneLocal(''); }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  border: `1px solid ${method === m.id ? 'var(--forest)' : 'var(--line-strong)'}`,
+                  background: method === m.id ? 'var(--forest)' : 'var(--paper)',
+                  color: method === m.id ? '#fff' : 'var(--ink)',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p style={{ margin: '0 0 6px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+            {method === 'email' ? 'E-mail' : 'Téléphone'}
+          </p>
+          {method === 'email' ? (
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="vous@ecole.bj"
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 16, boxSizing: 'border-box', color: 'var(--ink)' }}
+            />
+          ) : (
+            <PhoneInput
+              dial={phoneDial}
+              local={phoneLocal}
+              onDialChange={setPhoneDial}
+              onLocalChange={setPhoneLocal}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
+            <Link to="/mot-de-passe-oublie" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', textDecoration: 'none' }}>Mot de passe oublié ?</Link>
+          </div>
+          <PasswordInput
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 16, marginBottom: 8, boxSizing: 'border-box', color: 'var(--ink)' }}
+          />
+          {error && (
+            <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>
+          )}
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{ width: '100%', background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: 13, borderRadius: 'var(--radius)', marginTop: 6, opacity: submitting ? 0.7 : 1 }}
+          >
+            {submitting ? 'Connexion…' : 'Continuer'}
+          </button>
+        </form>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
-
-    <style>
-      ::-webkit-scrollbar { -webkit-appearance: none; width: 14px !important; height: 14px !important; }
-      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1) !important; border-radius: 0 !important; }
-      ::-webkit-scrollbar-thumb { background-color: #ffffff !important; border-radius: 10px !important; border: 3px solid transparent !important; background-clip: content-box !important; }
-      ::-webkit-scrollbar-thumb:hover { background-color: #e5e7eb !important; }
-      * { scrollbar-width: auto !important; scrollbar-color: #ffffff rgba(0,0,0,0.1) !important; }
-      body, button, input, select, textarea, a, span, p, div, table, th, td, label { font-family: 'Poppins', sans-serif !important; }
-      :root { --sans: 'Poppins', sans-serif !important; }
-      
-      html, body { margin: 0; padding: 0; height: 100vh; height: 100dvh; overflow: hidden !important; }
-      #app { height: 100vh !important; height: 100dvh !important; display: flex !important; flex-direction: column !important; overflow: hidden !important; }
-      #layout { display: flex !important; flex: 1 !important; overflow: hidden !important; }
-      #sidebar { height: 100% !important; overflow-y: auto !important; flex-shrink: 0 !important; }
-      #screen { height: 100% !important; overflow-y: auto !important; flex: 1 !important; }
-      .hide-scrollbar::-webkit-scrollbar { display: none !important; }
-      .hide-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-
-      @media screen { .receipt-quad-print { display: none !important; } }
-      @media print {
-        @page { size: A4; margin: 0; }
-        body.receipt-printing > *:not(.receipt-modal-overlay) { display: none !important; }
-        body.receipt-printing .receipt-modal-overlay { position: static !important; background: none !important; padding: 0 !important; display: block !important; inset: auto !important; }
-        body.receipt-printing .receipt-modal-content { box-shadow: none !important; border: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; background: none !important; border-radius: 0 !important; padding: 0 !important; }
-        body.receipt-printing .receipt-screen-only, body.receipt-printing .receipt-buttons { display: none !important; }
-        body.receipt-printing .receipt-quad-print { display: grid !important; grid-template-columns: 105mm 105mm !important; grid-template-rows: 148.5mm 148.5mm !important; width: 210mm !important; height: 297mm !important; background: white !important; }
-        body.receipt-printing .receipt-copy { width: 105mm !important; height: 148.5mm !important; padding: 5mm !important; box-sizing: border-box !important; overflow: hidden !important; border-right: 1px dashed #ccc !important; border-bottom: 1px dashed #ccc !important; }
-        body.receipt-printing .receipt-copy:nth-child(2n) { border-right: none !important; }
-        body.receipt-printing .receipt-copy:nth-child(n+3) { border-bottom: none !important; }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+        <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
+          Nouvelle école ? <Link to="/inscription" style={{ color: 'var(--forest)', fontWeight: 600 }}>Créer une école</Link>
+        </p>
+        <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center' }}>
+          <Link to="/inscription-administrateur" style={{ color: 'var(--muted)' }}>Administrateur de la plateforme ? Créer un compte</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
