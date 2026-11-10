@@ -63,6 +63,19 @@ export default function Payments() {
       return;
     }
     showToast(`${selectedIds.length} supprimé(s)`);
+    
+    // 👇 NOTIFICATION DE SUPPRESSION MULTIPLE 👇
+    try {
+      await supabase.functions.invoke('send-admin-push', {
+        body: {
+          school_id: profile.school_id,
+          title: "⚠️ Suppression de paiements",
+          message: `${profile.full_name} a supprimé ${selectedIds.length} paiement(s).`,
+          url: "/argent"
+        }
+      });
+    } catch (err) { console.warn(err); }
+
     exitSelectMode();
     reload();
   }
@@ -78,6 +91,19 @@ export default function Payments() {
       return;
     }
     showToast('Supprimé');
+
+    // 👇 NOTIFICATION DE SUPPRESSION INDIVIDUELLE 👇
+    try {
+      await supabase.functions.invoke('send-admin-push', {
+        body: {
+          school_id: profile.school_id,
+          title: "⚠️ Suppression de paiement",
+          message: `${profile.full_name} a supprimé un paiement de ${fmtF(p.montant)} pour ${p.students?.full_name || 'un élève'}.`,
+          url: "/argent"
+        }
+      });
+    } catch (err) { console.warn(err); }
+
     reload();
   }
 
@@ -143,7 +169,6 @@ export default function Payments() {
   const totalScolarite = paymentsScolarite.reduce((a, p) => a + Number(p.montant), 0);
   const totalAutres = paymentsAutres.reduce((a, p) => a + Number(p.montant), 0);
 
-  // Fonction pour générer une ligne de paiement
   const renderPaymentRow = (p, i, arrayLength) => (
     <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < arrayLength - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -151,7 +176,6 @@ export default function Payments() {
           <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
         )}
         <div>
-          {/* 👇 LE LIEN VERS LA FICHE ÉLÈVE EST ICI 👇 */}
           {selectMode ? (
             <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
           ) : (
@@ -225,7 +249,6 @@ export default function Payments() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16, alignItems: 'start' }}>
           
-          {/* CARTE 1 : SCOLARITÉ */}
           <div className="card-bold" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)', borderRadius: '12px 12px 0 0' }}>
               <div>
@@ -243,7 +266,6 @@ export default function Payments() {
             </div>
           </div>
 
-          {/* CARTE 2 : FRAIS CONNEXES & AUTRES */}
           <div className="card-bold" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)', borderRadius: '12px 12px 0 0' }}>
               <div>
