@@ -12,25 +12,21 @@ export default function EnableNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // 🚀 NOUVEAU : Vérification locale (dans le navigateur) au démarrage
   useEffect(() => {
     async function checkStatus() {
       if (!profile?.id) return;
 
-      // 1. Vérifier si le navigateur supporte
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         setChecking(false);
         return;
       }
 
       try {
-        // 2. Vérifier si on a déjà un abonnement ACTIF sur cet appareil
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
         
         if (subscription) {
           setIsSubscribed(true);
-          // 3. Optionnel : On resynchronise avec Supabase au cas où la base aurait été vidée
           await subscribeToPush(profile).catch(() => {}); 
         } else {
           setIsSubscribed(false);
@@ -48,12 +44,10 @@ export default function EnableNotifications() {
     setLoading(true);
     try {
       if (isSubscribed) {
-        // Désactivation
         await unsubscribeFromPush(profile);
         setIsSubscribed(false);
         showToast('Notifications désactivées sur cet appareil.', 'success');
       } else {
-        // Activation
         await subscribeToPush(profile);
         setIsSubscribed(true);
         showToast('Notifications activées avec succès !', 'success');
@@ -101,8 +95,6 @@ export default function EnableNotifications() {
 
   return (
     <div className="card-bold" style={{ padding: 20 }}>
-      
-      {/* L'EN-TÊTE AVEC LE BOUTON GLISSANT */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ 
@@ -121,7 +113,6 @@ export default function EnableNotifications() {
           </div>
         </div>
 
-        {/* 👇 LE BOUTON GLISSANT (SWITCH) 👇 */}
         <label style={{ display: 'flex', alignItems: 'center', cursor: loading ? 'wait' : 'pointer' }}>
           <div style={{ 
             position: 'relative', width: 50, height: 28, 
