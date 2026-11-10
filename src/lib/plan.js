@@ -58,17 +58,17 @@ export function whatsappEnabledForPlan(plan) {
   return (WHATSAPP_QUOTAS[plan] ?? 0) > 0 || plan === 'premium';
 }
 
-// Prix (F CFA)
+// 👇 NOUVELLE GRILLE TARIFAIRE (Prix standards) 👇
 export const PLAN_PRICES = {
   decouverte: { mensuel: 0, annuel: 0 },
   essentiel: { mensuel: 12000, annuel: 120000 },
   standard: { mensuel: 20000, annuel: 200000 },
-  premium: { mensuel: 35000, annuel: 350000 },
+  premium: { mensuel: 40000, annuel: 400000 },
 };
 
-// Prix offre de lancement (-20 % à vie)
+// 👇 PRIX OFFRE DE LANCEMENT (-20 % à vie) 👇
 export const LAUNCH_PRICES = {
   essentiel: { mensuel: 9600, annuel: 96000 },
   standard: { mensuel: 16000, annuel: 160000 },
-  premium: { mensuel: 28000, annuel: 280000 },
+  premium: { mensuel: 32000, annuel: 320000 },
 };
