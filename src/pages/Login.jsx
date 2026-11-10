@@ -32,8 +32,19 @@ export default function Login() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
+    // 👇 CORRECTION ICI : position fixed et inset 0 forcent le centrage absolu 👇
+    <div style={{ 
+      position: 'fixed', 
+      inset: 0, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      padding: 20, 
+      background: 'var(--cream)',
+      zIndex: 9999,
+      overflowY: 'auto'
+    }}>
+      <div style={{ width: '100%', maxWidth: 400, margin: 'auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <Wordmark tone="onLight" height={46} style={{ margin: '0 auto 14px' }} />
           <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Connexion à votre espace de gestion scolaire</p>
