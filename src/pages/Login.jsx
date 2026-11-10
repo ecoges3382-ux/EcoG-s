@@ -34,9 +34,13 @@ export default function Login() {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'var(--cream)' }}>
       <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <Wordmark tone="onLight" height={46} style={{ margin: '0 auto 14px' }} />
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Connexion à votre espace de gestion scolaire</p>
+        
+        {/* 👇 CORRECTION ICI : On utilise Flexbox pour forcer le centrage du logo 👇 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
+          <Wordmark tone="onLight" height={46} style={{ marginBottom: 14 }} />
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
+            Connexion à votre espace de gestion scolaire
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '26px 24px' }}>
