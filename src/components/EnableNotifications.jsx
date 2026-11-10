@@ -46,11 +46,11 @@ export default function EnableNotifications() {
       if (isSubscribed) {
         await unsubscribeFromPush(profile);
         setIsSubscribed(false);
-        showToast('Notifications désactivées sur cet appareil.', 'success');
+        showToast('Notifications désactivées.', 'success');
       } else {
         await subscribeToPush(profile);
         setIsSubscribed(true);
-        showToast('Notifications activées avec succès !', 'success');
+        showToast('Notifications activées !', 'success');
       }
     } catch (err) {
       showToast(err.message, 'error');
@@ -63,9 +63,12 @@ export default function EnableNotifications() {
     try {
       if (!profile) throw new Error("Profil introuvable.");
       
-      // L'appel utilise le Token de sécurité, plus besoin de clé API
+      // On garde la clé API pour ne pas casser l'ancienne fonction
       const { data, error } = await supabase.functions.invoke('send-test-push', {
-        body: { user_id: profile.id }
+        body: { user_id: profile.id },
+        headers: { 
+          'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
+        }
       });
       
       if (error) throw error;
@@ -154,7 +157,7 @@ export default function EnableNotifications() {
 
       {!isSubscribed && (
         <p style={{ margin: '0', fontSize: 11, color: 'var(--muted)', textAlign: 'center' }}>
-          💡 Sur iPhone, il faut d'abord installer l'application sur l'écran d'accueil pour pouvoir activer les notifications.
+          💡 Sur iPhone, il faut d'abord installer l'application sur l'écran d'accueil.
         </p>
       )}
     </div>
