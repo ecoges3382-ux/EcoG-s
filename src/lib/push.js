@@ -1,6 +1,5 @@
 import { supabase } from './supabase.js';
 
-// Fonction utilitaire pour convertir la clé VAPID (obligatoire pour le navigateur)
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -23,14 +22,10 @@ export async function subscribeToPush(profile) {
   }
 
   const registration = await navigator.serviceWorker.ready;
-  
-  // La clé publique VAPID doit être dans tes variables d'environnement Vercel (VITE_VAPID_PUBLIC_KEY)
   const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   if (!vapidPublicKey) throw new Error("Clé VAPID manquante.");
 
   let subscription = await registration.pushManager.getSubscription();
-  
-  // Si l'abonnement n'existe pas ou n'est plus valide, on le recrée
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
@@ -38,14 +33,17 @@ export async function subscribeToPush(profile) {
     });
   }
 
-  // On sauvegarde dans Supabase
   const subData = JSON.parse(JSON.stringify(subscription));
-  const { error } = await supabase.from('push_subscriptions').upsert({
+
+  // 👇 LA CORRECTION EST ICI : on supprime l'ancien, puis on insère le nouveau
+  await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
+
+  const { error } = await supabase.from('push_subscriptions').insert({
     user_id: profile.id,
     endpoint: subData.endpoint,
     p256dh: subData.keys.p256dh,
     auth: subData.keys.auth,
-  }, { onConflict: 'user_id' }); // On écrase s'il existe déjà pour cet utilisateur
+  });
 
   if (error) throw error;
 }
@@ -55,11 +53,8 @@ export async function unsubscribeFromPush(profile) {
 
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.getSubscription();
-  
   if (subscription) {
     await subscription.unsubscribe();
   }
-
-  // On supprime de la base de données
   await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
 }
