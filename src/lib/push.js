@@ -35,11 +35,13 @@ export async function subscribeToPush(profile) {
 
   const subData = JSON.parse(JSON.stringify(subscription));
 
-  // 👇 LA CORRECTION EST ICI : on supprime l'ancien, puis on insère le nouveau
+  // 1. On supprime l'ancien abonnement s'il existe
   await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
 
+  // 2. On insère le nouveau avec TOUTES les colonnes requises
   const { error } = await supabase.from('push_subscriptions').insert({
     user_id: profile.id,
+    school_id: profile.school_id, // 👈 LA CORRECTION EST ICI
     endpoint: subData.endpoint,
     p256dh: subData.keys.p256dh,
     auth: subData.keys.auth,
