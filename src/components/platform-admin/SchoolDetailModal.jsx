@@ -8,10 +8,19 @@ import {
   callPlatformAdmin, 
   STATUT_LABELS, 
   PLAN_LABELS, 
-  PLAN_OPTIONS, 
   ROLE_LABELS, 
   healthIssues 
 } from './PlatformAdminUI.jsx';
+// 👇 On importe les prix depuis le fichier officiel plan.js 👇
+import { PLAN_PRICES, LAUNCH_PRICES } from '../../lib/plan.js';
+
+// 👇 On remplace PLAN_OPTIONS par une liste dynamique basée sur les prix actuels 👇
+const CURRENT_PLAN_OPTIONS = [
+  { value: 'decouverte', label: 'Découverte — Gratuit' },
+  { value: 'essentiel', label: `Essentiel — ${PLAN_PRICES.essentiel.annuel.toLocaleString('fr-FR')} F/an` },
+  { value: 'standard', label: `Standard — ${PLAN_PRICES.standard.annuel.toLocaleString('fr-FR')} F/an` },
+  { value: 'premium', label: `Premium — ${PLAN_PRICES.premium.annuel.toLocaleString('fr-FR')} F/an` },
+];
 
 export default function SchoolDetailModal({ school, onClose, onChanged }) {
   const showToast = useToast();
@@ -166,7 +175,8 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
 
             <div style={{ marginBottom: 20, padding: '14px 16px', borderRadius: 12, background: 'var(--forest-light)', border: '1px solid var(--forest)' }}>
               <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Plan souscrit</p>
-              <Dropdown value={planDraft} onChange={setPlanDraft} options={PLAN_OPTIONS} style={{ marginBottom: 10 }} />
+              {/* 👇 ON UTILISE LA NOUVELLE LISTE DYNAMIQUE ICI 👇 */}
+              <Dropdown value={planDraft} onChange={setPlanDraft} options={CURRENT_PLAN_OPTIONS} style={{ marginBottom: 10 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button type="button" onClick={handleSetPlan} disabled={!planDirty || busyId === 'plan'} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: planDirty ? 'var(--forest)' : 'var(--line)', color: planDirty ? '#fff' : 'var(--muted)', fontWeight: 600, fontSize: 12.5, cursor: planDirty ? 'pointer' : 'default' }}>
                   {busyId === 'plan' ? 'Enregistrement…' : 'Mettre à jour le plan'}
