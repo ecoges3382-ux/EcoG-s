@@ -1,8 +1,9 @@
 import { supabase } from './supabase.js';
 
+// Fonction utilitaire pour convertir la clé VAPID (obligatoire pour le navigateur)
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -13,37 +14,52 @@ function urlBase64ToUint8Array(base64String) {
 
 export async function subscribeToPush(profile) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    throw new Error("Ton navigateur ne supporte pas les notifications.");
+    throw new Error("Les notifications ne sont pas supportées par ce navigateur.");
   }
 
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
-    throw new Error("Tu as refusé les notifications.");
+    throw new Error("Vous avez refusé les notifications.");
   }
 
   const registration = await navigator.serviceWorker.ready;
-
+  
+  // La clé publique VAPID doit être dans tes variables d'environnement Vercel (VITE_VAPID_PUBLIC_KEY)
   const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-  if (!vapidPublicKey) throw new Error("La clé publique VAPID est manquante sur Vercel.");
+  if (!vapidPublicKey) throw new Error("Clé VAPID manquante.");
 
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-  });
+  let subscription = await registration.pushManager.getSubscription();
+  
+  // Si l'abonnement n'existe pas ou n'est plus valide, on le recrée
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+    });
+  }
 
-  const subData = subscription.toJSON();
+  // On sauvegarde dans Supabase
+  const subData = JSON.parse(JSON.stringify(subscription));
+  const { error } = await supabase.from('push_subscriptions').upsert({
+    user_id: profile.id,
+    endpoint: subData.endpoint,
+    p256dh: subData.keys.p256dh,
+    auth: subData.keys.auth,
+  }, { onConflict: 'user_id' }); // On écrase s'il existe déjà pour cet utilisateur
 
-  // 🚀 Appel à l'Edge Function
-  const { data, error } = await supabase.functions.invoke('subscribe-push', {
-    body: {
-      endpoint: subData.endpoint,
-      p256dh: subData.keys.p256dh,
-      auth: subData.keys.auth,
-    }
-  });
+  if (error) throw error;
+}
 
-  if (error) throw new Error("Erreur d'abonnement : " + error.message);
-  if (data?.error) throw new Error(data.error);
+export async function unsubscribeFromPush(profile) {
+  if (!('serviceWorker' in navigator)) return;
 
-  return true;
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  
+  if (subscription) {
+    await subscription.unsubscribe();
+  }
+
+  // On supprime de la base de données
+  await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
 }
