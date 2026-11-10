@@ -191,6 +191,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     let targetStudentId = student?.id || null;
 
     if (isEditing) {
+      // ... (Logique d'édition inchangée)
       const { error: studentError } = await supabase
         .from('students')
         .update({
@@ -292,6 +293,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       return;
     }
 
+    // --- CRÉATION D'UN NOUVEL ÉLÈVE ---
+
     const studentParentPhone = (canManageParents && !useExistingParent && parentNom.trim())
       ? composePhone(parentAccessDial, parentAccessLocal) || null
       : null;
@@ -366,6 +369,23 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
         newParent2Code = created2.code;
       }
     }
+
+    // 👇 NOTIFICATION D'INSCRIPTION ICI 👇
+    try {
+      const classeNom = selectedClasse?.nom || 'une classe';
+      const eleveNom = displayName(studentNom.trim(), studentPrenom.trim());
+      await supabase.functions.invoke('send-admin-push', {
+        body: {
+          school_id: schoolId,
+          title: "👨‍🎓 Nouvel élève inscrit",
+          message: `${profile.full_name} a inscrit l'élève ${eleveNom} en classe de ${classeNom}.`,
+          url: `/eleves/${targetStudentId}`
+        }
+      });
+    } catch (err) {
+      console.warn("Notification d'inscription non envoyée :", err);
+    }
+    // 👆 FIN DE LA NOTIFICATION 👆
 
     if (Number(paiementMontant) > 0 && targetStudentId) {
       const { data: newPayment } = await supabase.from('payments')
