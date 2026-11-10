@@ -100,7 +100,6 @@ const I = {
   doc: (s) => <Svg size={s}><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8l-5-5z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></Svg>,
 };
 
-// 🚀 Composant utilitaire : injecte du JSON-LD structuré pour Google
 function JsonLd() {
   useEffect(() => {
     const id = 'lp-jsonld';
@@ -128,7 +127,7 @@ function JsonLd() {
             '@type': 'Offer',
             price: '0',
             priceCurrency: 'XOF',
-            description: 'Plan Découverte gratuit, plans payants à partir de 10 000 F CFA/mois.',
+            description: 'Plan Découverte gratuit, plans payants à partir de 12 000 F CFA/mois.',
           },
         },
       ],
@@ -713,8 +712,8 @@ const PLANS = [
     id: 'essentiel',
     name: 'Essentiel',
     tagline: "Tout ce qu'il faut pour gérer une école jusqu'à 300 élèves.",
-    mensuel: 10000,
-    annuel: 100000,
+    mensuel: 12000,
+    annuel: 120000,
     highlight: true,
     badge: '⭐ Le plus choisi',
     ctaLabel: 'Choisir Essentiel',
@@ -735,8 +734,8 @@ const PLANS = [
     id: 'standard',
     name: 'Standard',
     tagline: 'Pour les écoles qui grandissent et veulent tout piloter.',
-    mensuel: 15000,
-    annuel: 160000,
+    mensuel: 20000,
+    annuel: 200000,
     highlight: false,
     badge: null,
     ctaLabel: 'Choisir Standard',
@@ -755,8 +754,8 @@ const PLANS = [
     id: 'premium',
     name: 'Premium',
     tagline: 'Pour les grandes écoles et les groupes scolaires.',
-    mensuel: 25000,
-    annuel: 280000,
+    mensuel: 40000,
+    annuel: 400000,
     highlight: false,
     badge: null,
     ctaLabel: 'Choisir Premium',
@@ -892,7 +891,7 @@ function Price() {
           </p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>
             Les <strong>10 premières écoles</strong> bénéficient de <strong>-20 % à vie</strong> sur tous les plans :<br />
-            Essentiel à <strong>80 000 F CFA/an</strong> · Standard à <strong>128 000 F CFA/an</strong> · Premium à <strong>224 000 F CFA/an</strong>.
+            Essentiel à <strong>96 000 F CFA/an</strong> · Standard à <strong>160 000 F CFA/an</strong> · Premium à <strong>320 000 F CFA/an</strong>.
           </p>
         </InView>
 
@@ -1119,7 +1118,6 @@ function PlanCard({ plan, period, index }) {
   );
 }
 
-// 🚀 Bouton "Retour en haut" qui apparaît après 60% de scroll
 function BackToTop() {
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -1144,7 +1142,6 @@ function BackToTop() {
   );
 }
 
-// 🚀 CTA sticky mobile : apparaît quand on est dans la section Tarifs ou plus bas
 function StickyMobileCTA() {
   const [show, setShow] = useState(false);
   useEffect(() => {
