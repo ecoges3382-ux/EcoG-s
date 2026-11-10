@@ -26,9 +26,17 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* 👇 LA FONDATION EST ICI : On force #root à prendre tout l'écran 👇 */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ============================================================
-   MODE SOMBRE : On garde les couleurs de l'école (--forest) 
-   pour le header et la sidebar. Seuls les fonds neutres changent.
+   MODE SOMBRE
    ============================================================ */
 html.dark-mode, body.dark-mode {
   color-scheme: dark;
@@ -43,9 +51,6 @@ html.dark-mode, body.dark-mode {
   --amber: #FBBF24;
   --gold: #FCD34D;
   
-  /* ⚠️ IMPORTANT : On ne redéfinit PLUS --forest, --forest-dark, --forest-light
-     pour que la couleur de l'école reste active sur le header et la sidebar. */
-  
   --danger-light: #450A0A;
   --success-light: #064E3B;
   --amber-light: #78350F;
@@ -53,7 +58,6 @@ html.dark-mode, body.dark-mode {
   --gold-light: #78350F;
 }
 
-/* 🚀 CORRECTIF ZOOM MOBILE */
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -99,7 +103,7 @@ input { caret-color: var(--ink); }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
 /* ---- Layout shell ---- */
-#app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+#app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; flex: 1; }
 #layout { display: flex; flex: 1; overflow-x: hidden; }
 #sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; color: #fff; }
 #screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
@@ -299,7 +303,6 @@ input { caret-color: var(--ink); }
   }
   .selection-bar { bottom: calc(78px + env(safe-area-inset-bottom)) !important; }
   
-  /* 🚀 CORRECTIF : padding réduit à 6px pour faire tenir 6 onglets */
   #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 6px; border-radius: 10px; min-width: 0; }
   
   #bottomnav .navlink i { font-size: 20px; color: var(--ink); }
