@@ -30,7 +30,6 @@ export function applySchoolColor(hex) {
   root.setProperty('--forest-light', mix(hex, '#ffffff', 0.88));
 
   // 🚀 MISE À JOUR DE LA BARRE D'ÉTAT (Android/iOS)
-  // On utilise la couleur "dark" (assombrie) car la barre d'état a un texte blanc
   const darkColor = mix(hex, '#000000', 0.35);
   let metaTheme = document.querySelector('meta[name="theme-color"]');
   if (!metaTheme) {
@@ -48,20 +47,23 @@ export function resetSchoolColor() {
   root.removeProperty('--forest-dark');
   root.removeProperty('--forest-light');
 
-  // Remettre la couleur par défaut (vert)
   let metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
     metaTheme.setAttribute('content', '#0F4C3A');
   }
 }
 
-// ========== GESTION DU MODE SOMBRE ==========
-const THEME_KEY = 'ecoges_theme';
+// ========== GESTION DU MODE SOMBRE (PERSONNALISÉ PAR UTILISATEUR) ==========
 
-export function getInitialTheme() {
+// 👇 LA CLÉ DEVIENT DYNAMIQUE SELON L'UTILISATEUR 👇
+function getThemeKey(userId) {
+  return userId ? `ecoges_theme_${userId}` : 'ecoges_theme_guest';
+}
+
+export function getInitialTheme(userId) {
   if (typeof window === 'undefined') return 'light';
   try {
-    const saved = localStorage.getItem(THEME_KEY);
+    const saved = localStorage.getItem(getThemeKey(userId));
     if (saved === 'dark' || saved === 'light') return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   } catch {
@@ -69,7 +71,7 @@ export function getInitialTheme() {
   }
 }
 
-export function applyTheme(theme) {
+export function applyTheme(theme, userId) {
   if (typeof window === 'undefined') return;
   const root = document.documentElement;
   if (theme === 'dark') {
@@ -78,14 +80,14 @@ export function applyTheme(theme) {
     root.classList.remove('dark-mode');
   }
   try {
-    localStorage.setItem(THEME_KEY, theme);
+    localStorage.setItem(getThemeKey(userId), theme);
   } catch {}
 }
 
-export function toggleTheme() {
+export function toggleTheme(userId) {
   if (typeof window === 'undefined') return 'light';
   const current = document.documentElement.classList.contains('dark-mode') ? 'dark' : 'light';
   const next = current === 'dark' ? 'light' : 'dark';
-  applyTheme(next);
+  applyTheme(next, userId);
   return next;
 }
