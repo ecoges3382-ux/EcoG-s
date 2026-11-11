@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom'; // 👈 NOUVEL IMPORT
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { fmtF, TRANCHES, MODES, trancheLabel, TYPES_FRAIS } from '../../lib/utils.js';
@@ -35,7 +35,7 @@ export default function Payments() {
   const [modalOpen, setModalOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const navigate = useNavigate(); // 👈 INITIALISATION DE useNavigate
+  const navigate = useNavigate();
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -168,7 +168,6 @@ export default function Payments() {
   const totalScolarite = paymentsScolarite.reduce((a, p) => a + Number(p.montant), 0);
   const totalAutres = paymentsAutres.reduce((a, p) => a + Number(p.montant), 0);
 
-  // 👇 MODIFICATION DE LA LIGNE ICI 👇
   const renderPaymentRow = (p, i, arrayLength) => (
     <div
       key={p.id}
@@ -261,7 +260,7 @@ export default function Payments() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16, alignItems: 'start' }}>
-
+          
           <div className="card-bold" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)', borderRadius: '12px 12px 0 0' }}>
               <div>
@@ -318,6 +317,7 @@ export default function Payments() {
     </div>
   );
 }
+
 function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClose, onCreated }) {
   const showToast = useToast();
   const { profile } = useAuth();
