@@ -75,6 +75,11 @@ export default function Students() {
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [classFilter, setClassFilter] = useState('toutes');
+  
+  // 👇 NOUVEAUX ÉTATS POUR LA RECHERCHE 👇
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -89,6 +94,12 @@ export default function Students() {
   const gridCols = selectMode
     ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
     : '2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
+
+  // 👇 EFFET POUR LE DEBOUNCE DE LA RECHERCHE 👇
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   async function reload() {
     if (!schoolYear) return;
@@ -150,7 +161,20 @@ export default function Students() {
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <div className="card-bold"><SkeletonRow count={6} /></div>;
 
-  const filtered = classFilter === 'toutes' ? students : students.filter((s) => s.niveau === classFilter);
+  // 👇 LOGIQUE DE FILTRAGE COMBINÉE (CLASSE + RECHERCHE) 👇
+  const filtered = students.filter((s) => {
+    const matchClass = classFilter === 'toutes' || s.niveau === classFilter;
+    if (!matchClass) return false;
+
+    if (!debouncedSearchQuery.trim()) return true;
+    const q = debouncedSearchQuery.trim().toLowerCase();
+    
+    return (
+      (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+      (s.matricule && s.matricule.toLowerCase().includes(q)) ||
+      (s.parent_phone && s.parent_phone.includes(q))
+    );
+  });
 
   function exportCsv() {
     const rows = [['Nom', 'Matricule', 'Sexe', 'Classe', "Date d'inscription", 'Montant dû', 'Payé', 'Reste', 'Téléphone parent']];
@@ -294,7 +318,6 @@ export default function Students() {
       return; 
     }
 
-    // 👇 NOTIFICATION ICI 👇
     try {
       await supabase.functions.invoke('send-admin-push', {
         body: {
@@ -305,7 +328,6 @@ export default function Students() {
         }
       });
     } catch (err) { console.warn(err); }
-    // 👆 FIN DE LA NOTIFICATION 👆
 
     reload();
   }
@@ -320,7 +342,6 @@ export default function Students() {
       return; 
     }
 
-    // 👇 NOTIFICATION ICI 👇
     try {
       await supabase.functions.invoke('send-admin-push', {
         body: {
@@ -331,7 +352,6 @@ export default function Students() {
         }
       });
     } catch (err) { console.warn(err); }
-    // 👆 FIN DE LA NOTIFICATION 👆
 
     exitSelectMode(); reload();
   }
@@ -396,10 +416,28 @@ export default function Students() {
           style={{ padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600, border: `1px solid ${classFilter !== 'toutes' ? 'var(--forest)' : 'var(--line-strong)'}`, background: classFilter !== 'toutes' ? 'var(--forest)' : 'var(--paper)' }}
           wrapperStyle={{ width: 'auto' }}
         />
+        
+        {/* 👇 LA BARRE DE RECHERCHE EST ICI 👇 */}
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Rechercher un élève..."
+          style={{ 
+            padding: '8px 12px', 
+            borderRadius: 20, 
+            border: '1px solid var(--line-strong)', 
+            fontSize: 13, 
+            width: 220, 
+            boxSizing: 'border-box', 
+            color: 'var(--ink)',
+            marginLeft: 'auto' // Pousse la recherche tout à droite
+          }}
+        />
       </div>
 
       <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
         {filtered.length} élève{filtered.length > 1 ? 's' : ''} {classFilter === 'toutes' ? '· toutes classes' : `· ${classFilter}`}
+        {debouncedSearchQuery.trim() && ` · recherche "${debouncedSearchQuery}"`}
       </p>
 
       <div data-tour="students-list" className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
@@ -463,9 +501,9 @@ export default function Students() {
             );
           })}
           {filtered.length === 0 && (
-            classFilter === 'toutes'
+            classFilter === 'toutes' && !debouncedSearchQuery.trim()
               ? <EmptyState icon={<UsersIcon />} title="Aucun élève inscrit" subtitle="Ajoute ton premier élève pour commencer à suivre sa scolarité et ses paiements." actionLabel={!isHistorical ? 'Inscrire un élève' : undefined} onAction={!isHistorical ? () => { setEditingStudent(null); setModalOpen(true); } : undefined} />
-              : <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève dans cette classe.</p>
+              : <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève ne correspond à ces critères.</p>
           )}
         </div>
       </div>
