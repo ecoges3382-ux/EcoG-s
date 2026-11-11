@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
-import { fmtF, MODES } from '../../lib/utils.js';
+import { fmtF, MODES, stickyColStyle, stickyHeaderStyle } from '../../lib/utils.js'; // 👈 Import de stickyColStyle
 import Dropdown from '../../components/Dropdown.jsx';
 import MoneyInput from '../../components/MoneyInput.jsx';
 import DatePicker from '../../components/DatePicker.jsx';
@@ -36,9 +36,19 @@ export default function SalairesSection() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [error, setError] = useState('');
 
+  // 👇 NOUVEL ÉTAT POUR LA RECHERCHE 👇
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
+
+  // 👇 EFFET POUR LE DEBOUNCE DE LA RECHERCHE 👇
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   function toggleOne(id) { setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])); }
   function toggleAllVisible() { setSelectedIds((prev) => { const ids = salaries.map((s) => s.id); return ids.every((id) => prev.includes(id)) ? [] : ids; }); }
@@ -64,14 +74,14 @@ export default function SalairesSection() {
 
   async function reloadSalaries() {
     setSalaries(null);
-
+    
     const { data: sal, error: salErr } = await supabase
       .from('staff_salaries')
       .select('*, staff (full_name, role)')
       .eq('school_id', profile.school_id)
       .eq('mois', mois)
       .order('created_at', { ascending: false });
-
+      
     if (salErr) setError(salErr.message);
     else setSalaries(sal || []);
 
@@ -81,7 +91,7 @@ export default function SalairesSection() {
       .eq('school_id', profile.school_id)
       .eq('statut', 'approuvee')
       .gt('solde', 0);
-
+      
     if (advErr) setError(advErr.message);
     else setAdvances(adv || []);
 
@@ -105,6 +115,13 @@ export default function SalairesSection() {
 
   if (!staff) return <div className="card-bold"><SkeletonRow count={5} /></div>;
 
+  // 👇 FILTRAGE DU PERSONNEL POUR LA RECHERCHE 👇
+  const filteredStaff = staff.filter((p) => {
+    if (!debouncedSearchQuery.trim()) return true;
+    const q = debouncedSearchQuery.trim().toLowerCase();
+    return (p.full_name || '').toLowerCase().includes(q) || (p.role || '').toLowerCase().includes(q);
+  });
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
@@ -112,9 +129,20 @@ export default function SalairesSection() {
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Gestion des salaires</p>
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>Les avances approuvées sont automatiquement déduites du reste à payer.</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Mois :</label>
-          <Dropdown value={mois} onChange={setMois} options={monthOptions} style={{ width: 200 }} />
+        
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* 👇 LA BARRE DE RECHERCHE EST ICI 👇 */}
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher un membre..."
+            style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, width: 200, boxSizing: 'border-box', color: 'var(--ink)' }}
+          />
+          
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', whiteSpace: 'nowrap' }}>Mois :</label>
+            <Dropdown value={mois} onChange={setMois} options={monthOptions} style={{ width: 180 }} />
+          </div>
         </div>
       </div>
 
@@ -122,21 +150,22 @@ export default function SalairesSection() {
 
       <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 24 }}>
         <div style={{ minWidth: 900 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
-            <span style={{ paddingLeft: 20 }}>Membre</span>
+          {/* 👇 EN-TÊTE DU TABLEAU AVEC COLONNE FIGÉE 👇 */}
+          <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 3 }}>Membre</span>
             <span>Salaire prévu</span>
             <span>Avance à déduire</span>
             <span>Déjà payé</span>
             <span>Reste net à payer</span>
             <span></span>
           </div>
-
+          
           {salaries === null ? (
             <SkeletonRow count={3} />
-          ) : staff.length === 0 ? (
-            <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre du personnel actif.</p>
+          ) : filteredStaff.length === 0 ? (
+            <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun membre ne correspond à cette recherche.</p>
           ) : (
-            staff.map((p, i) => {
+            filteredStaff.map((p, i) => {
               const paye = (salaries || []).filter(s => s.staff_id === p.id).reduce((acc, s) => acc + Number(s.montant), 0);
               const avanceDeduire = (advances || []).filter(a => a.staff_id === p.id).reduce((acc, a) => acc + Number(a.solde), 0);
               const prevu = Number(p.salaire_mensuel) || 0;
@@ -145,7 +174,8 @@ export default function SalairesSection() {
 
               return (
                 <div key={p.id} style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '14px 20px 14px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
-                  <div style={{ paddingLeft: 20 }}>
+                  {/* 👇 CELLULE DU NOM FIGÉE ET OPAQUE 👇 */}
+                  <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, zIndex: 2 }}>
                     <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
                     <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
                   </div>
@@ -216,6 +246,7 @@ export default function SalairesSection() {
     </div>
   );
 }
+
 function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
   const { profile } = useAuth();
   const prevu = Number(staffMember.salaire_mensuel || 0);
@@ -228,23 +259,10 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!montant || Number(montant) <= 0) {
-      setError('Le montant doit être supérieur à 0.');
-      return;
-    }
-
+    if (!montant || Number(montant) <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
     setSubmitting(true);
     setError('');
 
-    // Un seul appel RPC : la fonction SQL `pay_salary_with_advance_deduction`
-    // insère le salaire ET rembourse les avances dans la même transaction.
-    // En cas d'échec, tout est rollback — plus de risque de voir l'avance
-    // marquée remboursée sans que le salaire soit enregistré.
-    //
-    // p_avance_a_rembourser = avance (total des soldes à déduire, calculé par
-    // le parent). Si la valeur est périmée (une avance a été remboursée
-    // entre-temps par une autre session), la RPC rembourse uniquement ce qui
-    // existe encore — jamais plus que le solde réel.
     const { error: rpcError } = await supabase.rpc('pay_salary_with_advance_deduction', {
       p_school_id: profile.school_id,
       p_staff_id: staffMember.id,
@@ -258,38 +276,23 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
     });
 
     setSubmitting(false);
-
-    if (rpcError) {
-      setError(rpcError.message);
-      return;
-    }
-
+    if (rpcError) { setError(rpcError.message); return; }
     onSaved();
   }
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 400, width: '100%', padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Payer le salaire</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>×</button>
         </div>
-
-        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>
-          Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})
-        </p>
-
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})</p>
+        
         {avance > 0 && (
           <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>
-              Avance approuvée à déduire : {fmtF(avance)}
-            </p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>
-              Le montant par défaut a été ajusté. L'avance sera soldée automatiquement.
-            </p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté. L'avance sera soldée automatiquement.</p>
           </div>
         )}
 
@@ -308,12 +311,7 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
         </div>
 
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Note (facultatif)</label>
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Ex: Acompte, prime..."
-          style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, marginBottom: 16, boxSizing: 'border-box' }}
-        />
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Acompte, prime..." style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, marginBottom: 16, boxSizing: 'border-box' }} />
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
