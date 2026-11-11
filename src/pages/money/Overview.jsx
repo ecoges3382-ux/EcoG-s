@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend 
-} from 'recharts';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { fmtF, stickyColStyle } from '../../lib/utils.js';
 import { useSelectedSchoolYear } from '../../lib/schoolYear.jsx';
@@ -57,9 +54,6 @@ export default function Overview() {
   const totalReste = totalDu - totalPaye;
   const tauxRecouv = totalDu > 0 ? Math.round((totalPaye / totalDu) * 100) : 0;
 
-  const totalConnexeDu = students.reduce((a, s) => a + Number(s.frais_connexe_du), 0);
-  const totalConnexePaye = students.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
-
   const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3));
   const enrichis = students.map((s) => ({
     ...s,
@@ -81,40 +75,15 @@ export default function Overview() {
     return { label: 'Solde restant', color: 'amber' };
   }
 
-  const chartData = [
-    { name: "Droit d'écolage", Facturé: totalDu, Encaissé: totalPaye },
-    { name: 'Frais connexes', Facturé: totalConnexeDu, Encaissé: totalConnexePaye },
-  ];
-
   return (
     <div>
       {offline && <OfflineBanner />}
-      <div data-tour="money-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
+      <div data-tour="money-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
         <Stat label="Attendu" value={fmtF(totalDu)} />
         <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
         <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" />
       </div>
       
-      <div className="card-bold" style={{ padding: '20px 24px', marginBottom: 24 }}>
-        <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Facturé vs Encaissé (Vue d'ensemble)</p>
-        <div style={{ width: '100%', height: 250 }}>
-          <ResponsiveContainer>
-            <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--muted)' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted)' }} tickFormatter={(val) => `${val / 1000}k`} />
-              <RechartsTooltip 
-                formatter={(value) => fmtF(value)}
-                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-              />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Facturé" fill="#D4D4D4" radius={[4, 4, 0, 0]} maxBarSize={60} />
-              <Bar dataKey="Encaissé" fill="var(--forest)" radius={[4, 4, 0, 0]} maxBarSize={60} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
         <Stat label="Taux de recouvrement" value={`${tauxRecouv}%`} color="var(--success)" />
         <Stat label="Élèves à jour" value={nbAJour} color="var(--success)" />
