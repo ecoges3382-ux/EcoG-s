@@ -102,11 +102,12 @@ export default function Dashboard() {
           </p>
           <tour.Button />
         </div>
-        {/* 👇 LE BADGE "ANNÉE SCOLAIRE" A ÉTÉ SUPPRIMÉ ICI 👇 */}
       </div>
+      
       <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'var(--muted)' }}>
         Tous les indicateurs ci-dessous concernent l'année {schoolYear.label} — change d'année depuis le sélecteur en haut de page.
       </p>
+      
       {isHistorical && <HistoricalYearBanner year={schoolYear} />}
       {(offline || offlineExtra) && <OfflineBanner />}
       {extraError && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{extraError}</p>}
