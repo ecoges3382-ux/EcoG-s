@@ -102,9 +102,7 @@ export default function Dashboard() {
           </p>
           <tour.Button />
         </div>
-        <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
-          Année scolaire {schoolYear.label}
-        </span>
+        {/* 👇 LE BADGE "ANNÉE SCOLAIRE" A ÉTÉ SUPPRIMÉ ICI 👇 */}
       </div>
       <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'var(--muted)' }}>
         Tous les indicateurs ci-dessous concernent l'année {schoolYear.label} — change d'année depuis le sélecteur en haut de page.
