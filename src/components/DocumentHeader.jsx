@@ -1,3 +1,13 @@
+import { supabase } from '../lib/supabase.js'; // 👈 NOUVEL IMPORT
+
+// 👇 FONCTION POUR RÉPARER L'AFFICHAGE DU LOGO 👇
+function getDisplayUrl(val) {
+  if (!val) return '';
+  if (val.startsWith('http')) return val;
+  // Si c'est un ancien chemin, on le convertit en URL publique
+  return supabase.storage.from('photos').getPublicUrl(val).data.publicUrl;
+}
+
 // En-tête institutionnel commun à tous les documents imprimables (bulletin,
 // reçu, situation financière). Le prop `compact` permet de réduire la taille
 // pour les reçus A6 imprimés 4 fois sur une page A4.
@@ -23,7 +33,13 @@ export default function DocumentHeader({ school, title, subtitle, compact = fals
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 5 : 12, minWidth: 0 }}>
         {school?.logo_url ? (
-          <img src={school.logo_url} alt="" style={{ width: logoSize, height: logoSize, borderRadius: compact ? 5 : 10, objectFit: 'cover', flexShrink: 0 }} />
+          // 👇 ON UTILISE LA FONCTION ICI 👇
+          <img 
+            src={getDisplayUrl(school.logo_url)} 
+            alt="" 
+            style={{ width: logoSize, height: logoSize, borderRadius: compact ? 5 : 10, objectFit: 'cover', flexShrink: 0 }} 
+            onError={(e) => { e.target.style.display = 'none'; }} // Cache l'image si elle est introuvable
+          />
         ) : (
           <div style={{
             width: logoSize, height: logoSize, borderRadius: compact ? 5 : 10,
