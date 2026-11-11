@@ -79,25 +79,39 @@ export default function BilanFinancier() {
   }
 
   const pieRevenusData = [
-    { name: 'Écolage', value: data.ecolage, color: 'var(--forest)' },
-    { name: 'Connexes', value: data.connexe, color: 'var(--clay)' },
-    { name: 'Inscriptions', value: data.inscription, color: 'var(--gold)' },
+    { name: 'Écolage', value: data.ecolage, color: '#34D399' }, // Vert menthe
+    { name: 'Connexes', value: data.connexe, color: '#FBBF24' }, // Jaune/Or
+    { name: 'Inscriptions', value: data.inscription, color: '#60A5FA' }, // Bleu clair
   ].filter(d => d.value > 0);
 
   const pieChargesData = [
-    { name: 'Salaires', value: data.salairesPayes, color: '#4A90E2' },
-    { name: 'Avances', value: data.avancesPayees, color: '#E26D8A' },
-    { name: 'Autres dépenses', value: data.autresDepenses, color: 'var(--muted)' },
+    { name: 'Salaires', value: data.salairesPayes, color: '#FF6B6B' }, // Corail/Rouge clair
+    { name: 'Avances', value: data.avancesPayees, color: '#F59E0B' }, // Orange
+    { name: 'Autres dépenses', value: data.autresDepenses, color: '#9CA3AF' }, // Gris
   ].filter(d => d.value > 0);
 
-  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  const renderExternalLabel = ({ cx, cy, midAngle, outerRadius, percent, index, name }) => {
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
+    const radius = outerRadius + 25; 
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    if (percent < 0.05) return null;
+    
+    if (percent < 0.03) return null;
+
+    const color = (name === 'Écolage' || name === 'Salaires') ? '#34D399' 
+                : (name === 'Connexes' || name === 'Avances') ? '#FBBF24' 
+                : (name === 'Inscriptions') ? '#60A5FA' : '#9CA3AF';
+
     return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
+      <text 
+        x={x} 
+        y={y} 
+        fill={color} 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central" 
+        fontSize={12} 
+        fontWeight="bold"
+      >
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     );
@@ -121,6 +135,8 @@ export default function BilanFinancier() {
       </div>
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 24 }}>
+        
+        {/* CARTE DES REVENUS */}
         <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-up" style={{ fontSize: 20, color: 'var(--success)' }} aria-hidden="true"></i>
@@ -149,7 +165,7 @@ export default function BilanFinancier() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: 10, position: 'relative' }}>
             {pieRevenusData.length > 0 && (
               <>
-                <div style={{ height: 200, width: '100%' }}>
+                <div style={{ height: 240, width: '100%' }}>
                   <ResponsiveContainer>
                     <PieChart>
                       <Pie 
@@ -157,29 +173,23 @@ export default function BilanFinancier() {
                         dataKey="value" 
                         cx="50%" 
                         cy="50%" 
-                        innerRadius={60} 
-                        outerRadius={85} 
+                        innerRadius={65} 
+                        outerRadius={90} 
                         paddingAngle={2} 
-                        stroke="#ffffff" 
-                        strokeWidth={2}
-                        labelLine={false}
-                        label={renderCustomizedLabel}
+                        stroke="transparent" // 👈 COULEUR TRANSPARENTE
+                        strokeWidth={0}      // 👈 EPAISSEUR À 0 POUR ENLEVER LA BORDURE
+                        labelLine={true}
+                        label={renderExternalLabel}
                       >
                         {pieRevenusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" strokeWidth={0} />
                         ))}
                       </Pie>
-                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', background: 'var(--ink)', color: 'var(--paper)' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
-                    {fmtF(data.totalRevenus).replace(' F CFA', '')}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginTop: 10 }}>
                   {pieRevenusData.map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
@@ -192,6 +202,7 @@ export default function BilanFinancier() {
           </div>
         </div>
 
+        {/* CARTE DES CHARGES */}
         <div className="card-bold" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-trending-down" style={{ fontSize: 20, color: 'var(--danger)' }} aria-hidden="true"></i>
@@ -220,7 +231,7 @@ export default function BilanFinancier() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: 10, position: 'relative' }}>
             {pieChargesData.length > 0 && (
               <>
-                <div style={{ height: 200, width: '100%' }}>
+                <div style={{ height: 240, width: '100%' }}>
                   <ResponsiveContainer>
                     <PieChart>
                       <Pie 
@@ -228,29 +239,23 @@ export default function BilanFinancier() {
                         dataKey="value" 
                         cx="50%" 
                         cy="50%" 
-                        innerRadius={60} 
-                        outerRadius={85} 
+                        innerRadius={65} 
+                        outerRadius={90} 
                         paddingAngle={2} 
-                        stroke="#ffffff" 
-                        strokeWidth={2}
-                        labelLine={false}
-                        label={renderCustomizedLabel}
+                        stroke="transparent" // 👈 COULEUR TRANSPARENTE
+                        strokeWidth={0}      // 👈 EPAISSEUR À 0 POUR ENLEVER LA BORDURE
+                        labelLine={true}
+                        label={renderExternalLabel}
                       >
                         {pieChargesData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" strokeWidth={0} />
                         ))}
                       </Pie>
-                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <RechartsTooltip formatter={(value) => fmtF(value)} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', background: 'var(--ink)', color: 'var(--paper)' }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.1 }}>
-                    {fmtF(data.totalCharges).replace(' F CFA', '')}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 10, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>F CFA</p>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginTop: 10 }}>
                   {pieChargesData.map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
@@ -262,6 +267,7 @@ export default function BilanFinancier() {
             )}
           </div>
         </div>
+
       </div>
     </div>
   );
