@@ -27,7 +27,7 @@ function generateMonthOptions() {
 export default function SalairesSection() {
   const { profile } = useAuth();
   const showToast = useToast();
-  const confirm = useConfirm(); 
+  const confirm = useConfirm();
   const [mois, setMois] = useState(generateMonthOptions()[0].value);
   const [salaries, setSalaries] = useState(null);
   const [advances, setAdvances] = useState([]);
@@ -64,14 +64,14 @@ export default function SalairesSection() {
 
   async function reloadSalaries() {
     setSalaries(null);
-    
+
     const { data: sal, error: salErr } = await supabase
       .from('staff_salaries')
       .select('*, staff (full_name, role)')
       .eq('school_id', profile.school_id)
       .eq('mois', mois)
       .order('created_at', { ascending: false });
-      
+
     if (salErr) setError(salErr.message);
     else setSalaries(sal || []);
 
@@ -81,7 +81,7 @@ export default function SalairesSection() {
       .eq('school_id', profile.school_id)
       .eq('statut', 'approuvee')
       .gt('solde', 0);
-      
+
     if (advErr) setError(advErr.message);
     else setAdvances(adv || []);
 
@@ -130,7 +130,7 @@ export default function SalairesSection() {
             <span>Reste net à payer</span>
             <span></span>
           </div>
-          
+
           {salaries === null ? (
             <SkeletonRow count={3} />
           ) : staff.length === 0 ? (
@@ -216,7 +216,6 @@ export default function SalairesSection() {
     </div>
   );
 }
-
 function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
   const { profile } = useAuth();
   const prevu = Number(staffMember.salaire_mensuel || 0);
@@ -229,65 +228,68 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!montant || Number(montant) <= 0) { setError('Le montant doit être supérieur à 0.'); return; }
+    if (!montant || Number(montant) <= 0) {
+      setError('Le montant doit être supérieur à 0.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
-    if (avance > 0) {
-      const { data: openAdv, error: advFetchErr } = await supabase
-        .from('salary_advances')
-        .select('id, montant, montant_rembourse, solde')
-        .eq('staff_id', staffMember.id)
-        .eq('statut', 'approuvee')
-        .gt('solde', 0)
-        .order('created_at', { ascending: true });
+    // Un seul appel RPC : la fonction SQL `pay_salary_with_advance_deduction`
+    // insère le salaire ET rembourse les avances dans la même transaction.
+    // En cas d'échec, tout est rollback — plus de risque de voir l'avance
+    // marquée remboursée sans que le salaire soit enregistré.
+    //
+    // p_avance_a_rembourser = avance (total des soldes à déduire, calculé par
+    // le parent). Si la valeur est périmée (une avance a été remboursée
+    // entre-temps par une autre session), la RPC rembourse uniquement ce qui
+    // existe encore — jamais plus que le solde réel.
+    const { error: rpcError } = await supabase.rpc('pay_salary_with_advance_deduction', {
+      p_school_id: profile.school_id,
+      p_staff_id: staffMember.id,
+      p_montant: Number(montant),
+      p_mois: mois,
+      p_date: date,
+      p_mode: mode,
+      p_note: note.trim() || null,
+      p_created_by: profile.id,
+      p_avance_a_rembourser: Number(avance) || 0,
+    });
 
-      if (advFetchErr) { setSubmitting(false); setError(advFetchErr.message); return; }
+    setSubmitting(false);
 
-      let reste = Number(avance);
-      for (const a of (openAdv || [])) {
-        if (reste <= 0) break;
-        const soldeActuel = Number(a.solde) || 0;
-        const aRembourser = Math.min(reste, soldeActuel);
-        if (aRembourser <= 0) continue;
-        const nouveauMontantRembourse = (Number(a.montant_rembourse) || 0) + aRembourser;
-        const { error: advUpdErr } = await supabase
-          .from('salary_advances')
-          .update({ montant_rembourse: nouveauMontantRembourse })
-          .eq('id', a.id);
-        if (advUpdErr) { setSubmitting(false); setError(advUpdErr.message); return; }
-        reste -= aRembourser;
-      }
+    if (rpcError) {
+      setError(rpcError.message);
+      return;
     }
 
-    const { error: insertError } = await supabase.from('staff_salaries').insert({
-      school_id: profile.school_id,
-      staff_id: staffMember.id,
-      montant: Number(montant),
-      mois: mois,
-      date: date,
-      mode: mode,
-      note: note.trim() || null,
-      created_by: profile.id,
-    });
-    setSubmitting(false);
-    if (insertError) setError(insertError.message);
-    else onSaved();
+    onSaved();
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <form onSubmit={handleSubmit} style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 400, width: '100%', padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600 }}>Payer le salaire</p>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--muted)' }}>×</button>
         </div>
-        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})</p>
-        
+
+        <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--muted)' }}>
+          Membre : <strong>{staffMember.full_name}</strong> ({staffMember.role})
+        </p>
+
         {avance > 0 && (
           <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté. L'avance sera soldée automatiquement.</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>
+              Avance approuvée à déduire : {fmtF(avance)}
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>
+              Le montant par défaut a été ajusté. L'avance sera soldée automatiquement.
+            </p>
           </div>
         )}
 
@@ -306,7 +308,12 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
         </div>
 
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>Note (facultatif)</label>
-        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ex: Acompte, prime..." style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, marginBottom: 16, boxSizing: 'border-box' }} />
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Ex: Acompte, prime..."
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13.5, marginBottom: 16, boxSizing: 'border-box' }}
+        />
 
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
 
