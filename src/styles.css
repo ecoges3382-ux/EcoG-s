@@ -534,71 +534,71 @@ button, a, input, select, textarea, [role="button"] {
   touch-action: manipulation !important;
 }
 /* ============================================================
-   🚀 CORRECTIF GLOBAL DE CONTRASTE POUR LE MODE SOMBRE
+   🚀 BOUCLIER ANTI-CONTRASTE (PARTIE 2)
    ============================================================ */
 
-html.dark-mode {
-  /* On adapte les verts pour qu'ils restent lisibles sur fond sombre */
-  --forest-dark: #E4EEE9; /* Vert clair pour les textes */
-  --forest-light: #0F4C3A; /* Vert sombre pour les fonds */
-  --on-primary: #111827; /* Couleur du texte sur les boutons colorés */
-}
-
-/* 1. Boutons et badges qui utilisent des fonds de couleurs vives (Rouge, Vert, Or, Ambre)
-   On force le texte à être sombre pour garantir le contraste sur ces fonds clairs en mode sombre. */
-html.dark-mode [style*="background: var(--danger)"],
-html.dark-mode [style*="backgroundColor: var(--danger)"],
-html.dark-mode [style*="background-color: var(--danger)"],
-html.dark-mode [style*="background: var(--success)"],
-html.dark-mode [style*="backgroundColor: var(--success)"],
-html.dark-mode [style*="background-color: var(--success)"],
-html.dark-mode [style*="background: var(--amber)"],
-html.dark-mode [style*="backgroundColor: var(--amber)"],
-html.dark-mode [style*="background-color: var(--amber)"],
-html.dark-mode [style*="background: var(--gold)"],
-html.dark-mode [style*="backgroundColor: var(--gold)"],
-html.dark-mode [style*="background-color: var(--gold)"] {
-  color: #111827 !important; /* Texte très sombre */
-}
-
-/* 2. Éléments qui ont un fond blanc ou clair codé en dur */
-html.dark-mode [style*="background: white"],
-html.dark-mode [style*="backgroundColor: white"],
-html.dark-mode [style*="background-color: white"],
-html.dark-mode [style*="background: #fff"],
-html.dark-mode [style*="backgroundColor: #fff"],
-html.dark-mode [style*="background-color: #fff"],
-html.dark-mode [style*="background: #FAF8F4"],
-html.dark-mode [style*="backgroundColor: #FAF8F4"],
-html.dark-mode [style*="background-color: #FAF8F4"] {
-  background-color: var(--paper) !important;
-  color: var(--ink) !important;
-  border-color: var(--line-strong) !important;
-}
-
-/* On force aussi les textes enfants de ces blocs à être clairs */
-html.dark-mode [style*="background: white"] *,
-html.dark-mode [style*="background-color: white"] *,
-html.dark-mode [style*="background: #FAF8F4"] *,
-html.dark-mode [style*="background-color: #FAF8F4"] * {
-  color: var(--ink) !important;
-}
-
-/* 3. Textes sombres codés en dur (noir, gris très foncé, vert forêt foncé) */
-html.dark-mode *[style*="color: black"],
-html.dark-mode *[style*="color: #000"],
-html.dark-mode *[style*="color: #1A2E27"],
-html.dark-mode *[style*="color: var(--forest-dark)"] {
-  color: var(--ink) !important;
-}
-
-/* 4. Forcer la couleur du texte sur les composants avec fond très sombre */
+/* 1. FONDS SOMBRES CONNUS (Vert forêt, Vert foncé, Noir, Bleu foncé) */
 html.dark-mode [style*="background: var(--forest)"],
 html.dark-mode [style*="backgroundColor: var(--forest)"],
-html.dark-mode [style*="background-color: var(--forest)"] {
+html.dark-mode [style*="background: var(--forest-dark)"],
+html.dark-mode [style*="backgroundColor: var(--forest-dark)"],
+html.dark-mode [style*="background: var(--ink)"],
+html.dark-mode [style*="backgroundColor: var(--ink)"],
+html.dark-mode [style*="background: #4A90E2"],
+html.dark-mode [style*="backgroundColor: #4A90E2"] {
   color: #ffffff !important;
 }
+
+/* On force aussi les textes enfants de ces blocs sombres à être blancs */
 html.dark-mode [style*="background: var(--forest)"] *,
-html.dark-mode [style*="backgroundColor: var(--forest)"] * {
+html.dark-mode [style*="backgroundColor: var(--forest)"] *,
+html.dark-mode [style*="background: var(--forest-dark)"] *,
+html.dark-mode [style*="backgroundColor: var(--forest-dark)"] *,
+html.dark-mode [style*="background: var(--ink)"] *,
+html.dark-mode [style*="backgroundColor: var(--ink)"] *,
+html.dark-mode [style*="background: #4A90E2"] *,
+html.dark-mode [style*="backgroundColor: #4A90E2"] * {
   color: #ffffff !important;
+}
+
+/* 2. FONDS CLAIRS CONNUS (Or, Ambre, Jaune) */
+html.dark-mode [style*="background: var(--gold)"],
+html.dark-mode [style*="backgroundColor: var(--gold)"],
+html.dark-mode [style*="background: var(--amber-light)"],
+html.dark-mode [style*="backgroundColor: var(--amber-light)"] {
+  color: #111827 !important; /* Texte sombre */
+}
+
+html.dark-mode [style*="background: var(--gold)"] *,
+html.dark-mode [style*="backgroundColor: var(--gold)"] *,
+html.dark-mode [style*="background: var(--amber-light)"] *,
+html.dark-mode [style*="backgroundColor: var(--amber-light)"] * {
+  color: #111827 !important;
+}
+
+/* 3. CAS SPÉCIFIQUES DES GRAPHIQUES (Recharts) */
+/* On s'assure que les textes des graphiques ne deviennent pas verts sur bleu */
+html.dark-mode .recharts-text {
+  fill: var(--ink) !important; /* Au lieu d'une couleur fixe */
+}
+html.dark-mode .recharts-legend-item-text {
+  color: var(--ink) !important;
+}
+html.dark-mode .recharts-default-tooltip {
+  background-color: var(--paper) !important;
+  border: 1px solid var(--line-strong) !important;
+  color: var(--ink) !important;
+}
+
+/* 4. ANNULATION DES COULEURS DE TEXTE FIXES QUI DEVIENNENT ILLISIBLES */
+/* Si un texte a une couleur fixe vert foncé, on l'adapte en mode sombre */
+html.dark-mode *[style*="color: var(--forest-dark)"],
+html.dark-mode *[style*="color: #0F4C3A"],
+html.dark-mode *[style*="color: #064E3B"] {
+  color: var(--ink) !important; 
+}
+
+/* Si un texte est en bleu fixe, on l'adapte */
+html.dark-mode *[style*="color: #4A90E2"] {
+  color: #93C5FD !important; /* Un bleu plus clair pour le mode sombre */
 }
