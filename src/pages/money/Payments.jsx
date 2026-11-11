@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // 👈 NOUVEL IMPORT
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { fmtF, TRANCHES, MODES, trancheLabel, TYPES_FRAIS } from '../../lib/utils.js';
@@ -35,7 +35,8 @@ export default function Payments() {
   const [modalOpen, setModalOpen] = useState(false);
   const [receiptPayment, setReceiptPayment] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  
+  const navigate = useNavigate(); // 👈 INITIALISATION DE useNavigate
+
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -63,8 +64,7 @@ export default function Payments() {
       return;
     }
     showToast(`${selectedIds.length} supprimé(s)`);
-    
-    // 👇 NOTIFICATION DE SUPPRESSION MULTIPLE 👇
+
     try {
       await supabase.functions.invoke('send-admin-push', {
         body: {
@@ -92,7 +92,6 @@ export default function Payments() {
     }
     showToast('Supprimé');
 
-    // 👇 NOTIFICATION DE SUPPRESSION INDIVIDUELLE 👇
     try {
       await supabase.functions.invoke('send-admin-push', {
         body: {
@@ -127,7 +126,7 @@ export default function Payments() {
       onError: (e) => setError(translateError(e)),
       onSuccess: () => setError(''),
     });
-    
+
     const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom, niveau ), students ( id, full_name, matricule )').eq('school_year_id', schoolYear.id);
     setStudents((enr || [])
       .map((e) => ({
@@ -169,25 +168,39 @@ export default function Payments() {
   const totalScolarite = paymentsScolarite.reduce((a, p) => a + Number(p.montant), 0);
   const totalAutres = paymentsAutres.reduce((a, p) => a + Number(p.montant), 0);
 
+  // 👇 MODIFICATION DE LA LIGNE ICI 👇
   const renderPaymentRow = (p, i, arrayLength) => (
-    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < arrayLength - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+    <div
+      key={p.id}
+      onClick={() => { if (!selectMode) navigate(`/eleves/${p.student_id}`); }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '13px 20px',
+        borderBottom: i < arrayLength - 1 ? '1px solid var(--line)' : 'none',
+        gap: 10,
+        flexWrap: 'wrap',
+        cursor: selectMode ? 'default' : 'pointer',
+        transition: 'background 0.15s'
+      }}
+      onMouseEnter={(e) => { if (!selectMode) e.currentTarget.style.backgroundColor = 'var(--cream)'; }}
+      onMouseLeave={(e) => { if (!selectMode) e.currentTarget.style.backgroundColor = 'transparent'; }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {selectMode && (
-          <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleOne(p.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+          <input
+            type="checkbox"
+            checked={selectedIds.includes(p.id)}
+            onChange={() => toggleOne(p.id)}
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 16, height: 16, cursor: 'pointer' }}
+          />
         )}
         <div>
-          {selectMode ? (
-            <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>{p.students?.full_name || '—'}</p>
-          ) : (
-            <Link to={`/eleves/${p.student_id}`} style={{ textDecoration: 'none' }}>
-              <p style={{ 
-                margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600, color: 'var(--forest)', cursor: 'pointer',
-                textDecoration: 'underline', textUnderlineOffset: 2 
-              }} title="Voir la fiche élève">
-                {p.students?.full_name || '—'}
-              </p>
-            </Link>
-          )}
+          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600, color: selectMode ? 'inherit' : 'var(--forest)' }}>
+            {p.students?.full_name || '—'}
+          </p>
           <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
             {TYPES_FRAIS.find((t) => t.id === p.type_frais)?.label} · {MODES.find((m) => m.id === p.mode)?.label} · {new Date(p.date).toLocaleDateString('fr-FR')}
           </p>
@@ -202,11 +215,11 @@ export default function Payments() {
         </div>
         {!selectMode && (
           <>
-            <button type="button" onClick={() => setReceiptPayment(p)} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setReceiptPayment(p); }} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
               <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
             </button>
             {canManage && (
-              <button type="button" onClick={() => handleDelete(p)} disabled={deleting} title="Supprimer" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}>
+              <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(p); }} disabled={deleting} title="Supprimer" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}>
                 <TrashIcon />
               </button>
             )}
@@ -248,7 +261,7 @@ export default function Payments() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16, alignItems: 'start' }}>
-          
+
           <div className="card-bold" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--cream)', borderRadius: '12px 12px 0 0' }}>
               <div>
@@ -305,7 +318,6 @@ export default function Payments() {
     </div>
   );
 }
-
 function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClose, onCreated }) {
   const showToast = useToast();
   const { profile } = useAuth();
