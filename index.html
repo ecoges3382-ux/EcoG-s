@@ -3,18 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <!-- 👇 C'EST ICI QU'ON A AJOUTÉ interactive-widget=resizes-content 👇 -->
+    <!-- 👇 AJOUT DE interactive-widget=resizes-content 👇 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     
     <meta name="theme-color" content="#0F4C3A" />
-
     <title>EcoGès — Gestion scolaire pour les écoles privées d'Afrique de l'Ouest</title>
     <meta name="description" content="Élèves, écolage, bulletins, présences, personnel et parents : EcoGès remplace les cahiers et les fichiers Excel par une seule application, claire et rapide. Aucune installation, fonctionne sur téléphone et ordinateur." />
     <meta name="keywords" content="gestion scolaire, école privée, Bénin, Afrique de l'Ouest, écolage, bulletins, présences, portail parents, logiciel scolaire" />
     <meta name="author" content="EcoGès" />
     <link rel="canonical" href="https://eco-ges.vercel.app/" />
 
-    <!-- Open Graph (WhatsApp, Facebook, LinkedIn, iMessage…) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="EcoGès" />
     <meta property="og:title" content="EcoGès — Toute votre école, dans votre poche." />
@@ -26,7 +24,6 @@
     <meta property="og:image:alt" content="Logo EcoGès — Gestion scolaire" />
     <meta property="og:locale" content="fr_FR" />
 
-    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="EcoGès — Toute votre école, dans votre poche." />
     <meta name="twitter:description" content="Gestion scolaire pour les écoles privées d'Afrique de l'Ouest. Élèves, écolage, bulletins, présences." />
@@ -40,7 +37,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 
     <style>
-      /* 👇 ON GARDE UNIQUEMENT LES SCROLLBARS ET L'IMPRESSION ICI 👇 */
       ::-webkit-scrollbar { -webkit-appearance: none; width: 14px !important; height: 14px !important; }
       ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1) !important; border-radius: 0 !important; }
       ::-webkit-scrollbar-thumb { background-color: #ffffff !important; border-radius: 10px !important; border: 3px solid transparent !important; background-clip: content-box !important; }
@@ -50,14 +46,8 @@
       body, button, input, select, textarea, a, span, p, div, table, th, td, label { font-family: 'Poppins', sans-serif !important; }
       :root { --sans: 'Poppins', sans-serif !important; }
       
-      /* 🚀 CORRECTION ICI : On laisse le body scroller normalement */
       html, body { margin: 0; padding: 0; min-height: 100vh; min-height: 100dvh; }
-      
-      /* 🚀 LA CORRECTION POUR LE CENTRAGE : #root prend tout l'écran */
       #root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-
-      /* ⚠️ Les styles #app, #layout, #sidebar, #screen ont été enlevés d'ici. 
-         Ils doivent être gérés par ton fichier index.css pour ne pas créer de conflits. */
 
       @media screen { .receipt-quad-print { display: none !important; } }
       @media print {
