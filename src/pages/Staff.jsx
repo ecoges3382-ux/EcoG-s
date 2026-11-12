@@ -15,18 +15,18 @@
 
         {/* À DROITE : La barre de recherche bien calibrée */}
         <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Rechercher un membre…"
-          style={{ 
-            padding: '7px 12px', // 👈 Padding réduit (hauteur plus fine)
-            borderRadius: 20, // 👈 Bords arrondis comme sur les autres pages
-            border: '1px solid var(--line-strong)', 
-            fontSize: 12.5, // 👈 Texte plus petit
-            width: 220, // 👈 Largeur contenue
-            boxSizing: 'border-box', 
-            color: 'var(--ink)',
-            marginLeft: 'auto' // 👈 Force la barre à s'aligner tout à droite
-          }}
-        />
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  placeholder="Rechercher…"
+  style={{ 
+    padding: '8px 12px',           // Espacement intérieur équilibré
+    borderRadius: 8,               // Bords arrondis comme l'en-tête
+    border: '1px solid var(--line-strong)', 
+    fontSize: 13,                  // 👈 Taille de police identique à l'en-tête (13px)
+    width: 220,                    // Largeur fixe
+    boxSizing: 'border-box', 
+    color: 'var(--ink)',
+    marginLeft: 'auto'             // 👈 Aligne la barre complètement à droite
+  }}
+/>
       </div>
