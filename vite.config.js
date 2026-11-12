@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // 👈 MODIFIÉ ICI (autoUpdate -> prompt)
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'EcoGès - Gestion scolaire',
@@ -23,11 +23,9 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // 👇 LES 3 LIGNES MAGIQUES POUR LE HORS-LIGNE 👇
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'], // Télécharge tout le code de l'app
-        navigateFallback: 'index.html', // Si pas d'internet, sert le fichier index.html
-        navigateFallbackDenylist: [/^\/api/, /^\/functions/], // Ne bloque pas les appels API
-        
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/functions/],
         importScripts: ['/push-sw.js'],
         skipWaiting: true,
         clientsClaim: true,
