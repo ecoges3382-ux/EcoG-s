@@ -101,6 +101,17 @@ export default function Chat() {
   const convMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // 👇 SÉCURITÉ POUR VERCEL : Évite un crash si le profil met une seconde à charger
+  if (!profile) return null;
+
+  const getConvInfo = (c) => {
+    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
+    const other = c.chat_participants?.find(p => p.user_id !== profile.id);
+    const name = other?.profiles?.full_name || 'Conversation privée';
+    const role = other?.profiles?.role ? ROLES[other.profiles.role]?.label : null;
+    return { name, subtitle: role || 'Message privé', initials: initials(name), color: avatarColor(other?.user_id || c.id), isGroup: false };
+  };
+
   useEffect(() => {
     const screen = document.getElementById('screen');
     if (screen) {
@@ -362,14 +373,6 @@ export default function Chat() {
     if (isMobile) setShowNewChat(false);
   }
 
-  const getConvInfo = (c) => {
-    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
-    const other = c.chat_participants?.find(p => p.user_id !== profile.id);
-    const name = other?.profiles?.full_name || 'Conversation privée';
-    const role = other?.profiles?.role ? ROLES[other.profiles.role]?.label : null;
-    return { name, subtitle: role || 'Message privé', initials: initials(name), color: avatarColor(other?.user_id || c.id), isGroup: false };
-  };
-
   const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
   const filteredConvs = useMemo(() => {
@@ -437,6 +440,7 @@ export default function Chat() {
     if (m.file_type === 'file' && m.file_url) {
       return (
         <button 
+          type="button"
           onClick={(e) => handleFileClick(e, m)}
           style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
         >
@@ -665,7 +669,6 @@ export default function Chat() {
     );
   };
 
-  // 👇 LA MARGE EST AJOUTÉE ICI 👇
   if (isMobile) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 4px 0' }}>
