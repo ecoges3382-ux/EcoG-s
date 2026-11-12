@@ -76,7 +76,6 @@ export default function Students() {
   const [offline, setOffline] = useState(false);
   const [classFilter, setClassFilter] = useState('toutes');
   
-  // 👇 NOUVEAUX ÉTATS POUR LA RECHERCHE 👇
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -95,7 +94,6 @@ export default function Students() {
     ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
     : '2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
 
-  // 👇 EFFET POUR LE DEBOUNCE DE LA RECHERCHE 👇
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
@@ -161,7 +159,6 @@ export default function Students() {
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!students) return <div className="card-bold"><SkeletonRow count={6} /></div>;
 
-  // 👇 LOGIQUE DE FILTRAGE COMBINÉE (CLASSE + RECHERCHE) 👇
   const filtered = students.filter((s) => {
     const matchClass = classFilter === 'toutes' || s.niveau === classFilter;
     if (!matchClass) return false;
@@ -417,7 +414,6 @@ export default function Students() {
           wrapperStyle={{ width: 'auto' }}
         />
         
-        {/* 👇 LA BARRE DE RECHERCHE EST ICI 👇 */}
         <input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -430,7 +426,7 @@ export default function Students() {
             width: 220, 
             boxSizing: 'border-box', 
             color: 'var(--ink)',
-            marginLeft: 'auto' // Pousse la recherche tout à droite
+            marginLeft: 'auto'
           }}
         />
       </div>
