@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
-import { fmtF, MODES, stickyColStyle, stickyHeaderStyle } from '../../lib/utils.js'; // 👈 Import de stickyColStyle
+import { fmtF, MODES, stickyColStyle, stickyHeaderStyle } from '../../lib/utils.js';
 import Dropdown from '../../components/Dropdown.jsx';
 import MoneyInput from '../../components/MoneyInput.jsx';
 import DatePicker from '../../components/DatePicker.jsx';
@@ -36,7 +36,6 @@ export default function SalairesSection() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [error, setError] = useState('');
 
-  // 👇 NOUVEL ÉTAT POUR LA RECHERCHE 👇
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -44,7 +43,6 @@ export default function SalairesSection() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
 
-  // 👇 EFFET POUR LE DEBOUNCE DE LA RECHERCHE 👇
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
@@ -115,7 +113,6 @@ export default function SalairesSection() {
 
   if (!staff) return <div className="card-bold"><SkeletonRow count={5} /></div>;
 
-  // 👇 FILTRAGE DU PERSONNEL POUR LA RECHERCHE 👇
   const filteredStaff = staff.filter((p) => {
     if (!debouncedSearchQuery.trim()) return true;
     const q = debouncedSearchQuery.trim().toLowerCase();
@@ -131,12 +128,19 @@ export default function SalairesSection() {
         </div>
         
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* 👇 LA BARRE DE RECHERCHE EST ICI 👇 */}
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher un membre..."
-            style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, width: 200, boxSizing: 'border-box', color: 'var(--ink)' }}
+            style={{ 
+              padding: '8px 12px', 
+              borderRadius: 20, 
+              border: '1px solid var(--line-strong)', 
+              fontSize: 13, 
+              width: 220, 
+              boxSizing: 'border-box', 
+              color: 'var(--ink)' 
+            }}
           />
           
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -150,9 +154,10 @@ export default function SalairesSection() {
 
       <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 24 }}>
         <div style={{ minWidth: 900 }}>
-          {/* 👇 EN-TÊTE DU TABLEAU AVEC COLONNE FIGÉE 👇 */}
+          
+          {/* En-tête du tableau */}
           <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 3 }}>Membre</span>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 4 }}>Membre</span>
             <span>Salaire prévu</span>
             <span>Avance à déduire</span>
             <span>Déjà payé</span>
@@ -173,12 +178,14 @@ export default function SalairesSection() {
               const estPaye = prevu > 0 && reste <= 0;
 
               return (
-                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '14px 20px 14px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13 }}>
-                  {/* 👇 CELLULE DU NOM FIGÉE ET OPAQUE 👇 */}
+                <div key={p.id} style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '14px 20px 14px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13, backgroundColor: 'var(--paper)' }}>
+                  
+                  {/* Cellule figée et opaque */}
                   <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, zIndex: 2 }}>
                     <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
                     <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
                   </div>
+                  
                   <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
                   <span style={{ color: avanceDeduire > 0 ? 'var(--amber)' : 'var(--muted)' }}>{avanceDeduire > 0 ? fmtF(avanceDeduire) : '—'}</span>
                   <span style={{ color: paye > 0 ? 'var(--success)' : 'var(--muted)', fontWeight: paye > 0 ? 600 : 400 }}>{fmtF(paye)}</span>
