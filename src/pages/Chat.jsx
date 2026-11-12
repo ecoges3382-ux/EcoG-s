@@ -27,11 +27,14 @@ function formatConvDate(dateStr) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
 }
 
+let sharedAudioCtx = null;
 function playNotificationSound() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioCtx();
+    const ctx = sharedAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -54,19 +57,55 @@ function markAsRead(conversationId) {
   });
 }
 
-// 👇 COMPOSANT POUR AFFICHER LES IMAGES DE MANIÈRE SÉCURISÉE 👇
+// Suit la hauteur réellement visible (clavier inclus) comme WhatsApp
+function useVisualViewportHeight(onChange) {
+  const [h, setH] = useState(() => (typeof window === 'undefined' ? 800 : (window.visualViewport?.height ?? window.innerHeight)));
+  const cbRef = useRef(onChange);
+  cbRef.current = onChange;
+
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const update = () => {
+      setH(vv ? vv.height : window.innerHeight);
+      window.scrollTo(0, 0);
+      if (cbRef.current) setTimeout(() => cbRef.current(), 50);
+    };
+    if (vv) {
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+    } else {
+      window.addEventListener('resize', update);
+    }
+    return () => {
+      if (vv) {
+        vv.removeEventListener('resize', update);
+        vv.removeEventListener('scroll', update);
+      } else {
+        window.removeEventListener('resize', update);
+      }
+    };
+  }, []);
+
+  return h;
+}
+
+function Avatar({ text, color, size = 42, isGroup }) {
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: isGroup ? 'var(--forest)' : color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.35, flexShrink: 0 }}>
+      {text}
+    </div>
+  );
+}
+
 function SecureChatImage({ src, isMe }) {
   const [displayUrl, setDisplayUrl] = useState(null);
 
   useEffect(() => {
     if (!src) return;
-    // Si c'est une ancienne URL publique
     if (src.startsWith('http')) {
       setDisplayUrl(src);
       return;
     }
-    
-    // Sinon, on génère l'URL signée
     supabase.storage.from('chat-files').createSignedUrl(src, 3600).then(({ data }) => {
       if (data) setDisplayUrl(data.signedUrl);
     });
@@ -76,9 +115,43 @@ function SecureChatImage({ src, isMe }) {
 
   return (
     <a href={displayUrl} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
-      <img src={displayUrl} alt="" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 10, display: 'block', border: isMe ? '2px solid rgba(255,255,255,0.2)' : '1px solid var(--line)' }} />
+      [{displayUrl}]({displayUrl})
     </a>
   );
+}
+
+async function openFile(e, m) {
+  e.preventDefault();
+  if (!m.file_url) return;
+  if (m.file_url.startsWith('http')) {
+    window.open(m.file_url, '_blank', 'noopener');
+    return;
+  }
+  const { data } = await supabase.storage.from('chat-files').createSignedUrl(m.file_url, 300);
+  if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+  else alert("Impossible d'ouvrir le fichier.");
+}
+
+function MessageContent({ m, isMe }) {
+  if (m.file_type === 'image' && m.file_url) {
+    return (
+      <div style={{ display: 'block', marginBottom: m.content ? 8 : 0 }}>
+        <SecureChatImage src={m.file_url} isMe={isMe} />
+      </div>
+    );
+  }
+  if (m.file_type === 'file' && m.file_url) {
+    return (
+      <button
+        onClick={(e) => openFile(e, m)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+      >
+        <i className="ti ti-file" style={{ fontSize: 20 }}></i>
+        <span style={{ fontSize: 12.5, textDecoration: 'underline', wordBreak: 'break-all' }}>{m.file_name}</span>
+      </button>
+    );
+  }
+  return null;
 }
 
 export default function Chat() {
@@ -105,11 +178,28 @@ export default function Chat() {
   const convMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const viewportH = useVisualViewportHeight(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  });
+
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth < 768); }
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Bloque le scroll de la page derrière le chat sur mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    const prevBody = document.body.style.overflow;
+    const prevHtml = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBody;
+      document.documentElement.style.overflow = prevHtml;
+    };
+  }, [isMobile]);
 
   useEffect(() => {
     if (!showConvMenu) return;
@@ -135,7 +225,7 @@ export default function Chat() {
         .from('chat_conversations')
         .select(`id, type, name, chat_participants ( user_id, last_read_at, profiles ( full_name, role ) )`);
       if (convsErr) { setError("Impossible de charger les conversations."); return; }
-      
+
       const generals = (convs || []).filter(c => c.type === 'general').sort((a, b) => (a.id < b.id ? -1 : 1));
       const firstGeneral = generals[0];
       const privates = (convs || []).filter(c => c.type === 'private' && c.chat_participants && c.chat_participants.some(p => p.user_id === profile.id));
@@ -144,15 +234,14 @@ export default function Chat() {
       setConversations(visibleConvs);
       await loadUnreadCounts(visibleConvs);
       await loadLastMessages(visibleConvs);
-      
+
       if (firstGeneral && !isMobile && !activeConv) setActiveConv(firstGeneral);
     }
     load();
   }, [profile.school_id, profile.id, isMobile]);
 
   async function loadUnreadCounts(convs) {
-    const counts = {};
-    for (const conv of convs) {
+    const entries = await Promise.all(convs.map(async (conv) => {
       const me = conv.chat_participants?.find(p => p.user_id === profile.id);
       const dbLastRead = me?.last_read_at || null;
       let localLastRead = null;
@@ -160,16 +249,16 @@ export default function Chat() {
       let lastRead = null;
       if (dbLastRead && localLastRead) lastRead = new Date(dbLastRead) > new Date(localLastRead) ? dbLastRead : localLastRead;
       else lastRead = dbLastRead || localLastRead;
-      if (!lastRead) { counts[conv.id] = 0; continue; }
+      if (!lastRead) return [conv.id, 0];
       const { count } = await supabase
         .from('chat_messages')
         .select('id', { count: 'exact', head: true })
         .eq('conversation_id', conv.id)
         .neq('sender_id', profile.id)
         .gt('created_at', lastRead);
-      counts[conv.id] = count || 0;
-    }
-    setUnreadCounts(counts);
+      return [conv.id, count || 0];
+    }));
+    setUnreadCounts(Object.fromEntries(entries));
   }
 
   async function loadLastMessages(convs) {
@@ -193,7 +282,7 @@ export default function Chat() {
       .order('created_at', { ascending: true })
       .then(({ data }) => {
         setMessages(data || []);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 100);
         markAsRead(activeConv.id);
         setUnreadCounts(prev => ({ ...prev, [activeConv.id]: 0 }));
       });
@@ -255,15 +344,13 @@ export default function Chat() {
     const path = `${profile.school_id}/${activeConv.id}/${fileName}`;
     const { error: uploadErr } = await supabase.storage.from('chat-files').upload(path, file, { upsert: false });
     if (uploadErr) throw uploadErr;
-    
-    // 👇 ON RETOURNE LE CHEMIN, PAS L'URL PUBLIQUE 👇
     return path;
   }
 
   async function sendMessage(e) {
     if (e) e.preventDefault();
     if ((!newMessage.trim() && !pendingFile) || !activeConv) return;
-    
+
     const content = newMessage.trim();
     const fileToSend = pendingFile;
     setNewMessage('');
@@ -284,7 +371,7 @@ export default function Chat() {
         conversation_id: activeConv.id,
         sender_id: profile.id,
         content: content || null,
-        file_url: filePath, // 👈 On stocke le chemin
+        file_url: filePath,
         file_type: fileType,
         file_name: fileName,
       }).select('id').single();
@@ -294,7 +381,6 @@ export default function Chat() {
       if (inserted) {
         const pushBody = fileType ? `📎 ${fileName}` : content;
         try {
-          // 👇 ON SUPPRIME LA CLÉ API, LE TOKEN JWT SUFFIT 👇
           await supabase.functions.invoke('send-message-push', {
             body: { conversation_id: activeConv.id, sender_name: profile.full_name, message_content: pushBody, sender_id: profile.id }
           });
@@ -361,7 +447,7 @@ export default function Chat() {
   }
 
   const getConvInfo = (c) => {
-    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
+    if (c.type === 'general') return { name: c.name || 'Général', subtitle: "Toute l'école", initials: '🌍', color: 'var(--forest)', isGroup: true };
     const other = c.chat_participants?.find(p => p.user_id !== profile.id);
     const name = other?.profiles?.full_name || 'Conversation privée';
     const role = other?.profiles?.role ? ROLES[other.profiles.role]?.label : null;
@@ -403,53 +489,13 @@ export default function Chat() {
     return groups;
   }, [messages]);
 
-  const Avatar = ({ text, color, size = 42, isGroup }) => (
-    <div style={{ width: size, height: size, borderRadius: '50%', background: isGroup ? 'var(--forest)' : color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.35, flexShrink: 0 }}>
-      {text}
-    </div>
-  );
-
-  // 👇 GESTION DU CLIC SUR UN FICHIER (URL SIGNÉE) 👇
-  const handleFileClick = async (e, m) => {
-    e.preventDefault();
-    if (!m.file_url) return;
-    if (m.file_url.startsWith('http')) {
-      window.open(m.file_url, '_blank', 'noopener');
-      return;
-    }
-    const { data } = await supabase.storage.from('chat-files').createSignedUrl(m.file_url, 300);
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank', 'noopener');
-    } else {
-      alert("Impossible d'ouvrir le fichier.");
-    }
-  };
-
-  const MessageContent = ({ m, isMe }) => {
-    if (m.file_type === 'image' && m.file_url) {
-      return (
-        <div style={{ display: 'block', marginBottom: m.content ? 8 : 0 }}>
-          <SecureChatImage src={m.file_url} isMe={isMe} />
-        </div>
-      );
-    }
-    if (m.file_type === 'file' && m.file_url) {
-      return (
-        <button 
-          onClick={(e) => handleFileClick(e, m)}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-        >
-          <i className="ti ti-file" style={{ fontSize: 20 }}></i>
-          <span style={{ fontSize: 12.5, textDecoration: 'underline', wordBreak: 'break-all' }}>{m.file_name}</span>
-        </button>
-      );
-    }
-    return null;
-  };
+  const panelHeight = isMobile ? '100%' : 'calc(100dvh - 120px)';
+  const panelRadius = isMobile ? 0 : 16;
+  const panelBorder = isMobile ? 'none' : '1px solid var(--line)';
 
   const renderConversationList = () => (
-    <div style={{ width: isMobile ? '100%' : 340, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: 'calc(100vh - 120px)' }}>
-      <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
+    <div style={{ width: isMobile ? '100%' : 340, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: panelRadius, border: panelBorder, overflow: 'hidden', height: panelHeight, minHeight: 0 }}>
+      <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Messagerie</p>
@@ -463,13 +509,13 @@ export default function Chat() {
         </div>
         <div style={{ position: 'relative' }}>
           <i className="ti ti-search" style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 15, color: 'var(--muted)' }}></i>
-          <input value={searchConv} onChange={e => setSearchConv(e.target.value)} placeholder="Rechercher une conversation..." style={{ width: '100%', padding: '10px 14px 10px 38px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--cream)', fontSize: 13, boxSizing: 'border-box', outline: 'none', color: 'var(--ink)' }} />
+          <input value={searchConv} onChange={e => setSearchConv(e.target.value)} placeholder="Rechercher une conversation..." style={{ width: '100%', padding: '10px 14px 10px 38px', borderRadius: 12, border: '1px solid var(--line)', background: 'var(--cream)', fontSize: 16, boxSizing: 'border-box', outline: 'none', color: 'var(--ink)' }} />
         </div>
       </div>
 
       {showNewChat && (
-        <div style={{ padding: 16, background: 'var(--cream)', borderBottom: '1px solid var(--line)', maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input value={searchStaff} onChange={e => setSearchStaff(e.target.value)} placeholder="Rechercher un collègue..." style={{ width: '100%', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', fontSize: 13, boxSizing: 'border-box', outline: 'none', color: 'var(--ink)' }} />
+        <div style={{ padding: 16, background: 'var(--cream)', borderBottom: '1px solid var(--line)', maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
+          <input value={searchStaff} onChange={e => setSearchStaff(e.target.value)} placeholder="Rechercher un collègue..." style={{ width: '100%', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', fontSize: 16, boxSizing: 'border-box', outline: 'none', color: 'var(--ink)' }} />
           <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {filteredStaff.length === 0 && <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: 10 }}>Aucun collègue trouvé.</p>}
             {filteredStaff.map(s => (
@@ -485,7 +531,7 @@ export default function Chat() {
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain' }}>
         {filteredConvs.length === 0 && (
           <div style={{ padding: 30, textAlign: 'center' }}>
             <i className="ti ti-message-circle" style={{ fontSize: 40, color: 'var(--line-strong)' }}></i>
@@ -499,7 +545,7 @@ export default function Chat() {
           const isActive = activeConv?.id === c.id && !isMobile;
           const isPinned = c.type === 'general';
           const preview = last ? (last.file_type ? (last.file_type === 'image' ? '🖼️ Image' : '📎 Fichier') : (last.sender_id === profile.id ? 'Vous : ' : '') + last.content) : info.subtitle;
-          
+
           return (
             <div
               key={c.id}
@@ -543,13 +589,14 @@ export default function Chat() {
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: 'calc(100vh - 120px)', position: 'relative' }}>
-        {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)' }}>{error}</div>}
-        
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: panelRadius, border: panelBorder, overflow: 'hidden', height: panelHeight, minHeight: 0, position: 'relative' }}>
+        {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)', flexShrink: 0 }}>{error}</div>}
+
         {activeConv ? (
           <>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12 }}>
-              {isMobile && <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 22, padding: 0, display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
+            {/* En-tête fixe */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+              {isMobile && <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 24, padding: 0, display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -559,23 +606,24 @@ export default function Chat() {
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
-                  {info.isGroup ? (<><span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)' }}></span><span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>En ligne · {conversations.length} participant{conversations.length > 1 ? 's' : ''}</span></>) : (<span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>{info.subtitle}</span>)}
+                  <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>{info.subtitle}</span>
                 </div>
               </div>
               <div ref={convMenuRef} style={{ position: 'relative' }}>
-                <button onClick={() => setShowConvMenu(v => !v)} disabled={deleting} title="Options" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, padding: 4, display: 'flex', alignItems: 'center', opacity: deleting ? 0.5 : 1 }}><i className="ti ti-dots-vertical"></i></button>
+                <button onClick={() => setShowConvMenu(v => !v)} disabled={deleting} title="Options" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 22, padding: 4, display: 'flex', alignItems: 'center', opacity: deleting ? 0.5 : 1 }}><i className="ti ti-dots-vertical"></i></button>
                 {showConvMenu && (
                   <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 220, zIndex: 50, overflow: 'hidden' }}>
                     <button onClick={handleDeleteConversation} disabled={deleting} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--danger)', cursor: deleting ? 'not-allowed' : 'pointer', border: 'none', background: 'none', textAlign: 'left', opacity: deleting ? 0.5 : 1 }} onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = 'var(--danger-light)'; }} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                       <i className="ti ti-trash" style={{ fontSize: 16 }}></i>
-                      {activeConv.type === 'general' ? 'Effacer l\'historique' : 'Supprimer la conversation'}
+                      {activeConv.type === 'general' ? "Effacer l'historique" : 'Supprimer la conversation'}
                     </button>
                   </div>
                 )}
               </div>
             </div>
-            
-            <div ref={messagesContainerRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--cream)' }}>
+
+            {/* Seule zone qui scrolle */}
+            <div ref={messagesContainerRef} onScroll={handleScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', padding: '16px 14px 10px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--cream)' }}>
               {messages.length === 0 && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
                   <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}><i className="ti ti-message-circle-heart" style={{ fontSize: 38, color: 'var(--muted)' }}></i></div>
@@ -599,16 +647,16 @@ export default function Chat() {
                 const hasFile = !!m.file_url;
 
                 return (
-                  <div key={item.key} style={{ display: 'flex', alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8, maxWidth: '78%', marginTop: 6 }}>
+                  <div key={item.key} style={{ display: 'flex', alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8, maxWidth: '82%', marginTop: 6 }}>
                     {!isMe && <Avatar text={initials(senderName)} color={avatarColor(m.sender_id)} size={30} />}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', minWidth: 0 }}>
                       {!isMe && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, paddingLeft: 4 }}>
                           <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink)' }}>{senderName}</span>
                           {senderRole && <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--muted)', padding: '1px 6px', borderRadius: 6, background: 'var(--line)' }}>{senderRole}</span>}
                         </div>
                       )}
-                      <div style={{ background: isMe ? 'var(--forest-dark)' : 'var(--paper)', color: isMe ? '#fff' : 'var(--ink)', padding: hasFile ? 8 : '10px 14px', borderRadius: 18, borderBottomRightRadius: isMe ? 4 : 18, borderBottomLeftRadius: isMe ? 18 : 4, fontSize: 13.5, lineHeight: 1.45, border: isMe ? 'none' : '1px solid var(--line)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                      <div style={{ background: isMe ? 'var(--forest-dark)' : 'var(--paper)', color: isMe ? '#fff' : 'var(--ink)', padding: hasFile ? 8 : '10px 14px', borderRadius: 18, borderBottomRightRadius: isMe ? 4 : 18, borderBottomLeftRadius: isMe ? 18 : 4, fontSize: 14, lineHeight: 1.45, border: isMe ? 'none' : '1px solid var(--line)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
                         {hasFile && <MessageContent m={m} isMe={isMe} />}
                         {m.content && <div style={{ padding: hasFile ? '4px 6px 0' : 0 }}>{m.content}</div>}
                       </div>
@@ -621,15 +669,15 @@ export default function Chat() {
             </div>
 
             {showScrollDown && (
-              <button onClick={scrollToBottom} style={{ position: 'absolute', bottom: 90, right: 30, width: 40, height: 40, borderRadius: '50%', background: 'var(--paper)', border: '1px solid var(--line-strong)', color: 'var(--forest)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
+              <button onClick={scrollToBottom} style={{ position: 'absolute', bottom: pendingFile ? 150 : 84, right: 16, width: 40, height: 40, borderRadius: '50%', background: 'var(--paper)', border: '1px solid var(--line-strong)', color: 'var(--forest)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
                 <i className="ti ti-chevron-down" style={{ fontSize: 20 }}></i>
               </button>
             )}
 
             {pendingFile && (
-              <div style={{ padding: '10px 20px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 {pendingFile.type === 'image' && pendingFile.preview ? (
-                  <img src={pendingFile.preview} alt="preview" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)' }} />
+                  [{pendingFile.preview}]({pendingFile.preview})
                 ) : (
                   <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--paper)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-file" style={{ fontSize: 22, color: 'var(--muted)' }}></i></div>
                 )}
@@ -641,12 +689,19 @@ export default function Chat() {
               </div>
             )}
 
-            <form onSubmit={sendMessage} style={{ padding: '14px 20px', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Barre de saisie toujours visible */}
+            <form onSubmit={sendMessage} style={{ padding: '10px 12px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom))', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
               <input ref={fileInputRef} type="file" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" style={{ display: 'none' }} />
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Joindre un fichier" style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'var(--cream)', color: 'var(--forest)', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: uploading ? 0.5 : 1 }}>
                 <i className="ti ti-paperclip" style={{ fontSize: 18 }}></i>
               </button>
-              <input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder={pendingFile ? 'Ajouter un commentaire...' : 'Écrire un message...'} style={{ flex: 1, padding: '12px 18px', borderRadius: 24, border: '1px solid var(--line-strong)', fontSize: 13.5, outline: 'none', background: 'var(--cream)', color: 'var(--ink)', fontFamily: 'inherit' }} />
+              <input
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                placeholder={pendingFile ? 'Ajouter un commentaire...' : 'Écrire un message...'}
+                enterKeyHint="send"
+                style={{ flex: 1, minWidth: 0, padding: '11px 16px', borderRadius: 24, border: '1px solid var(--line-strong)', fontSize: 16, outline: 'none', background: 'var(--cream)', color: 'var(--ink)', fontFamily: 'inherit' }}
+              />
               <button type="submit" disabled={(!newMessage.trim() && !pendingFile) || uploading} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', background: (newMessage.trim() || pendingFile) && !uploading ? 'var(--forest-dark)' : 'var(--line)', color: '#fff', cursor: (newMessage.trim() || pendingFile) && !uploading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {uploading ? <i className="ti ti-loader" style={{ fontSize: 18, animation: 'spin 1s linear infinite' }}></i> : <i className="ti ti-send" style={{ fontSize: 18, marginLeft: -2 }}></i>}
               </button>
@@ -666,13 +721,13 @@ export default function Chat() {
 
   if (isMobile) {
     return (
-      <div style={{ height: 'calc(100vh - 120px)', padding: '0 4px' }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: viewportH, display: 'flex', flexDirection: 'column', background: 'var(--paper)', zIndex: 100, overflow: 'hidden' }}>
         {activeConv ? renderConversation() : renderConversationList()}
       </div>
     );
   }
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: 16 }}>
+    <div style={{ display: 'flex', height: 'calc(100dvh - 120px)', gap: 16 }}>
       {renderConversationList()}
       {renderConversation()}
     </div>
