@@ -56,20 +56,14 @@ function markAsRead(conversationId) {
 
 function SecureChatImage({ src, isMe }) {
   const [displayUrl, setDisplayUrl] = useState(null);
-
   useEffect(() => {
     if (!src) return;
-    if (src.startsWith('http')) {
-      setDisplayUrl(src);
-      return;
-    }
+    if (src.startsWith('http')) { setDisplayUrl(src); return; }
     supabase.storage.from('chat-files').createSignedUrl(src, 3600).then(({ data }) => {
       if (data) setDisplayUrl(data.signedUrl);
     });
   }, [src]);
-
   if (!displayUrl) return <div style={{ width: 200, height: 150, background: 'var(--line)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-loader animate-spin"></i></div>;
-
   return (
     <a href={displayUrl} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
       <img src={displayUrl} alt="" style={{ maxWidth: 240, maxHeight: 240, borderRadius: 10, display: 'block', border: isMe ? '2px solid rgba(255,255,255,0.2)' : '1px solid var(--line)' }} />
@@ -112,6 +106,7 @@ export default function Chat() {
   };
 
   useEffect(() => {
+    // Cache la barre de navigation du bas sur mobile quand on est dans le chat
     const bottomNav = document.getElementById('bottomnav');
     if (bottomNav && isMobile) {
       const prevDisplay = bottomNav.style.display;
@@ -138,17 +133,10 @@ export default function Chat() {
   useEffect(() => {
     async function load() {
       setError('');
-      const { data: staffData, error: staffErr } = await supabase
-        .from('profiles')
-        .select('id, full_name, role')
-        .eq('school_id', profile.school_id)
-        .neq('id', profile.id);
-      if (staffErr) setError("Impossible de charger la liste des collègues.");
-      else setStaff(staffData || []);
+      const { data: staffData, error: staffErr } = await supabase.from('profiles').select('id, full_name, role').eq('school_id', profile.school_id).neq('id', profile.id);
+      if (staffErr) setError("Impossible de charger la liste des collègues."); else setStaff(staffData || []);
 
-      const { data: convs, error: convsErr } = await supabase
-        .from('chat_conversations')
-        .select(`id, type, name, chat_participants ( user_id, last_read_at, profiles ( full_name, role ) )`);
+      const { data: convs, error: convsErr } = await supabase.from('chat_conversations').select(`id, type, name, chat_participants ( user_id, last_read_at, profiles ( full_name, role ) )`);
       if (convsErr) { setError("Impossible de charger les conversations."); return; }
       
       const generals = (convs || []).filter(c => c.type === 'general').sort((a, b) => (a.id < b.id ? -1 : 1));
@@ -176,12 +164,7 @@ export default function Chat() {
       if (dbLastRead && localLastRead) lastRead = new Date(dbLastRead) > new Date(localLastRead) ? dbLastRead : localLastRead;
       else lastRead = dbLastRead || localLastRead;
       if (!lastRead) { counts[conv.id] = 0; continue; }
-      const { count } = await supabase
-        .from('chat_messages')
-        .select('id', { count: 'exact', head: true })
-        .eq('conversation_id', conv.id)
-        .neq('sender_id', profile.id)
-        .gt('created_at', lastRead);
+      const { count } = await supabase.from('chat_messages').select('id', { count: 'exact', head: true }).eq('conversation_id', conv.id).neq('sender_id', profile.id).gt('created_at', lastRead);
       counts[conv.id] = count || 0;
     }
     setUnreadCounts(counts);
@@ -190,11 +173,7 @@ export default function Chat() {
   async function loadLastMessages(convs) {
     if (convs.length === 0) return;
     const ids = convs.map(c => c.id);
-    const { data } = await supabase
-      .from('chat_messages')
-      .select('conversation_id, content, created_at, sender_id, file_name, file_type')
-      .in('conversation_id', ids)
-      .order('created_at', { ascending: false });
+    const { data } = await supabase.from('chat_messages').select('conversation_id, content, created_at, sender_id, file_name, file_type').in('conversation_id', ids).order('created_at', { ascending: false });
     const map = {};
     (data || []).forEach(m => { if (!map[m.conversation_id]) map[m.conversation_id] = m; });
     setLastMessages(map);
@@ -202,41 +181,30 @@ export default function Chat() {
 
   useEffect(() => {
     if (!activeConv) return;
-    supabase.from('chat_messages')
-      .select('*, profiles(full_name, role)')
-      .eq('conversation_id', activeConv.id)
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        setMessages(data || []);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        markAsRead(activeConv.id);
-        setUnreadCounts(prev => ({ ...prev, [activeConv.id]: 0 }));
-      });
+    supabase.from('chat_messages').select('*, profiles(full_name, role)').eq('conversation_id', activeConv.id).order('created_at', { ascending: true }).then(({ data }) => {
+      setMessages(data || []);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      markAsRead(activeConv.id);
+      setUnreadCounts(prev => ({ ...prev, [activeConv.id]: 0 }));
+    });
 
-    const channel = supabase.channel(`chat_${activeConv.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${activeConv.id}` }, async (payload) => {
-        const { data: author } = await supabase.from('profiles').select('full_name, role').eq('id', payload.new.sender_id).single();
-        setMessages(prev => [...prev, { ...payload.new, profiles: author }]);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        if (payload.new.sender_id !== profile.id) {
-          markAsRead(activeConv.id);
-          playNotificationSound();
-        }
-        setLastMessages(prev => ({ ...prev, [activeConv.id]: payload.new }));
-      })
-      .subscribe();
+    const channel = supabase.channel(`chat_${activeConv.id}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${activeConv.id}` }, async (payload) => {
+      const { data: author } = await supabase.from('profiles').select('full_name, role').eq('id', payload.new.sender_id).single();
+      setMessages(prev => [...prev, { ...payload.new, profiles: author }]);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      if (payload.new.sender_id !== profile.id) { markAsRead(activeConv.id); playNotificationSound(); }
+      setLastMessages(prev => ({ ...prev, [activeConv.id]: payload.new }));
+    }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeConv?.id]);
 
   useEffect(() => {
-    const channel = supabase.channel('all_chats')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
-        if (payload.new.sender_id === profile.id) return;
-        if (activeConv && payload.new.conversation_id === activeConv.id) return;
-        setUnreadCounts(prev => ({ ...prev, [payload.new.conversation_id]: (prev[payload.new.conversation_id] || 0) + 1 }));
-        setLastMessages(prev => ({ ...prev, [payload.new.conversation_id]: payload.new }));
-      })
-      .subscribe();
+    const channel = supabase.channel('all_chats').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
+      if (payload.new.sender_id === profile.id) return;
+      if (activeConv && payload.new.conversation_id === activeConv.id) return;
+      setUnreadCounts(prev => ({ ...prev, [payload.new.conversation_id]: (prev[payload.new.conversation_id] || 0) + 1 }));
+      setLastMessages(prev => ({ ...prev, [payload.new.conversation_id]: payload.new }));
+    }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [activeConv, profile.id]);
 
@@ -276,14 +244,12 @@ export default function Chat() {
   async function sendMessage(e) {
     if (e) e.preventDefault();
     if ((!newMessage.trim() && !pendingFile) || !activeConv) return;
-    
     const content = newMessage.trim();
     const fileToSend = pendingFile;
     setNewMessage('');
     setPendingFile(null);
     setUploading(true);
     setError('');
-
     try {
       let filePath = null, fileType = null, fileName = null;
       if (fileToSend) {
@@ -292,31 +258,17 @@ export default function Chat() {
         fileName = fileToSend.file.name;
         if (fileToSend.preview) URL.revokeObjectURL(fileToSend.preview);
       }
-
       const { data: inserted, error: sendErr } = await supabase.from('chat_messages').insert({
-        conversation_id: activeConv.id,
-        sender_id: profile.id,
-        content: content || null,
-        file_url: filePath,
-        file_type: fileType,
-        file_name: fileName,
+        conversation_id: activeConv.id, sender_id: profile.id, content: content || null, file_url: filePath, file_type: fileType, file_name: fileName,
       }).select('id').single();
-
       if (sendErr) throw sendErr;
-
       if (inserted) {
         const pushBody = fileType ? `📎 ${fileName}` : content;
         try {
-          await supabase.functions.invoke('send-message-push', {
-            body: { conversation_id: activeConv.id, sender_name: profile.full_name, message_content: pushBody, sender_id: profile.id }
-          });
-        } catch (err) {
-          console.warn("Push chat non envoyé", err);
-        }
+          await supabase.functions.invoke('send-message-push', { body: { conversation_id: activeConv.id, sender_name: profile.full_name, message_content: pushBody, sender_id: profile.id } });
+        } catch (err) { console.warn("Push chat non envoyé", err); }
       }
-    } catch (err) {
-      setError("Erreur d'envoi : " + err.message);
-    }
+    } catch (err) { setError("Erreur d'envoi : " + err.message); }
     setUploading(false);
   }
 
@@ -324,11 +276,8 @@ export default function Chat() {
     if (!activeConv) return;
     setShowConvMenu(false);
     const isGeneral = activeConv.type === 'general';
-    const confirmMessage = isGeneral
-      ? `⚠️ Voulez-vous effacer TOUT l'historique du canal "${activeConv.name || 'Général'}" ?\n\nCette action supprimera tous les messages pour TOUS les participants et est IRRÉVERSIBLE.`
-      : `⚠️ Voulez-vous supprimer cette conversation privée ?\n\nElle sera supprimée pour vous ET pour votre interlocuteur. Cette action est IRRÉVERSIBLE.`;
+    const confirmMessage = isGeneral ? `⚠️ Effacer TOUT l'historique du canal "${activeConv.name || 'Général'}" ?` : `⚠️ Supprimer cette conversation privée ?`;
     if (!window.confirm(confirmMessage)) return;
-
     setDeleting(true);
     try {
       if (isGeneral) {
@@ -343,9 +292,7 @@ export default function Chat() {
         setActiveConv(null);
         setMessages([]);
       }
-    } catch (err) {
-      setError("Erreur de suppression : " + err.message);
-    }
+    } catch (err) { setError("Erreur de suppression : " + err.message); }
     setDeleting(false);
   }
 
@@ -377,7 +324,6 @@ export default function Chat() {
   const filteredConvs = useMemo(() => {
     const generals = conversations.filter(c => c.type === 'general');
     const privates = conversations.filter(c => c.type === 'private');
-
     const sortedPrivates = [...privates].sort((a, b) => {
       const lastA = lastMessages[a.id]?.created_at;
       const lastB = lastMessages[b.id]?.created_at;
@@ -386,7 +332,6 @@ export default function Chat() {
       if (!lastB) return -1;
       return new Date(lastB) - new Date(lastA);
     });
-
     const searchFilter = (c) => !searchConv.trim() || getConvInfo(c).name.toLowerCase().includes(searchConv.toLowerCase());
     return [...generals, ...sortedPrivates.filter(searchFilter)];
   }, [conversations, lastMessages, searchConv]);
@@ -416,33 +361,17 @@ export default function Chat() {
   const handleFileClick = async (e, m) => {
     e.preventDefault();
     if (!m.file_url) return;
-    if (m.file_url.startsWith('http')) {
-      window.open(m.file_url, '_blank', 'noopener');
-      return;
-    }
+    if (m.file_url.startsWith('http')) { window.open(m.file_url, '_blank', 'noopener'); return; }
     const { data } = await supabase.storage.from('chat-files').createSignedUrl(m.file_url, 300);
-    if (data?.signedUrl) {
-      window.open(data.signedUrl, '_blank', 'noopener');
-    } else {
-      alert("Impossible d'ouvrir le fichier.");
-    }
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
+    else alert("Impossible d'ouvrir le fichier.");
   };
 
   const MessageContent = ({ m, isMe }) => {
-    if (m.file_type === 'image' && m.file_url) {
-      return (
-        <div style={{ display: 'block', marginBottom: m.content ? 8 : 0 }}>
-          <SecureChatImage src={m.file_url} isMe={isMe} />
-        </div>
-      );
-    }
+    if (m.file_type === 'image' && m.file_url) return <div style={{ display: 'block', marginBottom: m.content ? 8 : 0 }}><SecureChatImage src={m.file_url} isMe={isMe} /></div>;
     if (m.file_type === 'file' && m.file_url) {
       return (
-        <button 
-          type="button"
-          onClick={(e) => handleFileClick(e, m)}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-        >
+        <button type="button" onClick={(e) => handleFileClick(e, m)} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: m.content ? 8 : 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
           <i className="ti ti-file" style={{ fontSize: 20 }}></i>
           <span style={{ fontSize: 12.5, textDecoration: 'underline', wordBreak: 'break-all' }}>{m.file_name}</span>
         </button>
@@ -452,14 +381,12 @@ export default function Chat() {
   };
 
   const renderConversationList = () => (
-    <div style={{ width: isMobile ? '100%' : 340, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%' }}>
+    <div style={{ width: isMobile ? '100%' : 340, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%', minHeight: 0 }}>
       <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Messagerie</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
-              {totalUnread > 0 ? `${totalUnread} message${totalUnread > 1 ? 's' : ''} non lu${totalUnread > 1 ? 's' : ''}` : 'Tout est à jour'}
-            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>{totalUnread > 0 ? `${totalUnread} message${totalUnread > 1 ? 's' : ''} non lu${totalUnread > 1 ? 's' : ''}` : 'Tout est à jour'}</p>
           </div>
           <button onClick={() => setShowNewChat(!showNewChat)} title="Nouveau message privé" style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'var(--forest-dark)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <i className="ti ti-plus" style={{ fontSize: 20 }}></i>
@@ -503,31 +430,13 @@ export default function Chat() {
           const isActive = activeConv?.id === c.id && !isMobile;
           const isPinned = c.type === 'general';
           const preview = last ? (last.file_type ? (last.file_type === 'image' ? '🖼️ Image' : '📎 Fichier') : (last.sender_id === profile.id ? 'Vous : ' : '') + last.content) : info.subtitle;
-          
           return (
-            <div
-              key={c.id}
-              onClick={() => openConversation(c)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 16px',
-                cursor: 'pointer',
-                background: isActive ? 'var(--cream)' : 'transparent',
-                borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent',
-                borderBottom: isPinned ? '1px solid var(--line)' : 'none',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-            >
+            <div key={c.id} onClick={() => openConversation(c)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: isActive ? 'var(--cream)' : 'transparent', borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent', borderBottom: isPinned ? '1px solid var(--line)' : 'none' }} onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }} onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
               <Avatar text={info.initials} color={info.color} size={44} isGroup={info.isGroup} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
-                    {isPinned && (
-                      <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }} title="Épinglé"></i>
-                    )}
+                    {isPinned && <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)', flexShrink: 0 }} title="Épinglé"></i>}
                     <p style={{ margin: 0, fontSize: 13.5, fontWeight: unread > 0 ? 700 : 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
                   </div>
                   {last && <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{formatTime(last.created_at)}</span>}
@@ -547,7 +456,7 @@ export default function Chat() {
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: isMobile ? 0 : 16, border: isMobile ? 'none' : '1px solid var(--line)', overflow: 'hidden', height: '100%', position: 'relative', minWidth: 0, minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: isMobile ? 16 : 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%', minHeight: 0, position: 'relative' }}>
         {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)', flexShrink: 0 }}>{error}</div>}
         
         {activeConv ? (
@@ -557,9 +466,7 @@ export default function Chat() {
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  {activeConv.type === 'general' && (
-                    <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)' }}></i>
-                  )}
+                  {activeConv.type === 'general' && <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)' }}></i>}
                   <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.name}</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
@@ -668,23 +575,9 @@ export default function Chat() {
     );
   };
 
-  // 👇 C'EST ICI QUE TOUT SE JOUE POUR LE MOBILE 👇
   if (isMobile) {
     return (
-      <div style={{ 
-        height: '100dvh', 
-        width: '100%', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        padding: '10px 10px 10px', // Marge partout (haut et bas)
-        boxSizing: 'border-box', 
-        overflow: 'hidden', 
-        background: 'var(--cream)',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 1000
-      }}>
+      <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', padding: '10px 10px 10px', boxSizing: 'border-box', overflow: 'hidden' }}>
         {activeConv ? renderConversation() : renderConversationList()}
       </div>
     );
