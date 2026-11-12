@@ -1,85 +1,43 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 
 export default function UpdateButton() {
-  const [hasUpdate, setHasUpdate] = useState(false);
   const [updating, setUpdating] = useState(false);
-  // On stocke la version actuelle de l'application en mémoire
-  const currentVersionRef = useRef(null);
 
-  useEffect(() => {
-    // Fonction pour récupérer la version depuis le fichier version.json
-    const checkVersion = async () => {
-      try {
-        // On ajoute un paramètre pour éviter que le navigateur ne mette le fichier en cache
-        const response = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!response.ok) return;
-        const data = await response.json();
-        
-        // Si c'est la première fois qu'on charge l'app, on enregistre la version actuelle
-        if (currentVersionRef.current === null) {
-          currentVersionRef.current = data.version;
-          return;
-        }
-
-        // Si la version du serveur est différente de la nôtre, une mise à jour est disponible
-        if (data.version !== currentVersionRef.current) {
-          setHasUpdate(true);
-        }
-      } catch (error) {
-        // On ignore les erreurs silencieusement (ex: si le fichier n'existe pas encore)
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegistered(r) {
+      // Vérifie les mises à jour toutes les minutes si l'app est ouverte
+      if (r) {
+        setInterval(() => {
+          r.update();
+        }, 60 * 1000);
       }
-    };
-
-    // 1. Vérification immédiate au chargement de l'application
-    checkVersion();
-
-    // 2. Vérification périodique toutes les minutes
-    const interval = setInterval(checkVersion, 60 * 1000); // 1 minute
-
-    // 3. Vérification quand l'utilisateur revient sur l'onglet ou l'application
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        checkVersion();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Nettoyage
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+    },
+    onRegisterError(error) {
+      console.error('Erreur Service Worker:', error);
+    },
+  });
 
   const handleUpdate = async () => {
     setUpdating(true);
     try {
-      // On vide le cache du Service Worker et on recharge la page
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (let registration of registrations) {
-          await registration.unregister();
-        }
-      }
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
-      }
-      
-      // On recharge avec un paramètre pour forcer le navigateur à tout recharger
-      const url = new URL(window.location.href);
-      url.searchParams.set('v', Date.now().toString());
-      window.location.href = url.toString();
+      // Cette fonction de Workbox force le nouveau Service Worker à prendre
+      // le contrôle et recharge la page automatiquement.
+      await updateServiceWorker(true);
     } catch (error) {
       console.error("Erreur lors de la mise à jour:", error);
       window.location.reload();
     }
+    setUpdating(false);
   };
 
-  const close = () => setHasUpdate(false);
+  const close = () => setNeedRefresh(false);
 
   // On n'affiche rien s'il n'y a pas de mise à jour
-  if (!hasUpdate) return null;
+  if (!needRefresh) return null;
 
   return (
     <div style={{
