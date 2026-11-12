@@ -101,7 +101,6 @@ export default function Chat() {
   const convMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // 👇 SÉCURITÉ POUR VERCEL : Évite un crash si le profil met une seconde à charger
   if (!profile) return null;
 
   const getConvInfo = (c) => {
@@ -113,13 +112,14 @@ export default function Chat() {
   };
 
   useEffect(() => {
-    const screen = document.getElementById('screen');
-    if (screen) {
-      const prevOverflow = screen.style.overflowY;
-      screen.style.overflowY = 'hidden';
-      return () => { screen.style.overflowY = prevOverflow; };
+    // 🚀 CORRECTION : On cache la barre de navigation du bas sur mobile si on est dans le chat
+    const bottomNav = document.getElementById('bottomnav');
+    if (bottomNav && isMobile) {
+      const prevDisplay = bottomNav.style.display;
+      bottomNav.style.display = 'none';
+      return () => { bottomNav.style.display = prevDisplay; };
     }
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth < 768); }
@@ -454,7 +454,7 @@ export default function Chat() {
 
   const renderConversationList = () => (
     <div style={{ width: isMobile ? '100%' : 340, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%' }}>
-      <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <div>
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>Messagerie</p>
@@ -473,7 +473,7 @@ export default function Chat() {
       </div>
 
       {showNewChat && (
-        <div style={{ padding: 16, background: 'var(--cream)', borderBottom: '1px solid var(--line)', maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ padding: 16, background: 'var(--cream)', borderBottom: '1px solid var(--line)', maxHeight: 280, display: 'flex', flexDirection: 'column', gap: 10, flexShrink: 0 }}>
           <input value={searchStaff} onChange={e => setSearchStaff(e.target.value)} placeholder="Rechercher un collègue..." style={{ width: '100%', padding: '9px 13px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', fontSize: 13, boxSizing: 'border-box', outline: 'none', color: 'var(--ink)' }} />
           <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {filteredStaff.length === 0 && <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: 10 }}>Aucun collègue trouvé.</p>}
@@ -490,7 +490,7 @@ export default function Chat() {
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', minHeight: 0 }}>
         {filteredConvs.length === 0 && (
           <div style={{ padding: 30, textAlign: 'center' }}>
             <i className="ti ti-message-circle" style={{ fontSize: 40, color: 'var(--line-strong)' }}></i>
@@ -548,11 +548,13 @@ export default function Chat() {
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%', position: 'relative', minWidth: 0 }}>
-        {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)' }}>{error}</div>}
+      // 🚀 CORRECTION ICI : height: '100%' (hérité du parent qui sera en 100dvh) et minHeight: 0
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: isMobile ? 0 : 16, border: isMobile ? 'none' : '1px solid var(--line)', overflow: 'hidden', height: '100%', position: 'relative', minWidth: 0, minHeight: 0 }}>
+        {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)', flexShrink: 0 }}>{error}</div>}
         
         {activeConv ? (
           <>
+            {/* EN-TÊTE FIXE */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               {isMobile && <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 22, padding: 0, display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} />
@@ -580,6 +582,7 @@ export default function Chat() {
               </div>
             </div>
             
+            {/* MESSAGES : FLEX 1, MIN HEIGHT 0, OVERFLOW AUTO */}
             <div ref={messagesContainerRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--cream)', minHeight: 0, overscrollBehavior: 'contain' }}>
               {messages.length === 0 && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
@@ -631,6 +634,7 @@ export default function Chat() {
               </button>
             )}
 
+            {/* FICHIER EN ATTENTE FIXE */}
             {pendingFile && (
               <div style={{ padding: '10px 20px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 {pendingFile.type === 'image' && pendingFile.preview ? (
@@ -646,7 +650,8 @@ export default function Chat() {
               </div>
             )}
 
-            <form onSubmit={sendMessage} style={{ padding: '14px 20px', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            {/* INPUT FIXE EN BAS */}
+            <form onSubmit={sendMessage} style={{ padding: '14px 20px', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, paddingBottom: 'calc(14px + env(safe-area-inset-bottom))' }}>
               <input ref={fileInputRef} type="file" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" style={{ display: 'none' }} />
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Joindre un fichier" style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'var(--cream)', color: 'var(--forest)', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: uploading ? 0.5 : 1 }}>
                 <i className="ti ti-paperclip" style={{ fontSize: 18 }}></i>
@@ -669,13 +674,15 @@ export default function Chat() {
     );
   };
 
+  // 🚀 LA CLÉ EST ICI : on applique 100dvh sur le wrapper mobile.
   if (isMobile) {
     return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 4px 0' }}>
+      <div style={{ height: '100dvh', width: '100%', display: 'flex', flexDirection: 'column', padding: '10px 4px 0', boxSizing: 'border-box', overflow: 'hidden', position: 'fixed', top: 0, left: 0, zIndex: 1000, background: 'var(--cream)' }}>
         {activeConv ? renderConversation() : renderConversationList()}
       </div>
     );
   }
+  
   return (
     <div style={{ display: 'flex', height: '100%', gap: 16, paddingTop: 16 }}>
       {renderConversationList()}
