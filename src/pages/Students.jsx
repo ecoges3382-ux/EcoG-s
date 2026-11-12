@@ -438,9 +438,11 @@ export default function Students() {
 
       <div data-tour="students-list" className="card-bold" style={{ overflowX: 'scroll', maxHeight: 'calc(100vh - 220px)', overflowY: 'scroll', scrollbarGutter: 'stable' }}>
         <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
+          
+          {/* 👇 EN-TÊTE DU TABLEAU (zIndex 3 pour la colonne figée) 👇 */}
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Élève</span>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20, zIndex: 4 }}>Élève</span>
             <span>Matricule</span>
             <span>Sexe</span>
             <span>Classe</span>
@@ -450,11 +452,12 @@ export default function Students() {
             <span>Statut</span>
             {!selectMode && <span></span>}
           </div>
+
           {filtered.map((s, i) => {
             const status = statusOf(s, schoolYear, feeSchedulesByNiveau[s.classeNiveau]);
             const reste = Number(s.montant_du) - Number(s.montant_paye);
             return (
-              <div key={s.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}>
+              <div key={s.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', backgroundColor: 'var(--paper)' }}>
                 {canDelete && selectMode && (
                   <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} />
                 )}
@@ -463,7 +466,8 @@ export default function Students() {
                   onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(s.id); } : undefined}
                   style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>
+                  {/* 👇 CELLULE DU NOM FIGÉE ET OPAQUE (zIndex 2) 👇 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20, zIndex: 2 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
                       {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
                     </div>
