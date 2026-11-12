@@ -29,10 +29,11 @@
 /* 👇 LA FONDATION EST ICI : On force #root à prendre tout l'écran 👇 */
 #root {
   width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Empêche le body de scroller */
 }
 
 /* ============================================================
@@ -61,12 +62,15 @@ html.dark-mode, body.dark-mode {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  height: 100%;
+  overflow: hidden; /* Bloque le scroll global */
 }
 
 * { box-sizing: border-box; }
 
-body { overflow-x: hidden; }
-body {
+body { 
+  overflow: hidden; 
+  height: 100%;
   margin:0; padding: 0; background: var(--cream);
   font-family: var(--sans); color: var(--ink);
   color-scheme: light;
@@ -102,24 +106,53 @@ input { caret-color: var(--ink); }
 }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
-/* ---- Layout shell ---- */
-#app { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; flex: 1; }
-#layout { display: flex; flex: 1; overflow-x: hidden; }
-#sidebar { width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; color: #fff; }
-#screen { flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-x: auto; }
+/* ============================================================
+   LAYOUT SHELL (CORRIGÉ POUR SCROLL INDÉPENDANT)
+   ============================================================ */
+#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+#layout { display: flex; flex: 1; overflow: hidden; }
+
+#sidebar { 
+  width: 220px; 
+  background: var(--forest-dark); 
+  flex-shrink: 0; 
+  padding: 18px 12px; 
+  color: #fff; 
+  height: 100%; 
+  overflow-y: auto; 
+  overflow-x: hidden;
+}
+
+/* Personnalisation de la scrollbar de la sidebar pour qu'elle soit discrète */
+#sidebar::-webkit-scrollbar { width: 5px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 10px; }
+#sidebar::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.4); }
+
+#screen { 
+  flex: 1; 
+  min-width: 0; 
+  padding: 28px 32px; 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  color: var(--ink); 
+  overflow-y: auto; 
+  overflow-x: auto; 
+  height: 100%;
+}
 #bottomnav { display: none; }
 
 /* ============================================================
    EN-TÊTE PREMIUM (TOPBAR)
    ============================================================ */
 .topbar-row { 
-  position: sticky; 
-  top: 0; 
+  position: relative; /* Plus besoin de sticky, le body ne scrolle plus */
   z-index: 30; 
   background: var(--forest);
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 
 .topbar-inner {
@@ -292,7 +325,7 @@ input { caret-color: var(--ink); }
   .topbar-role-badge i { font-size: 14px !important; }
   .topbar-admin-badge { padding: 5px 10px; font-size: 11px; }
 
-  #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; }
+  #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; height: 100%; overflow-y: auto; }
   
   #bottomnav {
     display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0;
@@ -395,7 +428,6 @@ input { caret-color: var(--ink); }
 
 @media (max-width: 900px) {
   #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
-  html, body { scroll-padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
   .card-bold[data-tour="students-list"], .card-bold[data-tour="staff-list"] { max-height: calc(100vh - 360px) !important; }
 }
 
@@ -435,109 +467,25 @@ html.dark-mode {
 }
 
 /* ============================================================
-   BOUCLIER ANTI-BLANC ULTIME
+   🚀 CORRECTIF DÉFINITIF ANTI-ZOOM (Android + iOS)
    ============================================================ */
-html.dark-mode [style*="background: white"],
-html.dark-mode [style*="background: #fff"],
-html.dark-mode [style*="background: #ffffff"],
-html.dark-mode [style*="background-color: white"],
-html.dark-mode [style*="background-color: #fff"],
-html.dark-mode [style*="background-color: #ffffff"],
-html.dark-mode [style*="background: rgb(255, 255, 255)"],
-html.dark-mode [style*="background-color: rgb(255, 255, 255)"],
-html.dark-mode [style*="background: #FAF8F4"],
-html.dark-mode [style*="background-color: #FAF8F4"],
-html.dark-mode [style*="background: #F0EDE5"],
-html.dark-mode [style*="background-color: #F0EDE5"],
-html.dark-mode .bg-white,
-html.dark-mode .bg-gray-50,
-html.dark-mode .bg-gray-100,
-html.dark-mode .bg-slate-50,
-html.dark-mode .bg-slate-100,
-html.dark-mode .bg-zinc-50,
-html.dark-mode .bg-zinc-100 {
-  background-color: var(--paper) !important;
-  color: var(--ink) !important;
-  border-color: var(--line-strong) !important;
+input,
+select,
+textarea,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+input[type="tel"],
+input[type="search"],
+input[type="url"] {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
 }
 
-html.dark-mode [style*="background: white"] *,
-html.dark-mode [style*="background: #fff"] *,
-html.dark-mode [style*="background: #ffffff"] *,
-html.dark-mode [style*="background-color: white"] *,
-html.dark-mode [style*="background-color: #fff"] *,
-html.dark-mode [style*="background-color: #ffffff"] *,
-html.dark-mode [style*="background: #FAF8F4"] *,
-html.dark-mode [style*="background-color: #FAF8F4"] *,
-html.dark-mode [style*="background: #F0EDE5"] *,
-html.dark-mode [style*="background-color: #F0EDE5"] *,
-html.dark-mode .bg-white *,
-html.dark-mode .bg-gray-50 *,
-html.dark-mode .bg-gray-100 *,
-html.dark-mode .bg-slate-50 *,
-html.dark-mode .bg-slate-100 * {
-  color: var(--ink) !important;
-}
-
-html.dark-mode *[style*="color: rgb(0, 0, 0)"],
-html.dark-mode *[style*="color: #000"],
-html.dark-mode *[style*="color: #000000"],
-html.dark-mode *[style*="color: black"],
-html.dark-mode *[style*="color: #333"],
-html.dark-mode *[style*="color: #1A2E27"],
-html.dark-mode *[style*="color: white"],
-html.dark-mode *[style*="color: #fff"],
-html.dark-mode *[style*="color: #ffffff"] {
-  color: var(--ink) !important;
-}
-
-html.dark-mode table,
-html.dark-mode tr,
-html.dark-mode td,
-html.dark-mode th {
-  color: var(--ink) !important;
-  border-color: var(--line-strong) !important;
-}
-
-html.dark-mode svg[stroke="black"],
-html.dark-mode svg[stroke="#000"],
-html.dark-mode svg[stroke="#1A2E27"] {
-  stroke: var(--ink) !important;
-}
-/* ============================================================
-   BARRE DE DÉFILEMENT PROPRE POUR LA SIDEBAR (Desktop)
-   ============================================================ */
-@media (min-width: 901px) {
-  #sidebar {
-    /* On fige la sidebar sous la barre du haut */
-    position: sticky;
-    top: 64px; /* Hauteur exacte de ta barre du haut (topbar) */
-    
-    /* On lui donne la hauteur exacte de l'écran restant */
-    height: calc(100vh - 64px);
-    height: calc(100dvh - 64px); /* Pour les navigateurs modernes (mobile/tablette) */
-    
-    /* On active le défilement uniquement à l'intérieur de la sidebar */
-    overflow-y: auto;
-    overflow-x: hidden;
-    
-    /* Optionnel : une scrollbar fine et discrète */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-  }
-
-  /* Personnalisation de l'apparence de la scrollbar (sur Chrome/Safari/Edge) */
-  #sidebar::-webkit-scrollbar {
-    width: 6px;
-  }
-  #sidebar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  #sidebar::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
-  }
-  #sidebar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.4);
-  }
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation !important;
 }
