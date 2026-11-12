@@ -26,12 +26,12 @@
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* 👇 LA FONDATION EST ICI : On force #root à prendre tout l'écran 👇 */
+/* 👇 LA FONDATION : Empêche le body de scroller, gère la hauteur dynamique */
 html, body {
   margin: 0;
   padding: 0;
   height: 100dvh;
-  overflow: hidden; /* Empêche le scroll global */
+  overflow: hidden; 
 }
 
 #root {
@@ -97,57 +97,151 @@ input { caret-color: var(--ink); }
 .row-link:hover, .row-link:active { --row-bg: var(--forest-light); }
 
 /* ============================================================
-   LAYOUT SHELL (CORRIGÉ POUR SCROLL INDÉPENDANT)
+   LAYOUT SHELL
    ============================================================ */
-#app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
-#layout { display: flex; flex: 1; overflow: hidden; }
+#app { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+#layout { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
 #sidebar { 
   width: 220px; background: var(--forest-dark); flex-shrink: 0; padding: 18px 12px; color: #fff; height: 100%; overflow-y: auto; overflow-x: hidden;
 }
 #sidebar::-webkit-scrollbar { width: 5px; }
 #sidebar::-webkit-scrollbar-track { background: transparent; }
 #sidebar::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.2); border-radius: 10px; }
+
 #screen { 
-  flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-y: auto; overflow-x: auto; height: 100%;
+  flex: 1; min-width: 0; padding: 28px 32px; max-width: 1200px; margin: 0 auto; color: var(--ink); overflow-y: auto; overflow-x: hidden; height: 100%;
 }
 #bottomnav { display: none; }
 
 /* ============================================================
-   EN-TÊTE PREMIUM (TOPBAR)
+   EN-TÊTE PREMIUM (TOPBAR) - BLINDÉ !
    ============================================================ */
 .topbar-row { 
-  position: relative; z-index: 30; background: var(--forest); box-shadow: 0 4px 20px rgba(0,0,0,0.15); display: flex; flex-direction: column; flex-shrink: 0;
+  position: relative !important; 
+  z-index: 30 !important; 
+  background: var(--forest) !important; 
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; 
+  display: flex !important; 
+  flex-direction: column !important; 
+  flex-shrink: 0 !important;
+  width: 100% !important;
 }
-.topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 28px; gap: 16px; }
-.topbar-brand { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 0; }
-.topbar-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-.topbar-context { display: flex; align-items: center; gap: 10px; }
-.topbar-role-badge { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 7px 14px; border-radius: 20px; white-space: nowrap; }
-.topbar-role-badge span { font-size: 12.5px; color: #fff; font-weight: 600; }
-.topbar-search-btn { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 8px 14px; color: rgba(255,255,255,0.7); cursor: pointer; width: 240px; transition: background 0.2s; }
-.topbar-action-btn { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; border: none; flex-shrink: 0; cursor: pointer; transition: background 0.2s; }
-.topbar-mobile-row { display: none; align-items: center; gap: 10px; padding: 8px 18px 12px; background: rgba(0,0,0,0.15); border-top: 1px solid rgba(255,255,255,0.05); }
+
+.topbar-inner { 
+  display: flex !important; 
+  flex-direction: row !important; 
+  flex-wrap: nowrap !important;
+  align-items: center !important; 
+  justify-content: space-between !important; 
+  height: 64px !important; 
+  padding: 0 28px !important; 
+  gap: 16px !important; 
+  width: 100% !important;
+}
+
+.topbar-brand { 
+  display: flex !important; 
+  flex-direction: row !important; 
+  align-items: center !important; 
+  gap: 14px !important; 
+  min-width: 0 !important; 
+  flex: 1 1 0 !important; 
+}
+
+.topbar-right { 
+  display: flex !important; 
+  flex-direction: row !important; 
+  align-items: center !important; 
+  gap: 14px !important; 
+  flex-shrink: 0 !important; 
+}
+
+.topbar-context { display: flex !important; align-items: center !important; gap: 10px !important; }
+.topbar-role-badge { display: flex !important; align-items: center !important; gap: 8px !important; background: rgba(255,255,255,0.1) !important; padding: 7px 14px !important; border-radius: 20px !important; white-space: nowrap !important; }
+.topbar-role-badge span { font-size: 12.5px !important; color: #fff !important; font-weight: 600 !important; }
+
+/* La barre de recherche qui était cassée sur ta capture */
+.topbar-search-btn { 
+  display: flex !important; 
+  flex-direction: row !important;
+  align-items: center !important; 
+  gap: 8px !important; 
+  background: rgba(255,255,255,0.1) !important; 
+  border: 1px solid rgba(255,255,255,0.2) !important; 
+  border-radius: 8px !important; 
+  padding: 8px 14px !important; 
+  color: rgba(255,255,255,0.7) !important; 
+  cursor: pointer !important; 
+  width: 240px !important; 
+  transition: background 0.2s !important; 
+}
+
+.topbar-action-btn { 
+  display: flex !important; 
+  align-items: center !important; 
+  justify-content: center !important; 
+  width: 38px !important; 
+  height: 38px !important; 
+  border-radius: 50% !important; 
+  background: rgba(255,255,255,0.1) !important; 
+  color: #fff !important; 
+  border: none !important; 
+  flex-shrink: 0 !important; 
+  cursor: pointer !important; 
+  transition: background 0.2s !important; 
+}
+
+.topbar-mobile-row { 
+  display: none !important; 
+  flex-direction: row !important;
+  align-items: center !important; 
+  gap: 10px !important; 
+  padding: 8px 18px 12px !important; 
+  background: rgba(0,0,0,0.15) !important; 
+  border-top: 1px solid rgba(255,255,255,0.05) !important; 
+}
+
+.topbar-mobile-search { 
+  flex: 1 !important; 
+  display: flex !important; 
+  flex-direction: row !important;
+  align-items: center !important; 
+  gap: 8px !important; 
+  background: rgba(255,255,255,0.1) !important; 
+  border: 1px solid rgba(255,255,255,0.2) !important; 
+  border-radius: 8px !important; 
+  padding: 8px 14px !important; 
+  color: rgba(255,255,255,0.7) !important; 
+  font-size: 13px !important; 
+  cursor: pointer !important; 
+  text-align: left !important; 
+}
+
+.topbar-mobile-icons { display: flex !important; align-items: center !important; gap: 8px !important; flex-shrink: 0 !important; }
 
 /* ---- Mobile layout (<= 900px) ---- */
 @media (max-width: 900px) {
-  #layout { flex-direction: column; }
-  #sidebar { display: none; }
+  #layout { flex-direction: column !important; }
+  #sidebar { display: none !important; }
   .topbar-row { padding-top: max(env(safe-area-inset-top, 0px), 10px) !important; }
-  .topbar-inner { padding: 0 14px; height: 56px; }
+  .topbar-inner { padding: 0 14px !important; height: 56px !important; }
   .topbar-mobile-row { display: flex !important; }
-  .topbar-brand { gap: 10px; }
+  .topbar-brand { gap: 10px !important; }
   .topbar-title { font-size: 16px !important; }
-  .topbar-role-badge { padding: 5px 10px; }
-  .topbar-role-badge span { font-size: 11px; }
-  #screen { padding: 16px 14px 90px; max-width: 100%; margin: 0; height: 100%; overflow-y: auto; }
+  .topbar-role-badge { padding: 5px 10px !important; }
+  .topbar-role-badge span { font-size: 11px !important; }
+  
+  #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; max-width: 100% !important; margin: 0 !important; height: 100% !important; overflow-y: auto !important; }
+  
   #bottomnav {
-    display: flex; justify-content: space-around; position: fixed; bottom: 0; left: 0; right: 0; background: var(--paper); border-top: 1px solid var(--line); padding: 8px 4px calc(8px + env(safe-area-inset-bottom)); z-index: 20; box-shadow: 0 -4px 20px rgba(0,0,0,0.05);
+    display: flex !important; justify-content: space-around !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; background: var(--paper) !important; border-top: 1px solid var(--line) !important; padding: 8px 4px calc(8px + env(safe-area-inset-bottom)) !important; z-index: 20 !important; box-shadow: 0 -4px 20px rgba(0,0,0,0.05) !important;
   }
-  #bottomnav .navlink { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 7px 6px; border-radius: 10px; min-width: 0; }
-  #bottomnav .navlink i { font-size: 20px; color: var(--ink); }
-  #bottomnav .navlink span { font-size: 9.5px; color: var(--ink); font-weight: 600; white-space: nowrap; }
+  #bottomnav .navlink { flex: 0 1 auto !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important; padding: 7px 6px !important; border-radius: 10px !important; min-width: 0 !important; }
+  #bottomnav .navlink i { font-size: 20px !important; color: var(--ink) !important; }
+  #bottomnav .navlink span { font-size: 9.5px !important; color: var(--ink) !important; font-weight: 600 !important; white-space: nowrap !important; }
   #bottomnav .navlink.active { background: var(--forest) !important; }
-  #bottomnav .navlink.active i, #bottomnav .navlink.active span { color: #fff; }
+  #bottomnav .navlink.active i, #bottomnav .navlink.active span { color: #fff !important; }
   
   .desktop-grid-4 { grid-template-columns: repeat(2,1fr) !important; }
   .desktop-grid-3 { grid-template-columns: 1fr !important; }
@@ -157,8 +251,4 @@ input { caret-color: var(--ink); }
   input, select, textarea, input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], input[type="tel"], input[type="search"] {
     font-size: 16px !important; -webkit-text-size-adjust: 100% !important;
   }
-}
-
-@media (max-width: 900px) {
-  #screen { padding: 16px 14px calc(140px + env(safe-area-inset-bottom, 0px)) !important; }
 }
