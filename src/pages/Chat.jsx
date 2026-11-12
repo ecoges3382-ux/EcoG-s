@@ -112,7 +112,6 @@ export default function Chat() {
   };
 
   useEffect(() => {
-    // 🚀 CORRECTION : On cache la barre de navigation du bas sur mobile si on est dans le chat
     const bottomNav = document.getElementById('bottomnav');
     if (bottomNav && isMobile) {
       const prevDisplay = bottomNav.style.display;
@@ -548,13 +547,11 @@ export default function Chat() {
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
-      // 🚀 CORRECTION ICI : height: '100%' (hérité du parent qui sera en 100dvh) et minHeight: 0
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: isMobile ? 0 : 16, border: isMobile ? 'none' : '1px solid var(--line)', overflow: 'hidden', height: '100%', position: 'relative', minWidth: 0, minHeight: 0 }}>
         {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)', flexShrink: 0 }}>{error}</div>}
         
         {activeConv ? (
           <>
-            {/* EN-TÊTE FIXE */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               {isMobile && <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 22, padding: 0, display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} />
@@ -582,7 +579,6 @@ export default function Chat() {
               </div>
             </div>
             
-            {/* MESSAGES : FLEX 1, MIN HEIGHT 0, OVERFLOW AUTO */}
             <div ref={messagesContainerRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--cream)', minHeight: 0, overscrollBehavior: 'contain' }}>
               {messages.length === 0 && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
@@ -634,7 +630,6 @@ export default function Chat() {
               </button>
             )}
 
-            {/* FICHIER EN ATTENTE FIXE */}
             {pendingFile && (
               <div style={{ padding: '10px 20px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 {pendingFile.type === 'image' && pendingFile.preview ? (
@@ -650,8 +645,7 @@ export default function Chat() {
               </div>
             )}
 
-            {/* INPUT FIXE EN BAS */}
-            <form onSubmit={sendMessage} style={{ padding: '14px 20px', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, paddingBottom: 'calc(14px + env(safe-area-inset-bottom))' }}>
+            <form onSubmit={sendMessage} style={{ padding: '14px 20px', paddingBottom: 'calc(14px + env(safe-area-inset-bottom))', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
               <input ref={fileInputRef} type="file" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" style={{ display: 'none' }} />
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Joindre un fichier" style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'var(--cream)', color: 'var(--forest)', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: uploading ? 0.5 : 1 }}>
                 <i className="ti ti-paperclip" style={{ fontSize: 18 }}></i>
@@ -674,10 +668,23 @@ export default function Chat() {
     );
   };
 
-  // 🚀 LA CLÉ EST ICI : on applique 100dvh sur le wrapper mobile.
+  // 👇 C'EST ICI QUE TOUT SE JOUE POUR LE MOBILE 👇
   if (isMobile) {
     return (
-      <div style={{ height: '100dvh', width: '100%', display: 'flex', flexDirection: 'column', padding: '10px 4px 0', boxSizing: 'border-box', overflow: 'hidden', position: 'fixed', top: 0, left: 0, zIndex: 1000, background: 'var(--cream)' }}>
+      <div style={{ 
+        height: '100dvh', 
+        width: '100%', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        padding: '10px 10px 10px', // Marge partout (haut et bas)
+        boxSizing: 'border-box', 
+        overflow: 'hidden', 
+        background: 'var(--cream)',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 1000
+      }}>
         {activeConv ? renderConversation() : renderConversationList()}
       </div>
     );
