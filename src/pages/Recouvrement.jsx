@@ -137,7 +137,6 @@ export default function Recouvrement() {
     schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe
   )), [schoolYear]);
 
-  // 🚀 OPTIMISATION 1 : On mémorise le calcul de base des élèves
   const enrichis = useMemo(() => {
     if (!students || inscriptionByStudent === null) return [];
     return students.map((s) => {
@@ -155,7 +154,6 @@ export default function Recouvrement() {
     });
   }, [students, inscriptionByStudent, schoolYear, calendrierConfigure]);
 
-  // 🚀 OPTIMISATION 2 : On mémorise les totaux
   const totaux = useMemo(() => {
     const totalEcolageDu = enrichis.reduce((a, s) => a + Number(s.montant_du), 0);
     const totalEcolagePaye = enrichis.reduce((a, s) => a + Number(s.montant_paye), 0);
@@ -185,7 +183,6 @@ export default function Recouvrement() {
     };
   }, [enrichis]);
 
-  // 🚀 OPTIMISATION 3 : On mémorise la liste prioritaire
   const elevesPrioritairesBase = useMemo(() => {
     return enrichis
       .filter((s) => s.resteEcolage > 0 || s.resteConnexe > 0)
@@ -204,7 +201,6 @@ export default function Recouvrement() {
     );
   }, [elevesPrioritairesBase, searchPriority]);
 
-  // 🚀 OPTIMISATION 4 : On mémorise les échéances proches
   const elevesEcheancesProches = useMemo(() => {
     return enrichis
       .filter((s) => {
@@ -245,7 +241,6 @@ export default function Recouvrement() {
     return [...new Set(students?.map((s) => s.niveau) || [])].sort();
   }, [students]);
 
-  // 🚀 OPTIMISATION 5 : On mémorise la liste filtrée finale
   const filtered = useMemo(() => {
     return enrichis
       .filter((s) => !search.trim() || s.full_name.toLowerCase().includes(search.trim().toLowerCase()))
@@ -382,9 +377,7 @@ export default function Recouvrement() {
           </p>
           <tour.Button />
         </div>
-        <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
-          Année scolaire {schoolYear.label}
-        </span>
+        {/* 👇 BADGE ANNÉE SCOLAIRE SUPPRIMÉ ICI 👇 */}
       </div>
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 18, marginBottom: 24 }}>
@@ -524,10 +517,9 @@ export default function Recouvrement() {
             {elevesPrioritaires.map((s, i) => (
               <div
                 key={s.id}
-                className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < elevesPrioritaires.length - 1 ? '1px solid var(--line)' : 'none', backgroundColor: 'var(--paper)' }}
               >
-                <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--row-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input
                     type="checkbox"
                     checked={selectedPriorityIds.includes(s.id)}
@@ -535,7 +527,7 @@ export default function Recouvrement() {
                     style={{ cursor: 'pointer' }}
                   />
                 </span>
-                <div style={{ position: 'sticky', left: 50, zIndex: 10, backgroundColor: 'var(--row-bg)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                <div style={{ position: 'sticky', left: 50, zIndex: 10, backgroundColor: 'var(--paper)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
@@ -609,10 +601,9 @@ export default function Recouvrement() {
               {elevesEcheancesProches.map((s, i) => (
                 <div
                   key={s.id}
-                  className="row-link"
-                  style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px', alignItems: 'center', borderBottom: i < elevesEcheancesProches.length - 1 ? '1px solid var(--line)' : 'none' }}
+                  style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px', alignItems: 'center', borderBottom: i < elevesEcheancesProches.length - 1 ? '1px solid var(--line)' : 'none', backgroundColor: 'var(--paper)' }}
                 >
-                  <div style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--row-bg)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                  <div style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--paper)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
                     <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                   </div>
@@ -734,10 +725,9 @@ export default function Recouvrement() {
             return (
               <div
                 key={s.id}
-                className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', backgroundColor: 'var(--paper)' }}
               >
-                <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--row-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ position: 'sticky', left: 0, zIndex: 10, backgroundColor: 'var(--paper)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <input
                     type="checkbox"
                     checked={selectedDetailIds.includes(s.id)}
@@ -746,7 +736,7 @@ export default function Recouvrement() {
                   />
                 </span>
 
-                <Link to={`/eleves/${s.id}`} style={{ position: 'sticky', left: 50, zIndex: 10, backgroundColor: 'var(--row-bg)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', textDecoration: 'none', color: 'inherit' }}>
+                <Link to={`/eleves/${s.id}`} style={{ position: 'sticky', left: 50, zIndex: 10, backgroundColor: 'var(--paper)', boxShadow: '4px 0 8px -2px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%', textDecoration: 'none', color: 'inherit' }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </Link>
