@@ -105,14 +105,7 @@ export default function Chat() {
     return { name, subtitle: role || 'Message privé', initials: initials(name), color: avatarColor(other?.user_id || c.id), isGroup: false };
   };
 
-  useEffect(() => {
-    const bottomNav = document.getElementById('bottomnav');
-    if (bottomNav && isMobile) {
-      const prevDisplay = bottomNav.style.display;
-      bottomNav.style.display = 'none';
-      return () => { bottomNav.style.display = prevDisplay; };
-    }
-  }, [isMobile]);
+  // 👇 L'EFFET QUI CACHAIT LA BOTTOMNAV A ÉTÉ SUPPRIMÉ ICI 👇
 
   useEffect(() => {
     function checkMobile() { setIsMobile(window.innerWidth < 768); }
