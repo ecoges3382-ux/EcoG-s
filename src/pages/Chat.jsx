@@ -106,7 +106,6 @@ export default function Chat() {
   };
 
   useEffect(() => {
-    // Cache la barre de navigation du bas sur mobile quand on est dans le chat
     const bottomNav = document.getElementById('bottomnav');
     if (bottomNav && isMobile) {
       const prevDisplay = bottomNav.style.display;
@@ -456,7 +455,7 @@ export default function Chat() {
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: isMobile ? 16 : 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%', minHeight: 0, position: 'relative' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%', minHeight: 0, position: 'relative' }}>
         {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)', flexShrink: 0 }}>{error}</div>}
         
         {activeConv ? (
