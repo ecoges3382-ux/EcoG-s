@@ -504,3 +504,40 @@ html.dark-mode svg[stroke="#000"],
 html.dark-mode svg[stroke="#1A2E27"] {
   stroke: var(--ink) !important;
 }
+/* ============================================================
+   BARRE DE DÉFILEMENT PROPRE POUR LA SIDEBAR (Desktop)
+   ============================================================ */
+@media (min-width: 901px) {
+  #sidebar {
+    /* On fige la sidebar sous la barre du haut */
+    position: sticky;
+    top: 64px; /* Hauteur exacte de ta barre du haut (topbar) */
+    
+    /* On lui donne la hauteur exacte de l'écran restant */
+    height: calc(100vh - 64px);
+    height: calc(100dvh - 64px); /* Pour les navigateurs modernes (mobile/tablette) */
+    
+    /* On active le défilement uniquement à l'intérieur de la sidebar */
+    overflow-y: auto;
+    overflow-x: hidden;
+    
+    /* Optionnel : une scrollbar fine et discrète */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  /* Personnalisation de l'apparence de la scrollbar (sur Chrome/Safari/Edge) */
+  #sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+  #sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  #sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+  }
+  #sidebar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+  }
+}
