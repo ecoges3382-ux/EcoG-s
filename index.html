@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
-    <!-- 👇 LA LIGNE CRUCIALE POUR LE CLAVIER MOBILE 👇 -->
+    <!-- 👇 LIGNE VITALE POUR LE CLAVIER MOBILE 👇 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     
     <meta name="theme-color" content="#0F4C3A" />
@@ -40,8 +40,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 
+    <!-- 👇 ON GARDE UNIQUEMENT LES SCROLLBARS ET L'IMPRESSION ICI 👇 -->
     <style>
-      /* 👇 ON GARDE UNIQUEMENT LES SCROLLBARS ET L'IMPRESSION ICI 👇 */
       ::-webkit-scrollbar { -webkit-appearance: none; width: 14px !important; height: 14px !important; }
       ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1) !important; border-radius: 0 !important; }
       ::-webkit-scrollbar-thumb { background-color: #ffffff !important; border-radius: 10px !important; border: 3px solid transparent !important; background-clip: content-box !important; }
@@ -51,11 +51,9 @@
       body, button, input, select, textarea, a, span, p, div, table, th, td, label { font-family: 'Poppins', sans-serif !important; }
       :root { --sans: 'Poppins', sans-serif !important; }
       
-      /* 🚀 CORRECTION POUR LA HAUTEUR ET LE CLAVIER */
-      html, body { margin: 0; padding: 0; height: 100dvh; overflow: hidden; }
-      
-      /* 🚀 LA CORRECTION POUR LE CENTRAGE : #root prend tout l'écran */
-      #root { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+      /* 🚀 CORRECTION : On bloque le body pour que le chat et la sidebar gèrent leur propre scroll */
+      html, body { margin: 0; padding: 0; height: 100vh; height: 100dvh; overflow: hidden; }
+      #root { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
       @media screen { .receipt-quad-print { display: none !important; } }
       @media print {
