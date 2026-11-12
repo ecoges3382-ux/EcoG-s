@@ -45,7 +45,6 @@ export default function FraisConnexes() {
   const totalPaye = students.reduce((a, s) => a + Number(s.frais_connexe_paye), 0);
   const taux = totalDu > 0 ? Math.round((totalPaye / totalDu) * 100) : 0;
 
-  // Filtrage des élèves en fonction de la recherche
   const filteredStudents = students.filter(
     (s) => !debouncedSearch.trim() || s.full_name.toLowerCase().includes(debouncedSearch.trim().toLowerCase())
   );
@@ -64,14 +63,28 @@ export default function FraisConnexes() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un élève…"
-          style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, width: 220, boxSizing: 'border-box', color: 'var(--ink)' }}
+          style={{ 
+            padding: '8px 12px', 
+            borderRadius: 20, 
+            border: '1px solid var(--line-strong)', 
+            fontSize: 13, 
+            width: 220, 
+            boxSizing: 'border-box', 
+            color: 'var(--ink)' 
+          }}
         />
       </div>
 
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
         <div style={{ minWidth: 560 }}>
+          
+          {/* En-tête du tableau */}
           <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.9fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span><span>Classe</span><span>Dû</span><span>Payé</span><span>Statut</span>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 4 }}>Élève</span>
+            <span>Classe</span>
+            <span>Dû</span>
+            <span>Payé</span>
+            <span>Statut</span>
           </div>
           
           {filteredStudents.length > 0 ? (
@@ -85,6 +98,7 @@ export default function FraisConnexes() {
                 <div 
                   key={s.id} 
                   onClick={() => navigate(`/eleves/${s.id}`)}
+                  className="row-link"
                   style={{ 
                     display: 'grid', 
                     gridTemplateColumns: '1.5fr 0.8fr 0.9fr 0.9fr 1.1fr', 
@@ -93,12 +107,12 @@ export default function FraisConnexes() {
                     alignItems: 'center', 
                     borderBottom: i < filteredStudents.length - 1 ? '1px solid var(--line)' : 'none',
                     cursor: 'pointer',
-                    transition: 'background 0.15s'
+                    backgroundColor: 'var(--paper)' // Fond 100% opaque
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--cream)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 >
-                  <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20 }}>{s.full_name}</span>
+                  <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: 20, zIndex: 2 }}>
+                    {s.full_name}
+                  </span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau}</span>
                   <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_du)}</span>
                   <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_paye)}</span>
