@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthProvider.jsx';
-import { fmtF, stickyColStyle } from '../../lib/utils.js';
+import { fmtF, stickyColStyle, stickyHeaderStyle } from '../../lib/utils.js';
 import { useSelectedSchoolYear } from '../../lib/schoolYear.jsx';
 import { computeRelance } from '../../lib/retard.js';
 import { useEnrollmentsForYear } from '../../lib/enrollments.js';
@@ -78,6 +78,7 @@ export default function Overview() {
   return (
     <div>
       {offline && <OfflineBanner />}
+      
       <div data-tour="money-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 24 }} className="desktop-grid-3">
         <Stat label="Attendu" value={fmtF(totalDu)} />
         <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" />
@@ -92,18 +93,36 @@ export default function Overview() {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 600, color: 'var(--ink)' }}>Élèves</p>
+        
+        {/* Barre de recherche harmonisée */}
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un élève…"
-          style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--line-strong)', fontSize: 13, width: 220, boxSizing: 'border-box', color: 'var(--ink)' }}
+          style={{ 
+            padding: '8px 12px', 
+            borderRadius: 20, 
+            border: '1px solid var(--line-strong)', 
+            fontSize: 13, 
+            width: 220, 
+            boxSizing: 'border-box', 
+            color: 'var(--ink)' 
+          }}
         />
       </div>
-      <div className="card-bold" data-tour="money-list" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
+
+      <div className="card-bold" data-tour="money-list" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto', scrollbarGutter: 'stable' }}>
         <div style={{ minWidth: 620 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20 }}>Élève</span><span>Dû</span><span>Payé</span><span>Solde</span><span>Statut</span>
+          
+          {/* En-tête du tableau */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 4 }}>Élève</span>
+            <span>Dû</span>
+            <span>Payé</span>
+            <span>Solde</span>
+            <span>Statut</span>
           </div>
+
           {filtered.slice(0, 200).map((s, i) => {
             const st = statutOf(s);
             return (
@@ -111,9 +130,20 @@ export default function Overview() {
                 key={s.id}
                 to={`/eleves/${s.id}`}
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', gap: 8, padding: '12px 20px 12px 0', alignItems: 'center', borderBottom: i < Math.min(filtered.length, 200) - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1.7fr 0.85fr 0.85fr 0.9fr 1.3fr', 
+                  gap: 8, 
+                  padding: '12px 20px 12px 0', 
+                  alignItems: 'center', 
+                  borderBottom: i < Math.min(filtered.length, 200) - 1 ? '1px solid var(--line)' : 'none', 
+                  textDecoration: 'none', 
+                  color: 'inherit',
+                  backgroundColor: 'var(--paper)' // Ligne 100% opaque
+                }}
               >
-                <div style={{ ...stickyColStyle('var(--row-bg)'), paddingLeft: 20 }}>
+                {/* Cellule figée et opaque */}
+                <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, zIndex: 2 }}>
                   <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{s.full_name}</p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>{s.niveau}</p>
                 </div>
