@@ -101,12 +101,11 @@ export default function Chat() {
   const convMenuRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // 👇 CORRECTION 1 : Empêche le scroll global de la page quand on est sur le chat 👇
   useEffect(() => {
     const screen = document.getElementById('screen');
     if (screen) {
       const prevOverflow = screen.style.overflowY;
-      screen.style.overflowY = 'hidden'; // Bloque le scroll du parent
+      screen.style.overflowY = 'hidden';
       return () => { screen.style.overflowY = prevOverflow; };
     }
   }, []);
@@ -450,7 +449,6 @@ export default function Chat() {
   };
 
   const renderConversationList = () => (
-    // 👇 CORRECTION 2 : Remplacement de calc(100vh - 120px) par 100% 👇
     <div style={{ width: isMobile ? '100%' : 340, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%' }}>
       <div style={{ padding: '18px 20px 14px', background: 'var(--paper)', borderBottom: '1px solid var(--line)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -546,13 +544,11 @@ export default function Chat() {
   const renderConversation = () => {
     const info = activeConv ? getConvInfo(activeConv) : null;
     return (
-      // 👇 CORRECTION 3 : height 100% au lieu de calc(100vh - 120px) et minHeight 0 sur les enfants 👇
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--paper)', borderRadius: 16, border: '1px solid var(--line)', overflow: 'hidden', height: '100%', position: 'relative', minWidth: 0 }}>
         {error && <div style={{ padding: 12, background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 12, borderBottom: '1px solid var(--danger)' }}>{error}</div>}
         
         {activeConv ? (
           <>
-            {/* En-tête figé */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               {isMobile && <button onClick={() => setActiveConv(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 22, padding: 0, display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} />
@@ -580,7 +576,6 @@ export default function Chat() {
               </div>
             </div>
             
-            {/* Liste des messages défilante */}
             <div ref={messagesContainerRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 2, background: 'var(--cream)', minHeight: 0, overscrollBehavior: 'contain' }}>
               {messages.length === 0 && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 30, textAlign: 'center' }}>
@@ -632,7 +627,6 @@ export default function Chat() {
               </button>
             )}
 
-            {/* Fichier en attente figé */}
             {pendingFile && (
               <div style={{ padding: '10px 20px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 {pendingFile.type === 'image' && pendingFile.preview ? (
@@ -648,7 +642,6 @@ export default function Chat() {
               </div>
             )}
 
-            {/* Formulaire de saisie figé en bas */}
             <form onSubmit={sendMessage} style={{ padding: '14px 20px', borderTop: pendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
               <input ref={fileInputRef} type="file" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" style={{ display: 'none' }} />
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} title="Joindre un fichier" style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'var(--cream)', color: 'var(--forest)', cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: uploading ? 0.5 : 1 }}>
@@ -672,16 +665,16 @@ export default function Chat() {
     );
   };
 
-  // 👇 CORRECTION 4 : Conteneurs racines en height: 100% 👇
+  // 👇 LA MARGE EST AJOUTÉE ICI 👇
   if (isMobile) {
     return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '0 4px' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 4px 0' }}>
         {activeConv ? renderConversation() : renderConversationList()}
       </div>
     );
   }
   return (
-    <div style={{ display: 'flex', height: '100%', gap: 16 }}>
+    <div style={{ display: 'flex', height: '100%', gap: 16, paddingTop: 16 }}>
       {renderConversationList()}
       {renderConversation()}
     </div>
