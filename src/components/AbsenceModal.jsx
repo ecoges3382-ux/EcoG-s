@@ -76,9 +76,6 @@ export default function AbsenceModal({ schoolId, schoolYearId, studentId, motifs
             date: date,
             demi_journee: demiJournee,
             school_id: schoolId
-          },
-          headers: { 
-            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
           }
         });
       } catch (err) {

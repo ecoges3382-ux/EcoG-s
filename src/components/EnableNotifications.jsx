@@ -63,12 +63,8 @@ export default function EnableNotifications() {
     try {
       if (!profile) throw new Error("Profil introuvable.");
       
-      // On garde la clé API pour ne pas casser l'ancienne fonction
       const { data, error } = await supabase.functions.invoke('send-test-push', {
-        body: { user_id: profile.id },
-        headers: { 
-          'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
-        }
+        body: { user_id: profile.id }
       });
       
       if (error) throw error;
