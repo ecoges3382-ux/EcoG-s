@@ -2,3 +2,5 @@ node_modules
 dist
 .env
 .env.local
+# Généré à chaque build (package.json) ; rien ne le lit pour l'instant
+public/version.json

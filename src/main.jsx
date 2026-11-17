@@ -8,6 +8,18 @@ import { ConfirmProvider } from './components/ConfirmDialog.jsx';
 import { getInitialTheme, applyTheme } from './lib/theme.js';
 import './styles.css';
 
+// Si un fichier de page n'existe plus (version déployée entre-temps), on
+// recharge une fois pour récupérer la nouvelle version. Le garde-fou évite une
+// boucle de rechargements si le problème persiste.
+window.addEventListener('vite:preloadError', () => {
+  try {
+    const last = Number(sessionStorage.getItem('ecoges_preload_reload') || 0);
+    if (Date.now() - last < 15000) return;
+    sessionStorage.setItem('ecoges_preload_reload', String(Date.now()));
+  } catch { /* stockage indisponible : on recharge sans garde-fou */ }
+  window.location.reload();
+});
+
 // Applique le thème immédiatement avant le rendu de React
 applyTheme(getInitialTheme());
 

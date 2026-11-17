@@ -1,12 +1,19 @@
 // Ce code s'exécute quand le téléphone reçoit une notification du serveur
 self.addEventListener('push', function (event) {
   if (event.data) {
-    const data = event.data.json();
-    
+    // Un message mal formé ne doit pas empêcher la notification de s'afficher
+    // (sinon le navigateur en affiche une générique à la place).
+    let data;
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'EcoGès', body: event.data.text() };
+    }
+
     const options = {
       body: data.body,
-      icon: '/pwa-192x192.png', 
-      badge: '/pwa-192x192.png',
+      icon: '/pwa-192x192.png',
+      badge: '/badge-96x96.png',
       vibrate: [100, 50, 100],
       data: {
         dateOfArrival: Date.now(),
@@ -15,7 +22,7 @@ self.addEventListener('push', function (event) {
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title, options)
+      self.registration.showNotification(data.title || 'EcoGès', options)
     );
   }
 });
@@ -25,7 +32,8 @@ self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   
   // On s'assure que l'URL de redirection est valide
-  const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  const urlToOpen = new URL(target, self.location.origin).href;
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
