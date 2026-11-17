@@ -1,0 +1,17 @@
+Police d'icônes Tabler (version 3.52.0), copie locale.
+
+Pourquoi : la page chargeait cette feuille depuis un CDN en version « latest »
+(non figée, et indisponible hors connexion). Ici la version est fixée et le
+fichier est mis en cache par le service worker.
+
+Particularité : la version officielle découpe la police en une cinquantaine de
+fichiers ; ici le CSS ne déclare qu'UN fichier (fonts/tabler-icons.woff2), qui
+contient toutes les icônes. Les règles d'icônes (.ti-xxx) sont celles de
+l'officiel, sans modification.
+
+Important : l'URL de la police ne doit PAS avoir de suffixe « ?v... » : le cache
+hors connexion (precache) ne retrouverait pas le fichier.
+
+Mettre à jour : télécharger @tabler/icons-webfont (npm pack), recopier
+dist/fonts/tabler-icons.woff2 et dist/tabler-icons.min.css, puis remplacer les
+blocs @font-face du CSS par un seul bloc pointant vers ce woff2.
