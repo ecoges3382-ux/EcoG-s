@@ -94,10 +94,7 @@ export default function Announce() {
     if (statut === 'publiee') {
       try {
         await supabase.functions.invoke('send-announcement-push', {
-          body: { announcement_id: item.id },
-          headers: { 
-            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
-          }
+          body: { announcement_id: item.id }
         });
       } catch (err) {
         console.warn("Erreur push:", err);
@@ -266,10 +263,7 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
     if (statut === 'publiee' && insertedId) {
       try {
         await supabase.functions.invoke('send-announcement-push', {
-          body: { announcement_id: insertedId },
-          headers: { 
-            'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
-          }
+          body: { announcement_id: insertedId }
         });
       } catch (err) {
         console.warn("Erreur push:", err);
@@ -420,10 +414,7 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
     setPushResult(null);
     try {
       const { data, error } = await supabase.functions.invoke('send-announcement-push', {
-        body: { announcement_id: a.id },
-        headers: { 
-          'x-api-key': import.meta.env.VITE_PUSH_API_SECRET 
-        }
+        body: { announcement_id: a.id }
       });
       if (error) throw error;
       if (data?.message) {
