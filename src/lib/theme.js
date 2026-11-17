@@ -81,7 +81,7 @@ export function applyTheme(theme, userId) {
   }
   try {
     localStorage.setItem(getThemeKey(userId), theme);
-  } catch {}
+  } catch { /* stockage indisponible : on ignore */ }
 }
 
 export function toggleTheme(userId) {

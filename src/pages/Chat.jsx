@@ -43,12 +43,12 @@ function playNotificationSound() {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
     osc.start();
     osc.stop(ctx.currentTime + 0.25);
-  } catch {}
+  } catch { /* son non disponible : on ignore */ }
 }
 
 function markAsRead(conversationId) {
   const iso = new Date().toISOString();
-  try { localStorage.setItem(`chat_read_${conversationId}`, iso); } catch {}
+  try { localStorage.setItem(`chat_read_${conversationId}`, iso); } catch { /* stockage indisponible : on ignore */ }
   supabase.rpc('mark_conversation_read', { p_conversation_id: conversationId }).then(({ error }) => {
     if (error) console.warn('🔴 [Chat] mark_conversation_read a échoué :', error.message);
   });
@@ -71,7 +71,16 @@ function SecureChatImage({ src, isMe }) {
   );
 }
 
+// Enveloppe : sans profil (déconnexion en cours) on n'affiche rien, et le
+// vrai composant, qui contient tous les hooks, n'est alors jamais rendu à
+// moitié (React exige le même nombre de hooks à chaque rendu).
 export default function Chat() {
+  const { profile } = useAuth();
+  if (!profile) return null;
+  return <ChatContent />;
+}
+
+function ChatContent() {
   const { profile } = useAuth();
   const [conversations, setConversations] = useState([]);
   const [activeConv, setActiveConv] = useState(null);
@@ -94,8 +103,6 @@ export default function Chat() {
   const messagesContainerRef = useRef(null);
   const convMenuRef = useRef(null);
   const fileInputRef = useRef(null);
-
-  if (!profile) return null;
 
   const getConvInfo = (c) => {
     if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
@@ -151,7 +158,7 @@ export default function Chat() {
       const me = conv.chat_participants?.find(p => p.user_id === profile.id);
       const dbLastRead = me?.last_read_at || null;
       let localLastRead = null;
-      try { localLastRead = localStorage.getItem(`chat_read_${conv.id}`); } catch {}
+      try { localLastRead = localStorage.getItem(`chat_read_${conv.id}`); } catch { /* stockage indisponible : on ignore */ }
       let lastRead = null;
       if (dbLastRead && localLastRead) lastRead = new Date(dbLastRead) > new Date(localLastRead) ? dbLastRead : localLastRead;
       else lastRead = dbLastRead || localLastRead;
