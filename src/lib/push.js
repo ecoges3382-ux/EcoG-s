@@ -35,10 +35,13 @@ export async function subscribeToPush(profile) {
 
   const subData = JSON.parse(JSON.stringify(subscription));
 
-  // 1. On supprime l'ancien abonnement s'il existe (corrige l'erreur ON CONFLICT)
-  await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
+  // Un appareil = une ligne (endpoint unique). On ne remplace que la ligne de
+  // CET appareil : les autres appareils de la même personne (téléphone,
+  // ordinateur) restent abonnés. Avant, on effaçait toutes les lignes de la
+  // personne, donc le dernier appareil ouvert supprimait les autres.
+  await supabase.from('push_subscriptions').delete().eq('endpoint', subData.endpoint);
 
-  // 2. On insère le nouveau avec school_id (corrige l'erreur NOT NULL)
+  // On insère avec school_id (corrige l'erreur NOT NULL)
   const { error } = await supabase.from('push_subscriptions').insert({
     user_id: profile.id,
     school_id: profile.school_id,
@@ -56,7 +59,9 @@ export async function unsubscribeFromPush(profile) {
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.getSubscription();
   if (subscription) {
+    // On ne retire que cet appareil ; les autres restent abonnés.
+    const endpoint = subscription.endpoint;
     await subscription.unsubscribe();
+    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', profile.id);
   }
-  await supabase.from('push_subscriptions').delete().eq('user_id', profile.id);
 }
