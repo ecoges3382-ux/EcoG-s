@@ -10,6 +10,7 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 import GlobalSearch from '../components/GlobalSearch.jsx';
+import { startPresence, stopPresence } from '../lib/presence.js';
 import UpdateButton from '../components/UpdateButton.jsx';
 
 const SIDEBAR_ITEMS = [
@@ -157,6 +158,13 @@ export default function Shell() {
       setTheme(userTheme);
     }
   }, [profile?.id]);
+
+  // Présence « en ligne » (utilisée par la messagerie)
+  useEffect(() => {
+    if (!profile?.id || !profile?.school_id) return undefined;
+    startPresence(profile.id, profile.school_id);
+    return () => stopPresence();
+  }, [profile?.id, profile?.school_id]);
 
   useEffect(() => {
     if (profile?.id) {
