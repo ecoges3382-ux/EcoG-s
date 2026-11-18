@@ -23,6 +23,8 @@ jobs:
         with:
           version: latest
 
+      # cron-reminders est appelée par la tâche planifiée avec son propre secret (x-cron-secret), pas avec
+      # un jeton utilisateur : même règle, la vérification JWT doit rester désactivée.
       # whatsapp-webhook est appelée par Meta, qui n'envoie aucun jeton
       # Supabase : sans --no-verify-jwt, chaque déploiement réactive la
       # vérification JWT et tous ses appels sont rejetés (401). Sa sécurité
@@ -32,7 +34,7 @@ jobs:
           set -e
           for dir in supabase/functions/*/; do
             name=$(basename "$dir")
-            if [ "$name" = "whatsapp-webhook" ]; then
+            if [ "$name" = "whatsapp-webhook" ] || [ "$name" = "cron-reminders" ]; then
               supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi --no-verify-jwt
             else
               supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi

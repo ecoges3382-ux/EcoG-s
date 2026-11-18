@@ -239,11 +239,27 @@ export default function Recouvrement() {
   }, [enrichis, totaux.nbAJour]);
 
 
+  // Le serveur répond « ok » même quand WhatsApp refuse le message : il faut lire le détail
+  // pour savoir ce qui est vraiment parti, au lieu d'annoncer un succès à chaque fois.
+  function summarizeSend(response) {
+    const results = response?.results || [];
+    return {
+      sent: results.filter((r) => r.statut === 'envoye').length,
+      failed: results.filter((r) => r.statut === 'echec').length,
+      firstError: results.find((r) => r.statut === 'echec')?.erreur || null,
+    };
+  }
+
   async function handleRelance(studentId) {
     setSendingId(studentId);
     try {
-      await sendWhatsAppMessage({ type: 'relance_paiement', student_id: studentId });
-      showToast('Relance envoyée !');
+      const { sent, failed, firstError } = summarizeSend(await sendWhatsAppMessage({ type: 'relance_paiement', student_id: studentId }));
+      if (sent === 0) {
+        showToast(firstError ? `Relance non envoyée : ${firstError}` : "Relance non envoyée : aucun message n'est parti.", 'error');
+        setSendingId(null);
+        return;
+      }
+      showToast(failed > 0 ? `Relance envoyée à ${sent} parent${sent > 1 ? 's' : ''}, échec pour ${failed} : ${firstError}` : 'Relance envoyée !', failed > 0 ? 'error' : undefined);
       const { data } = await supabase
         .from('whatsapp_messages')
         .select('student_id, template_name, created_at, statut')
@@ -266,18 +282,26 @@ export default function Recouvrement() {
     if (ids.length === 0) return;
     setBulkSending(true);
     let count = 0;
-    for (const id of ids) {
+    let failedCount = 0;
+    let firstError = null;
+    for (let i = 0; i < ids.length; i++) {
       try {
-        await sendWhatsAppMessage({ type: 'relance_paiement', student_id: id });
-        count++;
-        await new Promise(r => setTimeout(r, 300));
+        const { sent, firstError: err } = summarizeSend(await sendWhatsAppMessage({ type: 'relance_paiement', student_id: ids[i] }));
+        if (sent > 0) count++;
+        else { failedCount++; firstError = firstError || err; }
       } catch (err) {
+        failedCount++;
+        firstError = firstError || err.message;
         console.error(err);
       }
+      // Pause de 2 à 4 secondes entre deux élèves : une rafale de messages identiques est le meilleur
+      // moyen de faire bloquer un numéro WhatsApp.
+      if (i < ids.length - 1) await new Promise((r) => setTimeout(r, 2000 + Math.random() * 2000));
     }
     setBulkSending(false);
     if (clearSelectionFn) clearSelectionFn();
-    showToast(`${count} relance${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} !`);
+    if (failedCount === 0) showToast(`${count} relance${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''} !`);
+    else showToast(`${count} relance${count > 1 ? 's' : ''} envoyée${count > 1 ? 's' : ''}, ${failedCount} échec${failedCount > 1 ? 's' : ''}${firstError ? ` : ${firstError}` : ''}`, 'error');
     const { data } = await supabase
       .from('whatsapp_messages')
       .select('student_id, template_name, created_at, statut')
