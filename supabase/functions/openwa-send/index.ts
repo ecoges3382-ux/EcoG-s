@@ -185,22 +185,32 @@ async function sendOpenWAText(
   }
 }
 
+// Formule de politesse et nom de l'école, ajoutés en bas de tout message envoyé aux parents.
+function withSignature(text: string, schoolName: string | null | undefined): string {
+  const name = (schoolName || '').trim();
+  const base = String(text || '').trimEnd();
+  if (!name) return `${base}\n\nMerci de votre confiance.`;
+  if (base.endsWith(name)) return base; // déjà signé
+  return `${base}\n\nMerci de votre confiance.\n${name}`;
+}
+
 type Outcome = { parent_access_id: string | null; phone: string; statut: 'envoye' | 'echec'; erreur?: string };
 
 // Écrit la ligne d'historique AVANT d'envoyer (« en_attente »), envoie, puis note le résultat réel.
 // Si l'historique ne peut pas être écrit, on n'envoie pas : un message parti sans trace est pire qu'un échec.
 // deno-lint-ignore no-explicit-any
-async function sendAndLog(adminClient: any, openwa: { base_url: string; session_id: string; api_key: string }, row: Record<string, unknown> & { destinataire_phone: string; contenu: string }): Promise<Outcome> {
+async function sendAndLog(adminClient: any, openwa: { base_url: string; session_id: string; api_key: string; school_name: string }, row: Record<string, unknown> & { destinataire_phone: string; contenu: string }): Promise<Outcome> {
   const parentId = (row.parent_access_id as string | null) ?? null;
+  const contenu = withSignature(row.contenu, openwa.school_name); // ce qui est envoyé est aussi ce qui est enregistré
   const { data: inserted, error: insertError } = await adminClient
     .from('whatsapp_messages')
-    .insert({ ...row, template_name: 'openwa_free_text', statut: 'en_attente' })
+    .insert({ ...row, contenu, template_name: 'openwa_free_text', statut: 'en_attente' })
     .select('id')
     .single();
   if (insertError || !inserted) {
     return { parent_access_id: parentId, phone: row.destinataire_phone, statut: 'echec', erreur: 'Historique indisponible, envoi annulé par prudence.' };
   }
-  const result = await sendOpenWAText(openwa, row.destinataire_phone, row.contenu);
+  const result = await sendOpenWAText(openwa, row.destinataire_phone, contenu);
   if (result.ok) {
     await adminClient.from('whatsapp_messages').update({ statut: 'envoye', updated_at: new Date().toISOString() }).eq('id', inserted.id);
     return { parent_access_id: parentId, phone: row.destinataire_phone, statut: 'envoye' };
@@ -251,7 +261,7 @@ Deno.serve(async (req) => {
     const schoolId = callerProfile.school_id as string;
 
     // Plan et état du compte de l'école
-    const { data: schoolData, error: schoolError } = await adminClient.from('schools').select('plan, statut').eq('id', schoolId).single();
+    const { data: schoolData, error: schoolError } = await adminClient.from('schools').select('plan, statut, name').eq('id', schoolId).single();
     if (schoolError || !schoolData) throw new Error('Impossible de vérifier le plan de votre école.');
     if (schoolData.plan === 'decouverte') throw new Error("Votre plan Découverte ne permet pas l'envoi de messages WhatsApp. Passez à un plan supérieur (Essentiel, Standard ou Premium).");
     if (schoolData.statut !== 'actif' && schoolData.statut !== 'essai') throw new Error('Le compte de votre école est suspendu ou résilié. Contactez le support.');
@@ -265,7 +275,7 @@ Deno.serve(async (req) => {
 
     const apiKey = Deno.env.get('OPENWA_API_KEY');
     if (!apiKey) throw new Error("La clé API OpenWA n'est pas configurée dans les secrets Supabase.");
-    const openwa = { base_url: config.base_url, session_id: config.session_id, api_key: apiKey };
+    const openwa = { base_url: config.base_url, session_id: config.session_id, api_key: apiKey, school_name: schoolData.name as string };
 
     // ---------- relance de paiement / rappel d'échéance ----------
     if (type === 'relance_paiement' || type === 'echeance') {
