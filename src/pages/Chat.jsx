@@ -61,12 +61,26 @@ function latestDate(a, b) {
   return a || b || null;
 }
 
-function Avatar({ text, color, size = 42, isGroup, online }) {
+// Même conversion que le reste de l'app : lien complet, ou chemin du stockage « photos ».
+function schoolLogoUrl(val) {
+  if (!val) return null;
+  if (val.startsWith('http')) return val;
+  return supabase.storage.from('photos').getPublicUrl(val).data.publicUrl;
+}
+
+function Avatar({ text, color, size = 42, isGroup, online, imageUrl }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => { setImgFailed(false); }, [imageUrl]);
+  const showImage = !!imageUrl && !imgFailed;
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <div style={{ width: size, height: size, borderRadius: '50%', background: isGroup ? 'var(--forest)' : color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.35 }}>
-        {text}
-      </div>
+      {showImage ? (
+        <img src={imageUrl} alt="" onError={() => setImgFailed(true)} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'contain', background: '#fff', border: '1px solid var(--line)', boxSizing: 'border-box', padding: Math.max(2, size * 0.06), display: 'block' }} />
+      ) : (
+        <div style={{ width: size, height: size, borderRadius: '50%', background: isGroup ? 'var(--forest)' : color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: size * 0.35 }}>
+          {text}
+        </div>
+      )}
       {online && <span title="En ligne" style={{ position: 'absolute', right: 0, bottom: 0, width: Math.max(10, size * 0.26), height: Math.max(10, size * 0.26), borderRadius: '50%', background: '#25D366', border: '2px solid var(--paper)', boxSizing: 'border-box' }}></span>}
     </div>
   );
@@ -463,6 +477,10 @@ function ChatContent() {
   const [menuViaTouch, setMenuViaTouch] = useState(false);
   const [highlightId, setHighlightId] = useState(null);
   const [focusSignal, setFocusSignal] = useState(0);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [renameError, setRenameError] = useState('');
   const messagesContainerRef = useRef(null);
   const dividerRef = useRef(null);
   const overlayRef = useRef(null);
@@ -479,7 +497,7 @@ function ChatContent() {
   useEffect(() => { staffRef.current = staff; }, [staff]);
 
   const getConvInfo = (c) => {
-    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true };
+    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true, imageUrl: schoolLogoUrl(profile.schools?.logo_url) };
     const other = c.chat_participants?.find(p => p.user_id !== profile.id);
     const name = other?.profiles?.full_name || 'Conversation privée';
     const role = other?.profiles?.role ? ROLES[other.profiles.role]?.label : null;
@@ -711,6 +729,19 @@ function ChatContent() {
     };
   }, [activeConv?.id]);
 
+  // Un changement de nom fait par la direction apparaît chez tout le monde sans recharger.
+  useEffect(() => {
+    const ch = supabase.channel('conv_names')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_conversations' }, (payload) => {
+        const row = payload.new;
+        if (!row?.id) return;
+        setConversations(prev => prev.map(c => (c.id === row.id ? { ...c, name: row.name } : c)));
+        setActiveConv(prev => (prev && prev.id === row.id ? { ...prev, name: row.name } : prev));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
+
   // Quand l'application redevient visible, la conversation ouverte est lue.
   const activeConvId = activeConv?.id;
   useEffect(() => {
@@ -833,6 +864,27 @@ function ChatContent() {
     scheduleScrollToBottom();
     deliver(tempId);
     return true;
+  }
+
+  function openRename() {
+    setShowConvMenu(false);
+    setRenameValue(activeConv?.name || '');
+    setRenameError('');
+    setRenameOpen(true);
+  }
+
+  async function saveRename(e) {
+    if (e) e.preventDefault();
+    if (!activeConv || renaming) return;
+    setRenaming(true);
+    setRenameError('');
+    const { data: newName, error: renameErr } = await supabase.rpc('rename_general_conversation', { p_conv: activeConv.id, p_name: renameValue });
+    setRenaming(false);
+    if (renameErr) { setRenameError(renameErr.message); return; }
+    const id = activeConv.id;
+    setConversations(prev => prev.map(c => (c.id === id ? { ...c, name: newName } : c)));
+    setActiveConv(prev => (prev && prev.id === id ? { ...prev, name: newName } : prev));
+    setRenameOpen(false);
   }
 
   function startReply(m) {
@@ -1024,7 +1076,7 @@ function ChatContent() {
           const preview = last ? (last.deleted_at ? (last.sender_id === profile.id ? 'Vous : ' : '') + '🚫 Message supprimé' : (last.file_type ? (last.file_type === 'image' ? '🖼️ Image' : '📎 Fichier') : (last.sender_id === profile.id ? 'Vous : ' : '') + last.content)) : info.subtitle;
           return (
             <div key={c.id} onClick={() => openConversation(c)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: isActive ? 'var(--cream)' : 'transparent', borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent', borderBottom: isPinned ? '1px solid var(--line)' : 'none' }} onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }} onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
-              <Avatar text={info.initials} color={info.color} size={44} isGroup={info.isGroup} online={!!info.otherId && online.has(info.otherId)} />
+              <Avatar text={info.initials} color={info.color} size={44} isGroup={info.isGroup} imageUrl={info.imageUrl} online={!!info.otherId && online.has(info.otherId)} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, flex: 1 }}>
@@ -1082,7 +1134,7 @@ function ChatContent() {
           <>
             <div style={{ padding: fullscreen ? '10px 14px' : '14px 20px', paddingTop: fullscreen ? 'calc(10px + env(safe-area-inset-top))' : undefined, borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               {isMobile && <button onClick={() => setActiveConv(null)} aria-label="Retour" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 24, padding: '4px 4px 4px 0', display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
-              <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} online={otherOnline} />
+              <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} imageUrl={info.imageUrl} online={otherOnline} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   {activeConv.type === 'general' && <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)' }}></i>}
@@ -1099,6 +1151,12 @@ function ChatContent() {
                 <button onClick={() => setShowConvMenu(v => !v)} disabled={deleting} title="Options" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, padding: 4, display: 'flex', alignItems: 'center', opacity: deleting ? 0.5 : 1 }}><i className="ti ti-dots-vertical"></i></button>
                 {showConvMenu && (
                   <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 220, zIndex: 50, overflow: 'hidden' }}>
+                    {activeConv.type === 'general' && (
+                      <button onClick={openRename} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', border: 'none', background: 'none', textAlign: 'left', borderBottom: '1px solid var(--line)' }}>
+                        <i className="ti ti-pencil" style={{ fontSize: 16 }}></i>
+                        Renommer le canal
+                      </button>
+                    )}
                     <button onClick={handleDeleteConversation} disabled={deleting} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', fontSize: 13, fontWeight: 600, color: 'var(--danger)', cursor: deleting ? 'not-allowed' : 'pointer', border: 'none', background: 'none', textAlign: 'left', opacity: deleting ? 0.5 : 1 }} onMouseEnter={e => { if (!deleting) e.currentTarget.style.background = 'var(--danger-light)'; }} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                       <i className="ti ti-trash" style={{ fontSize: 16 }}></i>
                       {activeConv.type === 'general' ? 'Effacer l\'historique' : 'Supprimer la conversation'}
@@ -1222,6 +1280,31 @@ function ChatContent() {
     );
   };
 
+  const renameDialog = renameOpen ? createPortal(
+    <div onClick={(e) => { if (e.target === e.currentTarget && !renaming) setRenameOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <form onSubmit={saveRename} role="dialog" aria-label="Renommer le canal" style={{ background: 'var(--paper)', width: '100%', maxWidth: 380, borderRadius: 16, padding: 20, boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+        <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>Renommer le canal</p>
+        <p style={{ margin: '0 0 14px', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.5 }}>Ce nom est visible par toute l'équipe. Laisse vide pour revenir à « Général ».</p>
+        <input
+          autoFocus
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          maxLength={40}
+          placeholder="Général"
+          aria-label="Nom du canal"
+          style={{ width: '100%', boxSizing: 'border-box', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--line-strong)', fontSize: 16, outline: 'none', background: 'var(--cream)', color: 'var(--ink)', fontFamily: 'inherit' }}
+        />
+        <div style={{ margin: '6px 2px 0', fontSize: 11, color: 'var(--muted)', textAlign: 'right' }}>{renameValue.length}/40</div>
+        {renameError && <p style={{ margin: '8px 0 0', fontSize: 12.5, color: 'var(--danger)' }}>{renameError}</p>}
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button type="button" onClick={() => setRenameOpen(false)} disabled={renaming} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>Annuler</button>
+          <button type="submit" disabled={renaming} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--forest-dark)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: renaming ? 'wait' : 'pointer', opacity: renaming ? 0.7 : 1 }}>{renaming ? 'Enregistrement...' : 'Enregistrer'}</button>
+        </div>
+      </form>
+    </div>,
+    document.body
+  ) : null;
+
   const actionSheet = menuMsg ? (
     <MessageActionSheet
       m={menuMsg}
@@ -1248,6 +1331,7 @@ function ChatContent() {
           document.body
         )}
         {actionSheet}
+        {renameDialog}
       </>
     );
   }
@@ -1257,6 +1341,7 @@ function ChatContent() {
       {renderConversationList()}
       {renderConversation()}
       {actionSheet}
+      {renameDialog}
     </div>
   );
 }
