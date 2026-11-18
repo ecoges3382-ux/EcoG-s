@@ -307,7 +307,14 @@ export default function Shell() {
             <SidebarMenu plan={plan} hasAccess={hasAccess} />
           </div>
           <div id="screen">
-            <div key={location.pathname} className="page-transition" style={{ paddingBottom: isChatPage ? 0 : '48px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div key={location.pathname} className="page-transition" style={{
+              paddingBottom: isChatPage ? 0 : '48px',
+              // Page normale : la hauteur suit le contenu (sinon le contenu déborde et la marge du bas est perdue,
+              // il reste alors caché sous la barre d'icônes). La messagerie, elle, doit remplir l'écran exactement.
+              flex: isChatPage ? 1 : '1 0 auto',
+              display: 'flex', flexDirection: 'column',
+              minHeight: isChatPage ? 0 : undefined,
+            }}>
               <SchoolYearGuard>
                 <Suspense fallback={<SkeletonScreen minHeight="60vh" />}>
                   <Outlet />
