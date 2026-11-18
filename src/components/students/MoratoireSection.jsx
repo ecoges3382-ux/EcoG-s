@@ -108,7 +108,7 @@ export default function MoratoireSection({ enrollment, history, canEdit, onSave 
           estActif ? (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                <span style={{ background: '#F0EDE5', color: 'var(--muted)', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 }}>Moratoire actif</span>
+                <span style={{ background: 'var(--chip-bg)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20 }}>Moratoire actif</span>
                 {enrollment.moratoire_date_fin && (
                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>fin le {new Date(enrollment.moratoire_date_fin).toLocaleDateString('fr-FR')}</span>
                 )}

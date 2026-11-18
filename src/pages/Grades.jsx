@@ -282,12 +282,12 @@ export default function Grades() {
 
               <div data-tour="grades-summary" style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ flex: '1 1 220px', background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px' }}>
-                  <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 600, color: 'var(--forest-dark)' }}>Moyenne générale</p>
-                  <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: 'var(--forest-dark)' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 600, color: 'var(--forest-dark-text)' }}>Moyenne générale</p>
+                  <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: 'var(--forest-dark-text)' }}>
                     {moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}
                   </p>
                   {moyenneGenerale != null && (
-                    <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--forest-dark)' }}>{appreciation(moyenneGenerale)}</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--forest-dark-text)' }}>{appreciation(moyenneGenerale)}</p>
                   )}
                 </div>
                 <div style={{ flex: '1 1 160px', background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '14px 18px' }}>

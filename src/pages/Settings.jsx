@@ -96,7 +96,7 @@ export default function Settings() {
       <div>
         <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Paramètres</p>
         <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
-          <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
+          <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-text)', lineHeight: 1.6 }}>
             Vous n'avez pas l'autorisation d'accéder aux paramètres de l'école. Veuillez contacter le fondateur.
           </p>
         </div>
@@ -239,7 +239,7 @@ export default function Settings() {
           </p>
           <button
             onClick={handleResetTours}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--forest)', background: 'var(--forest-light)', color: 'var(--forest-dark)', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--forest)', background: 'var(--forest-light)', color: 'var(--forest-dark-text)', cursor: 'pointer' }}
           >
             <i className="ti ti-refresh" style={{ fontSize: 15 }} aria-hidden="true"></i>
             Réinitialiser les visites guidées

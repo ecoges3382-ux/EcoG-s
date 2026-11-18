@@ -10,7 +10,7 @@ export default function HelpTooltip({ text }) {
       onMouseLeave={() => setShow(false)}
       onClick={() => setShow(!show)} // Pour le tactile (mobile)
     >
-      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--line-strong)', color: 'var(--paper)', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--help-bg)', color: 'var(--paper)', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         ?
       </span>
 
@@ -22,7 +22,7 @@ export default function HelpTooltip({ text }) {
           transform: 'translateX(-50%)',
           marginBottom: 8,
           background: 'var(--ink)',
-          color: '#fff',
+          color: 'var(--on-ink)',
           padding: '8px 12px',
           borderRadius: 8,
           fontSize: 11.5,

@@ -14,7 +14,7 @@ export default function PlanLocked({ currentPlanLabel, requiredPlanLabel, featur
   const waMessage = `Bonjour, je souhaite passer au plan ${requiredPlanLabel} d'EcoGès pour débloquer : ${featureDescription}. Pouvez-vous me donner les prochaines étapes ?`;
   return (
     <div className="card-bold" style={{ padding: '36px 24px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
-      <div style={{ width: 60, height: 60, borderRadius: 16, background: 'var(--gold-light)', color: 'var(--clay-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+      <div style={{ width: 60, height: 60, borderRadius: 16, background: 'var(--gold-light)', color: 'var(--clay-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
         <LockIcon />
       </div>
       <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>

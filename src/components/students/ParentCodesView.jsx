@@ -11,13 +11,13 @@ export default function ParentCodesView({ result, copied, copyLink, onCreated })
         {result.code && (
           <div style={{ marginBottom: 14 }}>
             <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parent 1</p>
-            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '10px', borderRadius: 10 }}>{result.code}</p>
+            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark-text)', padding: '10px', borderRadius: 10 }}>{result.code}</p>
           </div>
         )}
         {result.secondCode && (
           <div style={{ marginBottom: 14 }}>
             <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parent 2</p>
-            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark)', padding: '10px', borderRadius: 10 }}>{result.secondCode}</p>
+            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 22, fontWeight: 700, letterSpacing: '0.1em', background: 'var(--forest-light)', color: 'var(--forest-dark-text)', padding: '10px', borderRadius: 10 }}>{result.secondCode}</p>
           </div>
         )}
         {result.code && (

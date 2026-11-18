@@ -52,7 +52,7 @@ export function SimpleTable({ columns, rows }) {
   const template = columns.map((_, i) => (i === 0 ? '1.6fr' : '1fr')).join(' ');
   return (
     <div style={{ border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: template, padding: '9px 14px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: template, padding: '9px 14px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
         {columns.map((c) => <span key={c}>{c}</span>)}
       </div>
       {rows.map((row, i) => (

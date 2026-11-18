@@ -62,7 +62,7 @@ export function ConfirmProvider({ children }) {
                 type="button"
                 onClick={() => settle(true)}
                 autoFocus
-                style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: state.danger ? 'var(--danger)' : 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}
+                style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: state.danger ? 'var(--danger-solid)' : 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px' }}
               >
                 {state.confirmLabel}
               </button>

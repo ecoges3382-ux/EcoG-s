@@ -51,7 +51,7 @@ export default function SchoolYearSettings() {
 
   return (
     <div>
-      <Link to="/parametres" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
+      <Link to="/parametres" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux paramètres
       </Link>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Année scolaire</p>
@@ -75,9 +75,9 @@ export default function SchoolYearSettings() {
           className="card-bold"
           style={{ display: 'block', padding: '16px 20px', marginBottom: 16, maxWidth: 520, textDecoration: 'none', color: 'inherit', background: 'var(--gold-light)', borderColor: 'var(--gold)' }}
         >
-          <p style={{ margin: '0 0 3px', fontSize: '11.5px', fontWeight: 700, color: 'var(--clay-dark)', textTransform: 'uppercase' }}>Préparation en cours</p>
+          <p style={{ margin: '0 0 3px', fontSize: '11.5px', fontWeight: 700, color: 'var(--clay-text)', textTransform: 'uppercase' }}>Préparation en cours</p>
           <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600 }}>{preparation.label}</p>
-          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--clay-dark)', fontWeight: 600 }}>Continuer la préparation →</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--clay-text)', fontWeight: 600 }}>Continuer la préparation →</p>
         </Link>
       )}
 

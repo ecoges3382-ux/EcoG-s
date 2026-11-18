@@ -115,7 +115,7 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
     return (
       <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         Aucune classe créée pour l'instant. Crée d'abord tes classes dans l'onglet{' '}
-        <Link to="/classes" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Classes</Link>{' '}
+        <Link to="/classes" style={{ color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>Classes</Link>{' '}
         pour pouvoir configurer leur tarif ici.
       </p>
     );

@@ -56,7 +56,7 @@ export default function PaymentReceipt({
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
     }}>
-      <div className="receipt-modal-content" onClick={(e) => e.stopPropagation()} style={{
+      <div className="receipt-modal-content force-light" onClick={(e) => e.stopPropagation()} style={{
         background: '#fff', borderRadius: 14, maxWidth: 460, width: '100%', maxHeight: '90vh', overflow: 'auto',
       }}>
         <div className="receipt-screen-only" style={{ padding: '26px 24px' }}>
@@ -118,8 +118,8 @@ function ReceiptBody({ payment, studentName, classeNom, studentMatricule, school
       </div>
 
       <div style={{ background: 'var(--forest-light)', borderRadius: compact ? 5 : 10, padding: compact ? '4px 8px' : '14px 18px', marginBottom: compact ? 5 : showReste ? 10 : 18 }}>
-        <p style={{ margin: '0 0 1px', fontSize: labelFont, fontWeight: 600, color: 'var(--forest-dark)' }}>Montant reçu</p>
-        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: compact ? 14 : 22, fontWeight: 700, color: 'var(--forest-dark)' }}>{fmtF(payment.montant)}</p>
+        <p style={{ margin: '0 0 1px', fontSize: labelFont, fontWeight: 600, color: 'var(--forest-dark-text)' }}>Montant reçu</p>
+        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: compact ? 14 : 22, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{fmtF(payment.montant)}</p>
       </div>
 
       {showReste && (

@@ -110,7 +110,7 @@ export default function GlobalSearch({ onClose }) {
               style={{
                 padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
                 background: selectedIndex === index ? 'var(--forest-light)' : 'transparent',
-                color: selectedIndex === index ? 'var(--forest-dark)' : 'var(--ink)'
+                color: selectedIndex === index ? 'var(--forest-dark-text)' : 'var(--ink)'
               }}
             >
               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -122,7 +122,7 @@ export default function GlobalSearch({ onClose }) {
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</p>
                 <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{item.sub}</p>
               </div>
-              {selectedIndex === index && <i className="ti ti-corner-down-left" style={{ fontSize: 16, color: 'var(--forest)' }} aria-hidden="true"></i>}
+              {selectedIndex === index && <i className="ti ti-corner-down-left" style={{ fontSize: 16, color: 'var(--forest-text)' }} aria-hidden="true"></i>}
             </div>
           ))}
         </div>

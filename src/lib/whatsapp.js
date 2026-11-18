@@ -75,9 +75,9 @@ export const WHATSAPP_TYPE_LABELS = {
 };
 
 export const WHATSAPP_STATUT_LABELS = {
-  en_attente: { label: 'En attente', bg: '#F0EDE5', fg: 'var(--muted)' },
+  en_attente: { label: 'En attente', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   envoye: { label: 'Envoyé', bg: 'var(--success-light)', fg: 'var(--success)' },
   livre: { label: 'Livré', bg: 'var(--success-light)', fg: 'var(--success)' },
-  lu: { label: 'Lu', bg: 'var(--forest-light)', fg: 'var(--forest-dark)' },
+  lu: { label: 'Lu', bg: 'var(--forest-light)', fg: 'var(--forest-dark-text)' },
   echec: { label: 'Échec', bg: 'var(--danger-light)', fg: 'var(--danger)' },
 };

@@ -205,21 +205,21 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         {student && (
           <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Écolage dû : {fmtF(student.montant_du)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Déjà payé : {fmtF(student.montant_paye)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Connexes : {fmtF(student.frais_connexe_du)} / {fmtF(student.frais_connexe_paye)}</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Écolage dû : {fmtF(student.montant_du)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Déjà payé : {fmtF(student.montant_paye)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Connexes : {fmtF(student.frais_connexe_du)} / {fmtF(student.frais_connexe_paye)}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Reste écolage</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Reste écolage</p>
               <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 700, color: resteEcolage > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(resteEcolage)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark-text)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
             </div>
           </div>
         )}
 
         {dejaPaye && (
           <div style={{ background: 'var(--amber-light)', border: '1px solid var(--amber)', borderRadius: 9, padding: '10px 14px', marginBottom: 14 }}>
-            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-text)' }}>
               <i className="ti ti-alert-triangle" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
               Cet élève a déjà tout payé pour ce type de frais.
             </p>

@@ -54,7 +54,7 @@ export default function ForgotPassword() {
               Si un compte existe avec l'adresse <strong>{email.trim()}</strong>, un e-mail vient d'être envoyé avec un lien
               pour choisir un nouveau mot de passe. Vérifie aussi tes spams.
             </p>
-            <Link to="/connexion" style={{ color: 'var(--forest)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>Retour à la connexion</Link>
+            <Link to="/connexion" style={{ color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>Retour à la connexion</Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '26px 24px' }}>
@@ -85,7 +85,7 @@ export default function ForgotPassword() {
         )}
 
         <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
-          <Link to="/connexion" style={{ color: 'var(--forest)', fontWeight: 600 }}>Retour à la connexion</Link>
+          <Link to="/connexion" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Retour à la connexion</Link>
         </p>
       </div>
     </div>

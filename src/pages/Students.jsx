@@ -24,7 +24,7 @@ function statusOf(s, schoolYear, feeSchedule) {
     return { label: `Moratoire — ${relance.joursRestantsMoratoire}j`, bg: 'var(--amber-light)', fg: 'var(--amber)' };
   }
   if (relance.moratoire) {
-    return { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' };
+    return { label: 'Moratoire', bg: 'var(--chip-bg)', fg: 'var(--muted)' };
   }
   const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe));
   if (calendrierConfigure) {
@@ -440,7 +440,7 @@ export default function Students() {
         <div style={{ minWidth: selectMode ? 1100 : 1060 }}>
           
           {/* 👇 EN-TÊTE DU TABLEAU (zIndex 3 pour la colonne figée) 👇 */}
-          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20, zIndex: 4 }}>Élève</span>
             <span>Matricule</span>
@@ -468,7 +468,7 @@ export default function Students() {
                 >
                   {/* 👇 CELLULE DU NOM FIGÉE ET OPAQUE (zIndex 2) 👇 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20, zIndex: 2 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--forest-text)', flexShrink: 0, overflow: 'hidden' }}>
                       {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
                     </div>
                     <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3 }}>

@@ -12,7 +12,7 @@ function ChevronDown() {
 }
 function CheckCircle() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--forest)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--forest-text)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <circle cx="12" cy="12" r="10" /><path d="M9 12l2 2 4-4" />
     </svg>
   );
@@ -33,7 +33,7 @@ function Section({ title, icon, children }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ color: 'var(--forest)', display: 'flex' }}>{icon}</div>
+          <div style={{ color: 'var(--forest-text)', display: 'flex' }}>{icon}</div>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', fontFamily: 'var(--serif)' }}>{title}</span>
         </div>
         <div style={{ color: 'var(--muted)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>

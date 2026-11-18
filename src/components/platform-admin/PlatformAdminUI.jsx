@@ -27,7 +27,7 @@ export const STATUT_LABELS = {
 };
 
 export const PLAN_LABELS = {
-  decouverte: { label: 'Découverte', bg: '#F0EDE5', fg: '#5C6E65' },
+  decouverte: { label: 'Découverte', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   essentiel: { label: 'Essentiel', bg: '#E4EEE9', fg: '#0F4C3A' },
   standard: { label: 'Standard', bg: '#FBF1DD', fg: '#A5680E' },
   premium: { label: 'Premium', bg: '#F0E4FA', fg: '#6B2E9E' },

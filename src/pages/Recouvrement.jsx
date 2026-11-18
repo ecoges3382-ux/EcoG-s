@@ -20,7 +20,7 @@ const STATUT_RECOUVREMENT = {
   a_relancer: { label: 'À relancer', bg: 'var(--danger-light)', fg: 'var(--danger)' },
   dans_les_delais: { label: 'Dans les délais', bg: 'var(--amber-light)', fg: 'var(--amber)' },
   solde_restant: { label: 'Solde restant', bg: 'var(--amber-light)', fg: 'var(--amber)' },
-  moratoire: { label: 'Moratoire', bg: '#F0EDE5', fg: 'var(--muted)' },
+  moratoire: { label: 'Moratoire', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   moratoire_expirant: { label: 'Moratoire (fin proche)', bg: 'var(--amber-light)', fg: 'var(--amber)' },
 };
 
@@ -497,7 +497,7 @@ export default function Recouvrement() {
 
         <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 350, overflowY: 'auto' }}>
           <div style={{ minWidth: 980 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 1fr 1fr 1.2fr 90px', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
               <span style={{ position: 'sticky', left: 0, zIndex: 21, backgroundColor: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
                 <input
                   type="checkbox"
@@ -549,7 +549,7 @@ export default function Recouvrement() {
                       </span>
                     </span>
                   ) : (
-                    <span style={{ background: '#F0EDE5', color: 'var(--muted)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
+                    <span style={{ background: 'var(--chip-bg)', color: 'var(--muted)', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 20, width: 'fit-content' }}>
                       ⏳ Jamais relancé
                     </span>
                   )}
@@ -559,7 +559,7 @@ export default function Recouvrement() {
                   <button
                     onClick={() => handleRelance(s.id)}
                     disabled={sendingId === s.id || bulkSending}
-                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: '1px solid #25D366', background: 'var(--paper)', color: '#0A7A4F', cursor: (sendingId === s.id || bulkSending) ? 'default' : 'pointer', opacity: (sendingId === s.id || bulkSending) ? 0.5 : 1 }}
+                    style={{ fontSize: 11, fontWeight: 600, padding: '5px 10px', borderRadius: 6, border: '1px solid #25D366', background: 'var(--paper)', color: 'var(--wa-text)', cursor: (sendingId === s.id || bulkSending) ? 'default' : 'pointer', opacity: (sendingId === s.id || bulkSending) ? 0.5 : 1 }}
                   >
                     {sendingId === s.id ? '…' : (s.derniereManuelle ? 'Relancer à nouveau' : 'Relancer')}
                   </button>
@@ -590,7 +590,7 @@ export default function Recouvrement() {
 
           <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
             <div style={{ minWidth: 860 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px 12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1.2fr 1.2fr', gap: 8, padding: '12px 20px 12px 20px', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
                 <span style={{ position: 'sticky', left: 0, zIndex: 21, backgroundColor: 'var(--forest-light)', display: 'flex', alignItems: 'center', height: '100%', width: '100%' }}>Élève</span>
                 <span>Total Dû</span>
                 <span>Échéance</span>
@@ -610,7 +610,7 @@ export default function Recouvrement() {
                     {fmtF(s.resteEcolage + s.resteConnexe)}
                   </span>
                   <div>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--clay-dark)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--clay-text)' }}>
                       {s.echeanceProche.label}
                     </span>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--muted)' }}>
@@ -704,7 +704,7 @@ export default function Recouvrement() {
 
       <div className="card-bold" style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 380px)', overflowY: 'auto' }}>
         <div style={{ minWidth: 860 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '50px 1.6fr 1fr 0.9fr 1fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', position: 'sticky', top: 0, zIndex: 20 }}>
             <span style={{ position: 'sticky', left: 0, zIndex: 21, backgroundColor: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
               <input
                 type="checkbox"
@@ -775,8 +775,8 @@ export default function Recouvrement() {
 
       <div data-tour="recouvrement-synthese" className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest)' }} aria-hidden="true"></i>
-          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark)' }}>
+          <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest-text)' }} aria-hidden="true"></i>
+          <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark-text)' }}>
             Synthèse globale — écolage + connexes
           </p>
         </div>

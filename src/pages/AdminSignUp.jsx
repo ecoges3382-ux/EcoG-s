@@ -110,7 +110,7 @@ export default function AdminSignUp() {
         </form>
 
         <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
-          <Link to="/connexion" style={{ color: 'var(--forest)', fontWeight: 600 }}>Retour à la connexion</Link>
+          <Link to="/connexion" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Retour à la connexion</Link>
         </p>
       </div>
     </div>

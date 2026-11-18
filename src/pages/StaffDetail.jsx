@@ -112,12 +112,12 @@ export default function StaffDetail() {
 
   return (
     <div>
-      <Link to="/personnel" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
+      <Link to="/personnel" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour au personnel
       </Link>
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22, flexWrap: 'wrap' }}>
-        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--forest)', overflow: 'hidden' }}>
+        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--forest-text)', overflow: 'hidden' }}>
           {person.photo_url ? <img src={person.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(person.full_name)}
         </div>
         <div>
@@ -339,10 +339,10 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaireMensuel, salaries,
 
       {canManage && avanceTotale > 0 && (
         <div style={{ background: 'var(--amber-light)', padding: '10px 14px', borderRadius: 8, marginBottom: 14, border: '1px solid var(--amber)' }}>
-          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>
+          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-text)' }}>
             Avance à déduire : {fmtF(avanceTotale)}
           </p>
-          <p style={{ margin: '3px 0 0', fontSize: 11.5, color: 'var(--clay-dark)', lineHeight: 1.5 }}>
+          <p style={{ margin: '3px 0 0', fontSize: 11.5, color: 'var(--clay-text)', lineHeight: 1.5 }}>
             Le montant ci-dessous a été pré-rempli avec le net à verser. L'avance sera soldée automatiquement à l'enregistrement.
           </p>
         </div>
@@ -374,7 +374,7 @@ function SalariesCard({ staffId, schoolId, schoolYear, salaireMensuel, salaries,
 const ADVANCE_STATUS = {
   approuvee: { label: 'Approuvée', bg: 'var(--success-light)', fg: 'var(--success)' },
   refusee: { label: 'Refusée', bg: 'var(--danger-light)', fg: 'var(--danger)' },
-  attente_directeur: { label: 'Attente directeur', bg: 'var(--gold-light)', fg: 'var(--clay-dark)' },
+  attente_directeur: { label: 'Attente directeur', bg: 'var(--gold-light)', fg: 'var(--clay-text)' },
   attente_fondateur: { label: 'Attente fondateur', bg: 'var(--amber-light)', fg: 'var(--amber)' },
 };
 
@@ -409,7 +409,7 @@ function AdvancesCard({ advances }) {
       )}
       {enCours.length > 0 && (
         <p style={{ margin: '12px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
-          Approuver ou refuser une demande se fait depuis <Link to="/argent" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Argent → Avances sur salaire</Link>.
+          Approuver ou refuser une demande se fait depuis <Link to="/argent" style={{ color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>Argent → Avances sur salaire</Link>.
         </p>
       )}
     </div>

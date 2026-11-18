@@ -17,8 +17,8 @@ export default function SchoolYearSelector() {
       onChange={selectYear}
       options={selectableYears.map((y) => ({ value: y.id, label: `${y.label}${y.is_current ? '' : ' · clôturée'}` }))}
       title={isHistorical ? `Consultation de ${selectedYear?.label} (clôturée)` : `Année en cours : ${selectedYear?.label}`}
-      textColor={isHistorical ? 'var(--clay-dark)' : '#fff'}
-      chevronColor={isHistorical ? 'var(--clay-dark)' : 'rgba(255,255,255,0.75)'}
+      textColor={isHistorical ? 'var(--clay-text)' : '#fff'}
+      chevronColor={isHistorical ? 'var(--clay-text)' : 'rgba(255,255,255,0.75)'}
       style={{
         fontSize: '12.5px', fontWeight: 600, padding: '7px 10px', borderRadius: 20,
         border: 'none',

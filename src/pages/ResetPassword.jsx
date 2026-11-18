@@ -73,7 +73,7 @@ export default function ResetPassword() {
             <p style={{ margin: '0 0 16px', fontSize: 13.5, color: 'var(--danger)', fontWeight: 600 }}>
               Ce lien de réinitialisation est invalide ou a expiré.
             </p>
-            <Link to="/mot-de-passe-oublie" style={{ color: 'var(--forest)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>Redemander un lien</Link>
+            <Link to="/mot-de-passe-oublie" style={{ color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>Redemander un lien</Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '26px 24px' }}>

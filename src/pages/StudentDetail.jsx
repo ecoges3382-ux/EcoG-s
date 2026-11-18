@@ -190,7 +190,7 @@ export default function StudentDetail() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-        <Link to="/eleves" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+        <Link to="/eleves" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
           <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux élèves
         </Link>
         
@@ -210,14 +210,14 @@ export default function StudentDetail() {
       {offline && <OfflineBanner />}
       
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
-        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden' }}>
+        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-text)', overflow: 'hidden' }}>
           {student.photo_url ? <img src={student.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(student.full_name)}
         </div>
         <div>
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{student.full_name}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>{enrollment?.classes?.nom || 'Aucune classe cette année'}</span>
-            {relance?.moratoire && <span style={{ background: '#F0EDE5', color: 'var(--muted)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire</span>}
+            {relance?.moratoire && <span style={{ background: 'var(--chip-bg)', color: 'var(--muted)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire</span>}
             {relance?.moratoireExpirant && <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire — {relance.joursRestantsMoratoire}j restants</span>}
             {relance?.relance && <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>À relancer</span>}
           </div>
@@ -262,7 +262,7 @@ export default function StudentDetail() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>{p.mode}</span>
-                  <button type="button" onClick={() => setReceiptPayment(p)} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                  <button type="button" onClick={() => setReceiptPayment(p)} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest-text)', cursor: 'pointer', padding: 4, display: 'flex' }}>
                     <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
                   </button>
                 </div>
@@ -282,7 +282,7 @@ export default function StudentDetail() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Parent{parents?.length > 1 ? 's' : ''}</p>
-        <Link to="/comptes" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', textDecoration: 'none' }}>
+        <Link to="/comptes" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-text)', textDecoration: 'none' }}>
           + Gérer les parents
         </Link>
       </div>

@@ -183,7 +183,7 @@ export default function AbsencesPanel({ studentId, studentName, classeNom, stude
           <button
             type="button"
             onClick={() => { setEditingAbsence(null); setAbsenceModalOpen(true); }}
-            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--danger)', color: '#fff', cursor: 'pointer' }}
+            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--danger-solid)', color: '#fff', cursor: 'pointer' }}
           >
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
             Ajouter une absence
@@ -191,7 +191,7 @@ export default function AbsencesPanel({ studentId, studentName, classeNom, stude
           <button
             type="button"
             onClick={() => { setEditingLate(null); setLateModalOpen(true); }}
-            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--amber)', color: '#fff', cursor: 'pointer' }}
+            style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--amber-solid)', color: '#fff', cursor: 'pointer' }}
           >
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
             Ajouter un retard
@@ -207,7 +207,7 @@ export default function AbsencesPanel({ studentId, studentName, classeNom, stude
       ) : (
         <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 20, maxWidth: 900 }}>
           <div style={{ minWidth: 720 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 80px 100px 130px 70px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 80px 100px 130px 70px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
               <span>Date</span>
               <span>Motif</span>
               <span>Durée</span>
@@ -248,7 +248,7 @@ export default function AbsencesPanel({ studentId, studentName, classeNom, stude
       ) : (
         <div className="card-bold" style={{ overflowX: 'auto', marginBottom: 20, maxWidth: 900 }}>
           <div style={{ minWidth: 720 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '110px 70px 80px 1fr 1fr 70px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 70px 80px 1fr 1fr 70px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
               <span>Date</span>
               <span>Début</span>
               <span>Durée</span>
@@ -359,7 +359,7 @@ function AbsencesPrintModal({ school, studentName, classeNom, studentMatricule, 
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={onClose}
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, maxWidth: 780, width: '100%', maxHeight: '92vh', overflow: 'auto' }}>
+      <div className="force-light" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, maxWidth: 780, width: '100%', maxHeight: '92vh', overflow: 'auto' }}>
         <div className="print-sheet" style={{ padding: '26px 24px' }}>
           <DocumentHeader school={school} title="Récapitulatif absences et retards" subtitle={periodeLabel} />
 
@@ -454,4 +454,4 @@ function AbsencesPrintModal({ school, studentName, classeNom, studentMatricule, 
   );
 }
 
-const iconBtnStyle = { background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const iconBtnStyle = { background: 'none', border: 'none', color: 'var(--forest-text)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' };

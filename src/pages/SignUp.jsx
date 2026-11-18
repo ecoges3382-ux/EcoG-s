@@ -145,7 +145,7 @@ export default function SignUp() {
             créer votre école.
           </p>
           {confirmationError && <p style={{ color: 'var(--danger)', fontSize: 12.5, fontWeight: 600 }}>{confirmationError}</p>}
-          <button type="button" onClick={handleResendConfirmation} disabled={resending} style={{ background: 'none', border: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', marginBottom: 14 }}>
+          <button type="button" onClick={handleResendConfirmation} disabled={resending} style={{ background: 'none', border: 'none', color: 'var(--forest-text)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer', marginBottom: 14 }}>
             {resending ? 'Envoi…' : 'Renvoyer l’e-mail de confirmation'}
           </button>
           <ConfirmationFooterLinks onNewSchool={() => setSent(false)} />
@@ -184,7 +184,7 @@ export default function SignUp() {
             type="button"
             onClick={handleResendOtp}
             disabled={resending}
-            style={{ display: 'block', margin: '14px auto 0', background: 'none', border: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}
+            style={{ display: 'block', margin: '14px auto 0', background: 'none', border: 'none', color: 'var(--forest-text)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}
           >
             {resending ? 'Envoi…' : 'Renvoyer le code'}
           </button>
@@ -268,7 +268,7 @@ export default function SignUp() {
         </form>
 
         <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
-          Déjà inscrit ? <Link to="/connexion" style={{ color: 'var(--forest)', fontWeight: 600 }}>Se connecter</Link>
+          Déjà inscrit ? <Link to="/connexion" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Se connecter</Link>
         </p>
       </div>
     </div>
@@ -287,12 +287,12 @@ const inputStyle = {
 function ConfirmationFooterLinks({ onNewSchool }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', fontSize: '12.5px' }}>
-      <Link to="/connexion" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
+      <Link to="/connexion" style={{ color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>Se connecter</Link>
       <span style={{ color: 'var(--muted)' }}>·</span>
       <button
         type="button"
         onClick={onNewSchool}
-        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}
+        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest-text)', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer' }}
       >
         Créer une nouvelle école
       </button>

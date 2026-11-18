@@ -55,7 +55,7 @@ export default function TodaySection({ activeYear, students }) {
       <div className="card-bold" style={{ padding: '20px 22px', maxWidth: 640 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>Priorité du jour</p>
-          <Link to="/recouvrement?statut=avec_solde" style={{ fontSize: '12.5px', color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>{enRetard.length} élèves →</Link>
+          <Link to="/recouvrement?statut=avec_solde" style={{ fontSize: '12.5px', color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>{enRetard.length} élèves →</Link>
         </div>
         {!students ? <SkeletonRow count={3} /> : null}
         {students && enRetard.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Aucun retard de paiement.</p>}
@@ -66,7 +66,7 @@ export default function TodaySection({ activeYear, students }) {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: i < enRetard.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 600, color: 'var(--clay-text)', flexShrink: 0 }}>
                 {initials(s.full_name)}
               </div>
               <div>

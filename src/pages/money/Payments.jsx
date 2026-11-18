@@ -197,7 +197,7 @@ export default function Payments() {
           />
         )}
         <div>
-          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600, color: selectMode ? 'inherit' : 'var(--forest)' }}>
+          <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600, color: selectMode ? 'inherit' : 'var(--forest-text)' }}>
             {p.students?.full_name || '—'}
           </p>
           <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>
@@ -214,7 +214,7 @@ export default function Payments() {
         </div>
         {!selectMode && (
           <>
-            <button type="button" onClick={(e) => { e.stopPropagation(); setReceiptPayment(p); }} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setReceiptPayment(p); }} title="Imprimer le reçu" style={{ background: 'none', border: 'none', color: 'var(--forest-text)', cursor: 'pointer', padding: 4, display: 'flex' }}>
               <i className="ti ti-receipt" style={{ fontSize: 17 }} aria-hidden="true"></i>
             </button>
             {canManage && (
@@ -483,21 +483,21 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
         {currentStudent && (
           <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Écolage dû : {fmtF(currentStudent.montant_du)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Déjà payé : {fmtF(currentStudent.montant_paye)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark)' }}>Connexes : {fmtF(currentStudent.frais_connexe_du)} / {fmtF(currentStudent.frais_connexe_paye)}</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Écolage dû : {fmtF(currentStudent.montant_du)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Déjà payé : {fmtF(currentStudent.montant_paye)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Connexes : {fmtF(currentStudent.frais_connexe_du)} / {fmtF(currentStudent.frais_connexe_paye)}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark)', fontWeight: 600 }}>Reste écolage</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Reste écolage</p>
               <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 700, color: resteEcolage > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(resteEcolage)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark-text)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
             </div>
           </div>
         )}
 
         {dejaPaye && (
           <div style={{ background: 'var(--amber-light)', border: '1px solid var(--amber)', borderRadius: 9, padding: '10px 14px', marginBottom: 14 }}>
-            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-dark)' }}>Cet élève a déjà tout payé pour ce type de frais.</p>
+            <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: 'var(--clay-text)' }}>Cet élève a déjà tout payé pour ce type de frais.</p>
           </div>
         )}
 

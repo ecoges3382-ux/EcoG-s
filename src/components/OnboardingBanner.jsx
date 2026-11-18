@@ -115,8 +115,8 @@ export default function OnboardingBanner() {
         {/* Côté droit : Barre de progression et liste */}
         <div style={{ flex: '1 1 250px', background: 'var(--paper)', padding: '16px 20px', borderRadius: 12, border: '1px solid var(--line)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>Progression</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest)' }}>{completedCount} / {totalSteps}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>Progression</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest-text)' }}>{completedCount} / {totalSteps}</span>
           </div>
           
           <div style={{ height: 6, background: 'var(--line)', borderRadius: 4, overflow: 'hidden', marginBottom: 16 }}>

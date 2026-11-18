@@ -29,7 +29,7 @@ export default class ErrorBoundary extends Component {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, textAlign: 'center', background: 'var(--cream, #FAF8F4)' }}>
         <div style={{ maxWidth: 420 }}>
-          <p style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 600, marginBottom: 10, color: '#1A2E27' }}>
+          <p style={{ fontFamily: 'Georgia, serif', fontSize: 20, fontWeight: 600, marginBottom: 10, color: 'var(--ink, #1A2E27)' }}>
             Une erreur est survenue
           </p>
           <p style={{ color: '#6B7A73', fontSize: 14, lineHeight: 1.6, marginBottom: 18 }}>
