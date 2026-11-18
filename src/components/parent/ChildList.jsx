@@ -1,3 +1,4 @@
+import SchoolLogo from '../SchoolLogo.jsx';
 import { fmtF, initials } from '../../lib/utils.js';
 import { computeEcheances } from '../../lib/retard.js';
 import { toCalcEnrollment } from '../../lib/parentPortal.js';
@@ -42,6 +43,14 @@ export default function ChildList({ summary, offline, changeCode, openStudent })
   return (
     <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--cream)' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 100px' }}>
+        {summary.school?.name && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', color: 'var(--clay-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 13, fontWeight: 700, overflow: 'hidden', flexShrink: 0 }}>
+              <SchoolLogo url={summary.school.logo_url} name={summary.school.name} />
+            </div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary.school.name}</p>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 600 }}>Bonjour, {summary.full_name}</p>
           <button onClick={changeCode} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Changer de code</button>
