@@ -1,6 +1,57 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
-import { guardedFetch } from './offlineCache.js';
+import { guardedFetch, saveCache } from './offlineCache.js';
+
+// Charge les inscriptions d'une année (élèves, classes, frais). Utilisé par la page
+// et par le préchargement en arrière-plan.
+export async function loadEnrollments(schoolYear) {
+  const [{ data, error: e }, { data: fees }] = await Promise.all([
+    supabase
+      .from('enrollments')
+      .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )')
+      .eq('school_year_id', schoolYear.id),
+    supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
+  ]);
+  if (e) return { error: e };
+  const feeByNiveau = {};
+  (fees || []).forEach((f) => { feeByNiveau[f.niveau] = f; });
+  return {
+    data: (data || []).map((en) => ({
+      id: en.students.id,
+      full_name: en.students.full_name,
+      matricule: en.students.matricule,
+      photo_url: en.students.photo_url,
+      sexe: en.students.sexe,
+      niveau: en.classes?.nom || '—',
+      classeId: en.classe_id,
+      classeNiveau: en.classes?.niveau || null,
+      feeSchedule: en.classes?.niveau ? feeByNiveau[en.classes.niveau] : undefined,
+      montant_du: en.montant_du,
+      montant_paye: en.montant_paye,
+      frais_connexe_du: en.frais_connexe_du,
+      frais_connexe_paye: en.frais_connexe_paye,
+      note_arrangement: en.note_arrangement,
+      moratoire_actif: en.moratoire_actif,
+      moratoire_montant_convenu: en.moratoire_montant_convenu,
+      moratoire_nb_mensualites: en.moratoire_nb_mensualites,
+      moratoire_date_debut: en.moratoire_date_debut,
+      moratoire_date_fin: en.moratoire_date_fin,
+      moratoire_motif: en.moratoire_motif,
+      moratoire_prochaine_echeance: en.moratoire_prochaine_echeance,
+      statut: en.statut,
+    })),
+  };
+}
+
+// Remplit le cache local en arrière-plan : à la première visite, la page s'affiche
+// tout de suite avec ces données, puis se met à jour.
+export async function prefetchEnrollments(schoolYear) {
+  if (!schoolYear) return;
+  try {
+    const { data, error } = await loadEnrollments(schoolYear);
+    if (!error && data) await saveCache(`enrollments_${schoolYear.id}`, data);
+  } catch { /* préchargement : sans importance si ça échoue */ }
+}
 
 export function useEnrollmentsForYear(schoolYear) {
   const [students, setStudents] = useState(null);
@@ -20,44 +71,7 @@ export function useEnrollmentsForYear(schoolYear) {
       // version du jour n'arrive — incohérent avec le reste de l'appli
       // (Staff.jsx, Payments, etc. utilisent tous `xxx !== null`).
       hasData: students !== null,
-      load: async () => {
-        const [{ data, error: e }, { data: fees }] = await Promise.all([
-          supabase
-            .from('enrollments')
-            .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )')
-            .eq('school_year_id', schoolYear.id),
-          supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
-        ]);
-        if (e) return { error: e };
-        const feeByNiveau = {};
-        (fees || []).forEach((f) => { feeByNiveau[f.niveau] = f; });
-        return {
-          data: (data || []).map((en) => ({
-            id: en.students.id,
-            full_name: en.students.full_name,
-            matricule: en.students.matricule,
-            photo_url: en.students.photo_url,
-            sexe: en.students.sexe,
-            niveau: en.classes?.nom || '—',
-            classeId: en.classe_id,
-            classeNiveau: en.classes?.niveau || null,
-            feeSchedule: en.classes?.niveau ? feeByNiveau[en.classes.niveau] : undefined,
-            montant_du: en.montant_du,
-            montant_paye: en.montant_paye,
-            frais_connexe_du: en.frais_connexe_du,
-            frais_connexe_paye: en.frais_connexe_paye,
-            note_arrangement: en.note_arrangement,
-            moratoire_actif: en.moratoire_actif,
-            moratoire_montant_convenu: en.moratoire_montant_convenu,
-            moratoire_nb_mensualites: en.moratoire_nb_mensualites,
-            moratoire_date_debut: en.moratoire_date_debut,
-            moratoire_date_fin: en.moratoire_date_fin,
-            moratoire_motif: en.moratoire_motif,
-            moratoire_prochaine_echeance: en.moratoire_prochaine_echeance,
-            statut: en.statut,
-          })),
-        };
-      },
+      load: () => loadEnrollments(schoolYear),
       setData: setStudents,
       setOffline,
       onError: (e) => setError(e.message),

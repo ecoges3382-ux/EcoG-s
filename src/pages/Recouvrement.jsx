@@ -3,10 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, downloadCsv, TYPES_FRAIS } from '../lib/utils.js';
+import { fmtF, downloadCsv } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { computeRelance } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
+import { guardedFetch } from '../lib/offlineCache.js';
+import { getInscriptionTypeId, inscriptionsCacheKey, remindersCacheKey, loadInscriptions, loadReminders } from '../lib/recouvrementData.js';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
@@ -79,57 +81,36 @@ export default function Recouvrement() {
     setSearchParams(newParams, { replace: true });
   }
 
-  const inscriptionTypeId = TYPES_FRAIS.find(
-    (t) => /inscription/i.test(t.id || '') || /inscription/i.test(t.label || ''),
-  )?.id;
+  const inscriptionTypeId = getInscriptionTypeId();
 
+  // Même principe que les autres pages : on affiche tout de suite la dernière version
+  // gardée en mémoire, puis on la met à jour dès que le serveur répond.
   useEffect(() => {
-    if (!schoolYear) return;
-    if (!inscriptionTypeId) { setInscriptionByStudent({}); return; }
+    if (!schoolYear) return undefined;
+    if (!inscriptionTypeId) { setInscriptionByStudent({}); return undefined; }
     let cancelled = false;
-    supabase
-      .from('payments')
-      .select('student_id, montant')
-      .eq('school_year_id', schoolYear.id)
-      .eq('type_frais', inscriptionTypeId)
-      .then(({ data }) => {
-        if (cancelled) return;
-        const map = {};
-        (data || []).forEach((p) => {
-          map[p.student_id] = (map[p.student_id] || 0) + Number(p.montant);
-        });
-        setInscriptionByStudent(map);
-      });
+    guardedFetch({
+      cacheKey: inscriptionsCacheKey(schoolYear.id),
+      hasData: false,
+      load: () => loadInscriptions(schoolYear.id, inscriptionTypeId),
+      setData: setInscriptionByStudent,
+      // Sans réponse du serveur et sans copie en mémoire : comme avant, on affiche sans inscriptions.
+      onError: () => setInscriptionByStudent({}),
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [schoolYear?.id, inscriptionTypeId]);
 
   useEffect(() => {
-    if (!schoolYear) return;
+    if (!schoolYear) return undefined;
     let cancelled = false;
-    supabase
-      .from('whatsapp_messages')
-      .select('student_id, template_name, created_at, statut')
-      .eq('school_id', profile.school_id)
-      .eq('type', 'relance_paiement')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const autoMap = {};
-        const manualMap = {};
-        (data || []).forEach((m) => {
-          const isAuto = m.template_name && m.template_name.startsWith('rappel_j');
-          if (isAuto) {
-            if (!autoMap[m.student_id]) autoMap[m.student_id] = [];
-            autoMap[m.student_id].push(m);
-          } else {
-            if (!manualMap[m.student_id] && m.statut === 'envoye') {
-              manualMap[m.student_id] = m;
-            }
-          }
-        });
-        setRemindersByStudent(autoMap);
-        setManualRemindersByStudent(manualMap);
-      });
+    guardedFetch({
+      cacheKey: remindersCacheKey(profile.school_id),
+      hasData: false,
+      load: () => loadReminders(profile.school_id),
+      setData: ({ auto, manual }) => { setRemindersByStudent(auto); setManualRemindersByStudent(manual); },
+      isCancelled: () => cancelled,
+    });
     return () => { cancelled = true; };
   }, [schoolYear?.id, profile.school_id]);
 
