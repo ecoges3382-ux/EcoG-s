@@ -7,6 +7,7 @@ import UpdateButton from '../components/UpdateButton.jsx';
 // Sous-composants
 import { 
   callPlatformAdmin, 
+  ROLE_LABELS,
   BuildingIcon, 
   UsersIcon, 
   IdIcon, 
@@ -79,14 +80,31 @@ function GlobalSearchBar({ onSelectSchool }) {
         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--paper)', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,0.3)', maxHeight: 400, overflowY: 'auto', zIndex: 20 }}>
           {loading && <p style={{ padding: 16, margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Recherche…</p>}
           {!loading && !hasResults && <p style={{ padding: 16, margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>Aucun résultat.</p>}
+          {!loading && results?.schools?.length > 0 && <p style={searchGroupStyle}>Écoles</p>}
           {!loading && results?.schools?.map((s) => (
             <button key={s.id} type="button" onClick={() => handleSelect(s.id)} style={searchItemStyle}><div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div></button>
+          ))}
+          {/* Personnel et parents : un clic ouvre l'école concernée. */}
+          {!loading && results?.staff?.length > 0 && <p style={searchGroupStyle}>Personnel</p>}
+          {!loading && results?.staff?.map((m) => (
+            <button key={m.id} type="button" onClick={() => handleSelect(m.school_id)} style={searchItemStyle}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{m.full_name} <span style={{ fontWeight: 400, color: 'var(--muted)' }}>· {ROLE_LABELS[m.role] || m.role}</span></div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{[m.schools?.name, m.email || m.phone].filter(Boolean).join(' · ')}</div>
+            </button>
+          ))}
+          {!loading && results?.parents?.length > 0 && <p style={searchGroupStyle}>Parents</p>}
+          {!loading && results?.parents?.map((m) => (
+            <button key={m.id} type="button" onClick={() => handleSelect(m.school_id)} style={searchItemStyle}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{m.full_name}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{[m.schools?.name, m.phone].filter(Boolean).join(' · ')}</div>
+            </button>
           ))}
         </div>
       )}
     </div>
   );
 }
+const searchGroupStyle = { margin: 0, padding: '8px 14px 4px', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--chip-bg)' };
 const searchItemStyle = { display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--ink)', borderBottom: '1px solid var(--line)' };
 
 export default function PlatformAdmin() {

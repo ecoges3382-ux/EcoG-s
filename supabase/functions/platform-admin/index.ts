@@ -21,14 +21,14 @@ async function logAction(
   adminClient: any,
   adminUserId: string,
   action: string,
-  opts: { schoolId?: string | null; targetProfileId?: string | null; targetLabel?: string | null; details?: string | null } = {},
+  opts: { schoolId?: string | null; schoolName?: string | null; targetProfileId?: string | null; targetLabel?: string | null; details?: string | null } = {},
 ) {
-  let schoolName: string | null = null;
-  if (opts.schoolId) {
+  let schoolName: string | null = opts.schoolName || null;
+  if (!schoolName && opts.schoolId) {
     const { data } = await adminClient.from('schools').select('name').eq('id', opts.schoolId).maybeSingle();
     schoolName = data?.name || null;
   }
-  await adminClient.from('platform_admin_actions').insert({
+  const { error: insertError } = await adminClient.from('platform_admin_actions').insert({
     admin_user_id: adminUserId,
     action,
     school_id: opts.schoolId || null,
@@ -37,6 +37,8 @@ async function logAction(
     target_label: opts.targetLabel || null,
     details: opts.details || null,
   });
+  // Un journal qui perd des lignes sans rien dire n'est plus une preuve : au minimum, l'échec est visible dans les logs.
+  if (insertError) console.error(`[platform-admin] journal non écrit (${action}) :`, insertError.message);
 }
 
 Deno.serve(async (req) => {
@@ -132,17 +134,29 @@ Deno.serve(async (req) => {
         throw new Error("Ton propre compte fait partie du personnel de cette école — la supprimer supprimerait aussi ton compte.");
       }
 
+      // 1. Les comptes du personnel. Si l'un d'eux ne peut pas être supprimé, on s'arrête AVANT de toucher à l'école :
+      //    rien n'est perdu, et la suppression peut être relancée (les comptes déjà supprimés n'y sont plus).
+      const failedAccounts: string[] = [];
       for (const p of staffProfiles || []) {
-        await adminClient.auth.admin.deleteUser(p.id);
+        const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(p.id);
+        if (deleteUserError) failedAccounts.push(p.id);
+      }
+      if (failedAccounts.length > 0) {
+        throw new Error(`Suppression interrompue : ${failedAccounts.length} compte(s) du personnel n'ont pas pu être supprimés. L'école n'a pas été supprimée, tu peux réessayer.`);
       }
 
+      // 2. L'école elle-même.
+      const { error: deleteError } = await adminClient.from('schools').delete().eq('id', schoolId);
+      if (deleteError) {
+        throw new Error(`Les comptes du personnel ont été supprimés, mais l'école n'a pas pu l'être (${deleteError.message}). Relance la suppression.`);
+      }
+
+      // 3. Le journal, seulement maintenant que c'est vrai. L'école n'existe plus : on garde son nom dans la ligne.
       await logAction(adminClient, user.id, 'delete', {
-        schoolId,
+        schoolId: null,
+        schoolName: school.name,
         details: `École supprimée définitivement (${(staffProfiles || []).length} compte(s) personnel supprimé(s))`,
       });
-
-      const { error: deleteError } = await adminClient.from('schools').delete().eq('id', schoolId);
-      if (deleteError) throw new Error(deleteError.message);
 
       return jsonResponse({ ok: true });
     }
@@ -311,27 +325,43 @@ Deno.serve(async (req) => {
     if (schoolsError) throw new Error(schoolsError.message);
 
     const schoolIds = (schools || []).map((s) => s.id);
-    const [{ data: profiles }, { data: students }, { data: allAdmins }] = await Promise.all([
-      adminClient.from('profiles').select('id, school_id').in('school_id', schoolIds),
-      adminClient.from('students').select('school_id').in('school_id', schoolIds),
-      adminClient.from('platform_admins').select('user_id'),
-    ]);
+    const { data: allAdmins } = await adminClient.from('platform_admins').select('user_id');
     const adminIds = new Set((allAdmins || []).map((a: { user_id: string }) => a.user_id));
 
-    const staffCounts: Record<string, number> = {};
-    const staffIdsBySchool: Record<string, string[]> = {};
-    for (const p of (profiles || []) as { id: string; school_id: string }[]) {
-      staffCounts[p.school_id] = (staffCounts[p.school_id] || 0) + 1;
-      if (!staffIdsBySchool[p.school_id]) staffIdsBySchool[p.school_id] = [];
-      staffIdsBySchool[p.school_id].push(p.id);
-    }
+    // Effectifs : comptés par la base (fonction platform_school_counts). Charger toutes les lignes pour les
+    // compter ici ne marche que jusqu'à la limite de lignes de l'API (1 000 par défaut) : au-delà, les
+    // chiffres seraient faux sans aucune erreur.
     const studentCounts: Record<string, number> = {};
-    for (const s of students || []) studentCounts[s.school_id] = (studentCounts[s.school_id] || 0) + 1;
+    const staffCounts: Record<string, number> = {};
+    const { data: counted, error: countError } = await adminClient.rpc('platform_school_counts');
+    if (!countError && Array.isArray(counted)) {
+      for (const c of counted as { school_id: string; student_count: number | string; staff_count: number | string }[]) {
+        studentCounts[c.school_id] = Number(c.student_count) || 0;
+        staffCounts[c.school_id] = Number(c.staff_count) || 0;
+      }
+    } else {
+      // Repli tant que la fonction SQL n'a pas été créée : ancien calcul (exact seulement sous la limite de lignes).
+      console.warn('[platform-admin] platform_school_counts indisponible, repli sur le calcul par lignes :', countError?.message);
+      const [{ data: profiles }, { data: students }] = await Promise.all([
+        adminClient.from('profiles').select('id, school_id').in('school_id', schoolIds),
+        adminClient.from('students').select('school_id').in('school_id', schoolIds),
+      ]);
+      for (const p of (profiles || []) as { id: string; school_id: string }[]) staffCounts[p.school_id] = (staffCounts[p.school_id] || 0) + 1;
+      for (const s of students || []) studentCounts[s.school_id] = (studentCounts[s.school_id] || 0) + 1;
+    }
+
+    // On masque les écoles dont tous les comptes sont des administrateurs de la plateforme (écoles de test
+    // des administrateurs). Seuls les comptes administrateurs sont lus ici : un petit nombre de lignes.
+    const adminSchoolCounts: Record<string, number> = {};
+    if (adminIds.size > 0) {
+      const { data: adminProfiles } = await adminClient.from('profiles').select('id, school_id').in('id', [...adminIds]);
+      for (const p of (adminProfiles || []) as { id: string; school_id: string }[]) adminSchoolCounts[p.school_id] = (adminSchoolCounts[p.school_id] || 0) + 1;
+    }
 
     const result = (schools || [])
       .filter((s) => {
-        const staffIds = staffIdsBySchool[s.id] || [];
-        return !(staffIds.length > 0 && staffIds.every((id) => adminIds.has(id)));
+        const staff = staffCounts[s.id] || 0;
+        return !(staff > 0 && (adminSchoolCounts[s.id] || 0) === staff);
       })
       .map((s) => ({
         ...s,
