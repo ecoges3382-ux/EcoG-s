@@ -158,6 +158,15 @@ async function sendOpenWAText(
   }
 }
 
+// Formule de politesse et nom de l'école, ajoutés en bas de tout message envoyé aux parents.
+function withSignature(text: string, schoolName: string | null | undefined): string {
+  const name = (schoolName || '').trim();
+  const base = String(text || '').trimEnd();
+  if (!name) return `${base}\n\nMerci de votre confiance.`;
+  if (base.endsWith(name)) return base; // déjà signé
+  return `${base}\n\nMerci de votre confiance.\n${name}`;
+}
+
 type Job = {
   schoolId: string;
   config: { base_url: string; session_id: string };
@@ -193,7 +202,7 @@ Deno.serve(async (req) => {
     let alreadySent = 0;
     for (const config of configs) {
       const schoolId = config.school_id as string;
-      const { data: school } = await adminClient.from('schools').select('plan, statut').eq('id', schoolId).single();
+      const { data: school } = await adminClient.from('schools').select('plan, statut, name').eq('id', schoolId).single();
       if (!school || school.plan === 'decouverte' || (school.statut !== 'actif' && school.statut !== 'essai')) continue;
 
       const { data: schoolYears } = await adminClient
@@ -293,7 +302,7 @@ Deno.serve(async (req) => {
               parentId: parent.id,
               phone: parent.phone,
               templateName,
-              message: buildMessage({ civilite, nom: parent.nom || parent.full_name, label: ms.label, verbe: ms.verbe, studentName: student.full_name, date: ms.date as string, jours: ms.jours as number, code: parent.code }),
+              message: withSignature(buildMessage({ civilite, nom: parent.nom || parent.full_name, label: ms.label, verbe: ms.verbe, studentName: student.full_name, date: ms.date as string, jours: ms.jours as number, code: parent.code }), school.name),
             });
             planned.add(key); // un même parent relié deux fois à l'élève ne reçoit qu'un message
           }
