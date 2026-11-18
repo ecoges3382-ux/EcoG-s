@@ -100,18 +100,8 @@ export default function SettingsWhatsApp() {
       {config && (
         <>
           <HealthCard schoolId={profile.school_id} openwa={openwa} metaStatut={config.statut} />
-          {openwa ? (
-            // École sur OpenWA : le formulaire ci-dessous ne concerne que l'API officielle de Meta,
-            // qu'elle n'utilise pas. On le range pour ne pas laisser croire que WhatsApp est « Non configuré ».
-            <details style={{ marginBottom: 20, maxWidth: 560 }}>
-              <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}>
-                API officielle de Meta (non utilisée par votre école)
-              </summary>
-              <div style={{ marginTop: 12 }}><ConfigCard config={config} onSaved={reloadConfig} /></div>
-            </details>
-          ) : (
-            <ConfigCard config={config} onSaved={reloadConfig} />
-          )}
+          {/* École sur OpenWA : le formulaire de l'API officielle de Meta ne la concerne pas, on ne l'affiche pas. */}
+          {openwa === false && <ConfigCard config={config} onSaved={reloadConfig} />}
           <HistoryCard messages={messages} />
         </>
       )}
