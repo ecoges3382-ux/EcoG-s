@@ -12,6 +12,9 @@ import { hasFeature } from '../lib/plan.js';
 import GlobalSearch from '../components/GlobalSearch.jsx';
 import { startPresence, stopPresence } from '../lib/presence.js';
 import UpdateButton from '../components/UpdateButton.jsx';
+import { prefetchHandlers, prefetchRoutesWhenIdle, canPrefetch, whenNetworkQuiet } from '../lib/pageLoaders.js';
+import { prefetchEnrollments } from '../lib/enrollments.js';
+import { prefetchRecouvrement } from '../lib/recouvrementData.js';
 
 const SIDEBAR_ITEMS = [
   { to: '/', label: 'Tableau de bord', icon: 'ti-layout-dashboard', perm: 'dashboard', end: true },
@@ -331,7 +334,7 @@ export default function Shell() {
               ? item.group.some((p) => location.pathname.startsWith(p))
               : (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to));
             return (
-              <NavLink key={item.to} to={item.to} className={`navlink${isActive ? ' active' : ''}`} data-tour={item.tourId}>
+              <NavLink key={item.to} to={item.to} className={`navlink${isActive ? ' active' : ''}`} data-tour={item.tourId} {...prefetchHandlers(item.to)}>
                 <i className={`ti ${item.icon}`} aria-hidden="true"></i>
                 <span>{item.shortLabel}</span>
               </NavLink>
@@ -340,10 +343,46 @@ export default function Shell() {
         </div>
 
         <UpdateButton />
-        
+        <Warmup plan={plan} hasAccess={hasAccess} />
+
       </div>
     </SchoolYearProvider>
   );
+}
+
+// Préparation en arrière-plan, quand le navigateur est au repos : télécharge le code des pages
+// auxquelles l'utilisateur a accès et remplit le cache de Recouvrement. Résultat : au clic, la
+// page s'affiche tout de suite, même la première fois. Rien n'est fait en mode économie de données.
+function Warmup({ plan, hasAccess }) {
+  const { profile } = useAuth();
+  const { schoolYear } = useSelectedSchoolYear(profile?.school_id);
+  const schoolId = profile?.school_id;
+  const yearId = schoolYear?.id;
+  const finance = hasAccess('finance');
+
+  useEffect(() => {
+    if (!yearId || !canPrefetch()) return undefined;
+    // Les pages de la barre du bas d'abord, puis le reste du menu.
+    const priority = BOTTOM_NAV_ITEMS.filter((i) => hasAccess(i.perm)).map((i) => i.to);
+    const rest = SIDEBAR_ITEMS
+      .filter((i) => (!i.feature || hasFeature(plan, i.feature)) && hasAccess(i.perm))
+      .map((i) => i.to);
+    const paths = [...new Set([...priority, ...rest])].filter((p) => p !== window.location.pathname);
+    let stopRoutes = () => {};
+    let dataTimer = 0;
+    const stopWait = whenNetworkQuiet(() => {
+      stopRoutes = prefetchRoutesWhenIdle(paths);
+      dataTimer = setTimeout(() => {
+        // Le tableau de bord remplit déjà ce cache quand c'est la page d'arrivée.
+        if (finance && window.location.pathname !== '/') prefetchEnrollments(schoolYear);
+        if (finance) prefetchRecouvrement(schoolYear, schoolId);
+      }, 1000);
+    }, { ready: () => !document.querySelector('[class*="skeleton"]') });
+    return () => { stopWait(); clearTimeout(dataTimer); stopRoutes(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearId, schoolId, finance, plan]);
+
+  return null;
 }
 
 function SidebarMenu({ plan, hasAccess }) {
@@ -394,7 +433,7 @@ function SidebarMenu({ plan, hasAccess }) {
   return (
     <>
       {visibleItems.map((item) => (
-        <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)} data-tour={item.tourId}>
+        <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)} data-tour={item.tourId} {...prefetchHandlers(item.to)}>
           <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: '#fff' }} aria-hidden="true"></i>
           <span className="sidebar-label" style={{ flex: 1 }}>{item.label}</span>
           {item.countKey && counts[item.countKey] !== undefined && (
