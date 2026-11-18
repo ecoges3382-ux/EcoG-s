@@ -121,7 +121,7 @@ export default function Schedule() {
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Emploi du temps</p>
-        <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>
+        <span style={{ fontSize: '12.5px', fontWeight: 700, padding: '5px 12px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark-text)' }}>
           Année scolaire {schoolYear.label}
         </span>
       </div>
@@ -163,7 +163,7 @@ export default function Schedule() {
                     </div>
                   </div>
                   <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--muted)' }}>{view === 'classe' ? (c.staff?.full_name || '—') : c.classes?.nom}</p>
-                  <span style={{ fontSize: 11, color: 'var(--forest)', fontWeight: 600 }}>{slotLabel[c.slot_id] || '—'}</span>
+                  <span style={{ fontSize: 11, color: 'var(--forest-text)', fontWeight: 600 }}>{slotLabel[c.slot_id] || '—'}</span>
                 </div>
               ))}
             </div>
@@ -175,7 +175,7 @@ export default function Schedule() {
         <button
           onClick={() => { setEditing(null); setModalOpen(true); }}
           disabled={classes === null}
-          style={{ background: 'var(--clay)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: '13px 22px', borderRadius: 'var(--radius)', opacity: classes === null ? 0.7 : 1 }}
+          style={{ background: 'var(--clay-solid)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 14, padding: '13px 22px', borderRadius: 'var(--radius)', opacity: classes === null ? 0.7 : 1 }}
         >
           <i className="ti ti-plus" style={{ fontSize: 16, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>Ajouter un créneau
         </button>

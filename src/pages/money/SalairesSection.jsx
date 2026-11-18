@@ -156,7 +156,7 @@ export default function SalairesSection() {
         <div style={{ minWidth: 900 }}>
           
           {/* En-tête du tableau */}
-          <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLONNES_SALAIRES, gap: 12, padding: '12px 20px 12px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', alignItems: 'center' }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 4 }}>Membre</span>
             <span>Salaire prévu</span>
             <span>Avance à déduire</span>
@@ -298,8 +298,8 @@ function PayerSalaireModal({ staffMember, mois, avance, onClose, onSaved }) {
         
         {avance > 0 && (
           <div style={{ background: 'var(--amber-light)', padding: '8px 12px', borderRadius: 8, marginBottom: 16 }}>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-dark)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-dark)' }}>Le montant par défaut a été ajusté. L'avance sera soldée automatiquement.</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--clay-text)', fontWeight: 600 }}>Avance approuvée à déduire : {fmtF(avance)}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--clay-text)' }}>Le montant par défaut a été ajusté. L'avance sera soldée automatiquement.</p>
           </div>
         )}
 

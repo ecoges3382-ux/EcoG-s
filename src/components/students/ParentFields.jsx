@@ -42,7 +42,7 @@ export default function ParentFields({
   return (
     <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px dashed var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--forest-dark)' }}>{label}</p>
+        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{label}</p>
         {onRemove && (
           <button type="button" onClick={onRemove} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Retirer</button>
         )}
@@ -87,7 +87,7 @@ export default function ParentFields({
           {filteredParents.length > 0 && (
             <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9 }}>
               {filteredParents.map((p, i) => (
-                <button type="button" key={p.id} onClick={() => setSelectedExistingId(p.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', borderBottom: i < filteredParents.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer', fontSize: 13.5, background: selectedExistingId === p.id ? 'var(--forest-light)' : 'transparent', color: selectedExistingId === p.id ? 'var(--forest-dark)' : 'var(--ink)', fontWeight: selectedExistingId === p.id ? 600 : 400 }}>
+                <button type="button" key={p.id} onClick={() => setSelectedExistingId(p.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 12px', border: 'none', borderBottom: i < filteredParents.length - 1 ? '1px solid var(--line)' : 'none', cursor: 'pointer', fontSize: 13.5, background: selectedExistingId === p.id ? 'var(--forest-light)' : 'transparent', color: selectedExistingId === p.id ? 'var(--forest-dark-text)' : 'var(--ink)', fontWeight: selectedExistingId === p.id ? 600 : 400 }}>
                   {p.full_name}
                   {p.phone && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> · {p.phone}</span>}
                   {p.code && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> · {p.code}</span>}

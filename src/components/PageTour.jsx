@@ -118,7 +118,7 @@ export function PageTourRunner({ pageKey, onClose }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             {tour.label} · {stepIndex + 1}/{tour.steps.length}
           </span>
           <button
@@ -218,7 +218,7 @@ export function usePageTour(pageKey) {
           borderRadius: '50%',
           border: '1px solid var(--line-strong)',
           background: 'var(--paper)',
-          color: 'var(--forest)',
+          color: 'var(--forest-text)',
           cursor: 'pointer',
           flexShrink: 0,
         }}

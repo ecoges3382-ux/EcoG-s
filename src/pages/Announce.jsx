@@ -17,9 +17,9 @@ import { guardedFetch } from '../lib/offlineCache.js';
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 const STATUT_LABELS = {
-  brouillon: { label: 'Brouillon', bg: '#F0EDE5', fg: 'var(--muted)' },
+  brouillon: { label: 'Brouillon', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   publiee: { label: 'Publiée', bg: 'var(--success-light)', fg: 'var(--success)' },
-  archivee: { label: 'Archivée', bg: '#F0EDE5', fg: 'var(--muted)' },
+  archivee: { label: 'Archivée', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
 };
 
 const FILTRES = [
@@ -303,7 +303,7 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
 
       {audiences.includes('parents') && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', background: 'var(--forest-light)', padding: '12px 16px', borderRadius: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-dark)' }}>Ciblage Parents :</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-dark-text)' }}>Ciblage Parents :</span>
           {['École entière', 'Une classe'].map((p) => (
             <button
               type="button" key={p} onClick={() => setPortee(p)}
@@ -347,7 +347,7 @@ function AnnounceForm({ profile, activeYear, classes, editing, onCancelEdit, onS
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button
           type="button" onClick={() => submit('publiee')} disabled={!!submitting}
-          style={{ background: 'var(--clay)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13.5, padding: '11px 20px', borderRadius: 'var(--radius)', opacity: submitting ? 0.7 : 1 }}
+          style={{ background: 'var(--clay-solid)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13.5, padding: '11px 20px', borderRadius: 'var(--radius)', opacity: submitting ? 0.7 : 1 }}
         >
           <i className="ti ti-speakerphone" style={{ fontSize: 15, verticalAlign: '-2px', marginRight: 6 }} aria-hidden="true"></i>
           {submitting === 'publiee' ? 'Publication…' : 'Publier'}
@@ -432,16 +432,16 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
   return (
     <div style={{ padding: '14px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'var(--gold-light)', color: 'var(--clay-dark)' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'var(--gold-light)', color: 'var(--clay-text)' }}>
           {audienceText}
         </span>
         {a.audience?.includes('parents') && (
-          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark)' : 'var(--clay-dark)' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: a.portee === 'École entière' ? 'var(--forest-light)' : 'var(--gold-light)', color: a.portee === 'École entière' ? 'var(--forest-dark-text)' : 'var(--clay-text)' }}>
             {cibleLabel}
           </span>
         )}
         <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
-        {expiree && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: '#F0EDE5', color: 'var(--muted)' }}>Expirée</span>}
+        {expiree && <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20, background: 'var(--chip-bg)', color: 'var(--muted)' }}>Expirée</span>}
         <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}>
           {a.statut === 'brouillon' ? `Créée · ${timeAgo(a.created_at)}` : `Publiée · ${timeAgo(a.published_at || a.created_at)}`}
         </span>

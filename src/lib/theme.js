@@ -21,13 +21,39 @@ function mix(hex, target, amount) {
   });
 }
 
+function luminance({ r, g, b }) {
+  const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+function contrast(hexA, hexB) {
+  const la = luminance(hexToRgb(hexA));
+  const lb = luminance(hexToRgb(hexB));
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+// Version éclaircie de la couleur de l'école, assez claire pour écrire sur le fond du mode sombre
+// (contraste d'au moins 5 contre la carte sombre #1F2937).
+function liftForDark(hex) {
+  let amount = 0.45;
+  let out = mix(hex, '#ffffff', amount);
+  while (contrast(out, '#1F2937') < 5 && amount < 0.95) {
+    amount += 0.05;
+    out = mix(hex, '#ffffff', amount);
+  }
+  return out;
+}
+
 export function applySchoolColor(hex) {
   if (typeof window === 'undefined') return;
   if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return;
   const root = document.documentElement.style;
   root.setProperty('--forest', hex);
   root.setProperty('--forest-dark', mix(hex, '#000000', 0.35));
-  root.setProperty('--forest-light', mix(hex, '#ffffff', 0.88));
+  // Teinte de fond (pastilles, cartes teintées) : claire en mode clair, sombre en mode sombre.
+  root.setProperty('--forest-tint-light', mix(hex, '#ffffff', 0.88));
+  root.setProperty('--forest-tint-dark', mix(hex, '#111827', 0.72));
+  // Couleur utilisable comme TEXTE en mode sombre
+  root.setProperty('--forest-lift', liftForDark(hex));
 
   // 🚀 MISE À JOUR DE LA BARRE D'ÉTAT (Android/iOS)
   const darkColor = mix(hex, '#000000', 0.35);
@@ -45,7 +71,9 @@ export function resetSchoolColor() {
   const root = document.documentElement.style;
   root.removeProperty('--forest');
   root.removeProperty('--forest-dark');
-  root.removeProperty('--forest-light');
+  root.removeProperty('--forest-tint-light');
+  root.removeProperty('--forest-tint-dark');
+  root.removeProperty('--forest-lift');
 
   let metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {

@@ -165,7 +165,7 @@ function Nav() {
       <header className={`lp-nav ${solid ? 'is-solid' : ''}`}>
         <div className="lp-wrap lp-nav-inner">
           <a href="#top" className="lp-brand" aria-label="EcoGès, retour en haut">
-            <Wordmark className="lp-brand-wordmark" height={30} />
+            <Wordmark className="lp-brand-wordmark" height={30} tone={solid ? 'onLight' : 'onDark'} />
           </a>
           <nav className="lp-nav-links">
             <a href="#fonctions">Fonctions</a>
@@ -324,7 +324,7 @@ function Hero() {
           </div>
           <div className="lp-par lp-par-2" style={{ position: 'absolute', inset: 0 }}>
             <div className="lp-notif n2" style={{ '--d': '5.1s' }}>
-              <span className="lp-notif-ico" style={{ background: '#25D366' }}>{I.whatsapp(18)}</span>
+              <span className="lp-notif-ico" style={{ background: '#25D366', color: 'var(--wa-icon)' }}>{I.whatsapp(18)}</span>
               <div><b>Rappels envoyés</b><span>42 parents · échéance du 15 mars</span></div>
             </div>
           </div>
@@ -886,7 +886,7 @@ function Price() {
             textAlign: 'center',
           }}
         >
-          <p style={{ margin: '0 0 4px', fontSize: 13.5, fontWeight: 800, color: 'var(--clay-dark)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 13.5, fontWeight: 800, color: 'var(--clay-text)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             🎉 Offre de lancement
           </p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>
@@ -913,7 +913,7 @@ function Price() {
           </p>
           <p style={{ margin: 0 }}>
             <strong style={{ color: 'var(--ink)' }}>Vous hésitez ?</strong>{' '}
-            <a href={WA_QUOTE} target="_blank" rel="noreferrer" style={{ color: 'var(--forest)', fontWeight: 700, textDecoration: 'none' }}>
+            <a href={WA_QUOTE} target="_blank" rel="noreferrer" style={{ color: 'var(--forest-text)', fontWeight: 700, textDecoration: 'none' }}>
               Écrivez-nous sur WhatsApp
             </a>{' '}
             — on vous aide à choisir en 5 minutes.
@@ -1103,7 +1103,7 @@ function PlanCard({ plan, period, index }) {
                   marginTop: 1,
                   background: f.included
                     ? (isHighlight ? 'rgba(212, 168, 73, 0.2)' : 'var(--forest-light)')
-                    : (isHighlight ? 'rgba(255,255,255,0.08)' : '#F0EDE5'),
+                    : (isHighlight ? 'rgba(255,255,255,0.08)' : 'var(--chip-bg)'),
                   color: f.included ? checkColor : (isHighlight ? 'rgba(255,255,255,0.5)' : 'var(--line-strong)'),
                 }}
               >
@@ -1220,7 +1220,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="lp">
+    <div className="lp force-light">
       <JsonLd />
       <Nav />
       <Hero />

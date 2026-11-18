@@ -26,7 +26,7 @@ export default function ChildAttendance({ absence_events, late_events, attendanc
             <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--danger)' }}>Absences détaillées</p>
             <div className="card-bold" style={{ overflowX: 'auto' }}>
               <div style={{ minWidth: 500 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
                   <span>Date</span>
                   <span>Motif</span>
                   <span>Durée</span>
@@ -50,7 +50,7 @@ export default function ChildAttendance({ absence_events, late_events, attendanc
             <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', color: 'var(--amber)' }}>Retards détaillés</p>
             <div className="card-bold" style={{ overflowX: 'auto' }}>
               <div style={{ minWidth: 500 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px', gap: 8, padding: '10px 16px', background: 'var(--forest-light)', fontSize: 10.5, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
                   <span>Date</span>
                   <span>Motif</span>
                   <span>Durée</span>

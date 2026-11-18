@@ -126,7 +126,7 @@ export default function AdminsTab({ onChanged }) {
 
       {newInvite && (
         <div style={{ padding: '14px 16px', background: 'var(--gold-light)', border: '1px solid var(--gold)', borderRadius: 12, marginBottom: 14 }}>
-          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>
+          <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-text)' }}>
             Code pour {newInvite.email} — à communiquer, ne le laisse pas affiché à l'écran.
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

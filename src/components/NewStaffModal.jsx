@@ -209,7 +209,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
         {/* Case à cocher pour les non-enseignants */}
         {role !== 'Enseignant' && (
           <div style={{ marginBottom: 16, padding: '10px 12px', background: 'var(--forest-light)', borderRadius: 9 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: 'var(--forest-dark)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, fontWeight: 600, color: 'var(--forest-dark-text)' }}>
               <input 
                 type="checkbox" 
                 checked={dispenseCours} 

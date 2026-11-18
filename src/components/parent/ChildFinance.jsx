@@ -7,7 +7,7 @@ export function EcheanceBadge({ statut, montantPaye, montantRestant }) {
     payee: { label: 'Payée', bg: 'var(--success-light)', fg: 'var(--success)' },
     partielle: { label: `Partielle · ${fmtF(montantPaye)} payés · reste ${fmtF(montantRestant)}`, bg: 'var(--amber-light)', fg: 'var(--amber)' },
     impayee: { label: `Impayée · reste ${fmtF(montantRestant)}`, bg: 'var(--danger-light)', fg: 'var(--danger)' },
-    a_venir: { label: 'À venir', bg: '#F0EDE5', fg: 'var(--muted)' },
+    a_venir: { label: 'À venir', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   };
   const s = map[statut] || map.impayee;
   return (
@@ -89,7 +89,7 @@ export default function ChildFinance({ enrollment, payments, schoolYear, setRece
                   type="button"
                   onClick={() => setReceiptPayment(p)}
                   title="Imprimer le reçu"
-                  style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--forest-text)', cursor: 'pointer', padding: 4, display: 'flex' }}
                 >
                   <i className="ti ti-receipt" style={{ fontSize: 16 }} aria-hidden="true"></i>
                 </button>

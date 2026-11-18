@@ -129,9 +129,9 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
                 role="button"
                 tabIndex={0}
                 onClick={() => { onChange(o.value); setOpen(false); }}
-                style={{ ...itemStyle, borderBottom: i < normalized.length - 1 ? '1px solid var(--line)' : 'none', color: active ? 'var(--forest)' : 'var(--ink)', fontWeight: active ? 700 : 500 }}
+                style={{ ...itemStyle, borderBottom: i < normalized.length - 1 ? '1px solid var(--line)' : 'none', color: active ? 'var(--forest-text)' : 'var(--ink)', fontWeight: active ? 700 : 500 }}
               >
-                <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--forest)', visibility: active ? 'visible' : 'hidden', flexShrink: 0 }} aria-hidden="true"></i>
+                <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--forest-text)', visibility: active ? 'visible' : 'hidden', flexShrink: 0 }} aria-hidden="true"></i>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
               </div>
             );
@@ -144,7 +144,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Choi
   );
 }
 
-const labelStyle = { display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--forest)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 5 };
+const labelStyle = { display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--forest-text)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 5 };
 
 const triggerStyle = {
   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',

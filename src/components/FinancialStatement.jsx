@@ -20,7 +20,7 @@ export default function FinancialStatement({ studentName, classeNom, schoolYearL
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, maxWidth: 560, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
+      <div className="force-light" onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, maxWidth: 560, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
         <div className="print-sheet" style={{ padding: '26px 24px' }}>
           <DocumentHeader school={school} title="Situation financière" subtitle={`Année scolaire ${schoolYearLabel || ''}`} />
 

@@ -172,7 +172,7 @@ export default function Advances() {
                   )}
                   {!selectMode && canDecide && (
                     <>
-                      <button onClick={() => setEditingAdvance(a)} title="Modifier" style={{ background: 'none', border: 'none', color: 'var(--forest)', cursor: 'pointer', padding: 4, display: 'flex' }}><PencilIcon /></button>
+                      <button onClick={() => setEditingAdvance(a)} title="Modifier" style={{ background: 'none', border: 'none', color: 'var(--forest-text)', cursor: 'pointer', padding: 4, display: 'flex' }}><PencilIcon /></button>
                       <button onClick={() => handleDelete(a)} title="Supprimer" style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex' }}><TrashIcon /></button>
                     </>
                   )}
@@ -198,7 +198,7 @@ export default function Advances() {
         </form>
       ) : (
         <p className="card-bold" style={{ padding: '18px 20px', margin: 0, fontSize: 13, color: 'var(--muted)', marginTop: 24 }}>
-          Aucun membre du personnel enregistré. <Link to="/personnel" style={{ color: 'var(--forest)', fontWeight: 600, textDecoration: 'none' }}>Personnel</Link>.
+          Aucun membre du personnel enregistré. <Link to="/personnel" style={{ color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>Personnel</Link>.
         </p>
       )}
 
@@ -273,12 +273,12 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
 
 function StatusBadge({ statut, solde, montant }) {
   if (statut === 'approuvee' && Number(solde ?? montant) <= 0) {
-    return <span style={{ background: 'var(--forest-light)', color: 'var(--forest)', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20 }}>Payée</span>;
+    return <span style={{ background: 'var(--forest-light)', color: 'var(--forest-text)', fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 20 }}>Payée</span>;
   }
   const map = {
     approuvee: { label: 'Approuvée', bg: 'var(--success-light)', fg: 'var(--success)' },
     refusee: { label: 'Refusée', bg: 'var(--danger-light)', fg: 'var(--danger)' },
-    attente_directeur: { label: 'Attente directeur', bg: 'var(--gold-light)', fg: 'var(--clay-dark)' },
+    attente_directeur: { label: 'Attente directeur', bg: 'var(--gold-light)', fg: 'var(--clay-text)' },
     attente_fondateur: { label: 'Attente fondateur', bg: 'var(--amber-light)', fg: 'var(--amber)' },
   };
   const s = map[statut] || map.attente_fondateur;

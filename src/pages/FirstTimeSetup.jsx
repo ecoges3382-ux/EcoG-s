@@ -117,7 +117,7 @@ export default function FirstTimeSetup() {
           renderItem={(s) => (
             <>
               <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{s.nom}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>×{s.coefficient}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-text)', background: 'var(--forest-light)', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>×{s.coefficient}</span>
               <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{s.niveau || 'Tous niveaux'}</span>
             </>
           )}
@@ -196,7 +196,7 @@ function SimpleListStep({ title, hint, items, addLabel, onAdd, renderItem, empty
 function ResumeStep({ classesCount, subjectsCount, feeCount }) {
   return (
     <div className="card-bold" style={{ padding: '30px 24px', textAlign: 'center', maxWidth: 640, margin: '0 auto' }}>
-      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--forest-light)', color: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+      <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--forest-light)', color: 'var(--forest-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
         <i className="ti ti-rocket" style={{ fontSize: 32 }} aria-hidden="true"></i>
       </div>
       <p style={{ margin: '0 0 8px', fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 600, color: 'var(--ink)' }}>
@@ -213,7 +213,7 @@ function ResumeStep({ classesCount, subjectsCount, feeCount }) {
       </div>
 
       {(classesCount === 0 || feeCount === 0) && (
-        <p style={{ margin: '0 0 24px', fontSize: 12.5, color: 'var(--clay-dark)', lineHeight: 1.6, background: 'var(--gold-light)', padding: '12px', borderRadius: 10 }}>
+        <p style={{ margin: '0 0 24px', fontSize: 12.5, color: 'var(--clay-text)', lineHeight: 1.6, background: 'var(--gold-light)', padding: '12px', borderRadius: 10 }}>
           {classesCount === 0
             ? "Il manque encore au moins une classe pour pouvoir inscrire des élèves."
             : "Pense à configurer le tarif d'au moins un niveau pour que l'écolage se remplisse automatiquement."}
@@ -242,7 +242,7 @@ function ResumeStep({ classesCount, subjectsCount, feeCount }) {
 function Stat({ label, value }) {
   return (
     <div style={{ padding: '14px 10px', borderRadius: 12, background: 'var(--forest-light)' }}>
-      <p style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, fontFamily: 'var(--serif)', color: 'var(--forest-dark)' }}>{value}</p>
+      <p style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, fontFamily: 'var(--serif)', color: 'var(--forest-dark-text)' }}>{value}</p>
       <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>{label}</p>
     </div>
   );

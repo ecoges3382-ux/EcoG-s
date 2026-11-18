@@ -340,10 +340,10 @@ export default function Staff() {
           {!showArchives && nbActifs > 0 && actifsSansSalaire.length > 0 && (
             <div className="card-bold" style={{ padding: '12px 16px', marginBottom: 14, background: 'var(--amber-light)', borderColor: 'var(--amber)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: 'var(--clay-dark)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
+                <i className="ti ti-alert-triangle" style={{ fontSize: 18, color: 'var(--clay-text)', flexShrink: 0, marginTop: 1 }} aria-hidden="true"></i>
                 <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--clay-dark)' }}>{actifsSansSalaire.length} membre{actifsSansSalaire.length > 1 ? 's' : ''} actif{actifsSansSalaire.length > 1 ? 's' : ''} sans salaire mensuel renseigné</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--clay-dark)', lineHeight: 1.5 }}>Le calcul « salaires théoriques » du tableau de bord sera sous-évalué pour {actifsSansSalaire.length > 1 ? 'ces personnes' : 'cette personne'}.</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--clay-text)' }}>{actifsSansSalaire.length} membre{actifsSansSalaire.length > 1 ? 's' : ''} actif{actifsSansSalaire.length > 1 ? 's' : ''} sans salaire mensuel renseigné</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--clay-text)', lineHeight: 1.5 }}>Le calcul « salaires théoriques » du tableau de bord sera sous-évalué pour {actifsSansSalaire.length > 1 ? 'ces personnes' : 'cette personne'}.</p>
                 </div>
               </div>
             </div>
@@ -372,7 +372,7 @@ export default function Staff() {
             <div data-tour="staff-list" className="card-bold" style={{ overflowX: 'auto', maxHeight: '70vh', overflowY: 'auto' }}>
               <div style={{ minWidth: selectMode ? 1180 : 1140 }}>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em', alignItems: 'center' }}>
                   {selectMode && <span></span>}
                   <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20, zIndex: 4 }}>Nom</span>
                   <span>Matricule</span>
@@ -399,7 +399,7 @@ export default function Staff() {
                       <Link to={selectMode ? '#' : `/personnel/${p.id}`} onClick={selectMode ? (e) => { e.preventDefault(); toggleOne(p.id); } : undefined} style={{ display: 'contents', textDecoration: 'none', color: 'inherit' }}>
                         
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20, zIndex: 2 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest-text)', flexShrink: 0, overflow: 'hidden' }}>
                             {p.photo_url ? <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(p.full_name)}
                           </div>
                           <span style={{ fontSize: '13.5px', fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.3 }}>{p.full_name}</span>
@@ -422,7 +422,7 @@ export default function Staff() {
                         <span style={{ fontSize: 13, fontWeight: avance > 0 ? 600 : 400, color: avance > 0 ? 'var(--amber)' : 'var(--muted)' }}>
                           {fmtF(avance)}
                           {avanceEnAttente > 0 && (
-                            <span title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`} style={{ color: 'var(--clay-dark)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}>*</span>
+                            <span title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`} style={{ color: 'var(--clay-text)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}>*</span>
                           )}
                         </span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: reste == null ? 'var(--muted)' : (reste < 0 ? 'var(--danger)' : 'var(--success)') }}>

@@ -13,7 +13,7 @@ const MESSAGE_TYPES = Object.keys(WHATSAPP_TYPE_LABELS);
 
 const STATUT_BADGE = {
   actif: { label: 'Connecté', bg: 'var(--success-light)', fg: 'var(--success)' },
-  non_configure: { label: 'Non configuré', bg: '#F0EDE5', fg: 'var(--muted)' },
+  non_configure: { label: 'Non configuré', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   erreur: { label: 'Erreur', bg: 'var(--danger-light)', fg: 'var(--danger)' },
 };
 
@@ -66,7 +66,7 @@ export default function SettingsWhatsApp() {
   if (!canView) {
     return (
       <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
-        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-text)', lineHeight: 1.6 }}>
           Seuls le fondateur, le directeur et la secrétaire ont accès à WhatsApp.
         </p>
       </div>
@@ -75,7 +75,7 @@ export default function SettingsWhatsApp() {
 
   return (
     <div>
-      <Link to="/parametres" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
+      <Link to="/parametres" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux paramètres
       </Link>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>WhatsApp</p>

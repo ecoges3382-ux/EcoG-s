@@ -11,7 +11,7 @@ export default function EmptyState({ icon, title, subtitle, actionLabel, actionT
   return (
     <div className="empty-state-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '52px 24px', maxWidth: 380, margin: '0 auto' }}>
       {icon && (
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--forest-light)', color: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, flexShrink: 0 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--forest-light)', color: 'var(--forest-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, flexShrink: 0 }}>
           {icon}
         </div>
       )}

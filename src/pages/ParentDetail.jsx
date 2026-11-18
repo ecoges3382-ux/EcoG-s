@@ -88,12 +88,12 @@ export default function ParentDetail() {
 
   return (
     <div>
-      <Link to="/parents" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
+      <Link to="/parents" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux parents
       </Link>
       {offline && <OfflineBanner />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
-        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-dark)' }}>
+        <div style={{ width: 58, height: 58, borderRadius: 14, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--clay-text)' }}>
           {initials(access.full_name)}
         </div>
         <div>
@@ -122,7 +122,7 @@ export default function ParentDetail() {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: i < children.length - 1 ? '1px solid var(--line)' : 'none', textDecoration: 'none', color: 'inherit' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11.5, fontWeight: 600, color: 'var(--forest)', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11.5, fontWeight: 600, color: 'var(--forest-text)', flexShrink: 0 }}>
                 {initials(c.full_name)}
               </div>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{c.full_name}</p>

@@ -540,10 +540,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             {fraisInscription > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 9, background: 'var(--forest-light)', marginBottom: 14 }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--forest-dark)' }}>{libelleFrais}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark)' }}>Montant fixe, encaissé avec l'inscription</p>
+                  <p style={{ margin: 0, fontSize: 12.5, fontWeight: 600, color: 'var(--forest-dark-text)' }}>{libelleFrais}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark-text)' }}>Montant fixe, encaissé avec l'inscription</p>
                 </div>
-                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--forest-dark)' }}>{fmtF(fraisInscription)}</p>
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{fmtF(fraisInscription)}</p>
               </div>
             )}
 
@@ -617,7 +617,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             )}
 
             {!hasSecondParent && (
-              <button type="button" onClick={() => setHasSecondParent(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '9px 14px', borderRadius: 8, border: '1px dashed var(--forest)', background: 'transparent', color: 'var(--forest)', cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+              <button type="button" onClick={() => setHasSecondParent(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, padding: '9px 14px', borderRadius: 8, border: '1px dashed var(--forest)', background: 'transparent', color: 'var(--forest-text)', cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
                 <i className="ti ti-plus" style={{ fontSize: 14 }} aria-hidden="true"></i>
                 Ajouter un 2ème parent (père + mère)
               </button>

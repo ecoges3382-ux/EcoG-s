@@ -129,7 +129,7 @@ export default function StaffAccountsTab() {
   if (!isFondateur) {
     return (
       <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
-        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-text)', lineHeight: 1.6 }}>
           Seul le fondateur peut créer ou supprimer des comptes utilisateurs.
         </p>
       </div>
@@ -153,11 +153,11 @@ export default function StaffAccountsTab() {
         <div className="card-bold">
           {accounts.map((a, i) => (
             <AccountRow
-              key={a.id} account={a} avatarBg="var(--forest-light)" avatarColor="var(--forest)"
+              key={a.id} account={a} avatarBg="var(--forest-light)" avatarColor="var(--forest-text)"
               subtitle={`${a.email || '—'}${a.phone ? ` · ${a.phone}` : ''}`}
               isLast={i === accounts.length - 1} onEdit={() => openEdit(a)}
               canDelete={a.role !== 'fondateur' && a.id !== profile.id} onDelete={() => handleDelete(a)}
-              badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark)' }}>{ROLES[a.role]?.label || a.role}</span>}
+              badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark-text)' }}>{ROLES[a.role]?.label || a.role}</span>}
             />
           ))}
         </div>

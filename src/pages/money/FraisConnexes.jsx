@@ -79,7 +79,7 @@ export default function FraisConnexes() {
         <div style={{ minWidth: 560 }}>
           
           {/* En-tête du tableau */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.9fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.9fr 0.9fr 1.1fr', gap: 8, padding: '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 20, zIndex: 4 }}>Élève</span>
             <span>Classe</span>
             <span>Dû</span>
@@ -116,7 +116,7 @@ export default function FraisConnexes() {
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau}</span>
                   <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_du)}</span>
                   <span style={{ fontSize: 13 }}>{fmtF(s.frais_connexe_paye)}</span>
-                  <span style={{ background: color ? `var(--${color}-light)` : '#F0EDE5', color: color ? `var(--${color})` : 'var(--muted)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
+                  <span style={{ background: color ? `var(--${color}-light)` : 'var(--chip-bg)', color: color ? `var(--${color})` : 'var(--muted)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
                     {label}
                   </span>
                 </div>

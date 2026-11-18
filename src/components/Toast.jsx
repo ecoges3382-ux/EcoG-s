@@ -58,7 +58,7 @@ export function ToastProvider({ children }) {
               ? 'opacity 0.3s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
               : 'opacity 0.2s ease, transform 0.2s ease',
             display: 'flex', alignItems: 'center', gap: 9,
-            background: toast.type === 'error' ? 'var(--danger)' : 'var(--forest-dark)',
+            background: toast.type === 'error' ? 'var(--danger-solid)' : 'var(--forest-dark)',
             color: '#fff', padding: '12px 20px', borderRadius: 30,
             boxShadow: '0 10px 30px rgba(0,0,0,0.22)', fontSize: 13.5, fontWeight: 600,
             maxWidth: 'calc(100vw - 32px)', pointerEvents: 'none',

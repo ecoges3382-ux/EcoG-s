@@ -56,8 +56,8 @@ function BulkBar({ count, onClear, onSuspend, onActivate, onExport, busy }) {
     <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 24, zIndex: 9999, display: 'flex', alignItems: 'center', gap: 6, padding: 6, borderRadius: 30, background: 'var(--forest-dark)', boxShadow: '0 10px 30px rgba(0,0,0,0.4)', color: '#fff', maxWidth: '95vw', flexWrap: 'nowrap' }}>
       <button type="button" onClick={onClear} style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>ANNULER</button>
       <span style={{ minWidth: 22, textAlign: 'center', color: 'var(--gold)', fontWeight: 800, fontSize: 14 }}>{count}</span>
-      <button type="button" onClick={onActivate} disabled={busy} style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--success)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>RÉACTIVER</button>
-      <button type="button" onClick={onSuspend} disabled={busy} style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--amber)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>SUSPENDRE</button>
+      <button type="button" onClick={onActivate} disabled={busy} style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--success-solid)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>RÉACTIVER</button>
+      <button type="button" onClick={onSuspend} disabled={busy} style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--amber-solid)', color: '#fff', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>SUSPENDRE</button>
       <button type="button" onClick={onExport} disabled={busy} style={{ padding: '6px 12px', borderRadius: 24, border: 'none', fontSize: 11, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer', background: 'var(--gold)', color: 'var(--forest-dark)', letterSpacing: '0.02em', whiteSpace: 'nowrap', opacity: busy ? 0.6 : 1 }}>EXPORTER</button>
     </div>
   );
@@ -66,7 +66,7 @@ function BulkBar({ count, onClear, onSuspend, onActivate, onExport, busy }) {
 function EmptySchoolsState({ hasFilter, onReset }) {
   return (
     <div style={{ background: 'var(--paper)', borderRadius: 12, padding: '40px 24px', textAlign: 'center' }}>
-      <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--forest-light)', color: 'var(--forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><BuildingIcon /></div>
+      <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--forest-light)', color: 'var(--forest-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><BuildingIcon /></div>
       <p style={{ margin: '0 0 6px', fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{hasFilter ? 'Aucune école ne correspond' : 'Aucune école pour l\'instant'}</p>
       <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>{hasFilter ? 'Essaie un autre mot-clé ou change de filtre.' : 'Les écoles apparaîtront ici dès qu\'elles seront créées.'}</p>
       {hasFilter && <button type="button" onClick={onReset} style={{ background: 'var(--forest)', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 9, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Effacer les filtres</button>}
@@ -268,7 +268,7 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
                   onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
                 >
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelected(s.id)} style={{ cursor: 'pointer', flexShrink: 0 }} aria-label={`Sélectionner ${s.name}`} />
-                  <div className="admin-school-avatar" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
+                  <div className="admin-school-avatar" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark-text)', flexShrink: 0, overflow: 'hidden' }}>
                     {s.logo_url ? <img src={s.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((s.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
                   </div>
                   <div className="admin-school-content" onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
@@ -288,7 +288,7 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
                   </div>
                   <div className="admin-school-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                     <StatutSwitch active={isActive} disabled={busy} onChange={() => handleQuickToggle(s)} />
-                    <button type="button" onClick={() => setDetailId(s.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, borderRadius: 8, border: 'none', background: 'rgba(15,76,58,0.08)', color: 'var(--forest)', cursor: 'pointer' }} title="Voir le détail">
+                    <button type="button" onClick={() => setDetailId(s.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, borderRadius: 8, border: 'none', background: 'rgba(15,76,58,0.08)', color: 'var(--forest-text)', cursor: 'pointer' }} title="Voir le détail">
                       <ChevronIcon />
                     </button>
                     {confirmingDeleteId === s.id ? (

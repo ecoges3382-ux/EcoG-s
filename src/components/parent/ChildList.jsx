@@ -9,7 +9,7 @@ function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
   const reste = Number(s.montant_du) - Number(s.montant_paye);
 
   let badge = null;
-  if (s.has_arrangement) badge = { label: 'Arrangement', bg: '#F0EDE5', fg: 'var(--muted)' };
+  if (s.has_arrangement) badge = { label: 'Arrangement', bg: 'var(--chip-bg)', fg: 'var(--muted)' };
   else if (enRetard) badge = { label: 'Solde à régler', bg: 'var(--danger-light)', fg: 'var(--danger)' };
   else if (reste > 0) badge = { label: `${fmtF(reste)} dû`, bg: 'var(--amber-light)', fg: 'var(--amber)' };
   else badge = { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
@@ -23,7 +23,7 @@ function ChildCard({ s, schoolYear, feeSchedules, onClick }) {
       style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left', width: '100%', gap: 10, flexWrap: 'wrap' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600, color: 'var(--clay-dark)', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 15, fontWeight: 600, color: 'var(--clay-text)', overflow: 'hidden', flexShrink: 0 }}>
           {s.photo_url ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(s.full_name)}
         </div>
         <div style={{ minWidth: 0 }}>
@@ -49,7 +49,7 @@ export default function ChildList({ summary, offline, changeCode, openStudent })
 
         {summary.announcements?.length > 0 && (
           <div className="card-bold" style={{ padding: '14px 16px', marginBottom: 18, background: 'var(--forest-light)', borderColor: 'transparent' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 11.5, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>Dernières annonces</p>
+            <p style={{ margin: '0 0 8px', fontSize: 11.5, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>Dernières annonces</p>
             {summary.announcements.map((a, i) => (
               <div key={a.id} style={{ marginTop: i > 0 ? 8 : 0 }}>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{a.titre}</p>

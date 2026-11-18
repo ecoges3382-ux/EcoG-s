@@ -46,7 +46,7 @@ export default function ClassBreakdown({ students, attendance, classResults }) {
       </div>
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 680 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr', gap: 10, padding: '11px 18px 11px 0', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr', gap: 10, padding: '11px 18px 11px 0', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 18 }}>Classe</span><span>Effectif</span><span>Reste dû</span><span>Recouvrement</span><span style={{ overflowWrap: 'break-word' }}>Absences/retards</span><span>Moyenne</span>
           </div>
           {rows.map((r, i) => {

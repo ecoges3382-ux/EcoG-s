@@ -148,8 +148,8 @@ export default function CGU() {
         </div>
 
         <p style={{ marginTop: 24, textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>
-          <Link to="/" style={{ color: 'var(--forest)', fontWeight: 600, marginRight: 16 }}>Retour à l'accueil</Link>
-          <Link to="/confidentialite" style={{ color: 'var(--forest)', fontWeight: 600 }}>Politique de confidentialité</Link>
+          <Link to="/" style={{ color: 'var(--forest-text)', fontWeight: 600, marginRight: 16 }}>Retour à l'accueil</Link>
+          <Link to="/confidentialite" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Politique de confidentialité</Link>
         </p>
       </div>
       <ScrollToTopButton />

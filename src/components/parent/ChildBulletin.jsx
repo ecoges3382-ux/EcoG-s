@@ -223,7 +223,7 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
           ))}
         </div>
 
-        <div id="bulletin-print" className="card-bold" style={{ padding: '18px 20px', overflow: 'hidden', backgroundColor: 'white' }}>
+        <div id="bulletin-print" className="card-bold force-light" style={{ padding: '18px 20px', overflow: 'hidden', backgroundColor: 'white' }}>
           <DocumentHeader school={school} title="Bulletin scolaire" subtitle={`${periodeLabel(periode)} · Année scolaire ${schoolYear?.label || ''}`} />
           <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600 }}>
             {student.full_name} · {enrollment.classe?.nom || '—'}
@@ -263,8 +263,8 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
 
           <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 180px', background: 'var(--forest-light)', borderRadius: 10, padding: '12px 16px' }}>
-              <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--forest-dark)' }}>Moyenne générale</p>
-              <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--forest-dark)' }}>{moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}</p>
+              <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--forest-dark-text)' }}>Moyenne générale</p>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}</p>
             </div>
             <div style={{ flex: '1 1 140px', background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '12px 16px' }}>
               <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>Rang</p>
@@ -302,15 +302,15 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
                   <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {subject?.nom || 'Matière inconnue'}
                     {subject?.coefficient && (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--forest)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--forest-text)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
                         Coef. {subject.coefficient}
                       </span>
                     )}
                   </p>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 ? 12 : 0 }}>
-                    <ColonneNotes titre="Interrogations" couleur="var(--forest)" fond="var(--forest-light)" notes={interros} />
-                    <ColonneNotes titre="Devoirs" couleur="var(--clay-dark)" fond="var(--gold-light)" notes={devoirs} />
+                    <ColonneNotes titre="Interrogations" couleur="var(--forest-text)" fond="var(--forest-light)" notes={interros} />
+                    <ColonneNotes titre="Devoirs" couleur="var(--clay-text)" fond="var(--gold-light)" notes={devoirs} />
                   </div>
 
                   {examens.length > 0 && (

@@ -165,8 +165,8 @@ export default function Confidentialite() {
         </div>
 
         <p style={{ marginTop: 24, textAlign: 'center', fontSize: 13, color: 'var(--muted)' }}>
-          <Link to="/" style={{ color: 'var(--forest)', fontWeight: 600, marginRight: 16 }}>Retour à l'accueil</Link>
-          <Link to="/cgu" style={{ color: 'var(--forest)', fontWeight: 600 }}>Conditions d'utilisation</Link>
+          <Link to="/" style={{ color: 'var(--forest-text)', fontWeight: 600, marginRight: 16 }}>Retour à l'accueil</Link>
+          <Link to="/cgu" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Conditions d'utilisation</Link>
         </p>
       </div>
       <ScrollToTopButton />

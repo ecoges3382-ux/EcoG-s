@@ -180,7 +180,7 @@ export default function Documents() {
                 style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit', minWidth: 0, background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: openingId === d.id ? 'default' : 'pointer', opacity: openingId === d.id ? 0.7 : 1 }}
               >
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className="ti ti-file-text" style={{ fontSize: 16, color: 'var(--forest)' }} aria-hidden="true"></i>
+                  <i className="ti ti-file-text" style={{ fontSize: 16, color: 'var(--forest-text)' }} aria-hidden="true"></i>
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ margin: '0 0 2px', fontSize: '13.5px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.titre}</p>

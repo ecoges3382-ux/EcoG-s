@@ -81,7 +81,7 @@ export default function EnableNotifications() {
       <div className="card-bold" style={{ padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <i className="ti ti-bell" style={{ fontSize: 20, color: 'var(--forest-dark)' }} aria-hidden="true"></i>
+            <i className="ti ti-bell" style={{ fontSize: 20, color: 'var(--forest-dark-text)' }} aria-hidden="true"></i>
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Notifications Push</p>

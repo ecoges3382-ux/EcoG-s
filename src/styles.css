@@ -3,7 +3,7 @@
   --ink:#1A2E27;
   --forest:#0F4C3A;
   --forest-dark:#0A3A2C;
-  --forest-light:#E4EEE9;
+  --forest-light: var(--forest-tint-light, #E4EEE9);
   --clay:#C4622D;
   --clay-light:#FBEADE;
   --clay-dark:#8F4620;
@@ -21,6 +21,19 @@
   --success-light:#E5F1E9;
   --amber:#A5680E;
   --amber-light:#FAEFDA;
+  /* Couleurs « texte » et « fond plein » : identiques en mode clair, adaptées en mode sombre. */
+  --forest-text: var(--forest);
+  --forest-dark-text: var(--forest-dark);
+  --clay-text: var(--clay-dark);
+  --danger-solid: var(--danger);
+  --success-solid: var(--success);
+  --amber-solid: var(--amber);
+  --clay-solid: var(--clay);
+  --on-ink: #FFFFFF;
+  --chip-bg: #F0EDE5;
+  --wa-text: #0A7A4F;
+  --wa-icon: var(--ink);
+  --help-bg: var(--line-strong);
   --radius: 14px;
   --serif: 'Fraunces', Georgia, serif;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -65,6 +78,38 @@ html.dark-mode, body.dark-mode {
   --amber-light: #78350F;
   --clay-light: #7C2D12;
   --gold-light: #78350F;
+
+  /* Le vert de l'école est trop sombre pour écrire dessus : on prend sa version éclaircie. */
+  --forest-text: var(--forest-lift, #7DD3B0);
+  --forest-dark-text: var(--forest-lift, #7DD3B0);
+  --clay-text: #FDBA74;
+  --clay: #E8845A;
+  --forest-light: var(--forest-tint-dark, #173A2F);
+  /* Fonds pleins avec texte blanc : un ton plus soutenu que la version « texte » */
+  --danger-solid: #DC2626;
+  --success-solid: #047857;
+  --amber-solid: #B45309;
+  --clay-solid: #C4622D;
+  --on-ink: #111827;
+  --chip-bg: #374151;
+  --wa-text: #34D399;
+  --wa-icon: #06251C;
+  --help-bg: #6B7280;
+}
+
+/* Documents imprimables (reçus, bulletins, relevés) : ils restent blancs, avec texte foncé,
+   même quand l'application est en mode sombre. */
+.force-light {
+  color-scheme: light;
+  --ink: #1A2E27; --cream: #FAF8F4; --paper: #FFFFFF;
+  --line: rgba(26,46,39,0.12); --line-strong: rgba(26,46,39,0.22); --muted: #6B7A73;
+  --danger: #B23A2E; --success: #2E6B47; --amber: #A5680E; --gold: #C99A3D; --clay: #C4622D;
+  --danger-light: #FBEAE7; --success-light: #E5F1E9; --amber-light: #FAEFDA; --clay-light: #FBEADE; --gold-light: #FBF1DD;
+  --forest-light: var(--forest-tint-light, #E4EEE9);
+  --forest-text: var(--forest); --forest-dark-text: var(--forest-dark); --clay-text: var(--clay-dark);
+  --danger-solid: var(--danger); --success-solid: var(--success); --amber-solid: var(--amber);
+  --clay-solid: var(--clay); --on-ink: #FFFFFF; --chip-bg: #F0EDE5; --wa-text: #0A7A4F; --wa-icon: #1A2E27; --help-bg: var(--line-strong);
+  color: var(--ink);
 }
 
 html {

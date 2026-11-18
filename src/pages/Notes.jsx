@@ -211,8 +211,8 @@ export default function Notes() {
                 {groupesParType.map((groupe) => (
                   <div key={groupe.id}>
                     <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-                      <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)' }}>{groupe.items.length}</span>
+                      <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{groupe.items.length}</span>
                     </div>
                     {groupe.items.map((g, i) => (
                       <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < groupe.items.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
@@ -223,7 +223,7 @@ export default function Notes() {
                           </p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest)' }}>{g.note}/{g.sur}</span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest-text)' }}>{g.note}/{g.sur}</span>
                           <button
                             type="button"
                             onClick={() => setEditingGrade(g)}
@@ -259,7 +259,7 @@ export default function Notes() {
               {eleveId === 'Tout' && (
                 <div data-tour="notes-rank" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
                   <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-                    <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                       Classement — {periode === 'Tous' ? 'moyenne annuelle' : `moyenne ${periode.toLowerCase()}`}
                     </p>
                   </div>

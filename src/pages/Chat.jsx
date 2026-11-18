@@ -161,7 +161,7 @@ function ReplyQuote({ original, name, isMe, onJump }) {
       onClick={(e) => { e.stopPropagation(); if (original) onJump(original.id); }}
       style={{ display: 'block', width: '100%', textAlign: 'left', whiteSpace: 'normal', background: isMe ? 'rgba(255,255,255,0.12)' : 'var(--cream)', border: 'none', borderLeft: `3px solid ${isMe ? '#9BD8B8' : 'var(--forest)'}`, borderRadius: 8, padding: '4px 8px', marginBottom: 4, cursor: original ? 'pointer' : 'default', color: 'inherit', font: 'inherit' }}
     >
-      <div style={{ fontSize: 11.5, fontWeight: 700, color: isMe ? '#BFE8D1' : 'var(--forest)' }}>{name}</div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: isMe ? '#BFE8D1' : 'var(--forest-text)' }}>{name}</div>
       <div style={{ fontSize: 12.5, opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: original && !original.deleted_at ? 'normal' : 'italic' }}>
         {original ? previewText(original) : "Message d'origine introuvable"}
       </div>
@@ -279,7 +279,7 @@ function MessageRow({ item, isMe, showSender, senderOnline, readStatus, original
         {failed && (
           <div style={{ marginTop: 3, fontSize: 11.5, color: 'var(--danger)', display: 'flex', gap: 10, alignItems: 'center' }}>
             <span>Échec de l'envoi</span>
-            <button type="button" onClick={() => onRetry(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Réessayer</button>
+            <button type="button" onClick={() => onRetry(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest-text)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Réessayer</button>
             <button type="button" onClick={() => onDiscard(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--muted)', fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Supprimer</button>
           </div>
         )}
@@ -329,13 +329,13 @@ function MessageActionSheet({ m, isMe, isMobile, viaTouch, readInfo, onClose, on
             <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>Supprimer ce message pour tout le monde ? Cette action est définitive.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" onClick={guard(() => setConfirming(false))} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>Annuler</button>
-              <button type="button" onClick={guard(() => onDelete(m))} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Supprimer</button>
+              <button type="button" onClick={guard(() => onDelete(m))} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--danger-solid)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Supprimer</button>
             </div>
           </div>
         ) : (
           <>
-            <button type="button" onClick={guard(() => onReply(m))} style={btn}><i className="ti ti-arrow-back-up" style={{ fontSize: 20, color: 'var(--forest)' }}></i>Répondre</button>
-            {m.content && <button type="button" onClick={guard(copyText)} style={btn}><i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 20, color: 'var(--forest)' }}></i>{copied ? 'Copié' : 'Copier'}</button>}
+            <button type="button" onClick={guard(() => onReply(m))} style={btn}><i className="ti ti-arrow-back-up" style={{ fontSize: 20, color: 'var(--forest-text)' }}></i>Répondre</button>
+            {m.content && <button type="button" onClick={guard(copyText)} style={btn}><i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 20, color: 'var(--forest-text)' }}></i>{copied ? 'Copié' : 'Copier'}</button>}
             {isMe && <button type="button" onClick={guard(() => setConfirming(true))} style={{ ...btn, color: 'var(--danger)' }}><i className="ti ti-trash" style={{ fontSize: 20 }}></i>Supprimer pour tous</button>}
           </>
         )}
@@ -415,7 +415,7 @@ function Composer({ isMobile, compact, keyboardOpen, hasPendingFile, focusSignal
 
   return (
     <form onSubmit={submit} style={{ padding: compact ? '8px 10px' : '14px 20px', paddingBottom: padBottom, borderTop: hasPendingFile ? 'none' : '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 8, alignItems: 'flex-end', flexShrink: 0 }}>
-      <button type="button" onClick={onAttach} title="Joindre un fichier" style={{ width: 40, height: 44, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--forest)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <button type="button" onClick={onAttach} title="Joindre un fichier" style={{ width: 40, height: 44, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--forest-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <i className="ti ti-paperclip" style={{ fontSize: 20 }}></i>
       </button>
       <textarea
@@ -497,7 +497,7 @@ function ChatContent() {
   useEffect(() => { staffRef.current = staff; }, [staff]);
 
   const getConvInfo = (c) => {
-    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest)', isGroup: true, imageUrl: schoolLogoUrl(profile.schools?.logo_url) };
+    if (c.type === 'general') return { name: c.name || 'Général', subtitle: 'Toute l\'école', initials: '🌍', color: 'var(--forest-text)', isGroup: true, imageUrl: schoolLogoUrl(profile.schools?.logo_url) };
     const other = c.chat_participants?.find(p => p.user_id !== profile.id);
     const name = other?.profiles?.full_name || 'Conversation privée';
     const role = other?.profiles?.role ? ROLES[other.profiles.role]?.label : null;
@@ -1087,7 +1087,7 @@ function ChatContent() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 2 }}>
                   <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: unread > 0 ? 600 : 400 }}>{preview}</p>
-                  {unread > 0 && <span style={{ background: 'var(--danger)', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 10, minWidth: 18, textAlign: 'center', flexShrink: 0 }}>{unread > 99 ? '99+' : unread}</span>}
+                  {unread > 0 && <span style={{ background: 'var(--danger-solid)', color: '#fff', fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 10, minWidth: 18, textAlign: 'center', flexShrink: 0 }}>{unread > 99 ? '99+' : unread}</span>}
                 </div>
               </div>
             </div>
@@ -1133,7 +1133,7 @@ function ChatContent() {
         {activeConv ? (
           <>
             <div style={{ padding: fullscreen ? '10px 14px' : '14px 20px', paddingTop: fullscreen ? 'calc(10px + env(safe-area-inset-top))' : undefined, borderBottom: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-              {isMobile && <button onClick={() => setActiveConv(null)} aria-label="Retour" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest)', fontSize: 24, padding: '4px 4px 4px 0', display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
+              {isMobile && <button onClick={() => setActiveConv(null)} aria-label="Retour" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--forest-text)', fontSize: 24, padding: '4px 4px 4px 0', display: 'flex', alignItems: 'center' }}><i className="ti ti-arrow-left"></i></button>}
               <Avatar text={info.initials} color={info.color} size={42} isGroup={info.isGroup} imageUrl={info.imageUrl} online={otherOnline} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1190,7 +1190,7 @@ function ChatContent() {
                   if (item.type === 'unread') {
                     return (
                       <div key={item.key} ref={dividerRef} style={{ display: 'flex', justifyContent: 'center', margin: '12px 0 6px' }}>
-                        <span style={{ background: 'var(--forest-light)', color: 'var(--forest)', padding: '4px 14px', borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>{item.count} message{item.count > 1 ? 's' : ''} non lu{item.count > 1 ? 's' : ''}</span>
+                        <span style={{ background: 'var(--forest-light)', color: 'var(--forest-text)', padding: '4px 14px', borderRadius: 20, fontSize: 11.5, fontWeight: 700 }}>{item.count} message{item.count > 1 ? 's' : ''} non lu{item.count > 1 ? 's' : ''}</span>
                       </div>
                     );
                   }
@@ -1222,7 +1222,7 @@ function ChatContent() {
               </div>
 
               {showScrollDown && (
-                <button onClick={() => scrollToBottom(true)} aria-label="Aller au dernier message" style={{ position: 'absolute', bottom: 12, right: 14, width: 40, height: 40, borderRadius: '50%', background: 'var(--paper)', border: '1px solid var(--line-strong)', color: 'var(--forest)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+                <button onClick={() => scrollToBottom(true)} aria-label="Aller au dernier message" style={{ position: 'absolute', bottom: 12, right: 14, width: 40, height: 40, borderRadius: '50%', background: 'var(--paper)', border: '1px solid var(--line-strong)', color: 'var(--forest-text)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5, boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
                   <i className="ti ti-chevron-down" style={{ fontSize: 20 }}></i>
                   {newBelow > 0 && <span style={{ position: 'absolute', top: -6, right: -4, background: 'var(--forest)', color: '#fff', fontSize: 10.5, fontWeight: 700, minWidth: 18, height: 18, padding: '0 5px', boxSizing: 'border-box', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{newBelow > 99 ? '99+' : newBelow}</span>}
                 </button>
@@ -1247,7 +1247,7 @@ function ChatContent() {
             {replyTo && (
               <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                 <div style={{ flex: 1, minWidth: 0, borderLeft: '3px solid var(--forest)', paddingLeft: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest)' }}>{replyTo.sender_id === profile.id ? 'Vous' : (replyTo.profiles?.full_name || 'Utilisateur')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest-text)' }}>{replyTo.sender_id === profile.id ? 'Vous' : (replyTo.profiles?.full_name || 'Utilisateur')}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText(replyTo)}</div>
                 </div>
                 <button type="button" onClick={() => setReplyTo(null)} aria-label="Annuler la réponse" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: 4 }}><i className="ti ti-x"></i></button>

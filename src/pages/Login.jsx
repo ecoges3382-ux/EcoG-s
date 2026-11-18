@@ -84,7 +84,7 @@ export default function Login() {
           )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <p style={{ margin: 0, fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Mot de passe</p>
-            <Link to="/mot-de-passe-oublie" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest)', textDecoration: 'none' }}>Mot de passe oublié ?</Link>
+            <Link to="/mot-de-passe-oublie" style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-text)', textDecoration: 'none' }}>Mot de passe oublié ?</Link>
           </div>
           <PasswordInput
             required
@@ -106,7 +106,7 @@ export default function Login() {
         </form>
 
         <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
-          Nouvelle école ? <Link to="/inscription" style={{ color: 'var(--forest)', fontWeight: 600 }}>Créer une école</Link>
+          Nouvelle école ? <Link to="/inscription" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Créer une école</Link>
         </p>
         <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center' }}>
           <Link to="/inscription-administrateur" style={{ color: 'var(--muted)' }}>Administrateur de la plateforme ? Créer un compte</Link>

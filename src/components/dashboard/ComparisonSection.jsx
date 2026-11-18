@@ -71,7 +71,7 @@ function CompareTable({ currentYear, previousYear, currStudents, currAttendance,
 
   return (
     <div className="card-bold" style={{ overflow: 'hidden', maxWidth: 640 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', padding: '11px 18px', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', padding: '11px 18px', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
         <span>Indicateur</span><span>{currentYear.label}</span><span>{previousYear.label}</span>
       </div>
       {rows.map((r, i) => (

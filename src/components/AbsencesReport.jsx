@@ -202,7 +202,7 @@ export default function AbsencesReport({ school, schoolYear }) {
         <button
           type="button"
           onClick={() => { setSelectedStudentId(null); setStudentFilter(''); }}
-          style={{ marginBottom: 14, fontSize: 12.5, fontWeight: 600, color: 'var(--forest)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}
+          style={{ marginBottom: 14, fontSize: 12.5, fontWeight: 600, color: 'var(--forest-text)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <i className="ti ti-arrow-left" style={{ fontSize: 14 }} aria-hidden="true"></i>
           Retour à la liste
@@ -374,13 +374,13 @@ export default function AbsencesReport({ school, schoolYear }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 620 }}>
               <thead>
                 <tr style={{ background: 'var(--forest-light)', borderBottom: '1px solid var(--line-strong)' }}>
-                  <th style={{ ...thStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Élève</th>
-                  <th style={{ ...thStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Classe</th>
-                  <th style={{ ...thCenterStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Absences</th>
-                  <th style={{ ...thRightStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Heures</th>
-                  <th style={{ ...thCenterStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Demi-j.</th>
-                  <th style={{ ...thCenterStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Retards</th>
-                  <th style={{ ...thRightStyle, padding: '10px 12px', color: 'var(--forest-dark)' }}>Durée retards</th>
+                  <th style={{ ...thStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Élève</th>
+                  <th style={{ ...thStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Classe</th>
+                  <th style={{ ...thCenterStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Absences</th>
+                  <th style={{ ...thRightStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Heures</th>
+                  <th style={{ ...thCenterStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Demi-j.</th>
+                  <th style={{ ...thCenterStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Retards</th>
+                  <th style={{ ...thRightStyle, padding: '10px 12px', color: 'var(--forest-dark-text)' }}>Durée retards</th>
                   <th className="no-print" style={{ padding: '10px 12px' }}></th>
                 </tr>
               </thead>
@@ -399,7 +399,7 @@ export default function AbsencesReport({ school, schoolYear }) {
                     <td style={{ ...tdCenterStyle, padding: '10px 12px', color: 'var(--muted)' }}>{r.demiJournees}</td>
                     <td style={{ ...tdCenterStyle, padding: '10px 12px', color: r.nbRetards > 0 ? 'var(--amber)' : 'var(--muted)', fontWeight: 600 }}>{r.nbRetards}</td>
                     <td style={{ ...tdRightStyle, padding: '10px 12px' }}>{formatMinutes(r.minutesRetard)}</td>
-                    <td className="no-print" style={{ padding: '10px 12px', textAlign: 'right', fontSize: 11.5, color: 'var(--forest)', fontWeight: 600 }}>Détail →</td>
+                    <td className="no-print" style={{ padding: '10px 12px', textAlign: 'right', fontSize: 11.5, color: 'var(--forest-text)', fontWeight: 600 }}>Détail →</td>
                   </tr>
                 ))}
               </tbody>

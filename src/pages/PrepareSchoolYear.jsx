@@ -20,7 +20,7 @@ const STEPS = [
   { id: 'resume', label: '3. Résumé & activation' },
 ];
 const DECISIONS = [
-  { id: 'a_traiter', label: 'À traiter', bg: '#F0EDE5', fg: 'var(--muted)' },
+  { id: 'a_traiter', label: 'À traiter', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
   { id: 'passe', label: 'Passe', bg: 'var(--success-light)', fg: 'var(--success)' },
   { id: 'redouble', label: 'Redouble', bg: 'var(--amber-light)', fg: 'var(--amber)' },
   { id: 'part', label: "Quitte l'école", bg: 'var(--danger-light)', fg: 'var(--danger)' },
@@ -58,7 +58,7 @@ export default function PrepareSchoolYear() {
 
   return (
     <div>
-      <Link to="/parametres/annee-scolaire" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
+      <Link to="/parametres/annee-scolaire" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, marginBottom: 18, textDecoration: 'none', width: 'fit-content' }}>
         <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour à Année scolaire
       </Link>
 
@@ -368,7 +368,7 @@ function TraiterElevesStep({ schoolId, prep, oldYearId }) {
 
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: selectMode ? 740 : 720 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '12px 20px' : '12px 20px 12px 0', background: 'var(--forest-light)', fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', alignItems: 'center' }}>
             {selectMode && <span></span>}
             <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: selectMode ? 0 : 20 }}>Élève</span><span>Classe actuelle</span><span>Décision</span><span>Nouvelle classe</span><span>Montant</span>
           </div>
@@ -458,7 +458,7 @@ function DecisionRow({ row, classes, gridCols, isLast, selectMode, selected, onT
     <div style={{ display: 'grid', gridTemplateColumns: gridCols, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: isLast ? 'none' : '1px solid var(--line)', gap: 8 }}>
       {selectMode && <input type="checkbox" checked={selected} onChange={onToggleSelected} style={{ flexShrink: 0 }} />}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest)', flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 11, fontWeight: 600, color: 'var(--forest-text)', flexShrink: 0, overflow: 'hidden' }}>
           {row.photo_url ? <img src={row.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(row.full_name)}
         </div>
         <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{row.full_name}</span>
@@ -612,7 +612,7 @@ function ResumeStep({ prep, onActivated }) {
 
       <div className="card-bold" style={{ padding: '18px 20px', marginBottom: 20, maxWidth: 420 }}>
         <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Total des montants dus prévus</p>
-        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 700, color: 'var(--forest-dark)' }}>{fmtF(totalDu)}</p>
+        <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{fmtF(totalDu)}</p>
       </div>
 
       {!canActivate && (

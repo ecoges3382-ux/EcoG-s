@@ -111,7 +111,7 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
       <div style={{ padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 14, color: 'var(--forest-dark)', overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 14, color: 'var(--forest-dark-text)', overflow: 'hidden', flexShrink: 0 }}>
               {school.logo_url ? <img src={school.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((school.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
             </div>
             <div>
@@ -126,8 +126,8 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
         </div>
 
         {issues.length > 0 && (
-          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 9, background: '#FEF3E2', border: '1px solid #FCA5A5' }}>
-            <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 700, color: '#8F4620', textTransform: 'uppercase', letterSpacing: '0.03em' }}>À surveiller</p>
+          <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 9, background: 'var(--amber-light)', border: '1px solid #FCA5A5' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 11.5, fontWeight: 700, color: 'var(--clay-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>À surveiller</p>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {issues.map((iss) => (
                 <span key={iss.key} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#fff', color: '#8F4620' }}>{iss.label}</span>
@@ -144,11 +144,11 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                style={{ padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: active ? 'var(--forest)' : 'var(--muted)', borderBottom: `2px solid ${active ? 'var(--forest)' : 'transparent'}`, marginBottom: -1 }}
+                style={{ padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: active ? 'var(--forest-text)' : 'var(--muted)', borderBottom: `2px solid ${active ? 'var(--forest)' : 'transparent'}`, marginBottom: -1 }}
               >
                 {t.label}
                 {t.id === 'personnel' && staff && (
-                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--forest-light)', color: 'var(--forest)' }}>{staff.length}</span>
+                  <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: 'var(--forest-light)', color: 'var(--forest-text)' }}>{staff.length}</span>
                 )}
               </button>
             );
@@ -161,12 +161,12 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
               <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark)', fontWeight: 600, textTransform: 'uppercase' }}>Élèves</p>
-                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark)' }}>{school.studentCount}</p>
+                <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark-text)', fontWeight: 600, textTransform: 'uppercase' }}>Élèves</p>
+                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{school.studentCount}</p>
               </div>
               <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '12px 14px' }}>
-                <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark)', fontWeight: 600, textTransform: 'uppercase' }}>Comptes personnel</p>
-                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark)' }}>{school.staffCount}</p>
+                <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark-text)', fontWeight: 600, textTransform: 'uppercase' }}>Comptes personnel</p>
+                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{school.staffCount}</p>
               </div>
             </div>
 
@@ -174,14 +174,14 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
             <p style={{ margin: '0 0 20px', fontSize: 13.5, fontWeight: 600 }}>{new Date(school.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
 
             <div style={{ marginBottom: 20, padding: '14px 16px', borderRadius: 12, background: 'var(--forest-light)', border: '1px solid var(--forest)' }}>
-              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--forest-dark)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Plan souscrit</p>
+              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Plan souscrit</p>
               {/* 👇 ON UTILISE LA NOUVELLE LISTE DYNAMIQUE ICI 👇 */}
               <Dropdown value={planDraft} onChange={setPlanDraft} options={CURRENT_PLAN_OPTIONS} style={{ marginBottom: 10 }} />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button type="button" onClick={handleSetPlan} disabled={!planDirty || busyId === 'plan'} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: planDirty ? 'var(--forest)' : 'var(--line)', color: planDirty ? '#fff' : 'var(--muted)', fontWeight: 600, fontSize: 12.5, cursor: planDirty ? 'pointer' : 'default' }}>
                   {busyId === 'plan' ? 'Enregistrement…' : 'Mettre à jour le plan'}
                 </button>
-                {planDirty && <span style={{ fontSize: 11.5, color: 'var(--clay-dark)', fontWeight: 600 }}>Non enregistré</span>}
+                {planDirty && <span style={{ fontSize: 11.5, color: 'var(--clay-text)', fontWeight: 600 }}>Non enregistré</span>}
               </div>
             </div>
 
@@ -214,7 +214,7 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
               ) : (
                 <>
                   <button type="button" onClick={() => setConfirmingDelete(false)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'none', color: 'var(--muted)', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}>Annuler</button>
-                  <button type="button" onClick={handleDelete} disabled={deleting} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger)', color: '#fff', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}>
+                  <button type="button" onClick={handleDelete} disabled={deleting} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--danger)', background: 'var(--danger-solid)', color: '#fff', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}>
                     {deleting ? 'Suppression…' : 'Confirmer'}
                   </button>
                 </>
@@ -237,7 +237,7 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
                         <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>{p.email || p.phone || '—'}</p>
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button type="button" onClick={() => handleSupportAction('impersonate', p.id)} disabled={!p.email || busyId === `impersonate-${p.id}`} title={p.email ? "Générer un lien de connexion à la place de ce compte" : "Ce compte n'a pas d'e-mail"} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--forest)', background: 'none', color: 'var(--forest)', fontWeight: 600, fontSize: 11.5, cursor: p.email ? 'pointer' : 'not-allowed', opacity: p.email ? 1 : 0.4 }}>
+                        <button type="button" onClick={() => handleSupportAction('impersonate', p.id)} disabled={!p.email || busyId === `impersonate-${p.id}`} title={p.email ? "Générer un lien de connexion à la place de ce compte" : "Ce compte n'a pas d'e-mail"} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--forest)', background: 'none', color: 'var(--forest-text)', fontWeight: 600, fontSize: 11.5, cursor: p.email ? 'pointer' : 'not-allowed', opacity: p.email ? 1 : 0.4 }}>
                           Se connecter en tant que
                         </button>
                         <button type="button" onClick={() => handleSupportAction('reset_password', p.id)} disabled={!p.email || busyId === `reset_password-${p.id}`} title={p.email ? 'Générer un lien de réinitialisation de mot de passe' : "Ce compte n'a pas d'e-mail"} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'none', color: 'var(--ink)', fontWeight: 600, fontSize: 11.5, cursor: p.email ? 'pointer' : 'not-allowed', opacity: p.email ? 1 : 0.4 }}>
@@ -252,7 +252,7 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
 
             {link && (
               <div className="card-bold" style={{ marginTop: 14, padding: '12px 14px', background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
-                <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-dark)' }}>
+                <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 700, color: 'var(--clay-text)' }}>
                   {link.action === 'impersonate' ? 'Lien de connexion à usage unique' : 'Lien de réinitialisation de mot de passe'} — ne le partage qu'avec la personne concernée.
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

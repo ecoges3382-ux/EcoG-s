@@ -93,7 +93,7 @@ export default function Parents() {
   if (!canViewRole) {
     return (
       <div className="card-bold" style={{ padding: '16px 20px', maxWidth: 520, background: 'var(--gold-light)', borderColor: 'var(--gold)' }}>
-        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-dark)', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--clay-text)', lineHeight: 1.6 }}>
           Seuls le fondateur, le directeur et la secrétaire peuvent consulter les parents.
         </p>
       </div>
@@ -189,7 +189,7 @@ export default function Parents() {
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--clay-dark)', flexShrink: 0 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: '12.5px', fontWeight: 600, color: 'var(--clay-text)', flexShrink: 0 }}>
                       {initials(p.full_name)}
                     </div>
                     <div style={{ minWidth: 0 }}>
@@ -197,7 +197,7 @@ export default function Parents() {
                       <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--muted)' }}>{p.phone || 'Pas de numéro'}</p>
                     </div>
                   </div>
-                  <span style={{ background: 'var(--forest-light)', color: 'var(--forest-dark)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>
+                  <span style={{ background: 'var(--forest-light)', color: 'var(--forest-dark-text)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, flexShrink: 0, marginLeft: 10 }}>
                     {childCount} enfant{childCount > 1 ? 's' : ''}
                   </span>
                 </Link>

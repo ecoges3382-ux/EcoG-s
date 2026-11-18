@@ -60,8 +60,8 @@ export default function TrendsSection({ schoolYear, attendance }) {
   const CustomTooltip = ({ active, payload, label, isCurrency }) => {
     if (active && payload && payload.length) {
       return (
-        <div style={{ background: 'var(--ink)', padding: '8px 12px', borderRadius: 8, color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-          <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>{label}</p>
+        <div style={{ background: 'var(--ink)', padding: '8px 12px', borderRadius: 8, color: 'var(--on-ink)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+          <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: 'var(--on-ink)', opacity: 0.7 }}>{label}</p>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
             {isCurrency ? fmtF(payload[0].value) : `${payload[0].value}%`}
           </p>
@@ -85,7 +85,7 @@ export default function TrendsSection({ schoolYear, attendance }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         
         <div style={{ marginBottom: 24 }}>
-          <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest)' }}>
+          <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest-text)' }}>
             Encaissements {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
           </p>
           
@@ -112,10 +112,10 @@ export default function TrendsSection({ schoolYear, attendance }) {
                   <Line 
                     type="linear" 
                     dataKey="value" 
-                    stroke="var(--forest)" 
+                    stroke="var(--forest-text)" 
                     strokeWidth={3} 
-                    dot={{ r: 4, fill: 'var(--paper)', stroke: 'var(--forest)', strokeWidth: 2 }} 
-                    activeDot={{ r: 6, fill: 'var(--forest)' }} 
+                    dot={{ r: 4, fill: 'var(--paper)', stroke: 'var(--forest-text)', strokeWidth: 2 }} 
+                    activeDot={{ r: 6, fill: 'var(--forest-text)' }} 
                   />
                 </LineChart>
               </ResponsiveContainer>

@@ -114,7 +114,7 @@ export default function PersonnelSection({ schoolYear }) {
         <Stat
           label="Total décaissé personnel"
           value={data ? fmtF(data.totalDecaisse) : '…'}
-          color="var(--clay-dark)"
+          color="var(--clay-text)"
           sub={decaisseSub}
           to="/personnel"
         />
