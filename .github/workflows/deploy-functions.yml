@@ -35,9 +35,9 @@ jobs:
           for dir in supabase/functions/*/; do
             name=$(basename "$dir")
             if [ "$name" = "whatsapp-webhook" ] || [ "$name" = "cron-reminders" ]; then
-              supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi --no-verify-jwt
+              supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi --no-verify-jwt --yes
             else
-              supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi
+              supabase functions deploy "$name" --project-ref xdumihqihcffegjcfhyi --yes
             fi
           done
         env:
