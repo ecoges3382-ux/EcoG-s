@@ -28,6 +28,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
+// Quota mensuel de messages WhatsApp par plan (null = illimité). Copie de src/lib/plan.js : toute évolution là-bas
+// doit être répercutée ici (un test vérifie que les deux restent identiques).
+const WHATSAPP_QUOTAS: Record<string, number | null> = { decouverte: 0, essentiel: 1000, standard: 3000, premium: null };
+
+function whatsappQuota(plan: string): number | null {
+  return Object.prototype.hasOwnProperty.call(WHATSAPP_QUOTAS, plan) ? WHATSAPP_QUOTAS[plan] : 0;
+}
+
+// Messages du mois en cours (heure UTC, comme la base). Les échecs ne comptent pas : une école ne perd pas de quota
+// parce que son téléphone était déconnecté. Les « en attente » comptent, pour ne pas dépasser en lançant deux envois.
+type QuotaState = { quota: number | null; used: number };
+
+// deno-lint-ignore no-explicit-any
+async function quotaState(adminClient: any, schoolId: string, plan: string): Promise<QuotaState> {
+  const quota = whatsappQuota(plan);
+  if (quota === null) return { quota, used: 0 };
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { count, error } = await adminClient
+    .from('whatsapp_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('school_id', schoolId)
+    .neq('statut', 'echec')
+    .gte('created_at', monthStart);
+  if (error || count === null) throw new Error('quota_indisponible');
+  return { quota, used: count };
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
@@ -235,6 +263,7 @@ Deno.serve(async (req) => {
     // 1. On prépare la liste des messages à envoyer, pour toutes les écoles.
     const jobs: Job[] = [];
     let alreadySent = 0;
+    let quotaSkipped = 0; // rappels non envoyés parce que le quota du mois est atteint
     for (const config of configs) {
       const schoolId = config.school_id as string;
       const { data: school } = await adminClient.from('schools').select('plan, statut, name').eq('id', schoolId).single();
@@ -259,6 +288,22 @@ Deno.serve(async (req) => {
         .map((e) => ({ ...e, jours: daysUntil(e.date) }))
         .filter((e) => e.jours !== null && MILESTONES.includes(e.jours as number));
       if (milestones.length === 0) continue;
+
+      // Quota du mois : au-delà, les rappels de cette école attendent le mois suivant (jamais d'envoi hors quota).
+      // Si le quota ne peut pas être lu, on n'envoie rien pour cette école ce tour-ci : la prochaine exécution réessaie.
+      let reste: number | null = null;
+      try {
+        const q = await quotaState(adminClient, schoolId, school.plan as string);
+        reste = q.quota === null ? null : Math.max(q.quota - q.used, 0);
+      } catch {
+        console.warn('[cron-reminders] quota illisible, école ignorée ce tour-ci :', schoolId);
+        continue;
+      }
+      if (reste !== null && reste <= 0) {
+        quotaSkipped++;
+        console.warn('[cron-reminders] quota WhatsApp du mois atteint, rappels suspendus pour l\'école :', schoolId);
+        continue;
+      }
 
       // Données de l'école, chargées une seule fois.
       const { data: enrollments } = await adminClient
@@ -330,6 +375,7 @@ Deno.serve(async (req) => {
             if (planned.has(key)) continue;
             if (done.has(key)) { alreadySent++; continue; }
             if ((failures[key] || 0) >= MAX_FAILURES) continue;
+            if (reste !== null) { if (reste <= 0) { quotaSkipped++; continue; } reste--; }
             const civilite = parent.civilite === 'Mme' ? 'Madame' : (parent.civilite === 'M' ? 'Monsieur' : '');
             jobs.push({
               schoolId,
@@ -376,7 +422,7 @@ Deno.serve(async (req) => {
       if (processed < jobs.length) await sleep(PAUSE_MIN_MS + Math.random() * PAUSE_RANGE_MS);
     }
 
-    return jsonResponse({ ok: true, sent, failed, remaining: jobs.length - processed, already_sent: alreadySent });
+    return jsonResponse({ ok: true, sent, failed, remaining: jobs.length - processed, already_sent: alreadySent, quota_skipped: quotaSkipped });
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 400);
   }

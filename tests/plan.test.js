@@ -1,6 +1,6 @@
 // Règles des offres (Découverte, Essentiel, Standard, Premium) : ce que chaque plan permet.
 import { describe, it, expect } from 'vitest';
-import { PLANS, planIndex, hasFeature, whatsappQuota, whatsappEnabledForPlan, PLAN_PRICES, LAUNCH_PRICES } from '../src/lib/plan.js';
+import { PLANS, planIndex, hasFeature, whatsappQuota, whatsappEnabledForPlan, PLAN_PRICES, LAUNCH_PRICES, studentLimit, accountLimit, usageLevel, nextPlan } from '../src/lib/plan.js';
 
 describe('fonctions réservées à un plan', () => {
   it('l\'ordre des plans est Découverte < Essentiel < Standard < Premium', () => {
@@ -65,5 +65,41 @@ describe('prix', () => {
   it('le plan gratuit est gratuit, et le prix annuel est toujours inférieur à 12 mensualités', () => {
     expect(PLAN_PRICES.decouverte).toEqual({ mensuel: 0, annuel: 0 });
     for (const plan of ['essentiel', 'standard', 'premium']) expect(PLAN_PRICES[plan].annuel).toBeLessThan(PLAN_PRICES[plan].mensuel * 12);
+  });
+});
+
+describe('limites d\'élèves et de comptes', () => {
+  it('reprennent exactement ce qui est annoncé sur la page d\'accueil', () => {
+    expect(['decouverte', 'essentiel', 'standard', 'premium'].map(studentLimit)).toEqual([50, 300, 800, null]);
+    expect(['decouverte', 'essentiel', 'standard', 'premium'].map(accountLimit)).toEqual([2, 10, null, null]);
+  });
+
+  it('un plan inconnu ou vide a les limites du plan gratuit, jamais celles d\'un plan large', () => {
+    expect(studentLimit(undefined)).toBe(50);
+    expect(accountLimit('nimporte_quoi')).toBe(2);
+  });
+
+  it('le niveau d\'alerte : ok sous 90 %, near dès 90 %, full à la limite et au-delà', () => {
+    expect(usageLevel(269, 300)).toBe('ok');
+    expect(usageLevel(270, 300)).toBe('near');
+    expect(usageLevel(299, 300)).toBe('near');
+    expect(usageLevel(300, 300)).toBe('full');
+    expect(usageLevel(350, 300)).toBe('full');
+    expect(usageLevel(0, 50)).toBe('ok');
+    expect(usageLevel(45, 50)).toBe('near');
+    expect(usageLevel(1, 2)).toBe('ok');
+    expect(usageLevel(2, 2)).toBe('full');
+  });
+
+  it('illimité : jamais d\'alerte', () => {
+    expect(usageLevel(5000, null)).toBe('ok');
+    expect(usageLevel(5000, undefined)).toBe('ok');
+  });
+
+  it('le plan suivant proposé, et rien après Premium', () => {
+    expect(nextPlan('decouverte')).toBe('essentiel');
+    expect(nextPlan('standard')).toBe('premium');
+    expect(nextPlan('premium')).toBeNull();
+    expect(nextPlan('inconnu')).toBeNull();
   });
 });

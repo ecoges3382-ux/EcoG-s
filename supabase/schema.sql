@@ -3977,8 +3977,9 @@ BEGIN
 END;
 $function$;
 
--- Quota mensuel de messages WhatsApp selon le plan. ATTENTION : aucune fonction d'envoi ne l'appelle pour l'instant
--- (ni openwa-send, ni cron-reminders) ; elle compte aussi les messages en échec.
+-- Quota mensuel de messages WhatsApp selon le plan. Les Edge Functions openwa-send et cron-reminders appliquent le même
+-- calcul dans leur propre code (copie de src/lib/plan.js) ; cette fonction SQL reste disponible pour un contrôle direct.
+-- Les messages en échec ne comptent pas.
 create or replace function public.check_whatsapp_quota(p_school_id uuid)
  returns boolean
  language plpgsql
@@ -4005,6 +4006,7 @@ BEGIN
     SELECT COUNT(*) INTO v_sent_this_month
     FROM whatsapp_messages
     WHERE school_id = p_school_id
+      AND statut <> 'echec'
       AND created_at >= date_trunc('month', now());
 
     -- 4. Retourner VRAI si on a le droit d'envoyer, FAUX sinon

@@ -13,7 +13,7 @@ import {
   healthIssues 
 } from './PlatformAdminUI.jsx';
 // 👇 On importe les prix depuis le fichier officiel plan.js 👇
-import { PLAN_PRICES, LAUNCH_PRICES } from '../../lib/plan.js';
+import { PLAN_PRICES, LAUNCH_PRICES, studentLimit, accountLimit } from '../../lib/plan.js';
 
 // 👇 On remplace PLAN_OPTIONS par une liste dynamique basée sur les prix actuels 👇
 const CURRENT_PLAN_OPTIONS = [
@@ -163,11 +163,11 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
               <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '12px 14px' }}>
                 <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark-text)', fontWeight: 600, textTransform: 'uppercase' }}>Élèves</p>
-                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{school.studentCount}</p>
+                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{school.studentCount}{studentLimit(school.plan) !== null && <span style={{ fontSize: 13, fontWeight: 500 }}> / {studentLimit(school.plan)}</span>}</p>
               </div>
               <div style={{ background: 'var(--forest-light)', borderRadius: 10, padding: '12px 14px' }}>
                 <p style={{ margin: '0 0 3px', fontSize: 11, color: 'var(--forest-dark-text)', fontWeight: 600, textTransform: 'uppercase' }}>Comptes personnel</p>
-                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{school.staffCount}</p>
+                <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 20, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{school.staffCount}{accountLimit(school.plan) !== null && <span style={{ fontSize: 13, fontWeight: 500 }}> / {accountLimit(school.plan)}</span>}</p>
               </div>
             </div>
 
