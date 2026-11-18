@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { initials, ROLES, sortByRole } from '../../lib/utils.js';
 import PhoneInput, { decomposePhone, composePhone } from '../PhoneInput.jsx';
+import { useSchoolDial } from '../../lib/schoolCountry.js';
 import { useToast } from '../Toast.jsx';
 import { useConfirm } from '../ConfirmDialog.jsx';
 import Dropdown from '../Dropdown.jsx';
@@ -182,8 +183,10 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   const [role, setRole] = useState(editing?.role || CREATABLE_STAFF_ROLES[0]);
   const [email, setEmail] = useState(editing?.email || '');
   
-  const initialPhone = decomposePhone(editing?.phone || '');
-  const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
+  const schoolDial = useSchoolDial();
+  const initialPhone = decomposePhone(editing?.phone || '', schoolDial);
+  const [phoneDialChoisi, setPhoneDial] = useState(editing?.phone ? initialPhone.dial : null); // null = pays de l'école
+  const phoneDial = phoneDialChoisi ?? schoolDial;
   const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
   
   const [permissions, setPermissions] = useState(editing?.permissions || ROLE_PERMISSIONS[role]);

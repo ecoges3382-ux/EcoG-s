@@ -108,6 +108,49 @@ function computeEcheances(
 }
 // --- fin de la copie ---
 
+// Numéros de téléphone : même logique que src/lib/phone.js (copie, une fonction Deno ne peut pas importer le code de
+// l'application ; tests/parite-serveur.test.js vérifie que les deux restent identiques).
+// Numéro enregistré (« +229 97 00 00 00 », « 0022997000000 », ou chiffres seuls) -> « +22997000000 », ou null s'il
+// est inutilisable. Sans « + » ni « 00 », on ajoute l'indicatif du pays de l'école.
+const DEFAULT_DIAL = '229';
+
+function onlyDigits(str: unknown): string {
+  return String(str || '').replace(/\D/g, '');
+}
+
+function composePhone(dial: string, local: string): string {
+  const digits = onlyDigits(local);
+  if (!digits) return '';
+  if (dial === '229') return `+${dial}${digits.length === 8 ? `01${digits}` : digits}`; // Bénin : « 01 » + 8 chiffres depuis nov. 2024
+  if (dial === '225') return `+${dial}${digits}`; // Côte d'Ivoire : préfixe selon l'opérateur, gardé tel quel
+  return `+${dial}${digits.replace(/^0+/, '')}`;
+}
+
+function normalizePhone(phone: string | null | undefined, dial: string = DEFAULT_DIAL): string | null {
+  if (phone === null || phone === undefined) return null;
+  let p = String(phone).trim().replace(/[\s().-]/g, '');
+  if (!p) return null;
+  if (p.startsWith('00')) p = '+' + p.slice(2);
+  if (!p.startsWith('+')) {
+    if (!/^\d+$/.test(p)) return null;
+    const indicatif = /^\d{1,3}$/.test(String(dial)) ? String(dial) : DEFAULT_DIAL;
+    const dejaAvecIndicatif = p.startsWith(indicatif) && p.length >= indicatif.length + 8;
+    const local = dejaAvecIndicatif ? p.slice(indicatif.length) : p;
+    if (local.length < 7) return null; // trop court pour un numéro : évite d'enregistrer « +22912345 »
+    p = composePhone(indicatif, local);
+  }
+  return /^\+[1-9]\d{6,14}$/.test(p) ? p : null;
+}
+
+// Indicatif du pays de l'école (Paramètres). Si la colonne n'existe pas encore (mise à jour de la base pas faite) ou
+// si la lecture échoue, on garde l'indicatif du Bénin, comme avant : jamais une panne d'envoi à cause de ça.
+// deno-lint-ignore no-explicit-any
+async function getSchoolDial(adminClient: any, schoolId: string): Promise<string> {
+  const { data, error } = await adminClient.from('schools').select('indicatif_pays').eq('id', schoolId).maybeSingle();
+  if (error || !data?.indicatif_pays || !/^\d{1,3}$/.test(String(data.indicatif_pays))) return DEFAULT_DIAL;
+  return String(data.indicatif_pays);
+}
+
 function isValidE164(phone: string | null | undefined): boolean {
   return !!phone && /^\+[1-9]\d{6,14}$/.test(phone);
 }
@@ -233,6 +276,7 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
     const schoolId = callerProfile.school_id as string;
+    const dial = await getSchoolDial(adminClient, schoolId); // indicatif ajouté aux numéros saisis sans « + »
 
     const { data: config } = await adminClient
       .from('whatsapp_configs')
@@ -296,7 +340,8 @@ Deno.serve(async (req) => {
       }
 
       const { data: links } = await adminClient.from('parent_access_students').select('parent_access ( id, full_name, phone, school_id )').eq('student_id', studentId);
-      const parents = (links || []).map((l: { parent_access: unknown }) => l.parent_access).filter((p: { school_id?: string }) => p && p.school_id === schoolId) as { id: string; full_name: string; phone: string | null }[];
+      const parents = (links || []).map((l: { parent_access: unknown }) => l.parent_access).filter((p: { school_id?: string }) => p && p.school_id === schoolId)
+        .map((p: { id: string; full_name: string; phone: string | null }) => ({ ...p, phone: normalizePhone(p.phone, dial) })) as { id: string; full_name: string; phone: string | null }[];
       if (parents.length === 0) throw new Error('Aucun parent relié à cet élève.');
       const withPhone = parents.filter((p) => isValidE164(p.phone));
       if (withPhone.length === 0) throw new Error("Aucun des parents reliés n'a de numéro WhatsApp valide enregistré.");
@@ -360,7 +405,8 @@ Deno.serve(async (req) => {
       }
 
       const seenPhones = new Set<string>();
-      const withPhone = recipients.filter((r) => isValidE164(r.phone) && !seenPhones.has(r.phone) && seenPhones.add(r.phone));
+      const normalises = recipients.map((r) => ({ ...r, phone: normalizePhone(r.phone, dial) as string }));
+      const withPhone = normalises.filter((r) => isValidE164(r.phone) && !seenPhones.has(r.phone) && seenPhones.add(r.phone));
       if (withPhone.length === 0) throw new Error('Aucun destinataire avec un numéro WhatsApp valide pour cette annonce.');
 
       const toSend = withPhone.slice(0, quota.remaining);
@@ -398,7 +444,8 @@ Deno.serve(async (req) => {
 
       const { data: parent } = await adminClient.from('parent_access').select('id, phone, school_id').eq('id', parentAccessId).eq('school_id', schoolId).maybeSingle();
       if (!parent) throw new Error('Ce parent ne fait pas partie de votre école.');
-      if (!isValidE164(parent.phone)) throw new Error("Ce parent n'a pas de numéro WhatsApp valide enregistré.");
+      const parentPhone = normalizePhone(parent.phone, dial);
+      if (!parentPhone) throw new Error("Ce parent n'a pas de numéro WhatsApp valide enregistré.");
 
       if (studentId) {
         const cooldownError = await checkCooldown(adminClient, schoolId, studentId, type);
@@ -407,7 +454,7 @@ Deno.serve(async (req) => {
 
       const outcome = await sendAndLog(
         adminClient,
-        { school_id: schoolId, parent_access_id: parent.id, student_id: studentId, announcement_id: null, type, destinataire_phone: parent.phone, contenu, template_name: templateConf.name, created_by: user.id },
+        { school_id: schoolId, parent_access_id: parent.id, student_id: studentId, announcement_id: null, type, destinataire_phone: parentPhone, contenu, template_name: templateConf.name, created_by: user.id },
         { phone_number_id: config.phone_number_id, access_token: config.access_token },
         templateConf.lang || 'fr',
         [contenu],

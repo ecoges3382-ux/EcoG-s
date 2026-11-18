@@ -2,13 +2,16 @@
 //  - la formule de politesse et le nom de l'école en bas de chaque message ;
 //  - la normalisation des numéros de téléphone.
 import { describe, it, expect } from 'vitest';
-import { lireFonctionServeur, extraireFonction, compiler } from './helpers/extraire.js';
+import { lireFonctionServeur, extraireFonction, extraireConstante, compiler } from './helpers/extraire.js';
 
 const FONCTIONS = ['openwa-send', 'cron-reminders'];
 
 function charger(nomFonction) {
   const source = lireFonctionServeur(nomFonction);
-  return compiler([extraireFonction(source, 'normalizePhone'), extraireFonction(source, 'withSignature')], ['normalizePhone', 'withSignature']);
+  return compiler([
+    extraireConstante(source, 'DEFAULT_DIAL'), extraireFonction(source, 'onlyDigits'), extraireFonction(source, 'composePhone'),
+    extraireFonction(source, 'normalizePhone'), extraireFonction(source, 'withSignature'),
+  ], ['normalizePhone', 'withSignature']);
 }
 
 for (const nom of FONCTIONS) {
@@ -62,10 +65,13 @@ for (const nom of FONCTIONS) {
       it(`refuse ${JSON.stringify(entree)}`, () => expect(normalizePhone(entree)).toBeNull());
     }
 
-    // Comportement actuel, à connaître : sans indicatif pays, le numéro est refusé (on ne devine pas le pays).
-    it('refuse un numéro local sans indicatif (« 97000001 » ou « 22997000001 »)', () => {
-      expect(normalizePhone('97000001')).toBeNull();
-      expect(normalizePhone('22997000001')).toBeNull();
+    // Numéro sans indicatif : celui du pays de l'école est ajouté (Bénin par défaut, avec le « 01 » depuis nov. 2024).
+    it('ajoute l\'indicatif de l\'école à un numéro local', () => {
+      expect(normalizePhone('97000001')).toBe('+2290197000001');
+      expect(normalizePhone('0197000001')).toBe('+2290197000001');
+      expect(normalizePhone('22997000001')).toBe('+2290197000001');
+      expect(normalizePhone('90123456', '228')).toBe('+22890123456');
+      expect(normalizePhone('08031234567', '234')).toBe('+2348031234567');
     });
   });
 }

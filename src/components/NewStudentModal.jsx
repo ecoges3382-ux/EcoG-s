@@ -6,7 +6,8 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { generateAccessCode, displayName, fmtF, MODES, NATIONALITES } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import MoneyInput from './MoneyInput.jsx';
-import PhoneInput, { COUNTRIES, composePhone, decomposePhone } from './PhoneInput.jsx';
+import PhoneInput, { composePhone, decomposePhone } from './PhoneInput.jsx';
+import { useSchoolDial } from '../lib/schoolCountry.js';
 import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
@@ -54,7 +55,10 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
   const [parentNom, setParentNom] = useState('');
   const [parentPrenom, setParentPrenom] = useState('');
-  const [parentAccessDial, setParentAccessDial] = useState(COUNTRIES[0].dial);
+  // null = « pas encore choisi » : on utilise le pays de l'école, que la personne peut changer pour ce parent.
+  const schoolDial = useSchoolDial();
+  const [parentAccessDialChoisi, setParentAccessDial] = useState(null);
+  const parentAccessDial = parentAccessDialChoisi ?? schoolDial;
   const [parentAccessLocal, setParentAccessLocal] = useState('');
   const [lienParente, setLienParente] = useState('pere');
   const [useExistingParent, setUseExistingParent] = useState(false);
@@ -64,7 +68,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   const [hasSecondParent, setHasSecondParent] = useState(false);
   const [parent2Nom, setParent2Nom] = useState('');
   const [parent2Prenom, setParent2Prenom] = useState('');
-  const [parent2Dial, setParent2Dial] = useState(COUNTRIES[0].dial);
+  const [parent2DialChoisi, setParent2Dial] = useState(null);
+  const parent2Dial = parent2DialChoisi ?? schoolDial;
   const [parent2Local, setParent2Local] = useState('');
   const [parent2Lien, setParent2Lien] = useState('mere');
   const [useExistingParent2, setUseExistingParent2] = useState(false);
@@ -144,8 +149,8 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           setEditingParentId(p.id);
           setParentNom(p.nom || '');
           setParentPrenom(p.prenom || '');
-          const { dial, local } = decomposePhone(p.phone);
-          setParentAccessDial(dial || COUNTRIES[0].dial);
+          const { dial, local } = decomposePhone(p.phone, schoolDial);
+          setParentAccessDial(dial);
           setParentAccessLocal(local || '');
           setLienParente(p.lien_parente || 'pere');
         }
@@ -155,14 +160,16 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
           setEditingParent2Id(p2.id);
           setParent2Nom(p2.nom || '');
           setParent2Prenom(p2.prenom || '');
-          const { dial, local } = decomposePhone(p2.phone);
-          setParent2Dial(dial || COUNTRIES[0].dial);
+          const { dial, local } = decomposePhone(p2.phone, schoolDial);
+          setParent2Dial(dial);
           setParent2Local(local || '');
           setParent2Lien(p2.lien_parente || 'mere');
         }
         setParentLoaded(true);
       });
     return () => { cancelled = true; };
+    // schoolDial volontairement absent : le relancer rechargerait les parents et effacerait ce qui est en cours de saisie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, student?.id]);
 
   const [existingParents, setExistingParents] = useState(null);

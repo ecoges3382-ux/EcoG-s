@@ -62,3 +62,34 @@ describe('les copies serveur du calcul des échéances donnent les mêmes résul
     expect(toutes.some((e) => e.id === 'connexe')).toBe(true);
   });
 });
+
+// ---- Numéros de téléphone : même règle dans l'application (src/lib/phone.js) et dans les trois fonctions serveur ----
+import { toInternational } from '../src/lib/phone.js';
+
+function copiePhone(nom) {
+  const source = lireFonctionServeur(nom);
+  return compiler([
+    extraireConstante(source, 'DEFAULT_DIAL'), extraireFonction(source, 'onlyDigits'), extraireFonction(source, 'composePhone'), extraireFonction(source, 'normalizePhone'),
+  ], ['normalizePhone']).normalizePhone;
+}
+
+describe('les copies serveur de la normalisation des numéros donnent les mêmes résultats que l\'application', () => {
+  const r = alea(7);
+  const chiffres = (n) => Array.from({ length: n }, () => Math.floor(r() * 10)).join('');
+  const decors = [(x) => x, (x) => `${x.slice(0, 2)} ${x.slice(2)}`, (x) => `+${x}`, (x) => `00${x}`, (x) => ` ${x}-`, (x) => `(${x})`];
+  const indicatifs = ['229', '228', '225', '221', '227', '226', '223', '234', '233', '33', undefined, 'abc', ''];
+  const entrees = [null, undefined, '', 'abc', '12', '12345'];
+  for (let i = 0; i < 600; i++) {
+    const base = [chiffres(8), chiffres(9), chiffres(10), `0${chiffres(9)}`, `229${chiffres(8)}`, `229${chiffres(10)}`, `228${chiffres(8)}`, chiffres(4), chiffres(16)][Math.floor(r() * 9)];
+    entrees.push(decors[Math.floor(r() * decors.length)](base));
+  }
+
+  for (const nom of FONCTIONS) {
+    it(`${nom} : mêmes numéros que src/lib/phone.js sur ${entrees.length} saisies × ${indicatifs.length} indicatifs`, () => {
+      const serveur = copiePhone(nom);
+      for (const e of entrees) for (const d of indicatifs) {
+        expect(serveur(e, d), `${nom} : ${JSON.stringify(e)} / ${JSON.stringify(d)}`).toBe(toInternational(e, d));
+      }
+    });
+  }
+});

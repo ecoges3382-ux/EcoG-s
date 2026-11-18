@@ -3,7 +3,8 @@ import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { initials, generateAccessCode, displayName } from '../../lib/utils.js';
 import { useCurrentSchoolYear } from '../../lib/schoolYear.jsx';
-import PhoneInput, { COUNTRIES, decomposePhone, composePhone } from '../PhoneInput.jsx';
+import PhoneInput, { decomposePhone, composePhone } from '../PhoneInput.jsx';
+import { useSchoolDial } from '../../lib/schoolCountry.js';
 import NameInput from '../NameInput.jsx';
 import { useToast } from '../Toast.jsx';
 import { useConfirm } from '../ConfirmDialog.jsx';
@@ -175,7 +176,9 @@ function NewParentAccessModal({ onClose, onCreated }) {
   const [civilite, setCivilite] = useState('M');
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
-  const [phoneDial, setPhoneDial] = useState(COUNTRIES[0].dial);
+  const schoolDial = useSchoolDial();
+  const [phoneDialChoisi, setPhoneDial] = useState(null); // null = pays de l'école
+  const phoneDial = phoneDialChoisi ?? schoolDial;
   const [phoneLocal, setPhoneLocal] = useState('');
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -312,8 +315,10 @@ function EditParentAccessInfoModal({ access, onClose, onSaved }) {
   const [civilite, setCivilite] = useState(access.civilite || 'M');
   const [nom, setNom] = useState(access.nom || '');
   const [prenom, setPrenom] = useState(access.prenom || '');
-  const initialPhone = decomposePhone(access.phone);
-  const [phoneDial, setPhoneDial] = useState(initialPhone.dial);
+  const schoolDial = useSchoolDial();
+  const initialPhone = decomposePhone(access.phone, schoolDial);
+  const [phoneDialChoisi, setPhoneDial] = useState(access.phone ? initialPhone.dial : null); // null = pays de l'école
+  const phoneDial = phoneDialChoisi ?? schoolDial;
   const [phoneLocal, setPhoneLocal] = useState(initialPhone.local);
   const [email, setEmail] = useState(access.email || '');
   const [submitting, setSubmitting] = useState(false);

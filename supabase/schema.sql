@@ -3644,3 +3644,10 @@ as $$
 $$;
 revoke all on function platform_school_counts() from public, anon, authenticated;
 grant execute on function platform_school_counts() to service_role;
+
+-- ---------- Pays de l'école : indicatif téléphonique par défaut ----------
+-- Sert à compléter automatiquement l'indicatif des numéros saisis sans « + » (« 229 » = Bénin, valeur par défaut).
+-- Modifiable par le fondateur dans Paramètres > Pays de l'école (couverte par la règle de mise à jour de l'école).
+alter table schools add column if not exists indicatif_pays text not null default '229';
+alter table schools drop constraint if exists schools_indicatif_pays_check;
+alter table schools add constraint schools_indicatif_pays_check check (indicatif_pays ~ '^[0-9]{1,3}$');
