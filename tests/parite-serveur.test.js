@@ -73,6 +73,9 @@ function copiePhone(nom) {
   ], ['normalizePhone']).normalizePhone;
 }
 
+// Les deux fonctions d'envoi déclenchées par l'app (absence, paiement) portent aussi la même règle de numéro.
+const FONCTIONS_TELEPHONE = [...FONCTIONS, 'send-absence-whatsapp', 'send-payment-push'];
+
 describe('les copies serveur de la normalisation des numéros donnent les mêmes résultats que l\'application', () => {
   const r = alea(7);
   const chiffres = (n) => Array.from({ length: n }, () => Math.floor(r() * 10)).join('');
@@ -84,7 +87,7 @@ describe('les copies serveur de la normalisation des numéros donnent les mêmes
     entrees.push(decors[Math.floor(r() * decors.length)](base));
   }
 
-  for (const nom of FONCTIONS) {
+  for (const nom of FONCTIONS_TELEPHONE) {
     it(`${nom} : mêmes numéros que src/lib/phone.js sur ${entrees.length} saisies × ${indicatifs.length} indicatifs`, () => {
       const serveur = copiePhone(nom);
       for (const e of entrees) for (const d of indicatifs) {

@@ -3651,3 +3651,642 @@ grant execute on function platform_school_counts() to service_role;
 alter table schools add column if not exists indicatif_pays text not null default '229';
 alter table schools drop constraint if exists schools_indicatif_pays_check;
 alter table schools add constraint schools_indicatif_pays_check check (indicatif_pays ~ '^[0-9]{1,3}$');
+
+-- =====================================================================================================
+-- Éléments créés à la main en production (hors de ce fichier jusqu'ici), rapatriés ici pour que le projet
+-- puisse être recréé à l'identique. Relevés directement dans la base de production : colonnes, contraintes,
+-- règles de sécurité, déclencheurs, index, temps réel. Rejouable sans erreur.
+-- =====================================================================================================
+
+-- ---------- Messagerie interne : conversations, participants, messages ----------
+create table if not exists chat_conversations (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  type text not null check (type in ('general', 'private')),
+  name text,
+  created_at timestamptz not null default now()
+);
+-- Un seul canal général par école.
+create unique index if not exists one_general_chat_per_school on chat_conversations (school_id) where type = 'general';
+
+create table if not exists chat_participants (
+  conversation_id uuid not null references chat_conversations(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  last_read_at timestamptz not null default now(),
+  primary key (conversation_id, user_id)
+);
+
+create table if not exists chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references chat_conversations(id) on delete cascade,
+  sender_id uuid not null references profiles(id) on delete cascade,
+  content text,
+  created_at timestamptz not null default now(),
+  file_url text,
+  file_type text check (file_type in ('image', 'file')),
+  file_name text,
+  reply_to_id uuid references chat_messages(id) on delete set null,
+  deleted_at timestamptz
+);
+create index if not exists chat_messages_conv_created_idx on chat_messages (conversation_id, created_at desc);
+create index if not exists chat_messages_reply_to_idx on chat_messages (reply_to_id);
+
+alter table chat_conversations enable row level security;
+alter table chat_participants enable row level security;
+alter table chat_messages enable row level security;
+
+-- ---------- Historique des moratoires ----------
+create table if not exists moratoire_history (
+  id uuid primary key default gen_random_uuid(),
+  enrollment_id uuid not null references enrollments(id) on delete cascade,
+  school_id uuid not null references schools(id) on delete cascade,
+  action text not null,
+  ancien_resume text,
+  nouveau_resume text,
+  auteur text,
+  created_at timestamptz default now()
+);
+create index if not exists idx_moratoire_history_enrollment on moratoire_history (enrollment_id, created_at desc);
+alter table moratoire_history enable row level security;
+
+-- ---------- Abonnements aux notifications push (un par appareil) ----------
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  school_id uuid not null references schools(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+alter table push_subscriptions enable row level security;
+
+-- ---------- Appréciations et décisions du bulletin ----------
+create table if not exists report_card_appreciations (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  school_year_id uuid not null references school_years(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  periode text not null,
+  appreciation text,
+  decision text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (school_year_id, student_id, periode)
+);
+alter table report_card_appreciations enable row level security;
+
+-- ---------- Fonctions de la messagerie ----------
+create or replace function public.can_access_conversation(p_conv uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to 'public'
+as $function$
+  select exists (
+    select 1
+    from chat_conversations c
+    where c.id = p_conv
+      and c.school_id = (select p.school_id from profiles p where p.id = auth.uid())
+      and (
+        c.type <> 'private'
+        or exists (
+          select 1 from chat_participants cp
+          where cp.conversation_id = c.id and cp.user_id = auth.uid()
+        )
+      )
+  );
+$function$;
+
+create or replace function public.is_conversation_in_my_school(p_conversation_id uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to 'public'
+as $function$
+  select exists (
+    select 1 from chat_conversations c
+    where c.id = p_conversation_id
+    and c.school_id = (select school_id from profiles where id = auth.uid())
+  )
+$function$;
+
+create or replace function public.is_conversation_participant(p_conversation_id uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to 'public'
+as $function$
+  select exists (
+    select 1 from chat_participants
+    where conversation_id = p_conversation_id
+    and user_id = auth.uid()
+  )
+$function$;
+
+create or replace function public.chat_check_reply()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if new.reply_to_id is not null and not exists (
+    select 1 from chat_messages m
+    where m.id = new.reply_to_id and m.conversation_id = new.conversation_id
+  ) then
+    raise exception 'La réponse doit viser un message de la même conversation.';
+  end if;
+  return new;
+end;
+$function$;
+
+create or replace function public.create_private_chat(p_other_user_id uuid)
+ returns uuid
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_school_id uuid;
+  v_conversation_id uuid;
+  v_existing_id uuid;
+begin
+  -- Récupérer l'école de l'utilisateur connecté
+  v_school_id := (select school_id from profiles where id = auth.uid());
+  if v_school_id is null then
+    raise exception 'Non authentifié';
+  end if;
+
+  -- Vérifier que l'autre utilisateur existe et est dans la même école
+  if not exists (
+    select 1 from profiles
+    where id = p_other_user_id and school_id = v_school_id
+  ) then
+    raise exception 'Utilisateur introuvable dans cette école';
+  end if;
+
+  if p_other_user_id = auth.uid() then
+    raise exception 'Impossible de discuter avec soi-même';
+  end if;
+
+  -- Vérifier si une conversation privée existe déjà entre ces deux personnes
+  select c.id into v_existing_id
+  from chat_conversations c
+  join chat_participants p1 on p1.conversation_id = c.id and p1.user_id = auth.uid()
+  join chat_participants p2 on p2.conversation_id = c.id and p2.user_id = p_other_user_id
+  where c.type = 'private' and c.school_id = v_school_id
+  limit 1;
+
+  if v_existing_id is not null then
+    return v_existing_id;
+  end if;
+
+  -- Créer la conversation privée
+  insert into chat_conversations (school_id, type)
+  values (v_school_id, 'private')
+  returning id into v_conversation_id;
+
+  -- Ajouter les deux participants
+  insert into chat_participants (conversation_id, user_id)
+  values
+    (v_conversation_id, auth.uid()),
+    (v_conversation_id, p_other_user_id);
+
+  return v_conversation_id;
+end;
+$function$;
+
+create or replace function public.delete_chat_message(p_message_id uuid)
+ returns text
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_sender uuid;
+  v_old_file text;
+begin
+  select sender_id, file_url into v_sender, v_old_file
+  from chat_messages where id = p_message_id for update;
+
+  if not found then
+    raise exception 'Message introuvable.';
+  end if;
+  if v_sender is distinct from auth.uid() then
+    raise exception 'Tu ne peux supprimer que tes propres messages.';
+  end if;
+
+  update chat_messages
+     set content = null, file_url = null, file_type = null, file_name = null,
+         deleted_at = coalesce(deleted_at, now())
+   where id = p_message_id;
+
+  return v_old_file;
+end;
+$function$;
+
+create or replace function public.mark_conversation_read(p_conversation_id uuid)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_max_date timestamptz;
+begin
+  if not public.can_access_conversation(p_conversation_id) then
+    raise exception 'Accès refusé à cette conversation.';
+  end if;
+
+  select max(created_at) into v_max_date
+  from chat_messages
+  where conversation_id = p_conversation_id;
+
+  if v_max_date is null then
+    v_max_date := now();
+  end if;
+
+  insert into chat_participants (conversation_id, user_id, last_read_at)
+  values (p_conversation_id, auth.uid(), v_max_date)
+  on conflict (conversation_id, user_id)
+  do update set last_read_at = greatest(chat_participants.last_read_at, v_max_date);
+end;
+$function$;
+
+create or replace function public.rename_general_conversation(p_conv uuid, p_name text)
+ returns text
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+declare
+  v_name text := nullif(btrim(p_name), '');
+begin
+  if current_role_name() not in ('fondateur', 'directeur') then
+    raise exception 'Seuls le fondateur et le directeur peuvent renommer le canal.';
+  end if;
+  if v_name is not null and char_length(v_name) > 40 then
+    raise exception 'Le nom ne peut pas dépasser 40 caractères.';
+  end if;
+
+  update chat_conversations
+     set name = v_name
+   where id = p_conv
+     and type = 'general'
+     and school_id = current_school_id();
+
+  if not found then
+    raise exception 'Canal introuvable.';
+  end if;
+
+  return v_name;
+end;
+$function$;
+
+-- ---------- Offres : ce que chaque plan autorise ----------
+-- Seules ces trois fonctions sont contrôlées ici (portail parents, personnel, emploi du temps). Voir aussi
+-- src/lib/plan.js, qui en liste davantage : le reste n'est vérifié que par l'interface.
+create or replace function public.check_plan_feature(p_school_id uuid, p_feature text)
+ returns boolean
+ language plpgsql
+ security definer
+as $function$
+DECLARE
+    v_plan TEXT;
+    v_required_plan TEXT;
+    v_plan_index INT;
+    v_required_index INT;
+BEGIN
+    SELECT plan INTO v_plan FROM schools WHERE id = p_school_id;
+
+    -- Tableau des exigences (exactement comme ton fichier plan.js)
+    v_required_plan := CASE p_feature
+        WHEN 'parent_portal' THEN 'essentiel'
+        WHEN 'personnel' THEN 'essentiel'
+        WHEN 'emploi_du_temps' THEN 'essentiel'
+        ELSE 'decouverte'
+    END;
+
+    -- Index des plans (plus grand = plus cher)
+    v_plan_index := CASE v_plan WHEN 'decouverte' THEN 0 WHEN 'essentiel' THEN 1 WHEN 'standard' THEN 2 WHEN 'premium' THEN 3 ELSE 0 END;
+    v_required_index := CASE v_required_plan WHEN 'decouverte' THEN 0 WHEN 'essentiel' THEN 1 WHEN 'standard' THEN 2 WHEN 'premium' THEN 3 ELSE 0 END;
+
+    RETURN v_plan_index >= v_required_index;
+END;
+$function$;
+
+-- Quota mensuel de messages WhatsApp selon le plan. ATTENTION : aucune fonction d'envoi ne l'appelle pour l'instant
+-- (ni openwa-send, ni cron-reminders) ; elle compte aussi les messages en échec.
+create or replace function public.check_whatsapp_quota(p_school_id uuid)
+ returns boolean
+ language plpgsql
+ security definer
+as $function$
+DECLARE
+    v_plan TEXT;
+    v_quota INT;
+    v_sent_this_month INT;
+BEGIN
+    -- 1. Récupérer le plan de l'école
+    SELECT plan INTO v_plan FROM schools WHERE id = p_school_id;
+
+    -- 2. Définir le quota selon le plan (les mêmes valeurs que ton fichier plan.js)
+    v_quota := CASE v_plan
+        WHEN 'decouverte' THEN 0
+        WHEN 'essentiel' THEN 1000
+        WHEN 'standard' THEN 3000
+        WHEN 'premium' THEN 999999 -- Illimité
+        ELSE 0
+    END;
+
+    -- 3. Compter les messages envoyés ce mois-ci
+    SELECT COUNT(*) INTO v_sent_this_month
+    FROM whatsapp_messages
+    WHERE school_id = p_school_id
+      AND created_at >= date_trunc('month', now());
+
+    -- 4. Retourner VRAI si on a le droit d'envoyer, FAUX sinon
+    RETURN v_sent_this_month < v_quota;
+END;
+$function$;
+
+create or replace function public.enforce_parent_portal_plan()
+ returns trigger
+ language plpgsql
+ security definer
+as $function$
+BEGIN
+    IF NOT check_plan_feature(NEW.school_id, 'parent_portal') THEN
+        RAISE EXCEPTION 'Votre forfait actuel ne permet pas d''utiliser le portail parents. Veuillez passer à un forfait supérieur.';
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+create or replace function public.enforce_personnel_plan()
+ returns trigger
+ language plpgsql
+ security definer
+as $function$
+BEGIN
+    IF NOT check_plan_feature(NEW.school_id, 'personnel') THEN
+        RAISE EXCEPTION 'Votre forfait actuel ne permet pas de gérer le personnel. Veuillez passer à un forfait supérieur.';
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+-- Le plan et le statut d'une école ne peuvent être changés que par le serveur (Edge Function) ou un administrateur
+-- de la plateforme : jamais par le fondateur de l'école lui-même.
+create or replace function public.protect_school_billing()
+ returns trigger
+ language plpgsql
+ security definer
+as $function$
+BEGIN
+    -- Si c'est une requête serveur (Edge Function) on laisse passer
+    IF current_setting('role', true) = 'service_role' THEN
+        RETURN NEW;
+    END IF;
+
+    -- Si c'est un admin de la plateforme (toi), on laisse passer
+    IF EXISTS (SELECT 1 FROM platform_admins WHERE user_id = auth.uid()) THEN
+        RETURN NEW;
+    END IF;
+
+    -- Sinon, on vérifie si on essaie de modifier le plan ou le statut
+    IF NEW.plan IS DISTINCT FROM OLD.plan THEN
+        RAISE EXCEPTION 'Action non autorisée : seul le support EcoGès peut modifier le forfait.';
+    END IF;
+
+    IF NEW.statut IS DISTINCT FROM OLD.statut THEN
+        RAISE EXCEPTION 'Action non autorisée : seul le support EcoGès peut modifier le statut.';
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+-- ---------- Autres fonctions ----------
+create or replace function public.profiles_immutable_fields()
+ returns trigger
+ language plpgsql
+as $function$
+begin
+  -- role : ne peut JAMAIS changer via un UPDATE client.
+  if new.role is distinct from old.role then
+    raise exception 'Le rôle ne peut pas être modifié ici.';
+  end if;
+  -- school_id : ne peut JAMAIS changer via un UPDATE client.
+  if new.school_id is distinct from old.school_id then
+    raise exception 'L''école ne peut pas être modifiée ici.';
+  end if;
+  return new;
+end;
+$function$;
+
+create or replace function public.sync_civilite_from_lien_parente()
+ returns trigger
+ language plpgsql
+as $function$
+BEGIN
+    IF NEW.lien_parente ILIKE 'mère' OR NEW.lien_parente ILIKE 'mere' THEN
+        NEW.civilite := 'Mme';
+    ELSIF NEW.lien_parente ILIKE 'père' OR NEW.lien_parente ILIKE 'pere' THEN
+        NEW.civilite := 'M';
+    END IF;
+    RETURN NEW;
+END;
+$function$;
+
+create or replace function public.pay_salary_with_advance_deduction(p_school_id uuid, p_staff_id uuid, p_montant numeric, p_mois text, p_date date, p_mode text, p_note text, p_created_by uuid, p_avance_a_rembourser numeric)
+ returns uuid
+ language plpgsql
+as $function$
+DECLARE
+  v_salary_id uuid;
+  v_reste numeric := GREATEST(COALESCE(p_avance_a_rembourser, 0), 0);
+  v_avance record;
+  v_a_rembourser numeric;
+  v_nouveau_montant_rembourse numeric;
+BEGIN
+  -- 1. Insérer le paiement de salaire en premier.
+  --    Si cette insertion échoue (contrainte, RLS...), la fonction lève
+  --    immédiatement et aucun remboursement d'avance n'est effectué.
+  INSERT INTO staff_salaries (
+    school_id, staff_id, montant, mois, date, mode, note, created_by
+  ) VALUES (
+    p_school_id, p_staff_id, p_montant, p_mois, p_date, p_mode, p_note, p_created_by
+  )
+  RETURNING id INTO v_salary_id;
+
+  IF v_salary_id IS NULL THEN
+    RAISE EXCEPTION 'Échec de l''enregistrement du salaire';
+  END IF;
+
+  -- 2. Rembourser les avances approuvées non soldées du membre concerné.
+  --    FOR UPDATE verrouille chaque ligne : si deux directeurs valident en
+  --    même temps, le deuxième attend puis relit l'état réel (pas de
+  --    double remboursement).
+  IF v_reste > 0 THEN
+    FOR v_avance IN
+      SELECT id, COALESCE(montant_rembourse, 0) AS montant_rembourse, solde
+      FROM salary_advances
+      WHERE staff_id = p_staff_id
+        AND statut = 'approuvee'
+        AND solde > 0
+      ORDER BY created_at ASC
+      FOR UPDATE
+    LOOP
+      EXIT WHEN v_reste <= 0;
+
+      v_a_rembourser := LEAST(v_reste, v_avance.solde);
+      CONTINUE WHEN v_a_rembourser <= 0;
+
+      v_nouveau_montant_rembourse := v_avance.montant_rembourse + v_a_rembourser;
+
+      UPDATE salary_advances
+      SET montant_rembourse = v_nouveau_montant_rembourse
+      WHERE id = v_avance.id;
+
+      v_reste := v_reste - v_a_rembourser;
+    END LOOP;
+  END IF;
+
+  RETURN v_salary_id;
+END;
+$function$;
+
+-- ---------- Règles de sécurité des tables rapatriées ----------
+drop policy if exists "conversations: delete" on chat_conversations;
+create policy "conversations: delete" on chat_conversations
+  for delete using (type = 'private' and is_conversation_participant(id));
+drop policy if exists "conversations: insert" on chat_conversations;
+create policy "conversations: insert" on chat_conversations
+  for insert with check (school_id = current_school_id());
+drop policy if exists "conversations: select" on chat_conversations;
+create policy "conversations: select" on chat_conversations
+  for select using (can_access_conversation(id));
+
+drop policy if exists "messages: delete" on chat_messages;
+create policy "messages: delete" on chat_messages
+  for delete using (
+    current_role_name() = any (array['fondateur', 'directeur'])
+    and exists (
+      select 1 from chat_conversations c
+      where c.id = chat_messages.conversation_id and c.type = 'general' and c.school_id = current_school_id()
+    )
+  );
+drop policy if exists "messages: insert" on chat_messages;
+create policy "messages: insert" on chat_messages
+  for insert with check (sender_id = auth.uid() and can_access_conversation(conversation_id));
+drop policy if exists "messages: select" on chat_messages;
+create policy "messages: select" on chat_messages
+  for select using (can_access_conversation(conversation_id));
+
+drop policy if exists "participants: insert" on chat_participants;
+create policy "participants: insert" on chat_participants
+  for insert with check (
+    user_id = auth.uid()
+    and exists (
+      select 1 from chat_conversations c
+      where c.id = chat_participants.conversation_id
+        and c.type <> 'private'
+        and c.school_id = (select p.school_id from profiles p where p.id = auth.uid())
+    )
+  );
+drop policy if exists "participants: select" on chat_participants;
+create policy "participants: select" on chat_participants
+  for select using (can_access_conversation(conversation_id));
+drop policy if exists "participants: update own read" on chat_participants;
+create policy "participants: update own read" on chat_participants
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "moratoire_history: insert" on moratoire_history;
+create policy "moratoire_history: insert" on moratoire_history
+  for insert with check (
+    school_id = current_school_id()
+    and current_role_name() = any (array['fondateur', 'directeur', 'censeur', 'secretaire'])
+  );
+drop policy if exists "moratoire_history: select" on moratoire_history;
+create policy "moratoire_history: select" on moratoire_history
+  for select using (
+    school_id = current_school_id()
+    and current_role_name() = any (array['fondateur', 'directeur', 'censeur', 'secretaire', 'enseignant'])
+  );
+
+drop policy if exists "push_subscriptions: delete" on push_subscriptions;
+create policy "push_subscriptions: delete" on push_subscriptions for delete using (user_id = auth.uid());
+drop policy if exists "push_subscriptions: insert" on push_subscriptions;
+create policy "push_subscriptions: insert" on push_subscriptions for insert with check (user_id = auth.uid());
+drop policy if exists "push_subscriptions: select" on push_subscriptions;
+create policy "push_subscriptions: select" on push_subscriptions for select using (user_id = auth.uid());
+drop policy if exists "push_subscriptions: update" on push_subscriptions;
+create policy "push_subscriptions: update" on push_subscriptions for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists rca_select on report_card_appreciations;
+create policy rca_select on report_card_appreciations for select using (school_id = current_school_id());
+drop policy if exists rca_write on report_card_appreciations;
+create policy rca_write on report_card_appreciations for all
+  using (
+    school_id = current_school_id()
+    and exists (select 1 from profiles where profiles.id = auth.uid() and profiles.role = any (array['fondateur', 'directeur', 'secretaire']))
+  )
+  with check (
+    school_id = current_school_id()
+    and exists (select 1 from profiles where profiles.id = auth.uid() and profiles.role = any (array['fondateur', 'directeur', 'secretaire']))
+  );
+
+-- ---------- Déclencheurs ----------
+drop trigger if exists chat_messages_check_reply on chat_messages;
+create trigger chat_messages_check_reply before insert on chat_messages
+  for each row execute function chat_check_reply();
+
+drop trigger if exists trg_sync_civilite on parent_access;
+create trigger trg_sync_civilite before insert or update on parent_access
+  for each row execute function sync_civilite_from_lien_parente();
+
+-- Le portail parents et le personnel sont réservés aux plans Essentiel et au-dessus.
+drop trigger if exists trg_parent_portal_plan on parent_access;
+create trigger trg_parent_portal_plan before insert or update on parent_access
+  for each row execute function enforce_parent_portal_plan();
+
+drop trigger if exists trg_personnel_plan on staff;
+create trigger trg_personnel_plan before insert or update on staff
+  for each row execute function enforce_personnel_plan();
+
+drop trigger if exists trg_profiles_immutable on profiles;
+create trigger trg_profiles_immutable before update on profiles
+  for each row execute function profiles_immutable_fields();
+
+drop trigger if exists trg_protect_school_billing on schools;
+create trigger trg_protect_school_billing before update on schools
+  for each row execute function protect_school_billing();
+
+-- ---------- Temps réel : la messagerie se met à jour sans recharger la page ----------
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['chat_conversations', 'chat_messages', 'chat_participants'] loop
+      if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;
+
+-- ---------- Durcissement des fonctions « security definer » ----------
+-- Ces cinq fonctions s'exécutent avec les droits de leur propriétaire mais n'avaient pas de chemin de recherche
+-- (search_path) figé : une personne capable de créer un objet du même nom dans un autre schéma pourrait en détourner
+-- l'exécution. Les deux fonctions de vérification ne sont appelées que par les déclencheurs ou le serveur : on retire
+-- leur accès aux utilisateurs connectés et anonymes (sinon n'importe qui pourrait interroger le quota d'une école).
+alter function public.check_plan_feature(uuid, text) set search_path = public;
+alter function public.check_whatsapp_quota(uuid) set search_path = public;
+alter function public.enforce_parent_portal_plan() set search_path = public;
+alter function public.enforce_personnel_plan() set search_path = public;
+alter function public.protect_school_billing() set search_path = public;
+revoke execute on function public.check_plan_feature(uuid, text) from public, anon, authenticated;
+revoke execute on function public.check_whatsapp_quota(uuid) from public, anon, authenticated;
