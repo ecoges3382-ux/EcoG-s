@@ -13,7 +13,7 @@ export default function JournalTab() {
     });
   }, []);
 
-  if (error) return <p style={{ color: '#ffb4a8', fontWeight: 600, fontSize: 13.5 }}>{error}</p>;
+  if (error) return <p style={{ color: 'var(--adm-danger)', fontWeight: 600, fontSize: 13.5 }}>{error}</p>;
   if (!actions) return <div style={{ background: 'var(--paper)', borderRadius: 12 }}><SkeletonRow count={5} avatar={false} /></div>;
 
   return (

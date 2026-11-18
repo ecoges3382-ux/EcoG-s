@@ -389,3 +389,55 @@ input, select, textarea, input[type="text"], input[type="email"], input[type="pa
 
 html, body { -webkit-text-size-adjust: 100% !important; text-size-adjust: 100% !important; }
 button, a, input, select, textarea, [role="button"] { touch-action: manipulation !important; }
+
+/* ---------- Console d'administration : thème clair / sombre ----------
+   La console était toujours verte et sombre, avec des couleurs écrites en dur. Ces variables suivent le thème
+   de l'application (classe dark-mode sur <html>, bouton dans l'en-tête de la console). Le thème sombre garde
+   exactement l'apparence d'origine. Elles sont globales (et non portées par la page) parce que les fenêtres de
+   détail s'affichent hors de la page, dans un portail. */
+:root {
+  --adm-bg: #F4F1EA;
+  --adm-ink: #1A2E27;
+  --adm-soft: #3F4F48;
+  --adm-faint: #5F6E67;
+  --adm-chip: rgba(15, 76, 58, 0.07);
+  --adm-chip-hover: rgba(15, 76, 58, 0.12);
+  --adm-border: rgba(26, 46, 39, 0.28);
+  --adm-card: #FFFFFF;
+  --adm-card-border: rgba(26, 46, 39, 0.14);
+  --adm-danger: #B23A2E;
+  --adm-warn: #B33B2A;
+  --adm-warn-bg: rgba(179, 59, 42, 0.08);
+  --adm-warn-bg-hover: rgba(179, 59, 42, 0.14);
+  --adm-warn-border: rgba(179, 59, 42, 0.35);
+  --adm-warn-solid: #B33B2A;
+  --adm-warn-solid-text: #FFFFFF;
+  --adm-a1: #1F7A55;
+  --adm-a2: #8F5A0C;
+  --adm-a3: #2E6B47;
+  --adm-a4: #B33B2A;
+  --adm-thumb: #C99A3D;
+}
+html.dark-mode {
+  --adm-bg: #0A3A2C;
+  --adm-ink: #FFFFFF;
+  --adm-soft: rgba(255, 255, 255, 0.8);
+  --adm-faint: rgba(255, 255, 255, 0.64);
+  --adm-chip: rgba(255, 255, 255, 0.08);
+  --adm-chip-hover: rgba(255, 255, 255, 0.12);
+  --adm-border: rgba(255, 255, 255, 0.25);
+  --adm-card: rgba(255, 255, 255, 0.06);
+  --adm-card-border: rgba(255, 255, 255, 0.1);
+  --adm-danger: #ffb4a8;
+  --adm-warn: #FCA5A5;
+  --adm-warn-bg: rgba(252, 165, 165, 0.08);
+  --adm-warn-bg-hover: rgba(252, 165, 165, 0.12);
+  --adm-warn-border: rgba(252, 165, 165, 0.3);
+  --adm-warn-solid: #FCA5A5;
+  --adm-warn-solid-text: #0A3A2C;
+  --adm-a1: #3DDC97;
+  --adm-a2: #EBCB82;
+  --adm-a3: #7FE0B0;
+  --adm-a4: #FCA5A5;
+  --adm-thumb: #EBCB82;
+}

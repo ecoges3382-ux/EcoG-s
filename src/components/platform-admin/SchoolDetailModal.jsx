@@ -4,6 +4,7 @@ import { useToast } from '../Toast.jsx';
 import Dropdown from '../Dropdown.jsx';
 import { SkeletonRow } from '../Skeleton.jsx';
 import ModalContainer from '../ModalContainer.jsx';
+import SchoolLogo from '../SchoolLogo.jsx';
 import { 
   callPlatformAdmin, 
   STATUT_LABELS, 
@@ -112,7 +113,7 @@ export default function SchoolDetailModal({ school, onClose, onChanged }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 14, color: 'var(--forest-dark-text)', overflow: 'hidden', flexShrink: 0 }}>
-              {school.logo_url ? <img src={school.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((school.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+              <SchoolLogo url={school.logo_url} name={school.name} />
             </div>
             <div>
               <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: 'var(--ink)' }}>{school.name}</p>

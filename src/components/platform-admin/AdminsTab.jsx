@@ -99,9 +99,9 @@ export default function AdminsTab({ onChanged }) {
 
   return (
     <div>
-      {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--adm-danger)', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
 
-      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Administrateurs actuels</p>
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--adm-ink)' }}>Administrateurs actuels</p>
       {!admins && <div style={{ background: 'var(--paper)', borderRadius: 12 }}><SkeletonRow count={3} avatar={false} /></div>}
       {admins && (
         <div style={{ background: 'var(--paper)', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
@@ -118,8 +118,8 @@ export default function AdminsTab({ onChanged }) {
         </div>
       )}
 
-      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Inviter un nouvel administrateur</p>
-      <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--adm-ink)' }}>Inviter un nouvel administrateur</p>
+      <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--adm-soft)', lineHeight: 1.6 }}>
         Génère un code à usage unique, à communiquer toi-même à la personne. Elle crée son compte
         sur l'écran "Créer un compte administrateur" avec ce code.
       </p>
@@ -162,8 +162,8 @@ export default function AdminsTab({ onChanged }) {
         </div>
       )}
 
-      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Promouvoir un compte existant</p>
-      <p style={{ margin: '0 0 10px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--adm-ink)' }}>Promouvoir un compte existant</p>
+      <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--adm-soft)', lineHeight: 1.6 }}>
         Pour donner le statut d'administrateur à un compte qui a déjà un profil d'école (ex. un fondateur) — sans passer par une invitation.
       </p>
       <form onSubmit={handleAdd} style={{ padding: '16px 18px', background: 'var(--paper)', borderRadius: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>

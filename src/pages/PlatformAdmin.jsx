@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { getInitialTheme, applyTheme, toggleTheme } from '../lib/theme.js';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import UpdateButton from '../components/UpdateButton.jsx';
 
@@ -43,10 +44,10 @@ function OverviewStats({ schools, onStatClick }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 22 }} className="desktop-grid-4">
       <StatCard icon={<BuildingIcon />} accent="var(--gold)" label="Écoles actives" value={actives} sub={suspendues > 0 ? `${suspendues} suspendue${suspendues > 1 ? 's' : ''}` : 'Tout va bien'} onClick={onStatClick} />
-      <StatCard icon={<UsersIcon />} accent="#3DDC97" label="Élèves" value={totalEleves} />
-      <StatCard icon={<IdIcon />} accent="#EBCB82" label="Personnel" value={totalPersonnel} />
-      <StatCard icon={<TrendIcon />} accent="#7FE0B0" label="Nouveaux ce mois" value={nouvellesCeMois} />
-      <StatCard icon={<AlertIcon />} accent="#FCA5A5" label="À surveiller" value={aSurveiller} highlight={aSurveiller > 0} onClick={onStatClick} />
+      <StatCard icon={<UsersIcon />} accent="var(--adm-a1)" label="Élèves" value={totalEleves} />
+      <StatCard icon={<IdIcon />} accent="var(--adm-a2)" label="Personnel" value={totalPersonnel} />
+      <StatCard icon={<TrendIcon />} accent="var(--adm-a3)" label="Nouveaux ce mois" value={nouvellesCeMois} />
+      <StatCard icon={<AlertIcon />} accent="var(--adm-a4)" label="À surveiller" value={aSurveiller} highlight={aSurveiller > 0} onClick={onStatClick} />
     </div>
   );
 }
@@ -73,8 +74,8 @@ function GlobalSearchBar({ onSelectSchool }) {
   return (
     <div style={{ position: 'relative', marginBottom: 20 }}>
       <div style={{ position: 'relative' }}>
-        <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', pointerEvents: 'none' }}><SearchIcon /></span>
-        <input value={query} onChange={(e) => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} placeholder="Rechercher…" style={{ width: '100%', padding: '11px 40px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 13.5, boxSizing: 'border-box' }} />
+        <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--adm-faint)', pointerEvents: 'none' }}><SearchIcon /></span>
+        <input value={query} onChange={(e) => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} placeholder="Rechercher…" style={{ width: '100%', padding: '11px 40px', borderRadius: 10, border: '1px solid var(--adm-border)', background: 'var(--adm-chip)', color: 'var(--adm-ink)', fontSize: 13.5, boxSizing: 'border-box' }} />
       </div>
       {open && query.trim().length >= 2 && (
         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--paper)', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,0.3)', maxHeight: 400, overflowY: 'auto', zIndex: 20 }}>
@@ -104,17 +105,29 @@ function GlobalSearchBar({ onSelectSchool }) {
     </div>
   );
 }
-const searchGroupStyle = { margin: 0, padding: '8px 14px 4px', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--chip-bg)' };
+const searchGroupStyle = { margin: 0, padding: '8px 14px 4px', fontSize: 10.5, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--chip-bg)' };
 const searchItemStyle = { display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--ink)', borderBottom: '1px solid var(--line)' };
 
 export default function PlatformAdmin() {
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user } = useAuth();
   const confirm = useConfirm();
   const [tab, setTab] = useState('ecoles');
   const [schools, setSchools] = useState(null);
   const [tabCounts, setTabCounts] = useState({ admins: null, invites: null });
   const [error, setError] = useState('');
   const [focusSchoolId, setFocusSchoolId] = useState(null);
+  const [theme, setTheme] = useState(() => getInitialTheme(user?.id));
+
+  // Le thème (clair ou sombre) est celui de l'application, retenu par compte.
+  useEffect(() => {
+    const t = getInitialTheme(user?.id);
+    setTheme(t);
+    applyTheme(t, user?.id);
+  }, [user?.id]);
+
+  function handleToggleTheme() {
+    setTheme(toggleTheme(user?.id));
+  }
 
   // On force le body à redevenir normal
   useEffect(() => {
@@ -144,20 +157,20 @@ export default function PlatformAdmin() {
 
   return (
     // 👇 LA MAGIE EST ICI : overflowY: 'scroll' au lieu de 'auto'
-    <div style={{ height: '100vh', overflowY: 'scroll', background: 'var(--forest-dark)', padding: '28px 20px', boxSizing: 'border-box' }}>
+    <div style={{ height: '100vh', overflowY: 'scroll', background: 'var(--adm-bg)', padding: '28px 20px', boxSizing: 'border-box' }}>
       
       {/* CSS pour forcer une belle barre de défilement bien visible */}
       <style>{`
         /* Pour Chrome, Edge, Safari */
         ::-webkit-scrollbar { width: 14px; }
-        ::-webkit-scrollbar-track { background: #0F4C3A; } /* Le vert foncé de ton fond */
-        ::-webkit-scrollbar-thumb { background: #EBCB82; border-radius: 6px; border: 3px solid #0F4C3A; } /* La couleur Or de ton app */
+        ::-webkit-scrollbar-track { background: var(--adm-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--adm-thumb); border-radius: 6px; border: 3px solid var(--adm-bg); }
         ::-webkit-scrollbar-thumb:hover { background: #D4AF37; }
         
         /* Pour Firefox */
         * {
           scrollbar-width: thin;
-          scrollbar-color: #EBCB82 #0F4C3A;
+          scrollbar-color: var(--adm-thumb) var(--adm-bg);
         }
       `}</style>
 
@@ -167,18 +180,29 @@ export default function PlatformAdmin() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 18, color: 'var(--forest-dark)' }}>EG</div>
             <div>
-              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: '#fff' }}>Administration</p>
-              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)' }}>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--adm-ink)' }}>Administration</p>
+              <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--adm-soft)' }}>
                 {profile?.email ? `Connecté en tant que ${profile.email}` : 'Console plateforme'} · {today}
               </p>
             </div>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={handleToggleTheme}
+              aria-label={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+              style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid var(--adm-border)', background: 'var(--adm-chip)', color: 'var(--adm-ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, padding: 0 }}
+            >
+              <i className={`ti ti-${theme === 'dark' ? 'sun' : 'moon'}`} aria-hidden="true"></i>
+            </button>
           <button
             onClick={async () => { if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut(); }}
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, color: '#ffb4a8', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', padding: '9px 14px', flexShrink: 0 }}
+            style={{ background: 'var(--adm-chip)', border: '1px solid var(--adm-border)', borderRadius: 10, color: 'var(--adm-danger)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', padding: '9px 14px', flexShrink: 0 }}
           >
             Se déconnecter
-          </button>
+            </button>
+          </div>
         </div>
 
         <GlobalSearchBar onSelectSchool={(id) => { setTab('ecoles'); setFocusSchoolId(id); }} />
@@ -199,14 +223,14 @@ export default function PlatformAdmin() {
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
                   padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-                  border: `1px solid ${isActive ? 'var(--gold)' : 'rgba(255,255,255,0.2)'}`,
-                  background: isActive ? 'var(--gold)' : 'rgba(255,255,255,0.08)',
-                  color: isActive ? 'var(--forest-dark)' : 'rgba(255,255,255,0.85)',
+                  border: `1px solid ${isActive ? 'var(--gold)' : 'var(--adm-border)'}`,
+                  background: isActive ? 'var(--gold)' : 'var(--adm-chip)',
+                  color: isActive ? 'var(--forest-dark)' : 'var(--adm-ink)',
                 }}
               >
                 {t.label}
                 {count !== null && count !== undefined && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isActive ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)', color: isActive ? 'var(--forest-dark)' : 'rgba(255,255,255,0.75)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: isActive ? 'rgba(255,255,255,0.3)' : 'var(--adm-chip-hover)', color: isActive ? 'var(--forest-dark)' : 'var(--adm-soft)' }}>
                     {count}
                   </span>
                 )}
@@ -215,7 +239,7 @@ export default function PlatformAdmin() {
           })}
         </div>
 
-        {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--adm-danger)', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
 
         {tab === 'ecoles' && (
           <EcolesTab
