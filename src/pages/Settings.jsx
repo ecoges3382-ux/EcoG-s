@@ -1,5 +1,6 @@
 import SchoolCountryCard from '../components/SchoolCountryCard.jsx';
 import EnableNotifications from '../components/EnableNotifications.jsx';
+import DisplaySizeCard from '../components/DisplaySizeCard.jsx';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
@@ -101,6 +102,7 @@ export default function Settings() {
             Vous n'avez pas l'autorisation d'accéder aux paramètres de l'école. Veuillez contacter le fondateur.
           </p>
         </div>
+        <div style={{ maxWidth: 520, marginTop: 16 }}><DisplaySizeCard /></div>
       </div>
     );
   }
@@ -109,7 +111,7 @@ export default function Settings() {
     <div>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Paramètres</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: 16, maxWidth: 1060 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(350px, 100%), 1fr))', gap: 16, maxWidth: 1060 }}>
         
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22 }}>
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Identité de l'établissement</p>
@@ -234,6 +236,8 @@ export default function Settings() {
         </Link>
 
         <EnableNotifications />
+
+        <DisplaySizeCard />
 
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visites guidées</p>

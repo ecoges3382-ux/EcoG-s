@@ -225,9 +225,16 @@ input { caret-color: var(--ink); }
   flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 8px 14px; color: rgba(255,255,255,0.7); font-size: 13px; cursor: pointer; text-align: left; transition: background 0.2s;
 }
 .topbar-mobile-search:hover { background: rgba(255,255,255,0.15); }
-.topbar-mobile-search span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-mobile-search { min-width: 0; } /* sans ça, le bouton ne rétrécit pas et pousse les icônes hors de l'écran */
+.topbar-mobile-search span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .topbar-mobile-icons { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Écrans très étroits (petit téléphone, ou zoom d'affichage à 120 %) : le rôle ne garde que son icône. */
+@media (max-width: 360px) {
+  .topbar-role-badge span { display: none; }
+  .topbar-role-badge { padding: 5px 9px; }
+}
 
 /* ---- Mobile layout (<= 900px) ---- */
 @media (max-width: 900px) {

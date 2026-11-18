@@ -9,6 +9,23 @@
     <!-- 👇 LIGNE VITALE POUR LE CLAVIER MOBILE 👇 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
     
+    <!-- Zoom d'affichage choisi dans Paramètres (voir src/lib/zoom.js) : appliqué ici, avant le premier affichage. -->
+    <script>
+      (function () {
+        try {
+          var z = parseInt(localStorage.getItem('ecoges_zoom'), 10);
+          var w = Math.min(screen.width || 0, screen.height || 0);
+          var max = Math.max(100, Math.min(150, Math.floor((w / 320) * 10) * 10));
+          if (z >= 80 && z <= max && z % 10 === 0 && z !== 100) {
+            var m = document.querySelector('meta[name="viewport"]');
+            m.setAttribute('data-base', m.getAttribute('content'));
+            var s = String(z / 100);
+            m.setAttribute('content', 'initial-scale=' + s + ', minimum-scale=' + s + ', maximum-scale=' + s + ', user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content');
+          }
+        } catch (e) { /* stockage indisponible : zoom par défaut */ }
+      })();
+    </script>
+
     <meta name="theme-color" content="#0F4C3A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
