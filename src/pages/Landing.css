@@ -22,6 +22,10 @@
 .lp-wrap { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
 .lp-serif { font-family: var(--serif); }
 
+/* Gris secondaire de la page d'accueil : 5,1:1 sur le fond crème (4,25:1 avec le gris de l'app).
+   Deux classes pour passer devant la règle .force-light qui redéfinit --muted. */
+.lp.force-light { --muted: #5F6E67; }
+
 /* ---------- Barre de progression + navigation ---------- */
 .lp-progress {
   position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 60;
@@ -224,7 +228,7 @@
   34% { opacity: 1; transform: translateY(0) scale(1); }
   40%, 100% { opacity: 0; transform: translateY(-14px) scale(0.96); }
 }
-.lp-stage-note { position: absolute; bottom: -8px; left: 0; right: 0; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.42); font-weight: 500; letter-spacing: 0.02em; }
+.lp-stage-note { position: absolute; bottom: -8px; left: 0; right: 0; text-align: center; font-size: 11px; color: rgba(255, 255, 255, 0.66); font-weight: 500; letter-spacing: 0.02em; }
 
 .lp-scroll-cue { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 3; width: 24px; height: 38px; border-radius: 14px; border: 2px solid rgba(255, 255, 255, 0.3); }
 .lp-scroll-cue::after { content: ''; position: absolute; top: 7px; left: 50%; width: 4px; height: 8px; margin-left: -2px; border-radius: 2px; background: var(--lp-gold); animation: lpCue 1.8s ease-in-out infinite; }
@@ -243,7 +247,7 @@
 
 /* ---------- Titres de section ---------- */
 .lp-section { padding: 110px 0; position: relative; }
-.lp-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--clay); margin: 0 0 16px; }
+.lp-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #A5501F; margin: 0 0 16px; }
 .lp-eyebrow::before { content: ''; width: 28px; height: 2px; background: currentColor; }
 .lp-h2 { font-family: var(--serif); font-weight: 700; letter-spacing: -0.015em; font-size: clamp(32px, 4.4vw, 56px); line-height: 1.06; margin: 0 0 18px; }
 .lp-sub { font-size: 17px; line-height: 1.65; color: var(--muted); max-width: 580px; margin: 0; }
@@ -263,7 +267,7 @@
   -webkit-box-decoration-break: clone; box-decoration-break: clone;
   transition: background-size 0.8s var(--lp-ease); transition-delay: calc(var(--d, 0ms) + 350ms);
 }
-.lp-gone.is-in li { color: #B3B9B5; }
+.lp-gone.is-in li { color: #66746D; }
 .lp-gone.is-in .strike { background-size: 100% 4px; }
 .lp-gone .x { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--clay-light); color: var(--clay); flex-shrink: 0; transform: scale(0) rotate(-90deg); transition: transform 0.6s var(--lp-ease-back); transition-delay: calc(var(--d, 0ms) + 800ms); }
 .lp-gone.is-in .x { transform: none; }
@@ -277,7 +281,7 @@
 .lp-scene { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; padding: 70px 0; }
 .lp-scene + .lp-scene { border-top: 1px solid var(--line); }
 .lp-scene.flip .lp-scene-art { order: -1; }
-.lp-num { font-family: var(--serif); font-weight: 700; font-size: 15px; color: var(--lp-gold); display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.lp-num { font-family: var(--serif); font-weight: 700; font-size: 15px; color: #80600F; display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .lp-num::after { content: ''; width: 40px; height: 1.5px; background: currentColor; opacity: 0.6; }
 .lp-h3 { font-family: var(--serif); font-weight: 700; font-size: clamp(28px, 3.3vw, 42px); line-height: 1.08; letter-spacing: -0.01em; margin: 0 0 16px; }
 .lp-scene p.lp-sub { margin-bottom: 22px; }
@@ -333,7 +337,7 @@
 .lp-moy b { font-family: var(--serif); font-size: 30px; color: var(--lp-forest); font-variant-numeric: tabular-nums; }
 .lp-rank { font-size: 12.5px; font-weight: 700; color: var(--ink); text-align: right; }
 .lp-stamp {
-  position: absolute; z-index: 3; right: -14px; top: -18px; padding: 10px 14px; border: 3px solid var(--clay); color: var(--clay); border-radius: 12px;
+  position: absolute; z-index: 3; right: -14px; top: -18px; padding: 10px 14px; border: 3px solid var(--clay); color: #A5501F; border-radius: 12px;
   font-weight: 800; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(255, 255, 255, 0.92);
   opacity: 0; transform: rotate(-14deg) scale(2.4); transition: opacity 0.35s ease, transform 0.55s var(--lp-ease-back); transition-delay: 2.1s;
 }
