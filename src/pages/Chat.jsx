@@ -72,6 +72,13 @@ function Avatar({ text, color, size = 42, isGroup, online }) {
   );
 }
 
+// On ne marque « lu » que si l'application est réellement affichée : sinon
+// l'autre verrait des coches bleues alors que le message n'a pas été vu.
+function markAsReadIfVisible(conversationId) {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+  markAsRead(conversationId);
+}
+
 function SecureChatImage({ src, isMe, onLoad }) {
   const [displayUrl, setDisplayUrl] = useState(null);
   useEffect(() => {
@@ -123,6 +130,207 @@ function MessageContent({ m, isMe, onImageLoad }) {
   return null;
 }
 
+// Texte court d'un message (citation, aperçu, menu)
+function previewText(m) {
+  if (!m) return '';
+  if (m.deleted_at) return 'Message supprimé';
+  if (m.content) return m.content;
+  if (m.file_type === 'image') return '📷 Photo';
+  if (m.file_type) return `📎 ${m.file_name || 'Fichier'}`;
+  return '';
+}
+
+function ReplyQuote({ original, name, isMe, onJump }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); if (original) onJump(original.id); }}
+      style={{ display: 'block', width: '100%', textAlign: 'left', whiteSpace: 'normal', background: isMe ? 'rgba(255,255,255,0.12)' : 'var(--cream)', border: 'none', borderLeft: `3px solid ${isMe ? '#9BD8B8' : 'var(--forest)'}`, borderRadius: 8, padding: '4px 8px', marginBottom: 4, cursor: original ? 'pointer' : 'default', color: 'inherit', font: 'inherit' }}
+    >
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: isMe ? '#BFE8D1' : 'var(--forest)' }}>{name}</div>
+      <div style={{ fontSize: 12.5, opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: original && !original.deleted_at ? 'normal' : 'italic' }}>
+        {original ? previewText(original) : "Message d'origine introuvable"}
+      </div>
+    </button>
+  );
+}
+
+// Une ligne de message : bulle, citation, coches, glisser pour répondre, appui long pour le menu.
+function MessageRow({ item, isMe, showSender, senderOnline, readStatus, original, originalName, highlighted, isMobile, onReply, onOpenMenu, onJump, onImageLoad, onRetry, onDiscard }) {
+  const m = item.data;
+  const rowRef = useRef(null);
+  const touchRef = useRef(null);
+  const [hover, setHover] = useState(false);
+  const deleted = !!m.deleted_at;
+  const sending = m._status === 'sending';
+  const failed = m._status === 'failed';
+  const hasFile = !!m.file_type && !deleted;
+  const canAct = !deleted && !m._status;
+  const senderName = m.profiles?.full_name || 'Utilisateur';
+  const senderRole = m.profiles?.role ? ROLES[m.profiles.role]?.label : null;
+  const timeColor = isMe ? 'rgba(255,255,255,0.7)' : 'var(--muted)';
+
+  function handleTouchStart(e) {
+    if (!canAct) return;
+    const t = e.touches[0];
+    const state = { x: t.clientX, y: t.clientY, dx: 0, mode: null, timer: null };
+    state.timer = setTimeout(() => {
+      if (touchRef.current === state && !state.mode) {
+        state.mode = 'menu';
+        if (navigator.vibrate) navigator.vibrate(15);
+        onOpenMenu(m, true);
+      }
+    }, 450);
+    touchRef.current = state;
+  }
+  function handleTouchMove(e) {
+    const st = touchRef.current;
+    if (!st || st.mode === 'menu') return;
+    const t = e.touches[0];
+    const dx = t.clientX - st.x;
+    const dy = t.clientY - st.y;
+    if (!st.mode && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+      clearTimeout(st.timer);
+      st.mode = dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.5 ? 'swipe' : 'scroll';
+    }
+    if (st.mode === 'swipe' && rowRef.current) {
+      st.dx = Math.min(dx, 70);
+      rowRef.current.style.transition = 'none';
+      rowRef.current.style.transform = `translateX(${st.dx}px)`;
+    }
+  }
+  function endTouch(allowReply) {
+    const st = touchRef.current;
+    touchRef.current = null;
+    if (!st) return;
+    clearTimeout(st.timer);
+    if (rowRef.current) { rowRef.current.style.transition = 'transform 0.18s'; rowRef.current.style.transform = ''; }
+    if (allowReply && st.mode === 'swipe' && st.dx > 55) {
+      if (navigator.vibrate) navigator.vibrate(10);
+      onReply(m);
+    }
+  }
+
+  const timeBox = (
+    <span style={{ float: 'right', margin: hasFile && !m.content ? '4px 0 0 10px' : '8px 0 -3px 10px', fontSize: 10, lineHeight: '14px', color: timeColor, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+      {formatTime(m.created_at)}
+      {isMe && !deleted && (failed
+        ? <i className="ti ti-alert-circle" style={{ fontSize: 13, color: '#FFB4A8' }}></i>
+        : sending
+          ? <i className="ti ti-clock" style={{ fontSize: 12 }}></i>
+          : readStatus === 'read'
+            ? <i className="ti ti-checks" title="Lu" style={{ fontSize: 14, color: '#7DD3FC' }}></i>
+            : <i className="ti ti-check" title="Envoyé" style={{ fontSize: 12 }}></i>)}
+    </span>
+  );
+
+  return (
+    <div
+      ref={rowRef}
+      data-mid={m.id}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => endTouch(true)}
+      onTouchCancel={() => endTouch(false)}
+      onContextMenu={(e) => { if (!isMobile && canAct) { e.preventDefault(); onOpenMenu(m); } }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ display: 'flex', alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 6, maxWidth: '82%', marginTop: item.first ? 8 : 2, touchAction: 'pan-y', borderRadius: 14, background: highlighted ? 'rgba(31,168,85,0.22)' : 'transparent', transition: 'background 0.4s' }}
+    >
+      {!isMe && showSender && (item.last ? <Avatar text={initials(senderName)} color={avatarColor(m.sender_id)} size={30} online={senderOnline} /> : <div style={{ width: 30, flexShrink: 0 }}></div>)}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', minWidth: 0 }}>
+        <div style={{ position: 'relative', background: isMe ? 'var(--forest-dark)' : 'var(--paper)', color: isMe ? '#fff' : 'var(--ink)', padding: hasFile ? '6px 8px 5px' : '7px 11px 6px', borderRadius: 16, borderBottomRightRadius: isMe && item.last ? 4 : 16, borderBottomLeftRadius: !isMe && item.last ? 4 : 16, fontSize: 14, lineHeight: 1.4, border: isMe ? 'none' : '1px solid var(--line)', wordBreak: 'break-word', whiteSpace: 'pre-wrap', opacity: failed ? 0.85 : 1, ...(isMobile ? { WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } : {}) }}>
+          {!isMobile && hover && canAct && (
+            <button type="button" aria-label="Options du message" onClick={() => onOpenMenu(m)} style={{ position: 'absolute', top: 2, right: 4, zIndex: 2, width: 22, height: 22, border: 'none', borderRadius: '50%', background: isMe ? 'rgba(10,58,44,0.9)' : 'var(--paper)', color: isMe ? '#fff' : 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>
+              <i className="ti ti-chevron-down" style={{ fontSize: 14 }}></i>
+            </button>
+          )}
+          {!isMe && showSender && item.first && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, whiteSpace: 'normal' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: avatarColor(m.sender_id) }}>{senderName}</span>
+              {senderRole && <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--muted)', padding: '1px 6px', borderRadius: 6, background: 'var(--line)' }}>{senderRole}</span>}
+            </div>
+          )}
+          {m.reply_to_id && !deleted && <ReplyQuote original={original} name={originalName} isMe={isMe} onJump={onJump} />}
+          {deleted ? (
+            <span style={{ fontStyle: 'italic', opacity: 0.75 }}>🚫 {isMe ? 'Vous avez supprimé ce message' : 'Ce message a été supprimé'}</span>
+          ) : (
+            <>
+              {hasFile && <MessageContent m={m} isMe={isMe} onImageLoad={onImageLoad} />}
+              {m.content && <span>{m.content}</span>}
+            </>
+          )}
+          {timeBox}
+        </div>
+        {failed && (
+          <div style={{ marginTop: 3, fontSize: 11.5, color: 'var(--danger)', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span>Échec de l'envoi</span>
+            <button type="button" onClick={() => onRetry(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Réessayer</button>
+            <button type="button" onClick={() => onDiscard(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--muted)', fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Supprimer</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Menu d'un message : répondre, copier, infos de lecture, supprimer pour tous.
+function MessageActionSheet({ m, isMe, isMobile, viaTouch, readInfo, onClose, onReply, onDelete }) {
+  const [confirming, setConfirming] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const openedAtRef = useRef(Date.now());
+  // Le relâchement du doigt après un appui long peut produire un faux clic : on l'ignore.
+  const guard = (fn) => (e) => { if (viaTouch && Date.now() - openedAtRef.current < 450) return; fn(e); };
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  async function copyText() {
+    try { await navigator.clipboard.writeText(m.content); } catch {
+      const ta = document.createElement('textarea');
+      ta.value = m.content;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch { /* copie impossible : on ignore */ }
+      ta.remove();
+    }
+    setCopied(true);
+    setTimeout(onClose, 600);
+  }
+
+  const btn = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '13px 10px', border: 'none', background: 'none', textAlign: 'left', fontSize: 15, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', borderRadius: 10 };
+
+  return createPortal(
+    <div onClick={guard((e) => { if (e.target === e.currentTarget) onClose(); })} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center' }}>
+      <div role="dialog" aria-label="Options du message" style={{ background: 'var(--paper)', width: '100%', maxWidth: 360, borderRadius: isMobile ? '18px 18px 0 0' : 16, padding: '14px 14px', paddingBottom: isMobile ? 'calc(14px + env(safe-area-inset-bottom))' : 14, boxShadow: '0 12px 40px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '0 10px 10px', borderBottom: '1px solid var(--line)', marginBottom: 6 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText(m)}</div>
+          {isMe && readInfo && <div style={{ fontSize: 12, marginTop: 4, color: readInfo.read ? '#0E7FB8' : 'var(--muted)', fontWeight: 600 }}><i className={`ti ${readInfo.read ? 'ti-checks' : 'ti-check'}`} style={{ marginRight: 4 }}></i>{readInfo.label}</div>}
+        </div>
+        {confirming ? (
+          <div style={{ padding: 10 }}>
+            <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>Supprimer ce message pour tout le monde ? Cette action est définitive.</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={guard(() => setConfirming(false))} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>Annuler</button>
+              <button type="button" onClick={guard(() => onDelete(m))} style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Supprimer</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button type="button" onClick={guard(() => onReply(m))} style={btn}><i className="ti ti-arrow-back-up" style={{ fontSize: 20, color: 'var(--forest)' }}></i>Répondre</button>
+            {m.content && <button type="button" onClick={guard(copyText)} style={btn}><i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 20, color: 'var(--forest)' }}></i>{copied ? 'Copié' : 'Copier'}</button>}
+            {isMe && <button type="button" onClick={guard(() => setConfirming(true))} style={{ ...btn, color: 'var(--danger)' }}><i className="ti ti-trash" style={{ fontSize: 20 }}></i>Supprimer pour tous</button>}
+          </>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // Plein écran sur mobile, collé à la zone réellement visible : quand le clavier
 // de l'iPhone s'ouvre, la page ne glisse plus et l'en-tête reste en haut.
 function useFullscreenViewport(active, ref, onResize) {
@@ -158,9 +366,11 @@ function useFullscreenViewport(active, ref, onResize) {
 
 // Zone de saisie : elle garde son propre texte, donc taper ne redessine pas
 // toute la liste des messages.
-function Composer({ isMobile, compact, keyboardOpen, hasPendingFile, onSend, onTyping, onAttach }) {
+function Composer({ isMobile, compact, keyboardOpen, hasPendingFile, focusSignal, onSend, onTyping, onAttach, onEscape }) {
   const [text, setText] = useState('');
   const taRef = useRef(null);
+
+  useEffect(() => { if (focusSignal && taRef.current) taRef.current.focus(); }, [focusSignal]);
 
   useLayoutEffect(() => {
     const el = taRef.current;
@@ -183,6 +393,7 @@ function Composer({ isMobile, compact, keyboardOpen, hasPendingFile, onSend, onT
 
   function handleKeyDown(e) {
     // Ordinateur : Entrée envoie, Maj+Entrée va à la ligne. Mobile : Entrée = nouvelle ligne.
+    if (e.key === 'Escape' && onEscape) { onEscape(); return; }
     if (e.key === 'Enter' && !e.shiftKey && !isMobile && !e.nativeEvent.isComposing) submit(e);
   }
 
@@ -246,6 +457,12 @@ function ChatContent() {
   const [searchConv, setSearchConv] = useState('');
   const [searchStaff, setSearchStaff] = useState('');
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
+  const [readMap, setReadMap] = useState({});
+  const [menuMsg, setMenuMsg] = useState(null);
+  const [menuViaTouch, setMenuViaTouch] = useState(false);
+  const [highlightId, setHighlightId] = useState(null);
+  const [focusSignal, setFocusSignal] = useState(0);
   const messagesContainerRef = useRef(null);
   const dividerRef = useRef(null);
   const overlayRef = useRef(null);
@@ -369,7 +586,7 @@ function ChatContent() {
   async function loadLastMessages(convs) {
     if (convs.length === 0) return;
     const ids = convs.map(c => c.id);
-    const { data } = await supabase.from('chat_messages').select('conversation_id, content, created_at, sender_id, file_name, file_type').in('conversation_id', ids).order('created_at', { ascending: false });
+    const { data } = await supabase.from('chat_messages').select('*').in('conversation_id', ids).order('created_at', { ascending: false });
     const map = {};
     (data || []).forEach(m => { if (!map[m.conversation_id]) map[m.conversation_id] = m; });
     setLastMessages(map);
@@ -384,6 +601,9 @@ function ChatContent() {
     setMessagesLoading(true);
     setUnreadInfo(null);
     setTyping({});
+    setReplyTo(null);
+    setMenuMsg(null);
+    setReadMap({});
     setNewBelow(0);
     setShowScrollDown(false);
     nearBottomRef.current = true;
@@ -408,13 +628,35 @@ function ChatContent() {
       setUnreadInfo(unread);
       setMessages([...rows, ...pending]);
       setMessagesLoading(false);
-      markAsRead(convId);
+      markAsReadIfVisible(convId);
       setUnreadCounts(prev => ({ ...prev, [convId]: 0 }));
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (cancelled) return;
         if (!(unread && scrollToDivider())) scrollToBottom(false);
       }));
     });
+
+    // Coches de lecture : qui a lu jusqu'où (dates de lecture des participants).
+    const loadReads = () => supabase.from('chat_participants').select('user_id, last_read_at').eq('conversation_id', convId).then(({ data }) => {
+      if (cancelled || !data) return;
+      setReadMap(Object.fromEntries(data.map(pt => [pt.user_id, pt.last_read_at])));
+    });
+    loadReads();
+    // Filet de sécurité si le temps réel ne diffuse pas les lectures : on relit de temps en temps.
+    const readsPoll = setInterval(() => { if (document.visibilityState === 'visible') loadReads(); }, 30000);
+
+    // Canal à part : si ces écoutes échouent, l'arrivée des messages n'est pas affectée.
+    const syncChannel = supabase.channel(`sync_${convId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${convId}` }, (payload) => {
+        const row = payload.new;
+        setMessages(prev => prev.map(m => (m.id === row.id ? { ...m, ...row, profiles: m.profiles } : m)));
+        setLastMessages(prev => (prev[convId]?.id === row.id ? { ...prev, [convId]: row } : prev));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_participants', filter: `conversation_id=eq.${convId}` }, (payload) => {
+        const row = payload.new;
+        if (row?.user_id) setReadMap(prev => ({ ...prev, [row.user_id]: row.last_read_at }));
+      })
+      .subscribe();
 
     const channel = supabase.channel(`chat_${convId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${convId}` }, async (payload) => {
@@ -436,7 +678,7 @@ function ChatContent() {
         if (cancelled) return;
         setMessages(prev => (prev.some(m => m.id === row.id) ? prev : [...prev, { ...row, profiles: author }]));
         if (!mine) {
-          markAsRead(convId);
+          markAsReadIfVisible(convId);
           playNotificationSound();
           setTyping(prev => { if (!prev[row.sender_id]) return prev; const n = { ...prev }; delete n[row.sender_id]; return n; });
           if (nearBottomRef.current) scheduleScrollToBottom();
@@ -463,9 +705,25 @@ function ChatContent() {
       channelRef.current = null;
       Object.values(typingTimersRef.current).forEach(clearTimeout);
       typingTimersRef.current = {};
+      clearInterval(readsPoll);
+      supabase.removeChannel(syncChannel);
       supabase.removeChannel(channel);
     };
   }, [activeConv?.id]);
+
+  // Quand l'application redevient visible, la conversation ouverte est lue.
+  const activeConvId = activeConv?.id;
+  useEffect(() => {
+    if (!activeConvId) return undefined;
+    const convId = activeConvId;
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return;
+      markAsRead(convId);
+      setUnreadCounts(prev => ({ ...prev, [convId]: 0 }));
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [activeConvId]);
 
   useEffect(() => {
     const channel = supabase.channel('all_chats').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
@@ -526,6 +784,7 @@ function ChatContent() {
         conversation_id: item.convId,
         sender_id: profile.id,
         content: item.content || null,
+        ...(item.replyToId ? { reply_to_id: item.replyToId } : {}),
         file_url: filePath,
         file_type: item.file ? item.file.type : null,
         file_name: item.file ? item.file.file.name : null,
@@ -554,24 +813,66 @@ function ChatContent() {
     const content = (text || '').trim();
     if ((!content && !pendingFile) || !activeConv) return false;
     const fileToSend = pendingFile;
+    const replyId = replyTo && !replyTo._status && !replyTo.deleted_at ? replyTo.id : null;
     setPendingFile(null);
+    setReplyTo(null);
     setError('');
     const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const temp = {
       id: tempId, _tempId: tempId, _status: 'sending',
       conversation_id: activeConv.id, sender_id: profile.id,
-      content: content || null, file_url: null,
+      content: content || null, file_url: null, reply_to_id: replyId,
       file_type: fileToSend ? fileToSend.type : null,
       file_name: fileToSend ? fileToSend.file.name : null,
       _localPreview: fileToSend ? fileToSend.preview : null,
       created_at: new Date().toISOString(),
       profiles: { full_name: profile.full_name, role: profile.role },
     };
-    outboxRef.current[tempId] = { convId: activeConv.id, content, file: fileToSend, temp, status: 'sending', uploadedPath: null };
+    outboxRef.current[tempId] = { convId: activeConv.id, content, file: fileToSend, replyToId: replyId, temp, status: 'sending', uploadedPath: null };
     setMessages(prev => [...prev, temp]);
     scheduleScrollToBottom();
     deliver(tempId);
     return true;
+  }
+
+  function startReply(m) {
+    setMenuMsg(null);
+    setReplyTo(m);
+    setFocusSignal(n => n + 1);
+  }
+
+  function openMenu(m, viaTouch = false) {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    setMenuViaTouch(viaTouch);
+    setMenuMsg(m);
+  }
+
+  function jumpToMessage(id) {
+    const el = messagesContainerRef.current?.querySelector(`[data-mid="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setHighlightId(id);
+    setTimeout(() => setHighlightId(cur => (cur === id ? null : cur)), 1400);
+  }
+
+  // Supprimer pour tous : le message reste, remplacé par « Ce message a été supprimé ».
+  async function deleteMessageForAll(m) {
+    setMenuMsg(null);
+    const convId = activeConv?.id;
+    const wiped = { content: null, file_url: null, file_type: null, file_name: null, deleted_at: new Date().toISOString() };
+    setMessages(prev => prev.map(x => (x.id === m.id ? { ...x, ...wiped } : x)));
+    if (replyTo && replyTo.id === m.id) setReplyTo(null);
+    const { data: oldPath, error: delErr } = await supabase.rpc('delete_chat_message', { p_message_id: m.id });
+    if (delErr) {
+      setMessages(prev => prev.map(x => (x.id === m.id ? m : x)));
+      setError('Suppression impossible : ' + delErr.message);
+      return;
+    }
+    if (convId) setLastMessages(prev => (prev[convId]?.id === m.id ? { ...prev, [convId]: { ...prev[convId], ...wiped } } : prev));
+    // La photo ou le fichier est aussi retiré du stockage (sans bloquer si ce n'est pas possible).
+    if (oldPath) {
+      try { await supabase.storage.from('chat-files').remove([oldPath]); } catch { /* fichier orphelin : sans gravité */ }
+    }
   }
 
   function discardFailed(tempId) {
@@ -590,8 +891,9 @@ function ChatContent() {
     setDeleting(true);
     try {
       if (isGeneral) {
-        const { error: delErr } = await supabase.from('chat_messages').delete().eq('conversation_id', activeConv.id);
+        const { data: removed, error: delErr } = await supabase.from('chat_messages').delete().eq('conversation_id', activeConv.id).select('id');
         if (delErr) throw delErr;
+        if ((removed || []).length === 0 && messages.length > 0) throw new Error("tu n'as pas le droit d'effacer l'historique.");
         setMessages([]);
         setLastMessages(prev => ({ ...prev, [activeConv.id]: null }));
       } else {
@@ -719,7 +1021,7 @@ function ChatContent() {
           const last = lastMessages[c.id];
           const isActive = activeConv?.id === c.id && !isMobile;
           const isPinned = c.type === 'general';
-          const preview = last ? (last.file_type ? (last.file_type === 'image' ? '🖼️ Image' : '📎 Fichier') : (last.sender_id === profile.id ? 'Vous : ' : '') + last.content) : info.subtitle;
+          const preview = last ? (last.deleted_at ? (last.sender_id === profile.id ? 'Vous : ' : '') + '🚫 Message supprimé' : (last.file_type ? (last.file_type === 'image' ? '🖼️ Image' : '📎 Fichier') : (last.sender_id === profile.id ? 'Vous : ' : '') + last.content)) : info.subtitle;
           return (
             <div key={c.id} onClick={() => openConversation(c)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', background: isActive ? 'var(--cream)' : 'transparent', borderLeft: isActive ? '3px solid var(--forest)' : '3px solid transparent', borderBottom: isPinned ? '1px solid var(--line)' : 'none' }} onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--cream)'; }} onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
               <Avatar text={info.initials} color={info.color} size={44} isGroup={info.isGroup} online={!!info.otherId && online.has(info.otherId)} />
@@ -743,8 +1045,26 @@ function ChatContent() {
     </div>
   );
 
+  const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
+
+  // Lecture d'un de mes messages : privé = l'autre l'a lu ; général = tous l'ont lu.
+  const readInfoFor = (m) => {
+    if (!activeConv || m.sender_id !== profile.id || m._status) return null;
+    const created = new Date(m.created_at);
+    const readers = Object.entries(readMap).filter(([uid, at]) => uid !== profile.id && at && new Date(at) >= created).length;
+    if (activeConv.type === 'general') {
+      const total = staff.length;
+      const all = total > 0 && readers >= total;
+      return { read: all, label: all ? 'Lu par tout le monde' : (readers > 0 ? `Lu par ${readers} sur ${total}` : 'Envoyé') };
+    }
+    return readers >= 1 ? { read: true, label: 'Lu' } : { read: false, label: 'Envoyé' };
+  };
+
+  const isAdminRole = profile.role === 'fondateur' || profile.role === 'directeur';
+
   const renderConversation = (fullscreen = false) => {
     const info = activeConv ? getConvInfo(activeConv) : null;
+    const canOpenConvMenu = !!activeConv && (activeConv.type !== 'general' || isAdminRole);
     const typingNames = Object.values(typing);
     const typingText = typingNames.length === 0 ? null
       : activeConv?.type === 'general' ? (typingNames.length === 1 ? `${typingNames[0]} écrit...` : `${typingNames.slice(0, 2).join(', ')} écrivent...`)
@@ -775,7 +1095,7 @@ function ChatContent() {
                       : (otherOnline ? 'en ligne' : info.subtitle))}
                 </div>
               </div>
-              <div ref={convMenuRef} style={{ position: 'relative' }}>
+              {canOpenConvMenu && <div ref={convMenuRef} style={{ position: 'relative' }}>
                 <button onClick={() => setShowConvMenu(v => !v)} disabled={deleting} title="Options" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 20, padding: 4, display: 'flex', alignItems: 'center', opacity: deleting ? 0.5 : 1 }}><i className="ti ti-dots-vertical"></i></button>
                 {showConvMenu && (
                   <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 4, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 220, zIndex: 50, overflow: 'hidden' }}>
@@ -785,7 +1105,7 @@ function ChatContent() {
                     </button>
                   </div>
                 )}
-              </div>
+              </div>}
             </div>
 
             <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -818,45 +1138,27 @@ function ChatContent() {
                   }
                   const m = item.data;
                   const isMe = m.sender_id === profile.id;
-                  const senderName = m.profiles?.full_name || 'Utilisateur';
-                  const senderRole = m.profiles?.role ? ROLES[m.profiles.role]?.label : null;
-                  const hasFile = !!m.file_type;
-                  const sending = m._status === 'sending';
-                  const failed = m._status === 'failed';
-                  const timeColor = isMe ? 'rgba(255,255,255,0.7)' : 'var(--muted)';
-                  const timeBox = (
-                    <span style={{ float: 'right', margin: hasFile && !m.content ? '4px 0 0 10px' : '8px 0 -3px 10px', fontSize: 10, lineHeight: '14px', color: timeColor, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                      {formatTime(m.created_at)}
-                      {isMe && (failed
-                        ? <i className="ti ti-alert-circle" style={{ fontSize: 13, color: '#FFB4A8' }}></i>
-                        : <i className={`ti ${sending ? 'ti-clock' : 'ti-check'}`} style={{ fontSize: 12 }}></i>)}
-                    </span>
-                  );
-
+                  const original = m.reply_to_id ? messagesById.get(m.reply_to_id) : null;
+                  const originalName = original ? (original.sender_id === profile.id ? 'Vous' : (original.profiles?.full_name || 'Utilisateur')) : 'Message';
                   return (
-                    <div key={item.key} style={{ display: 'flex', alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 6, maxWidth: '82%', marginTop: item.first ? 8 : 2 }}>
-                      {!isMe && showSender && (item.last ? <Avatar text={initials(senderName)} color={avatarColor(m.sender_id)} size={30} online={online.has(m.sender_id)} /> : <div style={{ width: 30, flexShrink: 0 }}></div>)}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', minWidth: 0 }}>
-                        <div style={{ background: isMe ? 'var(--forest-dark)' : 'var(--paper)', color: isMe ? '#fff' : 'var(--ink)', padding: hasFile ? '6px 8px 5px' : '7px 11px 6px', borderRadius: 16, borderBottomRightRadius: isMe && item.last ? 4 : 16, borderBottomLeftRadius: !isMe && item.last ? 4 : 16, fontSize: 14, lineHeight: 1.4, border: isMe ? 'none' : '1px solid var(--line)', wordBreak: 'break-word', whiteSpace: 'pre-wrap', opacity: failed ? 0.85 : 1 }}>
-                          {!isMe && showSender && item.first && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, whiteSpace: 'normal' }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: avatarColor(m.sender_id) }}>{senderName}</span>
-                              {senderRole && <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--muted)', padding: '1px 6px', borderRadius: 6, background: 'var(--line)' }}>{senderRole}</span>}
-                            </div>
-                          )}
-                          {hasFile && <MessageContent m={m} isMe={isMe} onImageLoad={stickIfNeeded} />}
-                          {m.content && <span>{m.content}</span>}
-                          {timeBox}
-                        </div>
-                        {failed && (
-                          <div style={{ marginTop: 3, fontSize: 11.5, color: 'var(--danger)', display: 'flex', gap: 10, alignItems: 'center' }}>
-                            <span>Échec de l'envoi</span>
-                            <button type="button" onClick={() => deliver(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--forest)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Réessayer</button>
-                            <button type="button" onClick={() => discardFailed(m._tempId)} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--muted)', fontSize: 11.5, cursor: 'pointer', textDecoration: 'underline' }}>Supprimer</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <MessageRow
+                      key={item.key}
+                      item={item}
+                      isMe={isMe}
+                      showSender={showSender}
+                      senderOnline={online.has(m.sender_id)}
+                      readStatus={readInfoFor(m)?.read ? 'read' : 'sent'}
+                      original={original}
+                      originalName={originalName}
+                      highlighted={highlightId === m.id}
+                      isMobile={isMobile}
+                      onReply={startReply}
+                      onOpenMenu={openMenu}
+                      onJump={jumpToMessage}
+                      onImageLoad={stickIfNeeded}
+                      onRetry={deliver}
+                      onDiscard={discardFailed}
+                    />
                   );
                 })}
               </div>
@@ -884,6 +1186,16 @@ function ChatContent() {
               </div>
             )}
 
+            {replyTo && (
+              <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', background: 'var(--cream)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, borderLeft: '3px solid var(--forest)', paddingLeft: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--forest)' }}>{replyTo.sender_id === profile.id ? 'Vous' : (replyTo.profiles?.full_name || 'Utilisateur')}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewText(replyTo)}</div>
+                </div>
+                <button type="button" onClick={() => setReplyTo(null)} aria-label="Annuler la réponse" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, padding: 4 }}><i className="ti ti-x"></i></button>
+              </div>
+            )}
+
             <input ref={fileInputRef} type="file" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" style={{ display: 'none' }} />
             <Composer
               key={activeConv.id}
@@ -891,6 +1203,8 @@ function ChatContent() {
               compact={fullscreen}
               keyboardOpen={keyboardOpen}
               hasPendingFile={!!pendingFile}
+              focusSignal={focusSignal}
+              onEscape={replyTo ? () => setReplyTo(null) : undefined}
               onSend={sendMessage}
               onTyping={notifyTyping}
               onAttach={() => fileInputRef.current?.click()}
@@ -908,6 +1222,19 @@ function ChatContent() {
     );
   };
 
+  const actionSheet = menuMsg ? (
+    <MessageActionSheet
+      m={menuMsg}
+      isMe={menuMsg.sender_id === profile.id}
+      isMobile={isMobile}
+      viaTouch={menuViaTouch}
+      readInfo={readInfoFor(menuMsg)}
+      onClose={() => setMenuMsg(null)}
+      onReply={startReply}
+      onDelete={deleteMessageForAll}
+    />
+  ) : null;
+
   if (isMobile) {
     return (
       <>
@@ -920,6 +1247,7 @@ function ChatContent() {
           </div>,
           document.body
         )}
+        {actionSheet}
       </>
     );
   }
@@ -928,6 +1256,7 @@ function ChatContent() {
     <div style={{ display: 'flex', height: '100%', gap: 16, paddingTop: 16 }}>
       {renderConversationList()}
       {renderConversation()}
+      {actionSheet}
     </div>
   );
 }
