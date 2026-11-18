@@ -2542,6 +2542,45 @@ create policy "whatsapp_messages: select" on whatsapp_messages
     and current_role_name() in ('fondateur', 'directeur', 'secretaire')
   );
 
+-- ---------- WhatsApp via OpenWA : une ligne par école ----------
+-- Table créée à la main en production au départ ; elle est documentée ici pour
+-- pouvoir recréer un projet à l'identique. Une ligne = la session OpenWA d'une
+-- école (un numéro WhatsApp dédié), sur le serveur OpenWA de la plateforme.
+--
+-- Aucune page de l'application n'écrit ici. Seules les Edge Functions
+-- (service_role) et l'administrateur de la plateforme (SQL Editor) créent ou
+-- modifient une ligne. Une école ne doit JAMAIS pouvoir écrire dans cette
+-- table : en choisissant le nom de session d'une autre école, elle enverrait
+-- ses messages depuis le numéro WhatsApp de celle-ci.
+--
+-- La clé API d'OpenWA n'est pas dans cette table : c'est le secret global
+-- OPENWA_API_KEY des Edge Functions. La colonne api_key_secret_id (référence
+-- Vault) et les colonnes display_phone_number, last_qr_fetched_at et
+-- last_connected_at ne sont lues par aucune fonction pour l'instant.
+-- Règle d'usage : une seule ligne « actif » par école, sinon le code se trompe.
+create table if not exists openwa_configs (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  base_url text not null,
+  session_id text not null,
+  api_key_secret_id uuid,
+  display_phone_number text,
+  statut text not null default 'actif',
+  last_qr_fetched_at timestamptz,
+  last_connected_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table openwa_configs enable row level security;
+
+-- Lecture seule pour les membres de l'école (l'application a besoin de savoir
+-- si l'école passe par OpenWA ou par l'API officielle de Meta).
+drop policy if exists "Les membres voient la config de leur école" on openwa_configs;
+create policy "Les membres voient la config de leur école" on openwa_configs
+  for select using (
+    school_id = (select p.school_id from profiles p where p.id = auth.uid())
+  );
+
 -- ---------- Documents imprimables : identité complète de l'établissement ----------
 -- Les documents imprimés (bulletin, reçu, situation financière) ont besoin
 -- de plus que le nom/logo déjà présents sur schools — adresse/téléphone/
