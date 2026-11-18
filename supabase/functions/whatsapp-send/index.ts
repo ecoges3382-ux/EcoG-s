@@ -80,9 +80,10 @@ function computeEcheances(
   let cumulAvant = 0;
   const echeancesScolarite: Echeance[] = slots.map(({ slotIndex, montant }, k) => {
     const montantPaye = Math.min(Math.max(montantPayeTotal - cumulAvant, 0), montant);
-    const statut = montant <= 0 ? 'payee' : montantPaye >= montant ? 'payee' : montantPaye > 0 ? 'partielle' : 'impayee';
     const dateLimite = datesConfigurees[slotIndex] || null;
-    const enRetard = statut !== 'payee' && !!dateLimite && new Date(dateLimite) < today;
+    const isFuture = !!dateLimite && new Date(dateLimite) > today;
+    const statut = montant <= 0 ? 'payee' : montantPaye >= montant ? 'payee' : montantPaye > 0 ? 'partielle' : isFuture ? 'a_venir' : 'impayee';
+    const enRetard = statut !== 'payee' && statut !== 'a_venir' && !!dateLimite && new Date(dateLimite) < today;
     cumulAvant += montant;
     return {
       id: `tranche${slotIndex + 1}`,
@@ -98,8 +99,9 @@ function computeEcheances(
   if (schoolYear.date_connexe || Number(enrollment.frais_connexe_du) > 0) {
     const montant = Number(enrollment.frais_connexe_du) || 0;
     const montantPaye = Math.min(Number(enrollment.frais_connexe_paye) || 0, montant);
-    const statut = montant <= 0 ? 'payee' : montantPaye >= montant ? 'payee' : montantPaye > 0 ? 'partielle' : 'impayee';
-    const enRetard = statut !== 'payee' && !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) < today;
+    const isFuture = !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) > today;
+    const statut = montant <= 0 ? 'payee' : montantPaye >= montant ? 'payee' : montantPaye > 0 ? 'partielle' : isFuture ? 'a_venir' : 'impayee';
+    const enRetard = statut !== 'payee' && statut !== 'a_venir' && !!schoolYear.date_connexe && new Date(schoolYear.date_connexe) < today;
     echeances.push({ id: 'connexe', label: 'Frais connexes', ordre: echeancesScolarite.length + 1, montant, dateLimite: schoolYear.date_connexe || null, montantPaye, montantRestant: Math.max(montant - montantPaye, 0), statut, enRetard });
   }
   return echeances;

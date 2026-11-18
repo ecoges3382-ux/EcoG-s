@@ -1,0 +1,40 @@
+name: Vérifications
+
+# À chaque modification poussée ou proposée : l'application doit se construire, le lint ne doit trouver aucune erreur,
+# et les tests (calcul des montants, règles des offres, messages WhatsApp, copies serveur) doivent passer.
+# Sans cela, une erreur n'est découverte que lorsqu'un parent reçoit un mauvais message.
+on:
+  pull_request:
+  push:
+    branches:
+      - claude/ecogès-school-saas-1ie7fr
+  workflow_dispatch: {}
+
+concurrency:
+  group: verifications-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # npm ci : installe exactement les versions du fichier package-lock.json (échoue s'il n'est pas à jour).
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Lint (les erreurs bloquent, les avertissements non)
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Construire l'application
+        run: npm run build

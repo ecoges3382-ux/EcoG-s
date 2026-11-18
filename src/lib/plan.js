@@ -50,12 +50,14 @@ const WHATSAPP_QUOTAS = {
   premium: null,
 };
 
+// null = illimité (Premium) ; un plan inconnu ou vide vaut 0 : jamais traité comme un plan payant.
 export function whatsappQuota(plan) {
-  return WHATSAPP_QUOTAS[plan] ?? 0;
+  return Object.prototype.hasOwnProperty.call(WHATSAPP_QUOTAS, plan) ? WHATSAPP_QUOTAS[plan] : 0;
 }
 
 export function whatsappEnabledForPlan(plan) {
-  return (WHATSAPP_QUOTAS[plan] ?? 0) > 0 || plan === 'premium';
+  const quota = whatsappQuota(plan);
+  return quota === null || quota > 0;
 }
 
 // 👇 NOUVELLE GRILLE TARIFAIRE (Prix standards) 👇
