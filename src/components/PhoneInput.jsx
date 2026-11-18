@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react';
 import Dropdown from './Dropdown.jsx';
+import { onlyDigits, composePhone } from '../lib/phone.js';
+
+// composePhone est ré-exporté d'ici : plusieurs écrans l'importent encore depuis ce fichier.
+export { composePhone };
 
 // Indicatifs les plus pertinents pour le contexte de déploiement de
 // l'appli (Bénin et pays voisins), plus quelques indicatifs courants.
@@ -29,10 +33,6 @@ function countryOf(dial) {
   return COUNTRIES.find((c) => c.dial === dial) || COUNTRIES[0];
 }
 
-function onlyDigits(str) {
-  return String(str || '').replace(/\D/g, '');
-}
-
 // Regroupe une suite de chiffres selon le découpage du pays choisi (ex.
 // Bénin 2-2-2-2-2, Nigeria 3-3-4). Les chiffres au-delà de la longueur
 // attendue restent affichés tels quels à la fin, plutôt que tronqués —
@@ -52,40 +52,13 @@ export function formatLocalNumber(dial, digits) {
 
 // Sépare un numéro E.164 déjà stocké ("+22997000000") en indicatif +
 // numéro local, pour préremplir le sélecteur pays et le champ numéro.
-export function decomposePhone(e164) {
-  if (!e164) return { dial: COUNTRIES[0].dial, local: '' };
+// `defaultDial` : indicatif du pays de l'école, utilisé quand aucun numéro n'est enregistré.
+export function decomposePhone(e164, defaultDial) {
+  const fallback = countryOf(defaultDial).dial;
+  if (!e164) return { dial: fallback, local: '' };
   const match = COUNTRIES.find((c) => e164.startsWith(`+${c.dial}`));
   if (match) return { dial: match.dial, local: e164.slice(match.dial.length + 1) };
-  return { dial: COUNTRIES[0].dial, local: e164.replace(/^\+/, '') };
-}
-
-// Recombine indicatif + numéro local (saisi librement, espaces/tirets
-// tolérés) en E.164. Renvoie '' si rien n'est saisi.
-export function composePhone(dial, local) {
-  const digits = onlyDigits(local);
-  if (!digits) return '';
-
-  // Bénin (réforme ARCEP du 30 nov. 2024) et Côte d'Ivoire (réforme ARTCI
-  // du 31 janv. 2021) : le préfixe à 2 chiffres (01, ou 01/05/07 selon
-  // l'opérateur pour la Côte d'Ivoire) fait désormais partie intégrante du
-  // numéro national — ce n'est plus un indicatif de tronc à retirer pour
-  // l'international (+229 01 XX XX XX XX / +225 01 XX XX XXXX).
-  if (dial === '229') {
-    // Un ancien numéro à 8 chiffres saisi par habitude : le "01" est
-    // uniforme quel que soit l'opérateur au Bénin, donc on peut le
-    // compléter automatiquement sans se tromper.
-    const withPrefix = digits.length === 8 ? `01${digits}` : digits;
-    return `+${dial}${withPrefix}`;
-  }
-  if (dial === '225') {
-    // Contrairement au Bénin, le préfixe ivoirien dépend de l'opérateur
-    // (01 Moov, 05 MTN, 07 Orange) : impossible de le deviner à partir de
-    // 8 chiffres seuls, donc pas de complément automatique ici — on garde
-    // simplement tel quel ce qui est saisi, sans retirer de zéro initial.
-    return `+${dial}${digits}`;
-  }
-
-  return `+${dial}${digits.replace(/^0+/, '')}`;
+  return { dial: fallback, local: e164.replace(/^\+/, '') };
 }
 
 function digitsBeforeCaret(str, pos) {

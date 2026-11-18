@@ -1,3 +1,4 @@
+import SchoolCountryCard from '../components/SchoolCountryCard.jsx';
 import EnableNotifications from '../components/EnableNotifications.jsx';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -158,6 +159,8 @@ export default function Settings() {
             {saving ? 'Enregistrement…' : 'Enregistrer et appliquer'}
           </button>
         </form>
+
+        {canAccessSettings && <SchoolCountryCard schoolId={profile.school_id} />}
 
         {canAccessSettings && <PassageThresholds schoolId={profile.school_id} />}
 

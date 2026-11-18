@@ -48,12 +48,47 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// Numéro enregistré -> « +22997000000 », ou null s'il est inutilisable.
-function normalizePhone(phone: string | null | undefined): string | null {
-  if (!phone) return null;
+// Numéros de téléphone : même logique que src/lib/phone.js (copie, une fonction Deno ne peut pas importer le code de
+// l'application ; tests/parite-serveur.test.js vérifie que les deux restent identiques).
+// Numéro enregistré (« +229 97 00 00 00 », « 0022997000000 », ou chiffres seuls) -> « +22997000000 », ou null s'il
+// est inutilisable. Sans « + » ni « 00 », on ajoute l'indicatif du pays de l'école.
+const DEFAULT_DIAL = '229';
+
+function onlyDigits(str: unknown): string {
+  return String(str || '').replace(/\D/g, '');
+}
+
+function composePhone(dial: string, local: string): string {
+  const digits = onlyDigits(local);
+  if (!digits) return '';
+  if (dial === '229') return `+${dial}${digits.length === 8 ? `01${digits}` : digits}`; // Bénin : « 01 » + 8 chiffres depuis nov. 2024
+  if (dial === '225') return `+${dial}${digits}`; // Côte d'Ivoire : préfixe selon l'opérateur, gardé tel quel
+  return `+${dial}${digits.replace(/^0+/, '')}`;
+}
+
+function normalizePhone(phone: string | null | undefined, dial: string = DEFAULT_DIAL): string | null {
+  if (phone === null || phone === undefined) return null;
   let p = String(phone).trim().replace(/[\s().-]/g, '');
+  if (!p) return null;
   if (p.startsWith('00')) p = '+' + p.slice(2);
+  if (!p.startsWith('+')) {
+    if (!/^\d+$/.test(p)) return null;
+    const indicatif = /^\d{1,3}$/.test(String(dial)) ? String(dial) : DEFAULT_DIAL;
+    const dejaAvecIndicatif = p.startsWith(indicatif) && p.length >= indicatif.length + 8;
+    const local = dejaAvecIndicatif ? p.slice(indicatif.length) : p;
+    if (local.length < 7) return null; // trop court pour un numéro : évite d'enregistrer « +22912345 »
+    p = composePhone(indicatif, local);
+  }
   return /^\+[1-9]\d{6,14}$/.test(p) ? p : null;
+}
+
+// Indicatif du pays de l'école (Paramètres). Si la colonne n'existe pas encore (mise à jour de la base pas faite) ou
+// si la lecture échoue, on garde l'indicatif du Bénin, comme avant : jamais une panne d'envoi à cause de ça.
+// deno-lint-ignore no-explicit-any
+async function getSchoolDial(adminClient: any, schoolId: string): Promise<string> {
+  const { data, error } = await adminClient.from('schools').select('indicatif_pays').eq('id', schoolId).maybeSingle();
+  if (error || !data?.indicatif_pays || !/^\d{1,3}$/.test(String(data.indicatif_pays))) return DEFAULT_DIAL;
+  return String(data.indicatif_pays);
 }
 
 // Comparaison sans fuite d'information sur la longueur commune.
@@ -205,6 +240,7 @@ Deno.serve(async (req) => {
       const { data: school } = await adminClient.from('schools').select('plan, statut, name').eq('id', schoolId).single();
       if (!school || school.plan === 'decouverte' || (school.statut !== 'actif' && school.statut !== 'essai')) continue;
 
+      const dial = await getSchoolDial(adminClient, schoolId); // indicatif ajouté aux numéros saisis sans « + »
       const { data: schoolYears } = await adminClient
         .from('school_years')
         .select('id, date_tranche1, date_tranche2, date_tranche3, date_connexe')
@@ -248,7 +284,7 @@ Deno.serve(async (req) => {
         (links || []).forEach((l: any) => {
           const p = l.parent_access;
           if (!p || p.school_id !== schoolId) return;
-          const phone = normalizePhone(p.phone);
+          const phone = normalizePhone(p.phone, dial);
           if (!phone) return;
           (parentsByStudent[l.student_id] = parentsByStudent[l.student_id] || []).push({ ...p, phone });
         });

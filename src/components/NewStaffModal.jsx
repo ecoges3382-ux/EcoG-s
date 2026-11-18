@@ -1,3 +1,6 @@
+import PhoneInput, { composePhone, decomposePhone } from './PhoneInput.jsx';
+import { useSchoolDial } from '../lib/schoolCountry.js';
+import { toInternational } from '../lib/phone.js';
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
@@ -104,7 +107,13 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     return (editing?.classes?.length > 0) || availableSubjects.some((s) => s.enseignant_id === editing?.id);
   });
 
-  const [phone, setPhone] = useState(editing?.phone || '');
+  // Téléphone : indicatif du pays de l'école par défaut, que la personne peut changer pour ce membre du personnel.
+  // Un ancien numéro saisi librement (sans « + ») est d'abord ramené au format international pour être bien affiché.
+  const schoolDial = useSchoolDial();
+  const phoneInitial = decomposePhone(toInternational(editing?.phone, schoolDial) || editing?.phone || '', schoolDial);
+  const [phoneDialChoisi, setPhoneDial] = useState(editing?.phone ? phoneInitial.dial : null);
+  const phoneDial = phoneDialChoisi ?? schoolDial;
+  const [phoneLocal, setPhoneLocal] = useState(phoneInitial.local);
   const [email, setEmail] = useState(editing?.email || '');
   const [dateEntree, setDateEntree] = useState(editing?.date_entree || '');
   const [salaireMensuel, setSalaireMensuel] = useState(editing?.salaire_mensuel ?? '');
@@ -140,7 +149,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       role,
       niveau_etudes: niveauEtudes.trim(),
       classes: finalClasses,
-      phone: phone.trim(),
+      phone: composePhone(phoneDial, phoneLocal),
       email: email.trim(),
       date_entree: dateEntree || null,
       salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
@@ -242,9 +251,11 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
         )}
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Téléphone">
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01 XX XX XX XX" style={inputStyle} />
-          </Field>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <Field label="Téléphone">
+              <PhoneInput dial={phoneDial} local={phoneLocal} onDialChange={setPhoneDial} onLocalChange={setPhoneLocal} />
+            </Field>
+          </div>
           <Field label="E-mail">
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
           </Field>
