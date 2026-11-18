@@ -21,15 +21,15 @@ export async function callPlatformAdmin(body) {
 
 export const STATUT_LABELS = {
   essai: { label: 'Essai', bg: '#FEF3E2', fg: '#8F4620' },
-  actif: { label: 'Actif', bg: '#D4F0E2', fg: '#0A7A4F' },
-  suspendu: { label: 'Suspendu', bg: '#FCEEDC', fg: '#B4670E' },
+  actif: { label: 'Actif', bg: '#D4F0E2', fg: '#086B44' },
+  suspendu: { label: 'Suspendu', bg: '#FCEEDC', fg: '#9A5509' },
   resilie: { label: 'Résilié', bg: '#FBE3DF', fg: '#B33B2A' },
 };
 
 export const PLAN_LABELS = {
-  decouverte: { label: 'Découverte', bg: 'var(--chip-bg)', fg: 'var(--muted)' },
+  decouverte: { label: 'Découverte', bg: 'var(--chip-bg)', fg: 'var(--ink)' },
   essentiel: { label: 'Essentiel', bg: '#E4EEE9', fg: '#0F4C3A' },
-  standard: { label: 'Standard', bg: '#FBF1DD', fg: '#A5680E' },
+  standard: { label: 'Standard', bg: '#FBF1DD', fg: '#8F5A0C' },
   premium: { label: 'Premium', bg: '#F0E4FA', fg: '#6B2E9E' },
 };
 
@@ -149,16 +149,16 @@ export function StatCard({ icon, accent, label, value, sub, onClick, highlight }
   return (
     <div
       onClick={onClick}
-      style={{ padding: '16px 18px', background: highlight ? 'rgba(252,165,165,0.08)' : 'rgba(255,255,255,0.06)', border: `1px solid ${highlight ? 'rgba(252,165,165,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, cursor: isClickable ? 'pointer' : 'default', transition: 'background 0.2s, transform 0.2s' }}
-      onMouseEnter={(e) => { if (isClickable) e.currentTarget.style.background = highlight ? 'rgba(252,165,165,0.12)' : 'rgba(255,255,255,0.09)'; }}
-      onMouseLeave={(e) => { if (isClickable) e.currentTarget.style.background = highlight ? 'rgba(252,165,165,0.08)' : 'rgba(255,255,255,0.06)'; }}
+      style={{ padding: '16px 18px', background: highlight ? 'var(--adm-warn-bg)' : 'var(--adm-card)', border: `1px solid ${highlight ? 'var(--adm-warn-border)' : 'var(--adm-card-border)'}`, borderRadius: 12, cursor: isClickable ? 'pointer' : 'default', transition: 'background 0.2s, transform 0.2s' }}
+      onMouseEnter={(e) => { if (isClickable) e.currentTarget.style.background = highlight ? 'var(--adm-warn-bg-hover)' : 'var(--adm-chip-hover)'; }}
+      onMouseLeave={(e) => { if (isClickable) e.currentTarget.style.background = highlight ? 'var(--adm-warn-bg)' : 'var(--adm-card)'; }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <div style={{ color: accent, display: 'flex' }}>{icon}</div>
-        <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+        <p style={{ margin: 0, fontSize: 11, color: 'var(--adm-soft)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
       </div>
-      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 700, color: '#fff' }}>{value}</p>
-      {sub && <p style={{ margin: '4px 0 0', fontSize: 11, color: highlight ? '#FCA5A5' : 'rgba(255,255,255,0.5)' }}>{sub}</p>}
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 700, color: 'var(--adm-ink)' }}>{value}</p>
+      {sub && <p style={{ margin: '4px 0 0', fontSize: 11, color: highlight ? 'var(--adm-warn)' : 'var(--adm-faint)' }}>{sub}</p>}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useConfirm } from '../ConfirmDialog.jsx';
 import Dropdown from '../Dropdown.jsx';
 import { SkeletonRow } from '../Skeleton.jsx';
 import SchoolDetailModal from './SchoolDetailModal.jsx';
+import SchoolLogo from '../SchoolLogo.jsx';
 import { 
   callPlatformAdmin, 
   STATUT_LABELS, 
@@ -143,7 +144,7 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
     return list;
   }, [schools, search, sort, filterStatut, filterPlan]);
 
-  if (!schools) return <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 4 }}><SkeletonRow count={6} avatar={false} /></div>;
+  if (!schools) return <div style={{ background: 'var(--adm-card)', borderRadius: 12, padding: 4 }}><SkeletonRow count={6} avatar={false} /></div>;
 
   const detailSchool = schools.find((s) => s.id === detailId) || null;
 
@@ -216,10 +217,10 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
             <button
               key={f.id}
               onClick={() => setFilterStatut(f.id)}
-              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: `1px solid ${isActive ? (isWarn ? '#FCA5A5' : 'var(--gold)') : 'rgba(255,255,255,0.2)'}`, background: isActive ? (isWarn ? '#FCA5A5' : 'var(--gold)') : (isWarn ? 'rgba(252,165,165,0.1)' : 'rgba(255,255,255,0.06)'), color: isActive ? 'var(--forest-dark)' : (isWarn ? '#FCA5A5' : 'rgba(255,255,255,0.85)') }}
+              style={{ padding: '7px 13px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: `1px solid ${isActive ? (isWarn ? 'var(--adm-warn-solid)' : 'var(--gold)') : (isWarn ? 'var(--adm-warn-border)' : 'var(--adm-border)')}`, background: isActive ? (isWarn ? 'var(--adm-warn-solid)' : 'var(--gold)') : (isWarn ? 'var(--adm-warn-bg)' : 'var(--adm-chip)'), color: isActive ? (isWarn ? 'var(--adm-warn-solid-text)' : 'var(--forest-dark)') : (isWarn ? 'var(--adm-warn)' : 'var(--adm-ink)') }}
             >
               {f.label}
-              <span style={{ marginLeft: 6, opacity: 0.7 }}>{counts[f.id] || 0}</span>
+              <span style={{ marginLeft: 6, fontWeight: 500 }}>{counts[f.id] || 0}</span>
             </button>
           );
         })}
@@ -227,17 +228,17 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '2 1 220px' }}>
-          <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)' }}><SearchIcon /></span>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une école…" style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, boxSizing: 'border-box' }} />
+          <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--adm-faint)' }}><SearchIcon /></span>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher une école…" style={{ width: '100%', padding: '9px 12px 9px 34px', borderRadius: 9, border: '1px solid var(--adm-border)', background: 'var(--adm-chip)', color: 'var(--adm-ink)', fontSize: 13, boxSizing: 'border-box' }} />
         </div>
-        <Dropdown value={filterPlan} onChange={setFilterPlan} options={[{ value: 'tous', label: 'Tous les plans' }, { value: 'decouverte', label: 'Découverte' }, { value: 'essentiel', label: 'Essentiel' }, { value: 'standard', label: 'Standard' }, { value: 'premium', label: 'Premium' }]} textColor="#fff" chevronColor="rgba(255,255,255,0.75)" style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', fontSize: 13 }} wrapperStyle={{ flex: '1 1 140px', width: 'auto' }} />
-        <Dropdown value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: s.label }))} textColor="#fff" chevronColor="rgba(255,255,255,0.75)" style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', fontSize: 13 }} wrapperStyle={{ flex: '1 1 160px', width: 'auto' }} />
-        <button onClick={exportCsv} disabled={filtered.length === 0} title="Exporter les écoles affichées" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, fontSize: 13, fontWeight: 600, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fff', cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', opacity: filtered.length === 0 ? 0.5 : 1 }}>
+        <Dropdown value={filterPlan} onChange={setFilterPlan} options={[{ value: 'tous', label: 'Tous les plans' }, { value: 'decouverte', label: 'Découverte' }, { value: 'essentiel', label: 'Essentiel' }, { value: 'standard', label: 'Standard' }, { value: 'premium', label: 'Premium' }]} textColor="var(--adm-ink)" chevronColor="var(--adm-soft)" style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid var(--adm-border)', background: 'var(--adm-chip)', fontSize: 13 }} wrapperStyle={{ flex: '1 1 140px', width: 'auto' }} />
+        <Dropdown value={sort} onChange={setSort} options={SORTS.map((s) => ({ value: s.id, label: s.label }))} textColor="var(--adm-ink)" chevronColor="var(--adm-soft)" style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid var(--adm-border)', background: 'var(--adm-chip)', fontSize: 13 }} wrapperStyle={{ flex: '1 1 160px', width: 'auto' }} />
+        <button onClick={exportCsv} disabled={filtered.length === 0} title="Exporter les écoles affichées" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 9, fontSize: 13, fontWeight: 600, border: '1px solid var(--adm-border)', background: 'var(--adm-chip)', color: 'var(--adm-ink)', cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', opacity: filtered.length === 0 ? 0.5 : 1 }}>
           <DownloadIcon /> Exporter CSV
         </button>
       </div>
 
-      {rowError && <p style={{ color: '#ffb4a8', marginBottom: 10, fontWeight: 600, fontSize: 12.5 }}>{rowError}</p>}
+      {rowError && <p style={{ color: 'var(--adm-danger)', marginBottom: 10, fontWeight: 600, fontSize: 12.5 }}>{rowError}</p>}
 
       {filtered.length === 0 && <EmptySchoolsState hasFilter={filterStatut !== 'tous' || filterPlan !== 'tous' || search.trim() !== ''} onReset={() => { setFilterStatut('tous'); setFilterPlan('tous'); setSearch(''); }} />}
 
@@ -245,7 +246,7 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '0 4px' }}>
             <input type="checkbox" checked={allSelected} onChange={toggleAllVisible} style={{ cursor: 'pointer' }} aria-label="Tout sélectionner" />
-            <p style={{ margin: 0, fontSize: 11.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
+            <p style={{ margin: 0, fontSize: 11.5, color: 'var(--adm-soft)', fontWeight: 600 }}>
               {hasSelection ? `${selectedIds.length} sélectionnée${selectedIds.length > 1 ? 's' : ''}` : 'Tout sélectionner'}
             </p>
           </div>
@@ -264,12 +265,12 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
                   key={s.id}
                   className="admin-school-row"
                   style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--line)', transition: 'background 0.15s', background: isSelected ? 'rgba(212,168,73,0.06)' : 'transparent' }}
-                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#FAF8F4'; }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'var(--chip-bg)'; }}
                   onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
                 >
                   <input type="checkbox" checked={isSelected} onChange={() => toggleSelected(s.id)} style={{ cursor: 'pointer', flexShrink: 0 }} aria-label={`Sélectionner ${s.name}`} />
                   <div className="admin-school-avatar" style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 13, color: 'var(--forest-dark-text)', flexShrink: 0, overflow: 'hidden' }}>
-                    {s.logo_url ? <img src={s.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : ((s.name || 'EG').split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+                    <SchoolLogo url={s.logo_url} name={s.name} />
                   </div>
                   <div className="admin-school-content" onClick={() => setDetailId(s.id)} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -277,7 +278,7 @@ export default function EcolesTab({ schools, reload, focusSchoolId, onClearFocus
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: pl.bg, color: pl.fg }}>{pl.label}</span>
                       <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: st.bg, color: st.fg }}>{st.label}</span>
                       {isSick && issues.slice(0, 2).map((iss) => (
-                        <span key={iss.key} title={iss.label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: iss.severity === 'high' ? '#FBE3DF' : '#FEF3E2', color: iss.severity === 'high' ? '#B33B2A' : '#B4670E' }}>
+                        <span key={iss.key} title={iss.label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: iss.severity === 'high' ? '#FBE3DF' : '#FEF3E2', color: iss.severity === 'high' ? '#B33B2A' : '#9A5509' }}>
                           {iss.label}
                         </span>
                       ))}

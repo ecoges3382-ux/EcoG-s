@@ -63,9 +63,9 @@ export default function SchoolInvitesTab({ onChanged }) {
 
   return (
     <div>
-      {error && <p style={{ color: '#ffb4a8', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
-      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: '#fff' }}>Invitations pour créer une école</p>
-      <p style={{ margin: '0 0 12px', fontSize: 12, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6 }}>
+      {error && <p style={{ color: 'var(--adm-danger)', marginBottom: 14, fontWeight: 600, fontSize: 13.5 }}>{error}</p>}
+      <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 700, color: 'var(--adm-ink)' }}>Invitations pour créer une école</p>
+      <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--adm-soft)', lineHeight: 1.6 }}>
         Chaque code est individuel, utilisable une seule fois et valable 7 jours. Choisis le plan commercial
         correspondant à l'école invitée. Communique-le directement à la personne.
       </p>

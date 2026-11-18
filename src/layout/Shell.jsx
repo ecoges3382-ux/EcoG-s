@@ -10,6 +10,7 @@ import { SkeletonScreen } from '../components/Skeleton.jsx';
 import { supabase } from '../lib/supabase.js';
 import { hasFeature } from '../lib/plan.js';
 import GlobalSearch from '../components/GlobalSearch.jsx';
+import SchoolLogo from '../components/SchoolLogo.jsx';
 import { startPresence, stopPresence } from '../lib/presence.js';
 import UpdateButton from '../components/UpdateButton.jsx';
 import { prefetchHandlers, prefetchRoutesWhenIdle, canPrefetch, whenNetworkQuiet } from '../lib/pageLoaders.js';
@@ -213,13 +214,6 @@ export default function Shell() {
     if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut();
   };
 
-  const getLogoUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith('http')) return url;
-    return supabase.storage.from('photos').getPublicUrl(url).data.publicUrl;
-  };
-
-  const logoUrl = getLogoUrl(profile?.schools?.logo_url);
   const isChatPage = location.pathname === '/chat';
 
   return (
@@ -231,9 +225,7 @@ export default function Shell() {
           <div className="topbar-inner">
             <div className="topbar-brand">
               <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontWeight: 700, fontSize: 15, color: 'var(--forest-dark)', flexShrink: 0, overflow: 'hidden' }}>
-                {logoUrl
-                  ? <img src={logoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : (schoolName.split(' ').filter((w) => w.length > 1).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'EG')}
+                <SchoolLogo url={profile?.schools?.logo_url} name={schoolName} />
               </div>
               <p className="topbar-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 19, fontWeight: 600, color: '#fff', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {schoolName}
