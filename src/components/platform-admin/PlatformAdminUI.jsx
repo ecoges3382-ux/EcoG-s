@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase.js';
-import { studentLimit, accountLimit, usageLevel } from '../../lib/plan.js';
+import { studentLimit, accountLimit, usageLevel, PLAN_PRICES } from '../../lib/plan.js';
 
 export async function describeFunctionError(fnError) {
   if (!fnError) return null;
@@ -34,11 +34,15 @@ export const PLAN_LABELS = {
   premium: { label: 'Premium', bg: '#F0E4FA', fg: '#6B2E9E' },
 };
 
+// Libellés des choix de plan : prix et limites viennent de src/lib/plan.js (une seule source de vérité).
+const fmtF = (n) => Number(n).toLocaleString('fr-FR').replace(/\u202f|\u00a0/g, ' ');
+const limiteEleves = (plan) => (studentLimit(plan) === null ? 'Illimité' : `${studentLimit(plan)} élèves`);
 export const PLAN_OPTIONS = [
-  { value: 'decouverte', label: 'Découverte — Gratuit (50 élèves)' },
-  { value: 'essentiel', label: 'Essentiel — 100 000 F/an (300 élèves)' },
-  { value: 'standard', label: 'Standard — 160 000 F/an (800 élèves)' },
-  { value: 'premium', label: 'Premium — 280 000 F/an (Illimité)' },
+  { value: 'decouverte', label: `Découverte — Gratuit (${limiteEleves('decouverte')})` },
+  ...['essentiel', 'standard', 'premium'].map((p) => ({
+    value: p,
+    label: `${PLAN_LABELS[p].label} — ${fmtF(PLAN_PRICES[p].annuel)} F/an (${limiteEleves(p)})`,
+  })),
 ];
 
 export const ROLE_LABELS = { fondateur: 'Fondateur', directeur: 'Directeur', secretaire: 'Secrétaire', enseignant: 'Enseignant' };
@@ -54,6 +58,7 @@ export const ACTION_LABELS = {
   remove_admin: 'Administrateur retiré',
   create_school_invite: 'Code d’inscription créé',
   revoke_school_invite: 'Code d’inscription révoqué',
+  signup_via_invite: 'École inscrite avec un code',
 };
 
 export function BuildingIcon({ size = 20 }) {
