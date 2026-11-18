@@ -2509,7 +2509,7 @@ create table if not exists whatsapp_messages (
   parent_access_id uuid references parent_access(id) on delete set null,
   student_id uuid references students(id) on delete set null,
   announcement_id uuid references announcements(id) on delete set null,
-  type text not null check (type in ('relance_paiement', 'echeance', 'annonce', 'vie_scolaire', 'message_individuel')),
+  type text not null check (type in ('relance_paiement', 'echeance', 'annonce', 'vie_scolaire', 'message_individuel', 'paiement')),
   destinataire_phone text not null,
   contenu text,
   template_name text,
