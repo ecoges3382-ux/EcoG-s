@@ -29,7 +29,10 @@ export function extraireFonction(source, nom) {
     if (source[fin] === '{') accolades++;
     if (source[fin] === '}') { accolades--; if (accolades === 0) break; }
   }
-  return source.slice(source.indexOf('function', debut), fin + 1).replace(/^async /, '');
+  // On garde « async » s'il y est : certaines fonctions extraites attendent des appels à la base.
+  const depuisFonction = source.indexOf('function', debut);
+  const estAsync = source.slice(Math.max(depuisFonction - 6, 0), depuisFonction) === 'async ';
+  return (estAsync ? 'async ' : '') + source.slice(depuisFonction, fin + 1);
 }
 
 export function extraireConstante(source, nom) {

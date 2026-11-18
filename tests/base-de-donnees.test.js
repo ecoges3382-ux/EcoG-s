@@ -73,13 +73,16 @@ describe('règles de la base de données rapatriées', () => {
     check('plan Essentiel: personnel accepté', x.ok);
     x = await db.query(`select check_plan_feature('${SD}','parent_portal') a, check_plan_feature('${S1}','parent_portal') b, check_plan_feature('${SD}','fonction_libre') c`);
     check('check_plan_feature: Découverte refusé, Essentiel accepté, fonction non réservée ouverte', !x.rows[0].a && x.rows[0].b && x.rows[0].c, x.rows);
-    // quota WhatsApp : compte aussi les échecs
+    // quota WhatsApp : les échecs ne comptent pas
     await db.exec(`insert into whatsapp_messages (school_id, statut) select '${SD}', 'echec' from generate_series(1,3);`);
     x = await db.query(`select check_whatsapp_quota('${SD}') a, check_whatsapp_quota('${S1}') b`);
     check('check_whatsapp_quota: Découverte (quota 0) refusé, Essentiel (0 envoi) accepté', !x.rows[0].a && x.rows[0].b, x.rows);
     await db.exec(`insert into whatsapp_messages (school_id, statut) select '${S1}', 'echec' from generate_series(1,1000);`);
     x = await db.query(`select check_whatsapp_quota('${S1}') a`);
-    check('le quota compte aussi les messages EN ÉCHEC (1 000 échecs bloquent l\'envoi): comportement documenté', x.rows[0].a === false, x.rows);
+    check('le quota ne compte PAS les messages en échec (1 000 échecs ne bloquent pas l\'envoi)', x.rows[0].a === true, x.rows);
+    await db.exec(`insert into whatsapp_messages (school_id, statut) select '${S1}', 'envoye' from generate_series(1,1000);`);
+    x = await db.query(`select check_whatsapp_quota('${S1}') a`);
+    check('1 000 messages envoyés ce mois-ci : le quota Essentiel est atteint', x.rows[0].a === false, x.rows);
 
     // ---- facturation protégée ----
     x = await A(U.dir, `update schools set plan = 'premium' where id = '${S1}'`);

@@ -21,6 +21,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Quota mensuel de messages WhatsApp par plan (null = illimité). Copie de src/lib/plan.js : toute évolution là-bas
+// doit être répercutée ici (un test vérifie que les deux restent identiques).
+const WHATSAPP_QUOTAS: Record<string, number | null> = { decouverte: 0, essentiel: 1000, standard: 3000, premium: null };
+
+function whatsappQuota(plan: string): number | null {
+  return Object.prototype.hasOwnProperty.call(WHATSAPP_QUOTAS, plan) ? WHATSAPP_QUOTAS[plan] : 0;
+}
+
+// Messages du mois en cours (heure UTC, comme la base). Les échecs ne comptent pas : une école ne perd pas de quota
+// parce que son téléphone était déconnecté. Les « en attente » comptent, pour ne pas dépasser en lançant deux envois.
+type QuotaState = { quota: number | null; used: number };
+
+// deno-lint-ignore no-explicit-any
+async function quotaState(adminClient: any, schoolId: string, plan: string): Promise<QuotaState> {
+  const quota = whatsappQuota(plan);
+  if (quota === null) return { quota, used: 0 };
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const { count, error } = await adminClient
+    .from('whatsapp_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('school_id', schoolId)
+    .neq('statut', 'echec')
+    .gte('created_at', monthStart);
+  if (error || count === null) throw new Error('quota_indisponible');
+  return { quota, used: count };
+}
+
+// Refuse l'envoi complet si le quota du mois ne couvre pas tous les messages demandés (jamais un envoi à moitié).
+function assertQuota(state: QuotaState, needed: number) {
+  if (state.quota === null) return;
+  const reste = Math.max(state.quota - state.used, 0);
+  if (needed <= reste) return;
+  if (reste === 0) throw new Error(`Le quota WhatsApp du mois est atteint (${state.quota} messages avec votre plan). Il se renouvelle le 1er du mois, ou vous pouvez passer au plan supérieur.`);
+  throw new Error(`Il vous reste ${reste} message${reste > 1 ? 's' : ''} WhatsApp ce mois-ci (quota de ${state.quota}) et cet envoi en demande ${needed}. Réduisez le nombre de destinataires ou passez au plan supérieur.`);
+}
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -301,6 +338,11 @@ Deno.serve(async (req) => {
     if (schoolData.plan === 'decouverte') throw new Error("Votre plan Découverte ne permet pas l'envoi de messages WhatsApp. Passez à un plan supérieur (Essentiel, Standard ou Premium).");
     if (schoolData.statut !== 'actif' && schoolData.statut !== 'essai') throw new Error('Le compte de votre école est suspendu ou résilié. Contactez le support.');
 
+    // Quota du mois : compté une fois ici, vérifié avant chaque envoi selon le nombre de messages demandés.
+    let quota: QuotaState;
+    try { quota = await quotaState(adminClient, schoolId, schoolData.plan as string); }
+    catch { throw new Error('Impossible de vérifier votre quota WhatsApp. Réessayez dans un instant.'); }
+
     const body = await req.json().catch(() => ({}));
     const type = body.type;
     if (!MESSAGE_TYPES.includes(type)) throw new Error('Type de message invalide.');
@@ -360,6 +402,7 @@ Deno.serve(async (req) => {
       const withPhone = parents.map((p: any) => ({ ...p, phone: normalizePhone(p.phone, dial) })).filter((p: any) => p.phone);
       if (withPhone.length === 0) throw new Error("Aucun des parents reliés n'a de numéro WhatsApp valide enregistré.");
 
+      assertQuota(quota, new Set(withPhone.map((p: { phone: string }) => p.phone)).size);
       const seenPhones = new Set<string>();
       const results: Outcome[] = [];
       for (const parent of withPhone) {
@@ -448,6 +491,8 @@ Deno.serve(async (req) => {
 
       if (recipients.length === 0) throw new Error('Aucun destinataire avec un numéro WhatsApp valide pour cette annonce.');
 
+      assertQuota(quota, recipients.length);
+
       // Envoi par lots de 20 pour ne pas dépasser le temps maximum de la fonction.
       const results: Outcome[] = [];
       const CHUNK_SIZE = 20;
@@ -482,6 +527,8 @@ Deno.serve(async (req) => {
         const cooldownError = await checkCooldown(adminClient, schoolId, studentId, type);
         if (cooldownError) throw new Error(cooldownError);
       }
+
+      assertQuota(quota, 1);
 
       const outcome = await sendAndLog(adminClient, openwa, {
         school_id: schoolId, parent_access_id: parent.id, student_id: studentId, announcement_id: null,

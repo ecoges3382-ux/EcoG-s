@@ -60,6 +60,32 @@ export function whatsappEnabledForPlan(plan) {
   return quota === null || quota > 0;
 }
 
+// Limites annoncées sur la page d'accueil (null = illimité). Elles ne BLOQUENT rien : l'application
+// avertit l'école (bandeau) et la console d'administration montre qui dépasse. Un plan inconnu ou vide
+// vaut Découverte : jamais traité comme un plan large.
+const STUDENT_LIMITS = { decouverte: 50, essentiel: 300, standard: 800, premium: null };
+const ACCOUNT_LIMITS = { decouverte: 2, essentiel: 10, standard: null, premium: null };
+
+function limitFor(table, plan) {
+  return Object.prototype.hasOwnProperty.call(table, plan) ? table[plan] : table.decouverte;
+}
+export function studentLimit(plan) { return limitFor(STUDENT_LIMITS, plan); }
+export function accountLimit(plan) { return limitFor(ACCOUNT_LIMITS, plan); }
+
+// 'ok' (sous 90 %), 'near' (90 % ou plus), 'full' (limite atteinte ou dépassée). Illimité : toujours 'ok'.
+export function usageLevel(count, limit) {
+  if (limit === null || limit === undefined || !(limit > 0)) return 'ok';
+  if (count >= limit) return 'full';
+  if (count >= Math.ceil(limit * 0.9)) return 'near';
+  return 'ok';
+}
+
+// Plan à proposer quand une limite est atteinte (null si déjà au plus haut).
+export function nextPlan(plan) {
+  const i = planIndex(plan);
+  return i >= 0 && i < PLANS.length - 1 ? PLANS[i + 1] : null;
+}
+
 // 👇 NOUVELLE GRILLE TARIFAIRE (Prix standards) 👇
 export const PLAN_PRICES = {
   decouverte: { mensuel: 0, annuel: 0 },

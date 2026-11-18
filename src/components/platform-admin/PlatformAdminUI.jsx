@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase.js';
+import { studentLimit, accountLimit, usageLevel } from '../../lib/plan.js';
 
 export async function describeFunctionError(fnError) {
   if (!fnError) return null;
@@ -136,6 +137,12 @@ export function healthIssues(school) {
   if ((school.studentCount || 0) === 0) issues.push({ key: 'no_students', label: 'Aucun élève', severity: 'high' });
   if ((school.staffCount || 0) <= 1) issues.push({ key: 'solo_team', label: 'Équipe incomplète', severity: 'medium' });
   if (school.statut === 'essai' && ageDays > 30) issues.push({ key: 'trial_stale', label: 'Essai stagnant', severity: 'medium' });
+  // Limites du plan : seulement un signal pour l'équipe commerciale, rien n'est bloqué pour l'école.
+  const studentLevel = usageLevel(school.studentCount || 0, studentLimit(school.plan));
+  if (studentLevel === 'full') issues.push({ key: 'students_full', label: `Limite d'élèves atteinte (${school.studentCount}/${studentLimit(school.plan)})`, severity: 'medium' });
+  else if (studentLevel === 'near') issues.push({ key: 'students_near', label: `Proche de la limite d'élèves (${school.studentCount}/${studentLimit(school.plan)})`, severity: 'low' });
+  // Comptes : seulement un dépassement (être pile à la limite est l'usage normal du plan).
+  if ((school.staffCount || 0) > (accountLimit(school.plan) ?? Infinity)) issues.push({ key: 'accounts_over', label: `Comptes au-dessus de la limite (${school.staffCount}/${accountLimit(school.plan)})`, severity: 'low' });
   if ((school.statut === 'suspendu' || school.statut === 'resilie')) issues.push({ key: 'inactive', label: school.statut === 'suspendu' ? 'Suspendue' : 'Résiliée', severity: 'low' });
   return issues;
 }

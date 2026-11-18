@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase.js';
 import { guardedFetch } from '../lib/offlineCache.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import OnboardingBanner from '../components/OnboardingBanner.jsx';
+import PlanUsageBanner from '../components/PlanUsageBanner.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -112,6 +113,7 @@ export default function Dashboard() {
       {(offline || offlineExtra) && <OfflineBanner />}
       {extraError && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{extraError}</p>}
       {!isHistorical && <OnboardingBanner />}
+      {!isHistorical && <PlanUsageBanner />}
 
       <YearKpis students={students} attendance={attendance} classResults={classResults} />
       
