@@ -1088,7 +1088,6 @@ function PlanCard({ plan, period, index }) {
                 fontSize: 13,
                 lineHeight: 1.5,
                 color: f.included ? textColor : mutedColor,
-                opacity: f.included ? 1 : 0.55,
               }}
             >
               <span
