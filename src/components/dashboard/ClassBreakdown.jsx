@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { fmtF, downloadCsv, stickyColStyle } from '../../lib/utils.js';
+import RecouvrementChart from './RecouvrementChart.jsx';
 
 export default function ClassBreakdown({ students, attendance, classResults }) {
   const attendanceByStudent = new Map();
@@ -44,6 +45,7 @@ export default function ClassBreakdown({ students, attendance, classResults }) {
           <i className="ti ti-upload" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Export CSV
         </button>
       </div>
+      <RecouvrementChart rows={rows} />
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 680 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr', gap: 10, padding: '11px 18px 11px 0', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>

@@ -4,6 +4,7 @@ import { slug, isMobileDevice, loadHtml2Pdf, classifyNote, periodeLabel } from '
 import DocumentHeader from '../DocumentHeader.jsx';
 import Dropdown from '../Dropdown.jsx';
 import { Section } from './ChildFinance.jsx';
+import GradesTrendChart from '../GradesTrendChart.jsx';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 
@@ -57,6 +58,7 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
   ));
   const moyenneGenerale = annuel ? annualMoyenneGenerale(subjects, grades, student.id) : periodeMoyenneGenerale(subjects, grades, student.id, periode);
   const rang = rangs?.[periode] || null;
+  const pointsMoyennes = PERIODES_BULLETIN.map((p) => ({ name: p.replace('Trimestre ', 'T'), label: p, value: periodeMoyenneGenerale(subjects || [], grades || [], student.id, p) }));
 
   const notesDetaillees = (() => {
     const gradesPourPeriode = annuel ? (grades || []) : (grades || []).filter((g) => g.periode === periode);
@@ -284,6 +286,15 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
           </button>
         </div>
       </Section>
+
+      {/* Hors du bulletin imprimé (#bulletin-print) : la courbe n'apparaît pas dans le PDF. */}
+      {pointsMoyennes.some((p) => p.value != null) && (
+        <Section title="Évolution des moyennes">
+          <div className="card-bold" style={{ padding: '14px 18px' }}>
+            <GradesTrendChart points={pointsMoyennes} />
+          </div>
+        </Section>
+      )}
 
       <Section title={`Détail des notes — ${periodeLabel(periode)}`}>
         {notesDetaillees.length === 0 ? (

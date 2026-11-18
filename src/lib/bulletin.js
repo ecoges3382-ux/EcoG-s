@@ -1,8 +1,11 @@
 export const PERIODES_BULLETIN = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3'];
 
-// 🚀 OPTIMISATION : On crée un "dictionnaire" des notes pour un accès instantané
-// (Au lieu de parcourir tout le tableau des notes à chaque calcul)
-function indexGrades(grades) {
+// Les calculs de moyenne cherchent les notes d'un élève dans un « index » (un dictionnaire élève_matière_période → notes),
+// bien plus rapide que de reparcourir toute la liste à chaque calcul. Toutes les fonctions ci-dessous acceptent
+// AUSSI la simple liste de notes : on construit l'index une seule fois pour cette liste et on le réutilise.
+// (Une version précédente n'acceptait que l'index : les écrans Notes, Bulletins et le portail parent, qui passent la
+// liste, n'affichaient plus aucune moyenne.)
+export function indexGrades(grades) {
   const index = {};
   grades.forEach((g) => {
     const key = `${g.student_id}_${g.subject_id}_${g.periode}`;
@@ -12,9 +15,19 @@ function indexGrades(grades) {
   return index;
 }
 
+const INDEX_CACHE = new WeakMap();
+function asIndex(grades) {
+  if (!Array.isArray(grades)) return grades || {};
+  const hit = INDEX_CACHE.get(grades);
+  if (hit && hit.length === grades.length) return hit.index; // la longueur change si on ajoute ou retire une note
+  const index = indexGrades(grades);
+  INDEX_CACHE.set(grades, { length: grades.length, index });
+  return index;
+}
+
 export function subjectPeriodeMoyenne(gradesIndex, studentId, subjectId, periode) {
   const key = `${studentId}_${subjectId}_${periode}`;
-  const notes = gradesIndex[key] || [];
+  const notes = asIndex(gradesIndex)[key] || [];
   
   const interros = notes.filter((g) => g.type === 'controle');
   const devoirs = notes.filter((g) => g.type === 'devoir');
@@ -76,6 +89,3 @@ export function computeRang(subjects, gradesIndex, classmateIds, studentId, peri
   if (index === -1) return null;
   return { rang: index + 1, total: classes.length };
 }
-
-// 🚀 N'oublie pas d'appeler indexGrades(grades) une seule fois dans ta page Bulletins.jsx
-// et de passer le résultat (gradesIndex) aux fonctions ci-dessus !
