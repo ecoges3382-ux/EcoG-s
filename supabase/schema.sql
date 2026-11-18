@@ -3625,3 +3625,22 @@ begin
   return v_school_id;
 end;
 $$;
+
+-- ---------- Console d'administration : effectifs par école ----------
+-- La console comptait les élèves en rapatriant toutes les lignes : l'API n'en renvoie que 1 000 au maximum
+-- par défaut, donc les effectifs devenaient faux, sans erreur, au-delà de 1 000 élèves sur la plateforme.
+-- Le comptage est fait par la base. Appelée uniquement par l'Edge Function platform-admin (service_role).
+create or replace function platform_school_counts()
+returns table (school_id uuid, student_count bigint, staff_count bigint)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select s.id,
+         (select count(*) from students st where st.school_id = s.id),
+         (select count(*) from profiles p where p.school_id = s.id)
+  from schools s;
+$$;
+revoke all on function platform_school_counts() from public, anon, authenticated;
+grant execute on function platform_school_counts() to service_role;
