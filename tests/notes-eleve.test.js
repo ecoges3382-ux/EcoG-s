@@ -109,21 +109,22 @@ describe('élève sans note', () => {
 });
 
 describe('libellé d\'une note dans une pastille', () => {
-  it('une note sur 20 s\'écrit sans « /20 » (le barème est dit une fois sous le tableau)', async () => {
+  it('« 14/20 » : le barème est toujours affiché', async () => {
     const { libelleNote } = await import('../src/lib/studentGrades.js');
-    expect(libelleNote({ note: 14, sur: 20 })).toBe('14');
-    expect(libelleNote({ note: '10.5', sur: '20' })).toBe('10.5');
+    expect(libelleNote({ note: 14, sur: 20 })).toBe('14/20');
+    expect(libelleNote({ note: '10.5', sur: '20' })).toBe('10.5/20');
   });
 
-  it('un autre barème reste indiqué (8/10, 30/40)', async () => {
+  it('un autre barème s\'affiche tel quel (8/10, 30/40)', async () => {
     const { libelleNote } = await import('../src/lib/studentGrades.js');
     expect(libelleNote({ note: 8, sur: 10 })).toBe('8/10');
     expect(libelleNote({ note: 30, sur: 40 })).toBe('30/40');
   });
 
-  it('un barème absent ou illisible ne casse rien (affiche la note seule)', async () => {
+  it('un barème absent ou illisible ne casse rien (note seule, jamais « 12/0 »)', async () => {
     const { libelleNote } = await import('../src/lib/studentGrades.js');
     expect(libelleNote({ note: 12, sur: null })).toBe('12');
     expect(libelleNote({ note: 12 })).toBe('12');
+    expect(libelleNote({ note: 12, sur: 0 })).toBe('12');
   });
 });

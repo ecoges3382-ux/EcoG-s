@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   CANAL_VERSION, EVENEMENT_DEPLOIEMENT, DELAI_VERIFICATION, DELAI_RAPPEL, ECART_MINIMUM, DELAIS_APRES_SIGNAL,
-  creerVerificateur, planifierApresSignal,
+  creerVerificateur, planifierApresSignal, serviceWorkerDejaInscrit,
 } from '../src/lib/miseAJour.js';
 
 describe('vérificateur de nouvelle version', () => {
@@ -76,6 +76,24 @@ describe('vérifications après un signal de déploiement', () => {
     vi.advanceTimersByTime(60_000);
     expect(verifier).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe('portail parent : service worker déjà inscrit ?', () => {
+  it('vrai quand une inscription existe sur l\'appareil', async () => {
+    const nav = { serviceWorker: { getRegistration: async () => ({ scope: '/' }) } };
+    expect(await serviceWorkerDejaInscrit(nav)).toBe(true);
+  });
+
+  it('faux quand il n\'y en a pas (le parent n\'a rien à mettre à jour : on n\'inscrit rien)', async () => {
+    const nav = { serviceWorker: { getRegistration: async () => undefined } };
+    expect(await serviceWorkerDejaInscrit(nav)).toBe(false);
+  });
+
+  it('faux quand le navigateur ne gère pas les service workers, ou en cas d\'erreur', async () => {
+    expect(await serviceWorkerDejaInscrit({})).toBe(false);
+    expect(await serviceWorkerDejaInscrit(null)).toBe(false);
+    expect(await serviceWorkerDejaInscrit({ serviceWorker: { getRegistration: async () => { throw new Error('refusé'); } } })).toBe(false);
   });
 });
 
