@@ -12,6 +12,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { fetchAllRows } from '../lib/fetchAll.js';
+import { correspondAuxMots } from '../lib/texte.js';
 
 // Taille de page demandée : le serveur répond au plus 1 000 lignes (réglage par défaut) ; s'il en sert davantage, tant mieux,
 // il y aura moins de pages. fetchAllRows suit ce qu'il sert réellement.
@@ -58,6 +59,13 @@ export default function Notes() {
   const [matiereId, setMatiereId] = useState('Tout');
   const [periode, setPeriode] = useState('Trimestre 1');
   const [typeFiltre, setTypeFiltre] = useState('Tout');
+  // Recherche d'un élève par son nom : on filtre après un court délai, comme sur la page Élèves.
+  const [recherche, setRecherche] = useState('');
+  const [rechercheDiff, setRechercheDiff] = useState('');
+  useEffect(() => {
+    const minuterie = setTimeout(() => setRechercheDiff(recherche), 250);
+    return () => clearTimeout(minuterie);
+  }, [recherche]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
@@ -117,7 +125,14 @@ export default function Notes() {
   const nomMatiere = useMemo(() => new Map(subjects.map((su) => [su.id, su.nom])), [subjects]);
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
-  const studentsForNiveau = niveau === 'Tout' ? students : students.filter((s) => s.niveau === niveau);
+  const studentsForNiveau = useMemo(() => (niveau === 'Tout' ? students : students.filter((s) => s.niveau === niveau)), [students, niveau]);
+  const rechercheActive = rechercheDiff.trim() !== '';
+  // Les élèves (de la classe choisie) dont le nom correspond à la recherche.
+  const studentsRecherches = useMemo(
+    () => (rechercheActive ? studentsForNiveau.filter((s) => correspondAuxMots(s.full_name, rechercheDiff)) : studentsForNiveau),
+    [studentsForNiveau, rechercheDiff, rechercheActive],
+  );
+  const idsRecherches = useMemo(() => new Set(studentsRecherches.map((s) => s.id)), [studentsRecherches]);
   const subjectsForNiveau = niveau === 'Tout' ? subjects : subjects.filter((su) => !su.niveau || su.niveau === niveau);
 
   function handleNiveauChange(n) {
@@ -130,6 +145,7 @@ export default function Notes() {
   if (niveau !== 'Tout') scopedGrades = scopedGrades.filter((g) => niveauByStudent.get(g.student_id) === niveau);
   if (matiereId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.subject_id === matiereId);
   if (eleveId !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.student_id === eleveId);
+  if (rechercheActive) scopedGrades = scopedGrades.filter((g) => idsRecherches.has(g.student_id));
   if (typeFiltre !== 'Tout') scopedGrades = scopedGrades.filter((g) => g.type === typeFiltre);
 
   const filteredGrades = periode === 'Tous' ? scopedGrades : scopedGrades.filter((g) => g.periode === periode);
@@ -140,19 +156,14 @@ export default function Notes() {
 
   const totalGrades = (grades || []).length;
 
-  // Affichage par blocs : on ne dessine que les premières notes, le reste vient sur demande.
-  const [affichees, setAffichees] = useState(NOTES_PAR_PAGE);
-  useEffect(() => { setAffichees(NOTES_PAR_PAGE); }, [niveau, eleveId, matiereId, periode, typeFiltre, schoolYear?.id]);
-  let budget = affichees;
-  const groupesAffiches = groupesParType
-    .map((g) => { const items = g.items.slice(0, Math.max(budget, 0)); budget -= items.length; return { ...g, items }; })
-    .filter((g) => g.items.length > 0);
-  const nbAffichees = groupesAffiches.reduce((a, g) => a + g.items.length, 0);
-  const nbRestantes = filteredGrades.length - nbAffichees;
+  // Affichage par blocs : chaque type de note (interrogations, devoirs, examens) a sa propre carte et sa propre limite,
+  // pour que les devoirs ne soient pas relégués derrière des centaines d'interrogations.
+  const [affichees, setAffichees] = useState({});
+  useEffect(() => { setAffichees({}); }, [niveau, eleveId, matiereId, periode, typeFiltre, rechercheDiff, schoolYear?.id]);
 
   const classement = useMemo(() => {
     if (eleveId !== 'Tout') return [];
-    return studentsForNiveau
+    return studentsRecherches
       .map((s) => ({
         name: s.full_name,
         moyenne: matiereId === 'Tout'
@@ -161,7 +172,7 @@ export default function Notes() {
       }))
       .filter((c) => c.moyenne != null)
       .sort((a, b) => b.moyenne - a.moyenne);
-  }, [studentsForNiveau, eleveId, matiereId, subjects, grades, periode]);
+  }, [studentsRecherches, eleveId, matiereId, subjects, grades, periode]);
 
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
 
@@ -193,6 +204,32 @@ export default function Notes() {
         </div>
       ) : (
         <>
+          <div data-tour="notes-search" style={{ position: 'relative', marginBottom: 12, maxWidth: 520 }}>
+            <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: 'var(--muted)', pointerEvents: 'none' }} aria-hidden="true"></i>
+            <input
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              value={recherche}
+              onChange={(e) => { setRecherche(e.target.value); if (e.target.value.trim()) setEleveId('Tout'); }}
+              placeholder="Rechercher un élève par son nom…"
+              aria-label="Rechercher un élève par son nom"
+              autoComplete="off"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '10px 38px 10px 36px', borderRadius: 10, border: '1px solid var(--line-strong)', fontSize: 14, color: 'var(--ink)', background: 'var(--paper)' }}
+            />
+            {recherche && (
+              <button type="button" onClick={() => setRecherche('')} aria-label="Effacer la recherche" title="Effacer"
+                style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 18, lineHeight: 1, padding: '4px 8px' }}>×</button>
+            )}
+          </div>
+          {rechercheActive && (
+            <p style={{ margin: '0 0 12px', fontSize: 12.5, fontWeight: 600, color: studentsRecherches.length === 0 ? 'var(--danger)' : 'var(--muted)' }}>
+              {studentsRecherches.length === 0
+                ? `Aucun élève ne correspond à « ${rechercheDiff.trim()} »${niveau !== 'Tout' ? ` dans ${niveau}` : ''}.`
+                : `${studentsRecherches.length} élève${studentsRecherches.length > 1 ? 's' : ''} · recherche « ${rechercheDiff.trim()} »`}
+            </p>
+          )}
+
           <div data-tour="notes-filters" className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
             <Dropdown
               label="Classe"
@@ -203,8 +240,8 @@ export default function Notes() {
             <Dropdown
               label="Élève"
               value={eleveId}
-              onChange={setEleveId}
-              options={[{ value: 'Tout', label: 'Tout' }, ...studentsForNiveau.map((s) => ({ value: s.id, label: s.full_name }))]}
+              onChange={(v) => { setEleveId(v); if (v !== 'Tout') setRecherche(''); }}
+              options={[{ value: 'Tout', label: 'Tout' }, ...studentsRecherches.map((s) => ({ value: s.id, label: s.full_name }))]}
             />
             <Dropdown
               label="Matière"
@@ -235,56 +272,25 @@ export default function Notes() {
           {grades && (
             <div style={eleveId === 'Tout' ? { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18 } : undefined} className={eleveId === 'Tout' ? 'desktop-grid-3' : undefined}>
               
-              {/* TABLEAU 1 : LISTE DES NOTES */}
-              <div data-tour="notes-list" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
-                {groupesAffiches.map((groupe) => (
-                  <div key={groupe.id}>
-                    <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-                      <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{groupesParType.find((x) => x.id === groupe.id)?.items.length ?? groupe.items.length}</span>
-                    </div>
-                    {groupe.items.map((g, i) => (
-                      <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < groupe.items.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
-                        <div>
-                          <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{nomEleve.get(g.student_id) || '—'}</p>
-                          <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
-                            {nomMatiere.get(g.subject_id) || '—'}{periode === 'Tous' ? ` · ${g.periode}` : ''}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest-text)' }}>{g.note}/{g.sur}</span>
-                          <button
-                            type="button"
-                            onClick={() => setEditingGrade(g)}
-                            title="Modifier"
-                            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
-                          >
-                            <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(g)}
-                            disabled={deleting}
-                            title="Supprimer"
-                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
-                          >
-                            <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {/* LISTES DES NOTES : une carte par type (interrogations, devoirs, examens) */}
+              {/* côte à côte quand la largeur le permet, empilées sur téléphone */}
+              <div data-tour="notes-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(310px, 100%), 1fr))', gap: 16, alignItems: 'start', minWidth: 0 }}>
+                {groupesParType.map((groupe) => (
+                  <CarteNotesType
+                    key={groupe.id}
+                    groupe={groupe}
+                    limite={affichees[groupe.id] ?? NOTES_PAR_PAGE}
+                    afficherPlus={() => setAffichees((a) => ({ ...a, [groupe.id]: (a[groupe.id] ?? NOTES_PAR_PAGE) + NOTES_PAR_PAGE }))}
+                    periode={periode}
+                    nomEleve={nomEleve}
+                    nomMatiere={nomMatiere}
+                    onEdit={setEditingGrade}
+                    onDelete={handleDelete}
+                    deleting={deleting}
+                  />
                 ))}
-                {nbRestantes > 0 && (
-                  <div style={{ padding: '14px 18px', textAlign: 'center', borderTop: '1px solid var(--line)' }}>
-                    <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--muted)' }}>{nbAffichees} notes affichées sur {filteredGrades.length}</p>
-                    <button type="button" onClick={() => setAffichees((n) => n + NOTES_PAR_PAGE)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}>
-                      Afficher {Math.min(NOTES_PAR_PAGE, nbRestantes)} de plus
-                    </button>
-                  </div>
-                )}
-                {groupesParType.length === 0 && (
-                  <div style={{ padding: 20 }}>
+                {groupesParType.length === 0 && !(rechercheActive && studentsRecherches.length === 0) && (
+                  <div className="card-bold" style={{ padding: 20, gridColumn: '1 / -1' }}>
                     <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
                       Aucune note de type « {typeFiltre === 'Tout' ? 'tous' : TYPES.find(t => t.id === typeFiltre)?.label} » pour {periode === 'Tous' ? "l'instant" : periode.toLowerCase()}.
                     </p>
@@ -341,6 +347,61 @@ export default function Notes() {
           onCreated={() => { setEditingGrade(null); reload(); }}
         />
       )}
+    </div>
+  );
+}
+
+// Une carte pour UN type de note : son titre et son compteur restent en haut, la liste défile en dessous, et « Afficher plus »
+// ne concerne que ce type.
+function CarteNotesType({ groupe, limite, afficherPlus, periode, nomEleve, nomMatiere, onEdit, onDelete, deleting }) {
+  const visibles = groupe.items.slice(0, limite);
+  const restantes = groupe.items.length - visibles.length;
+  return (
+    <div className="card-bold" style={{ overflow: 'hidden' }} data-type-notes={groupe.id}>
+      <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{groupe.items.length}</span>
+      </div>
+      <div style={{ maxHeight: 'max(260px, calc(100vh - 360px))', overflowY: 'auto' }}>
+        {visibles.map((g, i) => (
+          <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < visibles.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{nomEleve.get(g.student_id) || '—'}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
+                {nomMatiere.get(g.subject_id) || '—'}{periode === 'Tous' ? ` · ${g.periode}` : ''}
+              </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest-text)' }}>{g.note}/{g.sur}</span>
+              <button
+                type="button"
+                onClick={() => onEdit(g)}
+                title="Modifier"
+                style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex' }}
+              >
+                <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(g)}
+                disabled={deleting}
+                title="Supprimer"
+                style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4, display: 'flex', opacity: deleting ? 0.6 : 1 }}
+              >
+                <i className="ti ti-trash" style={{ fontSize: 15 }} aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        ))}
+        {restantes > 0 && (
+          <div style={{ padding: '14px 18px', textAlign: 'center', borderTop: '1px solid var(--line)' }}>
+            <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--muted)' }}>Affichage de {visibles.length} sur {groupe.items.length}</p>
+            <button type="button" onClick={afficherPlus} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}>
+              Afficher {Math.min(NOTES_PAR_PAGE, restantes)} de plus
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
