@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
+import { PERIODES_BULLETIN } from '../../lib/bulletin.js';
 import { resumeNotesEleve, periodesAvecNotes, periodeParDefaut, pointsEvolution, TYPES_NOTE } from '../../lib/studentGrades.js';
 import GradesTrendChart from '../GradesTrendChart.jsx';
 
@@ -20,9 +21,18 @@ const puce = (actif) => ({
   border: `1px solid ${actif ? 'var(--forest)' : 'var(--line-strong)'}`, background: actif ? 'var(--forest)' : 'var(--paper)', color: actif ? '#fff' : 'var(--ink)',
 });
 
+const GROUPES = [
+  { type: 'controle', titre: 'Interrogations' },
+  { type: 'devoir', titre: 'Devoirs' },
+  { type: 'examen', titre: 'Examens' },
+];
+const moyenneStyle = (m) => ({ fontWeight: 700, color: m == null ? 'var(--muted)' : couleurNote(m, 20), fontVariantNumeric: 'tabular-nums' });
+const cellule = { textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums' };
+
 export default function StudentGrades({ studentId, schoolYearId, canEdit }) {
   const [data, setData] = useState(null); // { subjects, grades } | 'erreur'
   const [periode, setPeriode] = useState(null);
+  const [ouvertes, setOuvertes] = useState(() => new Set()); // matières dépliées (les notes sont repliées par défaut)
 
   useEffect(() => {
     if (!studentId || !schoolYearId) return;
@@ -77,6 +87,10 @@ export default function StudentGrades({ studentId, schoolYearId, canEdit }) {
   const annuel = courante === 'annuel';
   const aDesExamens = resume.lignes.some((l) => l.notes.some((n) => n.type === 'examen'));
   const points = pointsEvolution(grades, subjects, studentId);
+  // Colonnes du tableau : matière, puis la moyenne (ou T1 T2 T3 + année en vue annuelle).
+  const grille = { display: 'grid', gridTemplateColumns: annuel ? `minmax(0, 1fr) repeat(${PERIODES_BULLETIN.length}, 46px) 56px` : 'minmax(0, 1fr) 72px', columnGap: 8 };
+  const toutesOuvertes = resume.lignes.length > 0 && resume.lignes.every((l) => ouvertes.has(l.matiere.id));
+  const basculer = (id) => setOuvertes((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
     <div className="card-bold" style={{ padding: '16px 20px', marginBottom: 20, maxWidth: 640 }}>
@@ -87,48 +101,93 @@ export default function StudentGrades({ studentId, schoolYearId, canEdit }) {
 
       <div role="tablist" aria-label="Période" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         {periodes.map((p) => (
-          <button key={p} type="button" role="tab" aria-selected={courante === p} onClick={() => setPeriode(p)} style={puce(courante === p)}>{p}</button>
+          <button key={p} type="button" role="tab" aria-selected={courante === p} onClick={() => { setPeriode(p); setOuvertes(new Set()); }} style={puce(courante === p)}>{p}</button>
         ))}
-        <button type="button" role="tab" aria-selected={annuel} onClick={() => setPeriode('annuel')} style={puce(annuel)}>Année</button>
+        <button type="button" role="tab" aria-selected={annuel} onClick={() => { setPeriode('annuel'); setOuvertes(new Set()); }} style={puce(annuel)}>Année</button>
       </div>
 
       {resume.lignes.length === 0 ? (
         <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)' }}>Aucune note pour cette période.</p>
       ) : (
         <div>
-          {resume.lignes.map((l, i) => (
-            <div key={l.matiere.id} style={{ padding: '11px 0', borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>
-                  {l.matiere.nom}
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 500, color: 'var(--muted)' }}>coef. {l.coefficient}</span>
-                </p>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: l.moyenne == null ? 'var(--muted)' : 'var(--forest-text)', whiteSpace: 'nowrap' }}>
-                  {l.moyenne == null ? '—' : `${fmt(l.moyenne)}/20`}
-                </p>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                {l.notes.map((n) => (
-                  <span key={n.id} title={`${TYPES_NOTE[n.type] || n.type}${annuel ? ` · ${n.periode}` : ''}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
-                    style={{ fontSize: 12, padding: '3px 9px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontWeight: 600, opacity: n.type === 'examen' ? 0.75 : 1 }}>
-                    <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{TYPES_NOTE[n.type] || n.type} </span>{Number(n.note)}/{Number(n.sur)}
-                  </span>
-                ))}
-              </div>
-              {annuel && (
-                <p style={{ margin: '6px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
-                  {l.parTrimestre.map((t) => `${COURT[t.periode]} ${t.moyenne == null ? '—' : fmt(t.moyenne)}`).join(' · ')}
-                </p>
-              )}
-            </div>
-          ))}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+            <button type="button" onClick={() => setOuvertes(toutesOuvertes ? new Set() : new Set(resume.lignes.map((l) => l.matiere.id)))}
+              style={{ background: 'none', border: 'none', padding: '2px 0', fontSize: 12, fontWeight: 600, color: 'var(--forest-text)', cursor: 'pointer' }}>
+              {toutesOuvertes ? 'Tout replier' : 'Tout déplier'}
+            </button>
+          </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginTop: 6, paddingTop: 12, borderTop: '2px solid var(--line-strong)' }}>
-            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700 }}>Moyenne générale{annuel ? ' (année)' : ''}</p>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--forest-text)' }}>
-              {resume.generale == null ? '—' : `${fmt(resume.generale)}/20`}
-              {resume.appreciation && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{resume.appreciation}</span>}
-            </p>
+          <div role="table" aria-label={annuel ? 'Moyennes de l\'année' : `Moyennes du ${courante}`}>
+            <div role="row" style={{ ...grille, padding: '0 0 6px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--line-strong)' }}>
+              <span role="columnheader">Matière</span>
+              {annuel
+                ? <>{PERIODES_BULLETIN.map((p) => <span key={p} role="columnheader" style={{ textAlign: 'right' }}>{COURT[p]}</span>)}<span role="columnheader" style={{ textAlign: 'right' }}>Année</span></>
+                : <span role="columnheader" style={{ textAlign: 'right' }}>Moyenne</span>}
+            </div>
+
+            {resume.lignes.map((l) => {
+              const ouverte = ouvertes.has(l.matiere.id);
+              return (
+                <div key={l.matiere.id} role="row" style={{ borderBottom: '1px solid var(--line)' }}>
+                  <button type="button" aria-expanded={ouverte} onClick={() => basculer(l.matiere.id)}
+                    style={{ ...grille, width: '100%', padding: '11px 0', background: 'none', border: 'none', color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer', alignItems: 'center' }}>
+                    <span role="cell" style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <span aria-hidden="true" style={{ flex: '0 0 auto', fontSize: 14, color: 'var(--muted)', transition: 'transform .15s', transform: ouverte ? 'rotate(90deg)' : 'none' }}>›</span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, overflowWrap: 'anywhere' }}>{l.matiere.nom}</span>
+                        <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)' }}>coef. {l.coefficient}</span>
+                      </span>
+                    </span>
+                    {annuel && l.parTrimestre.map((t) => (
+                      <span key={t.periode} role="cell" style={{ ...cellule, color: t.moyenne == null ? 'var(--muted)' : couleurNote(t.moyenne, 20) }}>{t.moyenne == null ? '—' : fmt(t.moyenne)}</span>
+                    ))}
+                    <span role="cell" style={{ ...cellule, fontSize: 14, ...moyenneStyle(l.moyenne) }}>{l.moyenne == null ? '—' : fmt(l.moyenne)}</span>
+                  </button>
+
+                  {ouverte && (
+                    <div style={{ padding: '2px 0 12px 22px' }}>
+                      {GROUPES.map((g) => {
+                        const notes = l.notes.filter((n) => n.type === g.type);
+                        if (notes.length === 0) return null;
+                        return (
+                          <div key={g.type} style={{ marginTop: 8 }}>
+                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{g.titre} ({notes.length})</p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {notes.map((n) => (
+                                <span key={n.id} title={`${TYPES_NOTE[n.type] || n.type} · ${n.periode}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
+                                  style={{ fontSize: 12, padding: '3px 9px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontWeight: 600, opacity: n.type === 'examen' ? 0.75 : 1 }}>
+                                  {annuel && <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{COURT[n.periode] || n.periode} </span>}{Number(n.note)}/{Number(n.sur)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {l.notes.some((n) => !GROUPES.some((g) => g.type === n.type)) && (
+                        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {l.notes.filter((n) => !GROUPES.some((g) => g.type === n.type)).map((n) => (
+                            <span key={n.id} style={{ fontSize: 12, padding: '3px 9px', borderRadius: 14, background: 'var(--chip-bg)', fontWeight: 600 }}>{n.type} {Number(n.note)}/{Number(n.sur)}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <div role="row" style={{ ...grille, alignItems: 'baseline', paddingTop: 12, borderTop: '2px solid var(--line-strong)', marginTop: -1 }}>
+              <span role="cell" style={{ fontSize: 13.5, fontWeight: 700 }}>
+                Moyenne générale{annuel ? ' (année)' : ''}<span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>sur 20</span>
+                {resume.appreciation && <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{resume.appreciation}</span>}
+              </span>
+              {annuel && points.map((p) => (
+                <span key={p.label} role="cell" style={{ ...cellule, fontWeight: 600, color: p.value == null ? 'var(--muted)' : couleurNote(p.value, 20) }}>{p.value == null ? '—' : fmt(p.value)}</span>
+              ))}
+              <span role="cell" style={{ ...cellule, fontSize: 16, color: resume.generale == null ? 'var(--muted)' : 'var(--forest-text)', fontWeight: 700 }}>
+                {resume.generale == null ? '—' : fmt(resume.generale)}
+              </span>
+            </div>
           </div>
           {aDesExamens && <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--muted)' }}>Les examens sont affichés mais ne comptent pas dans la moyenne du trimestre.</p>}
         </div>
