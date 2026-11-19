@@ -11,6 +11,7 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { fetchAllRows } from '../lib/fetchAll.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale, subjectPeriodeMoyenne, subjectAnnualMoyenne } from '../lib/bulletin.js';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -20,6 +21,12 @@ const TYPES = [
   { id: 'devoir', label: 'Devoir', labelPluriel: 'Devoirs' },
   { id: 'examen', label: 'Examen', labelPluriel: 'Examens' },
 ];
+
+// Seules les colonnes utiles sont lues (pas de « * », pas de jointure : les noms viennent des listes déjà chargées).
+// Avec 30 000 notes, c'était 13 Mo de données au lieu d'environ 3.
+const COLONNES_NOTES = 'id, student_id, subject_id, type, note, sur, periode, created_at';
+// Nombre de notes dessinées à l'écran d'un coup : en dessiner 10 000 d'un coup bloquait le téléphone plusieurs secondes.
+const NOTES_PAR_PAGE = 100;
 
 const PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Semestre 2'];
 
@@ -56,13 +63,19 @@ export default function Notes() {
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
-      cacheKey: `notes_${schoolYear.id}_v3`, // Cache vidé
+      cacheKey: `notes_${schoolYear.id}_v4`, // v4 : les notes n'embarquent plus les noms (ancien cache ignoré)
       hasData: grades !== null,
       load: async () => {
         const [{ data: enr }, { data: su }, { data: gr, error: grError }] = await Promise.all([
           supabase.from('enrollments').select('classes ( nom ), students ( id, full_name )').eq('school_year_id', schoolYear.id),
           supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-          supabase.from('grades').select('*, students ( full_name ), subjects ( nom, coefficient )').eq('school_year_id', schoolYear.id).limit(50000).order('created_at', { ascending: false }), // 🔥 LIMITE AUGMENTÉE ICI
+          // Page par page : l'API plafonne chaque réponse (1 000 lignes), y compris avec .limit(50000).
+          fetchAllRows((from, to, avecTotal) => supabase.from('grades')
+            .select(COLONNES_NOTES, avecTotal ? { count: 'exact' } : undefined)
+            .eq('school_year_id', schoolYear.id)
+            .order('created_at', { ascending: false })
+            .order('id')
+            .range(from, to)),
         ]);
         if (grError) return { error: grError };
         const st = (enr || [])
@@ -87,7 +100,7 @@ export default function Notes() {
   }, [schoolYear?.id]);
 
   async function handleDelete(g) {
-    if (!(await confirm(`Supprimer la note de ${g.students?.full_name || 'cet élève'} en ${g.subjects?.nom} (${g.note}/${g.sur}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer la note de ${nomEleve.get(g.student_id) || 'cet élève'} en ${nomMatiere.get(g.subject_id) || 'cette matière'} (${g.note}/${g.sur}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('grades').delete().eq('id', g.id);
     setDeleting(false);
@@ -96,6 +109,8 @@ export default function Notes() {
     reload();
   }
 
+  const nomEleve = useMemo(() => new Map(students.map((s) => [s.id, s.full_name])), [students]);
+  const nomMatiere = useMemo(() => new Map(subjects.map((su) => [su.id, su.nom])), [subjects]);
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
   const studentsForNiveau = niveau === 'Tout' ? students : students.filter((s) => s.niveau === niveau);
@@ -120,6 +135,16 @@ export default function Notes() {
     .filter((t) => t.items.length > 0);
 
   const totalGrades = (grades || []).length;
+
+  // Affichage par blocs : on ne dessine que les premières notes, le reste vient sur demande.
+  const [affichees, setAffichees] = useState(NOTES_PAR_PAGE);
+  useEffect(() => { setAffichees(NOTES_PAR_PAGE); }, [niveau, eleveId, matiereId, periode, typeFiltre, schoolYear?.id]);
+  let budget = affichees;
+  const groupesAffiches = groupesParType
+    .map((g) => { const items = g.items.slice(0, Math.max(budget, 0)); budget -= items.length; return { ...g, items }; })
+    .filter((g) => g.items.length > 0);
+  const nbAffichees = groupesAffiches.reduce((a, g) => a + g.items.length, 0);
+  const nbRestantes = filteredGrades.length - nbAffichees;
 
   const classement = useMemo(() => {
     if (eleveId !== 'Tout') return [];
@@ -208,18 +233,18 @@ export default function Notes() {
               
               {/* TABLEAU 1 : LISTE DES NOTES */}
               <div data-tour="notes-list" className="card-bold" style={{ maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
-                {groupesParType.map((groupe) => (
+                {groupesAffiches.map((groupe) => (
                   <div key={groupe.id}>
                     <div style={{ padding: '10px 18px', background: 'var(--forest-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
                       <p style={{ margin: 0, fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{groupe.labelPluriel}</p>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{groupe.items.length}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{groupesParType.find((x) => x.id === groupe.id)?.items.length ?? groupe.items.length}</span>
                     </div>
                     {groupe.items.map((g, i) => (
                       <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < groupe.items.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
                         <div>
-                          <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{g.students?.full_name}</p>
+                          <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{nomEleve.get(g.student_id) || '—'}</p>
                           <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
-                            {g.subjects?.nom}{periode === 'Tous' ? ` · ${g.periode}` : ''}
+                            {nomMatiere.get(g.subject_id) || '—'}{periode === 'Tous' ? ` · ${g.periode}` : ''}
                           </p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -246,6 +271,14 @@ export default function Notes() {
                     ))}
                   </div>
                 ))}
+                {nbRestantes > 0 && (
+                  <div style={{ padding: '14px 18px', textAlign: 'center', borderTop: '1px solid var(--line)' }}>
+                    <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--muted)' }}>{nbAffichees} notes affichées sur {filteredGrades.length}</p>
+                    <button type="button" onClick={() => setAffichees((n) => n + NOTES_PAR_PAGE)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: 'pointer' }}>
+                      Afficher {Math.min(NOTES_PAR_PAGE, nbRestantes)} de plus
+                    </button>
+                  </div>
+                )}
                 {groupesParType.length === 0 && (
                   <div style={{ padding: 20 }}>
                     <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>

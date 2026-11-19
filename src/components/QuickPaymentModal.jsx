@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { fmtF, MODES, TRANCHES, TYPES_FRAIS } from '../lib/utils.js';
+import { MODES, TYPES_FRAIS } from '../lib/utils.js';
+import { tranchesPourType, trancheApresChangementDeType } from '../lib/paymentForm.js';
+import PaymentProgress from './PaymentProgress.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import AmountAwareTextarea from './AmountAwareTextarea.jsx';
 import Dropdown from './Dropdown.jsx';
@@ -61,10 +63,8 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       else if (tranche === 'moitie') amount = scolarite / 2;
     } else if (typeFrais === 'connexe') {
       if (tranche === 'complet') amount = connexe;
-      else if (tranche === 'moitie') amount = connexe / 2;
     } else if (typeFrais === 'inscription') {
       if (tranche === 'complet') amount = inscription;
-      else if (tranche === 'moitie') amount = inscription / 2;
     }
 
     if (amount !== null && !isNaN(amount) && amount > 0) {
@@ -154,6 +154,13 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
     onSaved();
   }
 
+  // Seul l'écolage a des tranches : en passant aux frais connexes, à l'inscription ou aux autres frais, on ne garde que
+  // « Complet » et « Autre ».
+  function changerTypeFrais(nouveauType) {
+    setTypeFrais(nouveauType);
+    setTranche((t) => trancheApresChangementDeType(nouveauType, t));
+  }
+
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
   const canSubmit = !dejaPaye && !submitting && montant !== '';
 
@@ -202,20 +209,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           </div>
         </div>
 
-        {student && (
-          <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Écolage dû : {fmtF(student.montant_du)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Déjà payé : {fmtF(student.montant_paye)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Connexes : {fmtF(student.frais_connexe_du)} / {fmtF(student.frais_connexe_paye)}</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Reste écolage</p>
-              <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 700, color: resteEcolage > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(resteEcolage)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark-text)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
-            </div>
-          </div>
-        )}
+        <PaymentProgress eleve={student} anneeScolaire={schoolYearInfo} grilleFrais={currentFeeSchedule} />
 
         {dejaPaye && (
           <div style={{ background: 'var(--amber-light)', border: '1px solid var(--amber)', borderRadius: 9, padding: '10px 14px', marginBottom: 14 }}>
@@ -229,11 +223,11 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={labelStyle}>Type de frais</label>
-            <Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
+            <Dropdown value={typeFrais} onChange={changerTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Tranche / Type</label>
-            <Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
+            <Dropdown value={tranche} onChange={setTranche} options={tranchesPourType(typeFrais).map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
           </div>
         </div>
 

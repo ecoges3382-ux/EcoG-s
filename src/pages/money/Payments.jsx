@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
-import { fmtF, TRANCHES, MODES, trancheLabel, TYPES_FRAIS } from '../../lib/utils.js';
+import { fmtF, MODES, trancheLabel, TYPES_FRAIS } from '../../lib/utils.js';
+import { tranchesPourType, trancheApresChangementDeType } from '../../lib/paymentForm.js';
+import PaymentProgress from '../../components/PaymentProgress.jsx';
 import { useSelectedSchoolYear } from '../../lib/schoolYear.jsx';
 import MoneyInput from '../../components/MoneyInput.jsx';
 import AmountAwareTextarea from '../../components/AmountAwareTextarea.jsx';
@@ -379,10 +381,8 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       else if (tranche === 'moitie') amount = scolarite / 2;
     } else if (typeFrais === 'connexe') {
       if (tranche === 'complet') amount = connexe;
-      else if (tranche === 'moitie') amount = connexe / 2;
     } else if (typeFrais === 'inscription') {
       if (tranche === 'complet') amount = inscription;
-      else if (tranche === 'moitie') amount = inscription / 2;
     }
 
     if (amount !== null && !isNaN(amount) && amount > 0) {
@@ -439,6 +439,13 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     onCreated();
   }
 
+  // Seul l'écolage a des tranches : en passant aux frais connexes, à l'inscription ou aux autres frais, on ne garde que
+  // « Complet » et « Autre ».
+  function changerTypeFrais(nouveauType) {
+    setTypeFrais(nouveauType);
+    setTranche((t) => trancheApresChangementDeType(nouveauType, t));
+  }
+
   const isMontantEditable = tranche === 'autre' || typeFrais === 'autre';
   const canSubmit = !dejaPaye && !submitting && students.length > 0 && montant !== '';
 
@@ -480,20 +487,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
           <div><label style={modalLabelStyle}>Élève</label><Dropdown value={studentId} onChange={setStudentId} options={studentsInClasse.map((s) => ({ value: s.id, label: s.full_name }))} style={modalInputStyle} /></div>
         </div>
 
-        {currentStudent && (
-          <div style={{ background: 'var(--forest-light)', padding: '10px 14px', borderRadius: 9, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Écolage dû : {fmtF(currentStudent.montant_du)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Déjà payé : {fmtF(currentStudent.montant_paye)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--forest-dark-text)' }}>Connexes : {fmtF(currentStudent.frais_connexe_du)} / {fmtF(currentStudent.frais_connexe_paye)}</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--forest-dark-text)', fontWeight: 600 }}>Reste écolage</p>
-              <p style={{ margin: '2px 0 0', fontSize: 14, fontWeight: 700, color: resteEcolage > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(resteEcolage)}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--forest-dark-text)' }}>Reste connexes : {fmtF(resteConnexe)}</p>
-            </div>
-          </div>
-        )}
+        <PaymentProgress eleve={currentStudent} anneeScolaire={schoolYearInfo} grilleFrais={currentFeeSchedule} />
 
         {dejaPaye && (
           <div style={{ background: 'var(--amber-light)', border: '1px solid var(--amber)', borderRadius: 9, padding: '10px 14px', marginBottom: 14 }}>
@@ -502,8 +496,8 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
         )}
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div><label style={modalLabelStyle}>Type de frais</label><Dropdown value={typeFrais} onChange={setTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
-          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
+          <div><label style={modalLabelStyle}>Type de frais</label><Dropdown value={typeFrais} onChange={changerTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
+          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={tranchesPourType(typeFrais).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

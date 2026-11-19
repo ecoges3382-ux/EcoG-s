@@ -10,6 +10,7 @@ import DocumentHeader from '../components/DocumentHeader.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { fetchAllRows } from '../lib/fetchAll.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
 
@@ -57,12 +58,19 @@ export default function Grades() {
       cacheKey: `bulletins_${schoolYear.id}_v4`, // 🚨 CACHE VIDÉ ICI
       hasData: false,
       load: async () => {
-        const [{ data: enr, error: enrError }, { data: su }, { data: gr }] = await Promise.all([
+        const [{ data: enr, error: enrError }, { data: su }, { data: gr, error: grError }] = await Promise.all([
           supabase.from('enrollments').select('classes ( nom ), students ( id, full_name, matricule ) ').eq('school_year_id', schoolYear.id),
           supabase.from('subjects').select('id, nom, coefficient, niveau').order('nom'),
-          supabase.from('grades').select('student_id, subject_id, type, note, sur, periode').eq('school_year_id', schoolYear.id).limit(50000), // 🔥 LIMITE AUGMENTÉE ICI
+          // Page par page : l'API plafonne chaque réponse à 1 000 lignes, même avec .limit(50000). Sans cela, au-delà de
+          // 1 000 notes, les moyennes et les bulletins étaient calculés sur une partie seulement des notes.
+          fetchAllRows((from, to, avecTotal) => supabase.from('grades')
+            .select('id, student_id, subject_id, type, note, sur, periode', avecTotal ? { count: 'exact' } : undefined)
+            .eq('school_year_id', schoolYear.id)
+            .order('id')
+            .range(from, to)),
         ]);
         if (enrError) return { error: enrError };
+        if (grError) return { error: grError };
         const st = (enr || [])
           .map((e) => ({ id: e.students.id, full_name: e.students.full_name, matricule: e.students.matricule, niveau: e.classes?.nom || '—' }))
           .sort((a, b) => a.full_name.localeCompare(b.full_name));

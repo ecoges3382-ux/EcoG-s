@@ -22,7 +22,7 @@ import { translateError } from '../lib/errors.js';
 // Importation des composants isolés
 import MoratoireSection from '../components/students/MoratoireSection.jsx';
 import StudentFinancials from '../components/students/StudentFinancials.jsx';
-import StudentGradesTrend from '../components/students/StudentGradesTrend.jsx';
+import StudentGrades from '../components/students/StudentGrades.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_MORATOIRE_ROLES = ['fondateur', 'directeur', 'censeur', 'secretaire'];
@@ -273,8 +273,8 @@ export default function StudentDetail() {
         </div>
       )}
 
-      {schoolYear && enrollment && (
-        <StudentGradesTrend studentId={student.id} schoolYearId={schoolYear.id} classeNom={enrollment.classes?.nom} />
+      {schoolYear && (
+        <StudentGrades studentId={student.id} schoolYearId={schoolYear.id} canEdit={!isHistorical && ['fondateur', 'directeur', 'secretaire', 'enseignant'].includes(profile.role)} />
       )}
 
       {schoolYear && (
