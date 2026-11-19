@@ -13,6 +13,10 @@ import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { fetchAllRows } from '../lib/fetchAll.js';
 import { correspondAuxMots } from '../lib/texte.js';
+import StudentLink from '../components/StudentLink.jsx';
+
+// Page d'origine transmise à la fiche élève : son bouton « Retour » ramène ici.
+const DEPUIS_NOTES = { chemin: '/notes', libelle: 'Retour aux notes' };
 
 // Taille de page demandée : le serveur répond au plus 1 000 lignes (réglage par défaut) ; s'il en sert davantage, tant mieux,
 // il y aura moins de pages. fetchAllRows suit ce qu'il sert réellement.
@@ -165,6 +169,7 @@ export default function Notes() {
     if (eleveId !== 'Tout') return [];
     return studentsRecherches
       .map((s) => ({
+        id: s.id,
         name: s.full_name,
         moyenne: matiereId === 'Tout'
           ? (periode === 'Tous' ? annualMoyenneGenerale(subjects, grades || [], s.id) : periodeMoyenneGenerale(subjects, grades || [], s.id, periode))
@@ -309,7 +314,7 @@ export default function Notes() {
                   <div style={{ padding: '8px 18px' }}>
                     {classement.map((c, i) => (
                       <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                        <span style={{ fontSize: 13 }}>{i + 1}. {c.name}</span>
+                        <span style={{ fontSize: 13 }}>{i + 1}. <StudentLink studentId={c.id} name={c.name} depuis={DEPUIS_NOTES} /></span>
                         <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
                       </div>
                     ))}
@@ -366,7 +371,7 @@ function CarteNotesType({ groupe, limite, afficherPlus, periode, nomEleve, nomMa
         {visibles.map((g, i) => (
           <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < visibles.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
             <div>
-              <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}>{nomEleve.get(g.student_id) || '—'}</p>
+              <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}><StudentLink studentId={g.student_id} name={nomEleve.get(g.student_id) || '—'} depuis={DEPUIS_NOTES} /></p>
               <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
                 {nomMatiere.get(g.subject_id) || '—'}{periode === 'Tous' ? ` · ${g.periode}` : ''}
               </p>
