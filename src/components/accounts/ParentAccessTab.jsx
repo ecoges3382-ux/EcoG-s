@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { initials, generateAccessCode, displayName } from '../../lib/utils.js';
@@ -47,6 +48,25 @@ export default function ParentAccessTab() {
   const [editingStudents, setEditingStudents] = useState(null);
   const [editingInfo, setEditingInfo] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  // La liste défile dans son cadre, comme celle des élèves. Le cadre prend la place restante sous son début de page (le haut
+  // varie : sur téléphone, l'en-tête est plus haut et la barre du bas prend de la place).
+  const listeRef = useRef(null);
+  const [hauteurListe, setHauteurListe] = useState(null);
+  const listePrete = accesses !== null;
+  useLayoutEffect(() => {
+    function mesurer() {
+      const liste = listeRef.current;
+      if (!liste) return;
+      const haut = liste.getBoundingClientRect().top + (document.getElementById('screen')?.scrollTop || 0);
+      const telephone = window.innerWidth <= 900;
+      // Sur téléphone l'en-tête est haut : on garde au moins ~4 lignes visibles (la page défile alors, comme les autres).
+      setHauteurListe(Math.max(telephone ? 290 : 200, Math.round(window.innerHeight - haut - (telephone ? 96 : 24))));
+    }
+    mesurer();
+    window.addEventListener('resize', mesurer);
+    return () => window.removeEventListener('resize', mesurer);
+  }, [listePrete, error, offline]);
 
   async function reload() {
     await guardedFetch({
@@ -120,7 +140,7 @@ export default function ParentAccessTab() {
       {!accesses && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
       {accesses && (
-        <div className="card-bold">
+        <div ref={listeRef} data-tour="parent-access-list" className="card-bold" style={{ maxHeight: hauteurListe ?? 'calc(100vh - 250px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
           {accesses.map((a, i) => (
             <ParentAccessRow
               key={a.id}
@@ -371,8 +391,9 @@ function EditParentAccessInfoModal({ access, onClose, onSaved }) {
 function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, onCopyLink, onRegenerate, onEditStudents, onEditInfo, onDelete, copied }) {
   const children = (access.parent_access_students || []).map((row) => row.students?.full_name).filter(Boolean);
   const prefix = access.civilite === 'Mme' ? 'Mme' : 'M.';
+  const ligneRef = useRef(null);
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+    <div ref={ligneRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
       <div onClick={onToggleMenu} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', minWidth: 0, flex: 1 }}>
         <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--clay-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: 'var(--clay-text)', flexShrink: 0 }}>
           {initials(access.full_name)}
@@ -396,6 +417,7 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
 
       {menuOpen && (
         <ParentAccessMenu
+          ancre={ligneRef}
           onCopyLink={onCopyLink}
           onRegenerate={onRegenerate}
           onEditStudents={onEditStudents}
@@ -407,19 +429,35 @@ function ParentAccessRow({ access, isLast, menuOpen, onToggleMenu, onCloseMenu, 
   );
 }
 
-function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onEditInfo, onClose }) {
+function ParentAccessMenu({ ancre, onCopyLink, onRegenerate, onEditStudents, onEditInfo, onClose }) {
   const items = [
     { id: 'info', label: 'Modifier les informations (nom, téléphone, e-mail)', action: onEditInfo },
     { id: 'copy', label: 'Copier le lien', action: onCopyLink },
     { id: 'students', label: 'Modifier les enfants rattachés', action: onEditStudents },
     { id: 'regen', label: 'Régénérer le code', action: onRegenerate },
   ];
-  return (
+  // La liste défile dans son cadre : un menu « absolu » serait coupé par le bas du cadre. Le menu est donc posé sur la page
+  // (portail, comme les fenêtres) en position fixe, sous la ligne, ou au-dessus si la place manque en dessous.
+  const menuRef = useRef(null);
+  const [pos, setPos] = useState(null);
+  useLayoutEffect(() => {
+    const ligne = ancre.current?.getBoundingClientRect();
+    const hauteur = menuRef.current?.offsetHeight || 0;
+    if (!ligne) return;
+    const placeEnDessous = window.innerHeight - ligne.bottom - 8 >= hauteur;
+    setPos({
+      top: placeEnDessous ? ligne.bottom + 4 : Math.max(8, ligne.top - hauteur - 4),
+      right: Math.max(8, window.innerWidth - ligne.right + 20),
+    });
+  }, [ancre]);
+  return createPortal(
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 29 }} />
       <div
+        ref={menuRef}
+        data-parent-access-menu
         onClick={(e) => e.stopPropagation()}
-        style={{ position: 'absolute', top: '100%', right: 20, marginTop: 4, zIndex: 30, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 240, overflow: 'hidden' }}
+        style={{ position: 'fixed', top: pos ? pos.top : 0, right: pos ? pos.right : 8, visibility: pos ? 'visible' : 'hidden', zIndex: 30, background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', minWidth: 240, maxWidth: 'calc(100vw - 16px)', overflow: 'hidden' }}
       >
         {items.map((it, i) => (
           <button
@@ -432,7 +470,8 @@ function ParentAccessMenu({ onCopyLink, onRegenerate, onEditStudents, onEditInfo
           </button>
         ))}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
