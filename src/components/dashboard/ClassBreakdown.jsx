@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { fmtF, downloadCsv, stickyColStyle } from '../../lib/utils.js';
 import RecouvrementChart from './RecouvrementChart.jsx';
+import { virgule } from '../../lib/formatNote.js';
+import Sur20 from '../Sur20.jsx';
 
 export default function ClassBreakdown({ students, attendance, classResults }) {
   const attendanceByStudent = new Map();
@@ -67,7 +69,7 @@ export default function ClassBreakdown({ students, attendance, classResults }) {
                 <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>{fmtF(reste)}</span>
                 <span>{taux}%</span>
                 <span>{r.absent} / {r.retard}</span>
-                <span>{cr?.moyenne_generale != null ? `${Number(cr.moyenne_generale).toFixed(2)}/20` : '—'}</span>
+                <span>{cr?.moyenne_generale != null ? <>{virgule(cr.moyenne_generale, 2)}<Sur20 /></> : '—'}</span>
               </Link>
             );
           })}

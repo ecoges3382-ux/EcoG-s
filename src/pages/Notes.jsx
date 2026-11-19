@@ -26,6 +26,8 @@ const PAGE_LECTURE = 5000;
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale, subjectPeriodeMoyenne, subjectAnnualMoyenne } from '../lib/bulletin.js';
 import { usePageTour } from '../components/PageTour.jsx';
+import { virgule, noteTexte, noteAvecBareme } from '../lib/formatNote.js';
+import Sur20 from '../components/Sur20.jsx';
 
 const TYPES = [
   { id: 'controle', label: 'Interrogation', labelPluriel: 'Interrogations' },
@@ -139,7 +141,7 @@ export default function Notes() {
   }, [schoolYear?.id]);
 
   async function handleDelete(g) {
-    if (!(await confirm(`Supprimer la note de ${nomEleve.get(g.student_id) || 'cet élève'} en ${nomMatiere.get(g.subject_id) || 'cette matière'} (${g.note}/${g.sur}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
+    if (!(await confirm(`Supprimer la note de ${nomEleve.get(g.student_id) || 'cet élève'} en ${nomMatiere.get(g.subject_id) || 'cette matière'} (${noteAvecBareme(g)}) ? Cette action est irréversible.`, { confirmLabel: 'Supprimer' }))) return;
     setDeleting(true);
     const { error: deleteError } = await supabase.from('grades').delete().eq('id', g.id);
     setDeleting(false);
@@ -341,7 +343,7 @@ export default function Notes() {
                     {classement.map((c, i) => (
                       <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
                         <span style={{ fontSize: 13 }}>{i + 1}. <StudentLink studentId={c.id} name={c.name} depuis={retourNotes} /></span>
-                        <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700 }}>{virgule(c.moyenne, 1)}<Sur20 /></span>
                       </div>
                     ))}
                     {classement.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '12px 0' }}>—</p>}
@@ -403,7 +405,7 @@ function CarteNotesType({ groupe, limite, afficherPlus, periode, nomEleve, nomMa
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest-text)' }}>{g.note}/{g.sur}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--forest-text)' }}>{noteTexte(g.note)}<Sur20 sur={g.sur} /></span>
               <button
                 type="button"
                 onClick={() => onEdit(g)}

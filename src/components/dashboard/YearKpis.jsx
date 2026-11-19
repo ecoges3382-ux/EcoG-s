@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { fmtF } from '../../lib/utils.js';
 import { Stat } from './DashboardUI.jsx';
+import { virgule } from '../../lib/formatNote.js';
+import Sur20 from '../Sur20.jsx';
 
 export default function YearKpis({ students, attendance, classResults }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
@@ -56,7 +58,7 @@ export default function YearKpis({ students, attendance, classResults }) {
         <Stat label="Absences / retards" value={`${counts.absent} / ${counts.retard}`} color={counts.absent > 0 ? 'var(--danger)' : undefined} to="/presences" />
         <Stat
           label="Moyenne générale de l'école"
-          value={moyenneEcole != null ? `${moyenneEcole.toFixed(2)}/20` : '—'}
+          value={moyenneEcole != null ? <>{virgule(moyenneEcole, 2)}<Sur20 /></> : '—'}
           sub={classResults ? `${avecNotes} élève${avecNotes > 1 ? 's' : ''} avec notes` : undefined}
           to="/bulletins"
         />
