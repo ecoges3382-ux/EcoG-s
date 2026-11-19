@@ -1,0 +1,47 @@
+name: Prévenir les applications ouvertes d'une mise à jour
+
+# Dès que Vercel a fini de publier une nouvelle version en production, on envoie un signal à toutes les applications ouvertes
+# (diffusion Supabase Realtime, canal « app-version ») : elles cherchent aussitôt la nouvelle version et affichent la bannière
+# « Une nouvelle version d'EcoGès est disponible », sans attendre la prochaine vérification ni un rechargement.
+# Le signal ne contient rien d'utile : l'application refait elle-même la vérification (voir src/lib/miseAJour.js).
+# Le nom du canal et de l'événement doivent rester identiques à ceux de src/lib/miseAJour.js (un test le vérifie).
+on:
+  deployment_status: {}
+  workflow_dispatch: {}
+
+jobs:
+  prevenir:
+    # Seulement quand Vercel a réussi à publier la PRODUCTION (pas les aperçus de propositions de modification).
+    if: github.event_name == 'workflow_dispatch' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # La clé publique (anon) est celle que contient déjà l'application. On la demande à Supabase avec le jeton déjà utilisé
+      # pour déployer les fonctions : rien de plus à configurer. Un secret SUPABASE_ANON_KEY, s'il existe, est utilisé en priorité.
+      - name: Envoyer le signal
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ANON_KEY_SECRET: ${{ secrets.SUPABASE_ANON_KEY }}
+          PROJET: xdumihqihcffegjcfhyi
+          VERSION: ${{ github.event.deployment.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          CLE="${SUPABASE_ANON_KEY_SECRET:-}"
+          if [ -z "$CLE" ]; then
+            CLE=$(supabase projects api-keys --project-ref "$PROJET" -o json | jq -r '[.[] | select(.name == "anon")][0].api_key // empty')
+          fi
+          if [ -z "$CLE" ]; then
+            echo "Clé publique introuvable : ajoute le secret SUPABASE_ANON_KEY dans GitHub (la clé « anon » de Supabase)." >&2
+            exit 1
+          fi
+          echo "::add-mask::$CLE"
+          CORPS=$(jq -n --arg v "$VERSION" '{messages: [{topic: "app-version", event: "deploy", payload: {version: $v}, private: false}]}')
+          CODE=$(curl -sS -o /tmp/reponse.txt -w '%{http_code}' -X POST "https://${PROJET}.supabase.co/realtime/v1/api/broadcast" \
+            -H "apikey: ${CLE}" -H "Authorization: Bearer ${CLE}" -H "Content-Type: application/json" -d "$CORPS")
+          echo "Réponse de Supabase Realtime : HTTP ${CODE}"
+          cat /tmp/reponse.txt
+          case "$CODE" in 2*) ;; *) exit 1 ;; esac

@@ -1,25 +1,76 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { supabase } from '../lib/supabase.js';
+import {
+  CANAL_VERSION, EVENEMENT_DEPLOIEMENT, DELAI_VERIFICATION, DELAI_RAPPEL, creerVerificateur, planifierApresSignal,
+} from '../lib/miseAJour.js';
 
 export default function UpdateButton() {
   const [updating, setUpdating] = useState(false);
+  const inscription = useRef(null);
+  const verifierRef = useRef(null);
+  if (!verifierRef.current) verifierRef.current = creerVerificateur({ donneInscription: () => inscription.current });
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegistered(r) {
-      // Vérifie les mises à jour toutes les minutes si l'app est ouverte
-      if (r) {
-        setInterval(() => {
-          r.update();
-        }, 60 * 1000);
-      }
+      inscription.current = r || null;
+      // Dès l'inscription : une première vérification (l'application a pu rester ouverte longtemps avant de s'inscrire).
+      verifierRef.current({ force: true });
     },
     onRegisterError(error) {
       console.error('Erreur Service Worker:', error);
     },
   });
+
+  // Quand chercher une nouvelle version : toutes les minutes tant que l'application est visible, et surtout DÈS qu'on y revient
+  // (retour au premier plan, onglet réaffiché, réseau retrouvé). Sur téléphone, une application en arrière-plan gèle ses
+  // minuteries : sans cela, la mise à jour n'était vue qu'après un rechargement.
+  useEffect(() => {
+    const verifier = (opts) => verifierRef.current(opts);
+    const siVisible = () => { if (document.visibilityState === 'visible') verifier(); };
+    const minuterie = setInterval(siVisible, DELAI_VERIFICATION);
+    document.addEventListener('visibilitychange', siVisible);
+    window.addEventListener('focus', siVisible);
+    window.addEventListener('online', siVisible);
+    window.addEventListener('pageshow', siVisible);
+    return () => {
+      clearInterval(minuterie);
+      document.removeEventListener('visibilitychange', siVisible);
+      window.removeEventListener('focus', siVisible);
+      window.removeEventListener('online', siVisible);
+      window.removeEventListener('pageshow', siVisible);
+    };
+  }, []);
+
+  // Signal « une version vient d'être déployée » (envoyé par GitHub quand Vercel a fini de publier) : on cherche aussitôt, sans
+  // attendre la prochaine minute. Le signal ne contient rien : l'application refait elle-même la vérification, donc un faux
+  // signal ne peut rien causer de plus qu'une vérification.
+  useEffect(() => {
+    let annulerSerie = null;
+    let canal = null;
+    try {
+      canal = supabase.channel(CANAL_VERSION)
+        .on('broadcast', { event: EVENEMENT_DEPLOIEMENT }, () => {
+          if (annulerSerie) annulerSerie();
+          annulerSerie = planifierApresSignal((opts) => verifierRef.current(opts));
+        })
+        .subscribe();
+    } catch (err) {
+      console.error('Canal de mise à jour indisponible:', err);
+    }
+    return () => {
+      if (annulerSerie) annulerSerie();
+      try { if (canal) supabase.removeChannel(canal); } catch { /* canal déjà fermé : on ignore */ }
+    };
+  }, []);
+
+  // « Plus tard » ne cache la bannière que pour un temps : la mise à jour attend toujours, la bannière revient.
+  const rappel = useRef(null);
+  useEffect(() => () => clearTimeout(rappel.current), []);
+  useEffect(() => { if (needRefresh) clearTimeout(rappel.current); }, [needRefresh]);
 
   const handleUpdate = async () => {
     setUpdating(true);
@@ -34,7 +85,11 @@ export default function UpdateButton() {
     setUpdating(false);
   };
 
-  const close = () => setNeedRefresh(false);
+  const close = () => {
+    setNeedRefresh(false);
+    clearTimeout(rappel.current);
+    rappel.current = setTimeout(() => setNeedRefresh(true), DELAI_RAPPEL);
+  };
 
   // On n'affiche rien s'il n'y a pas de mise à jour
   if (!needRefresh) return null;
