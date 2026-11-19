@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase.js';
 import { fmtF } from '../../lib/utils.js';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { buildMonthsForChart } from './DashboardUI.jsx';
+import { lireTout } from '../../lib/fetchAll.js';
 
 export default function TrendsSection({ schoolYear, attendance }) {
   const [payments, setPayments] = useState(null);
@@ -19,10 +20,8 @@ export default function TrendsSection({ schoolYear, attendance }) {
       cacheKey: `dashboard_monthly_payments_${schoolYear.id}_v5`, 
       hasData: false,
       load: async () => {
-        const { data, error: e } = await supabase
-          .from('payments')
-          .select('date, montant')
-          .eq('school_year_id', schoolYear.id);
+        // Tous les paiements de l'année, page par page (l'API plafonne chaque réponse à 1 000 lignes).
+        const { data, error: e } = await lireTout(supabase, 'payments', 'date, montant', (q) => q.eq('school_year_id', schoolYear.id), { keyOf: null });
         
         if (e) return { error: e };
         return { data: data || [] };

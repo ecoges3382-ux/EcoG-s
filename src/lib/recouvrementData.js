@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js';
 import { saveCache } from './offlineCache.js';
 import { TYPES_FRAIS } from './utils.js';
+import { lireTout } from './fetchAll.js';
 
 // Identifiant du type de frais « inscription » (les inscriptions se suivent à part).
 export function getInscriptionTypeId() {
@@ -29,12 +30,10 @@ export async function loadInscriptions(schoolYearId, inscriptionTypeId) {
 
 // Relances WhatsApp : automatiques (par élève) et dernière relance manuelle envoyée.
 export async function loadReminders(schoolId) {
-  const { data, error } = await supabase
-    .from('whatsapp_messages')
-    .select('student_id, template_name, created_at, statut')
-    .eq('school_id', schoolId)
-    .eq('type', 'relance_paiement')
-    .order('created_at', { ascending: false });
+  // Toutes les relances, page par page : si on n'en lisait que 1 000, un élève relancé il y a longtemps passerait pour
+  // « jamais relancé » et serait relancé deux fois.
+  const { data, error } = await lireTout(supabase, 'whatsapp_messages', 'student_id, template_name, created_at, statut',
+    (q) => q.eq('school_id', schoolId).eq('type', 'relance_paiement'), { tri: [['created_at', { ascending: false }]], keyOf: null });
   if (error) return { error };
   const auto = {};
   const manual = {};

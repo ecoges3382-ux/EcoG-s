@@ -19,6 +19,7 @@ import ClassBreakdown from '../components/dashboard/ClassBreakdown.jsx';
 import PersonnelSection from '../components/dashboard/PersonnelSection.jsx';
 import TodaySection from '../components/dashboard/TodaySection.jsx';
 import ComparisonSection from '../components/dashboard/ComparisonSection.jsx';
+import { lireTout, clePresence } from '../lib/fetchAll.js';
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -40,7 +41,8 @@ export default function Dashboard() {
       cacheKey: `dashboard_attendance_${schoolYear.id}`,
       hasData: false,
       load: async () => {
-        const { data, error: e } = await supabase.from('attendance_records').select('student_id, date, statut').eq('school_year_id', schoolYear.id);
+        // Toutes les présences de l'année, page par page (l'API plafonne chaque réponse à 1 000 lignes).
+        const { data, error: e } = await lireTout(supabase, 'attendance_records', 'student_id, date, statut', (q) => q.eq('school_year_id', schoolYear.id), { keyOf: clePresence });
         return e ? { error: e } : { data: data || [] };
       },
       setData: setAttendance,

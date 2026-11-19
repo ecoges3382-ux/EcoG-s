@@ -89,3 +89,79 @@ describe('lecture page par page', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+// ---- lireTout : le raccourci utilisé par le tableau de bord, les rapports, le bilan, les absences… ----
+import { lireTout, clePresence } from '../src/lib/fetchAll.js';
+
+// Faux client Supabase : enregistre la requête construite (colonnes, filtres, ordre, pages) et sert les lignes d'une table.
+function fauxSupabase(lignes, { plafond = 1000 } = {}) {
+  const journal = [];
+  const client = {
+    from(table) {
+      const req = { table, colonnes: null, options: null, filtres: [], ordres: [], plage: null };
+      const q = {
+        select(c, o) { req.colonnes = c; req.options = o; return q; },
+        eq(k, v) { req.filtres.push(['eq', k, v]); return q; },
+        gte(k, v) { req.filtres.push(['gte', k, v]); return q; },
+        order(k, o) { req.ordres.push([k, o]); return q; },
+        range(from, to) {
+          req.plage = [from, to]; journal.push(req);
+          const fin = Math.min(to, from + plafond - 1);
+          return Promise.resolve({ data: lignes.slice(from, fin + 1), error: null, count: req.options && req.options.count ? lignes.length : null });
+        },
+      };
+      return q;
+    },
+  };
+  return { client, journal };
+}
+
+describe('lireTout (raccourci de lecture complète)', () => {
+  it('construit la requête : colonnes, filtres, ordre demandé puis id, et la plage', async () => {
+    const { client, journal } = fauxSupabase(lignes(10));
+    await lireTout(client, 'payments', 'date, montant', (q) => q.eq('school_year_id', 'Y').gte('date', '2026-11-01'), { tri: [['date', { ascending: false }]] });
+    expect(journal[0]).toMatchObject({
+      table: 'payments', colonnes: 'date, montant', options: { count: 'exact' },
+      filtres: [['eq', 'school_year_id', 'Y'], ['gte', 'date', '2026-11-01']],
+      ordres: [['date', { ascending: false }], ['id', undefined]],
+      plage: [0, 4999],
+    });
+  });
+
+  it('lit tout, même si le serveur plafonne à 1 000 (6 pages pour 5 400 lignes)', async () => {
+    const { client, journal } = fauxSupabase(lignes(5400), { plafond: 1000 });
+    const { data, error } = await lireTout(client, 'attendance_records', 'student_id, date, statut', (q) => q.eq('school_year_id', 'Y'), { keyOf: null });
+    expect(error).toBeNull();
+    expect(data).toHaveLength(5400);
+    expect(journal).toHaveLength(6);
+  });
+
+  it('plafond de 50 000 : une seule page suffit jusqu\'à 5 000 lignes, puis des pages de 5 000', async () => {
+    const { client, journal } = fauxSupabase(lignes(12000), { plafond: 50000 });
+    const { data } = await lireTout(client, 'attendance_records', 'x', (q) => q, { keyOf: null });
+    expect(data).toHaveLength(12000);
+    expect(journal.map((r) => r.plage)).toEqual([[0, 4999], [5000, 9999], [10000, 14999]]);
+  });
+
+  it('sans filtre ni tri : seulement l\'ordre par id', async () => {
+    const { client, journal } = fauxSupabase(lignes(3));
+    await lireTout(client, 'expenses', 'montant');
+    expect(journal[0].ordres).toEqual([['id', undefined]]);
+    expect(journal[0].filtres).toEqual([]);
+  });
+
+  it('la présence d\'un élève un jour donné a une clé unique (pas de doublon si une saisie arrive pendant la lecture)', () => {
+    expect(clePresence({ student_id: 'e1', date: '2026-11-19' })).toBe('e1|2026-11-19');
+    expect(clePresence({ statut: 'absent' })).toBeNull();
+  });
+
+  it('les doublons de présence sont écartés, et les lignes sans clé sont toutes gardées', async () => {
+    const base = Array.from({ length: 2000 }, (_, i) => ({ student_id: 'e' + (i % 400), date: `2026-10-${String(1 + Math.floor(i / 400)).padStart(2, '0')}`, statut: 'present' }));
+    let premier = true;
+    const client = { from: () => { const q = { select: () => q, eq: () => q, order: () => q, range: (from, to) => { const r = { data: base.slice(from, to + 1), error: null, count: base.length }; if (premier) { premier = false; base.unshift({ ...base[0] }); } return Promise.resolve(r); } }; return q; } };
+    const { data } = await lireTout(client, 'attendance_records', 'x', (q) => q, { keyOf: clePresence, pageSize: 1000 });
+    expect(new Set(data.map(clePresence)).size).toBe(data.length);
+    const sansCle = await lireTout(fauxSupabase(lignes(2500)).client, 't', 'x', (q) => q, { keyOf: null, pageSize: 1000 });
+    expect(sansCle.data).toHaveLength(2500);
+  });
+});

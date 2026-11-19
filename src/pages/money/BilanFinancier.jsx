@@ -8,6 +8,7 @@ import { fmtF } from '../../lib/utils.js';
 import { useSelectedSchoolYear } from '../../lib/schoolYear.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../../components/Skeleton.jsx';
 import { translateError } from '../../lib/errors.js';
+import { lireTout } from '../../lib/fetchAll.js';
 
 export default function BilanFinancier() {
   const { profile } = useAuth();
@@ -27,10 +28,11 @@ export default function BilanFinancier() {
           { data: advances, error: aErr },
           { data: expenses, error: eErr }
         ] = await Promise.all([
-          supabase.from('payments').select('type_frais, montant').eq('school_year_id', schoolYear.id),
+          // Paiements et dépenses de toute l'année, page par page (l'API plafonne chaque réponse à 1 000 lignes).
+          lireTout(supabase, 'payments', 'type_frais, montant', (q) => q.eq('school_year_id', schoolYear.id), { keyOf: null }),
           supabase.from('staff_salaries').select('montant').eq('school_year_id', schoolYear.id),
           supabase.from('salary_advances').select('montant').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
-          supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id)
+          lireTout(supabase, 'expenses', 'montant', (q) => q.eq('school_year_id', schoolYear.id), { keyOf: null })
         ]);
 
         if (pErr) throw pErr;

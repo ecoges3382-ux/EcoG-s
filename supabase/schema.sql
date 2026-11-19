@@ -4337,3 +4337,37 @@ begin
 end $$;
 
 create index if not exists grades_year_created_idx on grades (school_year_id, created_at desc, id);
+
+-- ---------- Lecture rapide des autres tables (présences, paiements, absences, inscriptions…) ----------
+-- Même correctif que pour les notes : les règles de lecture de ces tables appellent current_school_id(),
+-- current_role_name() et auth.uid() pour CHAQUE ligne lue. Enveloppés dans (select ...), ces appels ne sont évalués
+-- qu'UNE fois par requête. Le script ne fait que réécrire le texte des règles EN PLACE (aucune règle n'est recopiée à la
+-- main) : la condition reste la même, mot pour mot, donc les mêmes lignes restent visibles pour les mêmes personnes.
+-- Il ne touche qu'aux règles de lecture (SELECT) de ces tables, ignore celles déjà optimisées, et ne modifie jamais un
+-- appel qualifié par un schéma (public.fonction()). Si une réécriture échouait, rien n'est modifié (un seul bloc).
+do $$
+declare
+  r record;
+  nouveau text;
+  nb int := 0;
+begin
+  for r in
+    select schemaname, tablename, policyname, qual from pg_policies
+    where schemaname = 'public' and cmd = 'SELECT'
+      and tablename in ('attendance_records', 'payments', 'absence_events', 'late_events', 'enrollments', 'students', 'whatsapp_messages', 'expenses')
+  loop
+    nouveau := regexp_replace(r.qual, '(?<!select )(?<![.[:alnum:]_])(current_school_id|current_role_name)\(\)', '(select \1())', 'gi');
+    nouveau := regexp_replace(nouveau, '(?<!select )(?<![.[:alnum:]_])auth\.uid\(\)', '(select auth.uid())', 'gi');
+    if nouveau is distinct from r.qual then
+      execute format('alter policy %I on %I.%I using (%s)', r.policyname, r.schemaname, r.tablename, nouveau);
+      nb := nb + 1;
+      raise notice 'Règle optimisée : % (%)', r.policyname, r.tablename;
+    end if;
+  end loop;
+  raise notice '% règle(s) optimisée(s).', nb;
+end $$;
+
+-- Index qui servent l'ordre de lecture page par page (année, puis identifiant).
+create index if not exists attendance_year_id_idx on attendance_records (school_year_id, id);
+create index if not exists payments_year_id_idx on payments (school_year_id, id);
+create index if not exists enrollments_year_id_idx on enrollments (school_year_id, id);

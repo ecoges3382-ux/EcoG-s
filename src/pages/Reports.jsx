@@ -19,6 +19,7 @@ import ImpayesReport from '../components/reports/ImpayesReport.jsx';
 import PresencesReport from '../components/reports/PresencesReport.jsx';
 import ResultatsReport from '../components/reports/ResultatsReport.jsx';
 import SyntheseReport from '../components/reports/SyntheseReport.jsx';
+import { lireTout, clePresence } from '../lib/fetchAll.js';
 
 const REPORTS = [
   { id: 'effectifs', label: 'Effectifs' },
@@ -51,7 +52,8 @@ export default function Reports() {
       cacheKey: `reports_attendance_${schoolYear.id}`,
       hasData: false,
       load: async () => {
-        const { data, error: e } = await supabase.from('attendance_records').select('student_id, date, statut').eq('school_year_id', schoolYear.id);
+        // Toutes les présences de l'année, page par page (l'API plafonne chaque réponse à 1 000 lignes).
+        const { data, error: e } = await lireTout(supabase, 'attendance_records', 'student_id, date, statut', (q) => q.eq('school_year_id', schoolYear.id), { keyOf: clePresence });
         return e ? { error: e } : { data: data || [] };
       },
       setData: setAttendance,

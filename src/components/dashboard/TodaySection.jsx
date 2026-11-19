@@ -5,6 +5,7 @@ import { fmtF, initials, todayIso } from '../../lib/utils.js';
 import { computeRelance } from '../../lib/retard.js';
 import { SkeletonCard, SkeletonRow } from '../Skeleton.jsx';
 import { Stat } from './DashboardUI.jsx';
+import { lireTout } from '../../lib/fetchAll.js';
 
 export default function TodaySection({ activeYear, students }) {
   const [data, setData] = useState(null);
@@ -16,7 +17,7 @@ export default function TodaySection({ activeYear, students }) {
     Promise.all([
       supabase.from('attendance_records').select('id', { count: 'exact', head: true }).eq('school_year_id', activeYear.id).eq('date', today).eq('statut', 'absent'),
       supabase.from('payments').select('montant').eq('school_year_id', activeYear.id).eq('date', today),
-      supabase.from('payments').select('montant').eq('school_year_id', activeYear.id).gte('date', debutMois),
+      lireTout(supabase, 'payments', 'montant', (q) => q.eq('school_year_id', activeYear.id).gte('date', debutMois), { keyOf: null }),
     ]).then(([absentsRes, todayPayRes, monthPayRes]) => {
       if (cancelled) return;
       const todayRows = todayPayRes.data || [];

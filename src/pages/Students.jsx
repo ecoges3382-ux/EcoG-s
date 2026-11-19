@@ -17,6 +17,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
+import { lireTout } from '../lib/fetchAll.js';
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -105,11 +106,10 @@ export default function Students() {
       cacheKey: `students_${profile.school_id}_${schoolYear.id}`,
       hasData: students !== null,
       load: async () => {
-        const { data, error: fetchError } = await supabase
-          .from('enrollments')
-          .select('id, created_at, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_actif, moratoire_date_fin, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )')
-          .eq('school_year_id', schoolYear.id)
-          .order('full_name', { foreignTable: 'students' });
+        // Page par page : l'API plafonne chaque réponse à 1 000 lignes (une grande école a plus d'élèves).
+        const { data, error: fetchError } = await lireTout(supabase, 'enrollments',
+          'id, created_at, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_actif, moratoire_date_fin, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )',
+          (q) => q.eq('school_year_id', schoolYear.id), { tri: [['full_name', { foreignTable: 'students' }]] });
         if (fetchError) return { error: fetchError };
         return {
           data: (data || []).map((e) => ({
