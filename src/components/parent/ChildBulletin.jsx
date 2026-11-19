@@ -1,46 +1,13 @@
 import { useState, useEffect } from 'react';
 import { PERIODES_BULLETIN, subjectPeriodeMoyenne, periodeMoyenneGenerale, annualMoyenneGenerale, subjectAnnualMoyenne, appreciation } from '../../lib/bulletin.js';
-import { slug, isMobileDevice, loadHtml2Pdf, classifyNote, periodeLabel } from '../../lib/parentPortal.js';
+import { slug, isMobileDevice, loadHtml2Pdf, periodeLabel } from '../../lib/parentPortal.js';
 import DocumentHeader from '../DocumentHeader.jsx';
 import Dropdown from '../Dropdown.jsx';
 import { Section } from './ChildFinance.jsx';
 import GradesTrendChart from '../GradesTrendChart.jsx';
+import NotesParMatiere from '../NotesParMatiere.jsx';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
-
-function ColonneNotes({ titre, couleur, fond, notes }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: couleur, background: fond, padding: '3px 9px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-          {titre}
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>
-          {notes.length > 0 ? `(${notes.length})` : ''}
-        </span>
-      </div>
-      {notes.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', padding: '6px 0' }}>
-          Aucune note
-        </p>
-      ) : (
-        <div style={{ display: 'grid', gap: 4 }}>
-          {notes.map((n, i) => {
-            const dateAffichee = n.date_evaluation || n.created_at;
-            return (
-              <div key={n.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderTop: i > 0 ? '1px solid var(--line)' : 'none' }}>
-                <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>
-                  {dateAffichee ? new Date(dateAffichee).toLocaleDateString('fr-FR') : `Note ${i + 1}`}
-                </span>
-                <span style={{ fontWeight: 700 }}>{n.note}/{n.sur}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ChildBulletin({ detail, periode, setPeriode, onChangeYear }) {
   const { student, school, school_year: schoolYear, enrollment, years, grades, subjects, rangs } = detail;
@@ -302,36 +269,20 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
             Aucune note enregistrée pour cette période.
           </p>
         ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {notesDetaillees.map(({ subjectId, subject, notes }) => {
-              const devoirs = notes.filter((n) => classifyNote(n) === 'devoir');
-              const examens = notes.filter((n) => classifyNote(n) === 'examen');
-              const interros = notes.filter((n) => classifyNote(n) === 'interro');
-
-              return (
-                <div key={subjectId} className="card-bold" style={{ padding: '14px 18px' }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    {subject?.nom || 'Matière inconnue'}
-                    {subject?.coefficient && (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--forest-text)', background: 'var(--forest-light)', padding: '2px 8px', borderRadius: 20 }}>
-                        Coef. {subject.coefficient}
-                      </span>
-                    )}
-                  </p>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: examens.length > 0 ? 12 : 0 }}>
-                    <ColonneNotes titre="Interrogations" couleur="var(--forest-text)" fond="var(--forest-light)" notes={interros} />
-                    <ColonneNotes titre="Devoirs" couleur="var(--clay-text)" fond="var(--gold-light)" notes={devoirs} />
-                  </div>
-
-                  {examens.length > 0 && (
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
-                      <ColonneNotes titre="Examens" couleur="var(--danger)" fond="var(--danger-light)" notes={examens} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="card-bold" style={{ padding: '14px 18px' }}>
+            <NotesParMatiere
+              key={periode}
+              annuel={annuel}
+              ariaLabel={`Moyennes — ${periodeLabel(periode)}`}
+              lignes={notesDetaillees.map(({ subjectId, subject, notes }) => ({
+                id: subjectId,
+                nom: subject?.nom || 'Matière inconnue',
+                coefficient: subject?.coefficient,
+                notes,
+                moyenne: annuel ? subjectAnnualMoyenne(grades, student.id, subjectId) : subjectPeriodeMoyenne(grades, student.id, subjectId, periode),
+                parTrimestre: annuel ? PERIODES_BULLETIN.map((p) => ({ periode: p, moyenne: subjectPeriodeMoyenne(grades, student.id, subjectId, p) })) : null,
+              }))}
+            />
           </div>
         )}
       </Section>

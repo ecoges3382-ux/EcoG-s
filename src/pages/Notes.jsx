@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
@@ -15,8 +16,9 @@ import { fetchAllRows } from '../lib/fetchAll.js';
 import { correspondAuxMots } from '../lib/texte.js';
 import StudentLink from '../components/StudentLink.jsx';
 
-// Page d'origine transmise à la fiche élève : son bouton « Retour » ramène ici.
-const DEPUIS_NOTES = { chemin: '/notes', libelle: 'Retour aux notes' };
+// Les filtres (classe, élève, matière, période, type, recherche) vivent dans l'adresse (?classe=…&periode=…) : en revenant de la
+// fiche d'un élève (bouton « Retour » ou flèche du navigateur), la page retrouve exactement les mêmes filtres.
+const PARAMS_FILTRES = { niveau: 'classe', eleveId: 'eleve', matiereId: 'matiere', periode: 'periode', typeFiltre: 'type', recherche: 'q' };
 
 // Taille de page demandée : le serveur répond au plus 1 000 lignes (réglage par défaut) ; s'il en sert davantage, tant mieux,
 // il y aura moins de pages. fetchAllRows suit ce qu'il sert réellement.
@@ -58,18 +60,39 @@ export default function Notes() {
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   
-  const [niveau, setNiveau] = useState('Tout');
-  const [eleveId, setEleveId] = useState('Tout');
-  const [matiereId, setMatiereId] = useState('Tout');
-  const [periode, setPeriode] = useState('Trimestre 1');
-  const [typeFiltre, setTypeFiltre] = useState('Tout');
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const lireFiltre = (cle, defaut) => searchParams.get(PARAMS_FILTRES[cle]) || defaut;
+  const [niveau, setNiveau] = useState(() => lireFiltre('niveau', 'Tout'));
+  const [eleveId, setEleveId] = useState(() => lireFiltre('eleveId', 'Tout'));
+  const [matiereId, setMatiereId] = useState(() => lireFiltre('matiereId', 'Tout'));
+  const [periode, setPeriode] = useState(() => { const p = lireFiltre('periode', 'Trimestre 1'); return [...PERIODES_BULLETIN, 'Tous'].includes(p) ? p : 'Trimestre 1'; });
+  const [typeFiltre, setTypeFiltre] = useState(() => { const t = lireFiltre('typeFiltre', 'Tout'); return t === 'Tout' || TYPES.some((x) => x.id === t) ? t : 'Tout'; });
   // Recherche d'un élève par son nom : on filtre après un court délai, comme sur la page Élèves.
-  const [recherche, setRecherche] = useState('');
-  const [rechercheDiff, setRechercheDiff] = useState('');
+  const [recherche, setRecherche] = useState(() => lireFiltre('recherche', ''));
+  const [rechercheDiff, setRechercheDiff] = useState(recherche);
   useEffect(() => {
     const minuterie = setTimeout(() => setRechercheDiff(recherche), 250);
     return () => clearTimeout(minuterie);
   }, [recherche]);
+
+  // Un filtre retrouvé dans l'adresse mais devenu inconnu (élève ou matière supprimés, classe renommée) est remis à « Tout ».
+  useEffect(() => {
+    if (students.length === 0) return;
+    if (niveau !== 'Tout' && !students.some((s) => s.niveau === niveau)) setNiveau('Tout');
+    if (eleveId !== 'Tout' && !students.some((s) => s.id === eleveId)) setEleveId('Tout');
+    if (matiereId !== 'Tout' && subjects.length > 0 && !subjects.some((su) => su.id === matiereId)) setMatiereId('Tout');
+  }, [students, subjects, niveau, eleveId, matiereId]);
+
+  // Les filtres choisis sont écrits dans l'adresse (sans empiler d'entrées dans l'historique).
+  useEffect(() => {
+    const voulu = new URLSearchParams();
+    const poser = (cle, valeur, defaut) => { if (valeur && valeur !== defaut) voulu.set(PARAMS_FILTRES[cle], valeur); };
+    poser('niveau', niveau, 'Tout'); poser('eleveId', eleveId, 'Tout'); poser('matiereId', matiereId, 'Tout');
+    poser('periode', periode, 'Trimestre 1'); poser('typeFiltre', typeFiltre, 'Tout'); poser('recherche', rechercheDiff.trim() ? rechercheDiff : '', '');
+    if (voulu.toString() !== searchParams.toString()) setSearchParams(voulu, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [niveau, eleveId, matiereId, periode, typeFiltre, rechercheDiff]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState(null);
@@ -127,6 +150,8 @@ export default function Notes() {
 
   const nomEleve = useMemo(() => new Map(students.map((s) => [s.id, s.full_name])), [students]);
   const nomMatiere = useMemo(() => new Map(subjects.map((su) => [su.id, su.nom])), [subjects]);
+  // Où ramène le bouton « Retour » de la fiche d'un élève : cette page, avec les filtres du moment.
+  const retourNotes = { chemin: `${location.pathname}${location.search}`, libelle: 'Retour aux notes' };
   const niveauxPresents = useMemo(() => [...new Set(students.map((s) => s.niveau))].sort(), [students]);
   const niveauByStudent = useMemo(() => new Map(students.map((s) => [s.id, s.niveau])), [students]);
   const studentsForNiveau = useMemo(() => (niveau === 'Tout' ? students : students.filter((s) => s.niveau === niveau)), [students, niveau]);
@@ -282,6 +307,7 @@ export default function Notes() {
               <div data-tour="notes-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(310px, 100%), 1fr))', gap: 16, alignItems: 'start', minWidth: 0 }}>
                 {groupesParType.map((groupe) => (
                   <CarteNotesType
+                    retour={retourNotes}
                     key={groupe.id}
                     groupe={groupe}
                     limite={affichees[groupe.id] ?? NOTES_PAR_PAGE}
@@ -314,7 +340,7 @@ export default function Notes() {
                   <div style={{ padding: '8px 18px' }}>
                     {classement.map((c, i) => (
                       <div key={c.name + i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < classement.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                        <span style={{ fontSize: 13 }}>{i + 1}. <StudentLink studentId={c.id} name={c.name} depuis={DEPUIS_NOTES} /></span>
+                        <span style={{ fontSize: 13 }}>{i + 1}. <StudentLink studentId={c.id} name={c.name} depuis={retourNotes} /></span>
                         <span style={{ fontSize: 13, fontWeight: 700 }}>{c.moyenne.toFixed(1)}</span>
                       </div>
                     ))}
@@ -358,7 +384,7 @@ export default function Notes() {
 
 // Une carte pour UN type de note : son titre et son compteur restent en haut, la liste défile en dessous, et « Afficher plus »
 // ne concerne que ce type.
-function CarteNotesType({ groupe, limite, afficherPlus, periode, nomEleve, nomMatiere, onEdit, onDelete, deleting }) {
+function CarteNotesType({ groupe, limite, afficherPlus, periode, nomEleve, nomMatiere, retour, onEdit, onDelete, deleting }) {
   const visibles = groupe.items.slice(0, limite);
   const restantes = groupe.items.length - visibles.length;
   return (
@@ -371,7 +397,7 @@ function CarteNotesType({ groupe, limite, afficherPlus, periode, nomEleve, nomMa
         {visibles.map((g, i) => (
           <div key={g.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: i < visibles.length - 1 ? '1px solid var(--line)' : 'none', gap: 10, flexWrap: 'wrap' }}>
             <div>
-              <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}><StudentLink studentId={g.student_id} name={nomEleve.get(g.student_id) || '—'} depuis={DEPUIS_NOTES} /></p>
+              <p style={{ margin: '0 0 2px', fontSize: 13.5, fontWeight: 600 }}><StudentLink studentId={g.student_id} name={nomEleve.get(g.student_id) || '—'} depuis={retour} /></p>
               <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)' }}>
                 {nomMatiere.get(g.subject_id) || '—'}{periode === 'Tous' ? ` · ${g.periode}` : ''}
               </p>
