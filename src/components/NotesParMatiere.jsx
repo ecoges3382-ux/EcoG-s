@@ -4,13 +4,14 @@
 import { useState } from 'react';
 import { PERIODES_BULLETIN } from '../lib/bulletin.js';
 import { classifyNote } from '../lib/parentPortal.js';
+import { libelleNote } from '../lib/studentGrades.js';
 
 const fmt = (n) => Number(n).toFixed(2).replace('.', ',');
 const COURT = { 'Trimestre 1': 'T1', 'Trimestre 2': 'T2', 'Trimestre 3': 'T3', 'Semestre 1': 'S1', 'Semestre 2': 'S2' };
 const GROUPES = [
-  { type: 'interro', titre: 'Interrogations' },
-  { type: 'devoir', titre: 'Devoirs' },
-  { type: 'examen', titre: 'Examens' },
+  { type: 'interro', titre: 'Interrogations', couleur: 'var(--forest-text)', fond: 'var(--forest-light)' },
+  { type: 'devoir', titre: 'Devoirs', couleur: 'var(--clay-text)', fond: 'var(--gold-light)' },
+  { type: 'examen', titre: 'Examens', couleur: 'var(--danger)', fond: 'var(--danger-light)' },
 ];
 
 function couleurNote(note, sur) {
@@ -21,6 +22,32 @@ function couleurNote(note, sur) {
 }
 const moyenneStyle = (m) => ({ fontWeight: 700, color: m == null ? 'var(--muted)' : couleurNote(m, 20), fontVariantNumeric: 'tabular-nums' });
 const cellule = { textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums' };
+
+// Un type de notes : sa pastille et son compteur, puis les notes juste en dessous, TROIS PAR LIGNE au plus (les suivantes passent
+// à la ligne). Les colonnes de la grille ont la même largeur : les notes restent alignées d'une ligne à l'autre.
+function GroupeNotes({ groupe, notes, annuel }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 6px', marginBottom: 6 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: groupe.couleur, background: groupe.fond, padding: '3px 8px', borderRadius: 20, textTransform: 'uppercase' }}>{groupe.titre}</span>
+        {notes.length > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>({notes.length})</span>}
+      </div>
+      {notes.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>Aucune note</p>
+      ) : (
+        <div data-notes-ligne style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 58px))', gap: 6 }}>
+          {notes.map((n, i) => (
+            <span key={n.id || i} title={`${groupe.titre.replace(/s$/, '')} · ${n.periode}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '3px 2px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontSize: 12, fontWeight: 600, opacity: groupe.type === 'examen' ? 0.75 : 1, whiteSpace: 'nowrap' }}>
+              {annuel && <span style={{ fontSize: 9.5, fontWeight: 500, color: 'var(--muted)', lineHeight: 1.1 }}>{COURT[n.periode] || n.periode}</span>}
+              {libelleNote(n)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * lignes : [{ id, nom, coefficient, notes: [{ id?, type, note, sur, periode, created_at? }], moyenne, parTrimestre: [{ periode, moyenne }] | null }]
@@ -69,27 +96,24 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
                 <span role="cell" style={{ ...cellule, fontSize: 14, ...moyenneStyle(l.moyenne) }}>{l.moyenne == null ? '—' : fmt(l.moyenne)}</span>
               </button>
 
-              {ouverte && (
-                <div style={{ padding: '2px 0 12px 22px' }}>
-                  {GROUPES.map((g) => {
-                    const notes = l.notes.filter((n) => classifyNote(n) === g.type);
-                    if (notes.length === 0) return null;
-                    return (
-                      <div key={g.type} style={{ marginTop: 8 }}>
-                        <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{g.titre} ({notes.length})</p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {notes.map((n, i) => (
-                            <span key={n.id || i} title={`${g.titre.replace(/s$/, '')} · ${n.periode}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
-                              style={{ fontSize: 12, padding: '3px 9px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontWeight: 600, opacity: g.type === 'examen' ? 0.75 : 1 }}>
-                              {annuel && <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{COURT[n.periode] || n.periode} </span>}{Number(n.note)}/{Number(n.sur)}
-                            </span>
-                          ))}
-                        </div>
+              {ouverte && (() => {
+                const parType = (t) => l.notes.filter((n) => classifyNote(n) === t);
+                const examens = parType('examen');
+                return (
+                  <div style={{ padding: '2px 0 14px' }}>
+                    {/* Interrogations et devoirs sur la même ligne, leurs notes juste en dessous */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <GroupeNotes groupe={GROUPES[0]} notes={parType('interro')} annuel={annuel} />
+                      <GroupeNotes groupe={GROUPES[1]} notes={parType('devoir')} annuel={annuel} />
+                    </div>
+                    {examens.length > 0 && (
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--line)' }}>
+                        <GroupeNotes groupe={GROUPES[2]} notes={examens} annuel={annuel} />
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
@@ -109,6 +133,7 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
           </div>
         )}
       </div>
+      <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--muted)' }}>Notes sur 20, sauf barème indiqué (ex. 8/10).</p>
       {aDesExamens && <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--muted)' }}>Les examens sont affichés mais ne comptent pas dans la moyenne du trimestre.</p>}
     </div>
   );
