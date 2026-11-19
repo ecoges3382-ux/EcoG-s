@@ -11,7 +11,9 @@ const RACINE = path.resolve(import.meta.dirname, '..');
 const SCHEMA = fs.readFileSync(path.join(RACINE, 'supabase/schema.sql'), 'utf8');
 const MARQUEUR = '-- Éléments créés à la main en production';
 const DEBUT = SCHEMA.lastIndexOf('-- =====', SCHEMA.indexOf(MARQUEUR));
-const SQL = SCHEMA.slice(DEBUT);
+// Le bloc rapatrié s'arrête où commence le bloc suivant (« Lecture rapide des notes », testé dans regles-notes.test.js).
+const FIN = SCHEMA.indexOf('-- ---------- Lecture rapide des notes');
+const SQL = SCHEMA.slice(DEBUT, FIN > DEBUT ? FIN : undefined);
 
 describe('règles de la base de données rapatriées', () => {
   it('le bloc se rejoue sans erreur et toutes les règles se comportent comme en production', async () => {

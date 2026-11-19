@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { MODES, TYPES_FRAIS } from '../lib/utils.js';
-import { tranchesPourType, trancheApresChangementDeType } from '../lib/paymentForm.js';
+import { fmtF, MODES, TYPES_FRAIS } from '../lib/utils.js';
+import { optionsPaiement, montantPropose, choisirTranche, depassement, trancheApresChangementDeType } from '../lib/paymentForm.js';
 import PaymentProgress from './PaymentProgress.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import AmountAwareTextarea from './AmountAwareTextarea.jsx';
@@ -48,31 +48,24 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       .then(({ data }) => setSchoolYearInfo(data));
   }, [student.school_year_id]);
 
+  // Choix de « Tranche / Type » d'après ce que l'élève a déjà payé (voir src/lib/paymentForm.js).
+  const choixTranche = optionsPaiement(typeFrais, student, schoolYearInfo, currentFeeSchedule);
+  const clesChoix = choixTranche.map((c) => c.id).join();
+
+  // Le choix sélectionné doit rester dans la liste (une tranche soldée disparaît, « Complet » devient « Solde »…).
   useEffect(() => {
-    const scolarite = Number(student.montant_du) || Number(currentFeeSchedule?.montant_scolarite) || 0;
-    const connexe = Number(student.frais_connexe_du) || Number(currentFeeSchedule?.montant_connexe) || 0;
-    const inscription = Number(currentFeeSchedule?.montant_inscription || currentFeeSchedule?.montant_reinscription) || 0;
+    const valide = choisirTranche(choixTranche, tranche);
+    if (valide !== tranche) setTranche(valide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clesChoix]);
 
-    let amount = null;
-    
-    if (typeFrais === 'scolarite') {
-      if (tranche === 'tranche1') amount = Number(currentFeeSchedule?.montant_tranche1) || 0;
-      else if (tranche === 'tranche2') amount = Number(currentFeeSchedule?.montant_tranche2) || 0;
-      else if (tranche === 'tranche3') amount = Number(currentFeeSchedule?.montant_tranche3) || 0;
-      else if (tranche === 'complet') amount = scolarite;
-      else if (tranche === 'moitie') amount = scolarite / 2;
-    } else if (typeFrais === 'connexe') {
-      if (tranche === 'complet') amount = connexe;
-    } else if (typeFrais === 'inscription') {
-      if (tranche === 'complet') amount = inscription;
-    }
-
-    if (amount !== null && !isNaN(amount) && amount > 0) {
-      setMontant(String(Math.round(amount)));
-    } else if (tranche === 'autre' || typeFrais === 'autre') {
-      setMontant('');
-    }
-  }, [typeFrais, tranche, student.montant_du, student.frais_connexe_du, currentFeeSchedule]);
+  // Montant pré-rempli : celui du choix sélectionné (le reste d'une tranche, le solde, la moitié…).
+  useEffect(() => {
+    const propose = montantPropose(choixTranche, tranche);
+    if (propose !== null) setMontant(String(propose));
+    else if (tranche === 'autre' || typeFrais === 'autre') setMontant('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFrais, tranche, clesChoix, student?.montant_du, student?.montant_paye, student?.frais_connexe_du, student?.frais_connexe_paye, currentFeeSchedule, schoolYearInfo]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -227,7 +220,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           </div>
           <div>
             <label style={labelStyle}>Tranche / Type</label>
-            <Dropdown value={tranche} onChange={setTranche} options={tranchesPourType(typeFrais).map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
+            <Dropdown value={tranche} onChange={setTranche} options={choixTranche.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
           </div>
         </div>
 
@@ -244,6 +237,9 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
               />
             </div>
             {!isMontantEditable && <p style={{ margin: '-8px 0 10px', fontSize: 10.5, color: 'var(--muted)' }}>Calculé selon la grille</p>}
+            {depassement(typeFrais, montant, student) > 0 && (
+              <p style={{ margin: '-8px 0 10px', fontSize: 11.5, fontWeight: 600, color: 'var(--amber)' }}>Ce montant dépasse de {fmtF(depassement(typeFrais, montant, student))} ce qui reste dû.</p>
+            )}
           </div>
           <div>
             <label style={labelStyle}>Mode</label>

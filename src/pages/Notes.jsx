@@ -12,6 +12,10 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { fetchAllRows } from '../lib/fetchAll.js';
+
+// Taille de page demandée : le serveur répond au plus 1 000 lignes (réglage par défaut) ; s'il en sert davantage, tant mieux,
+// il y aura moins de pages. fetchAllRows suit ce qu'il sert réellement.
+const PAGE_LECTURE = 5000;
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { PERIODES_BULLETIN, periodeMoyenneGenerale, annualMoyenneGenerale, subjectPeriodeMoyenne, subjectAnnualMoyenne } from '../lib/bulletin.js';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -75,7 +79,7 @@ export default function Notes() {
             .eq('school_year_id', schoolYear.id)
             .order('created_at', { ascending: false })
             .order('id')
-            .range(from, to)),
+            .range(from, to), { pageSize: PAGE_LECTURE }),
         ]);
         if (grError) return { error: grError };
         const st = (enr || [])
