@@ -110,6 +110,18 @@ describe('signal envoyé par GitHub', () => {
     expect(workflow).not.toMatch(/sb_(secret|publishable)_/);
   });
 
+  it('le workflow lit la clé dans les secrets GitHub (deux noms acceptés), sans la demander au jeton de déploiement', () => {
+    expect(workflow).toContain('secrets.SUPABASE_ANON_KEY');
+    expect(workflow).toContain('secrets.VITE_SUPABASE_ANON_KEY');
+    expect(workflow).not.toContain('supabase projects api-keys');
+  });
+
+  it('sans clé : échec visible quand on le lance à la main, simple avertissement quand une publication le déclenche', () => {
+    expect(workflow).toContain('::error::');
+    expect(workflow).toContain('::warning::');
+    expect(workflow).toMatch(/MANUEL: \$\{\{ github\.event_name == 'workflow_dispatch' \}\}/);
+  });
+
   it('le workflow utilise l\'adresse du projet Supabase déjà utilisée par le déploiement des fonctions', () => {
     const fonctions = readFileSync(new URL('../.github/workflows/deploy-functions.yml', import.meta.url), 'utf8');
     const ref = fonctions.match(/--project-ref ([a-z0-9]+)/)[1];
