@@ -3,6 +3,7 @@ import { fmtF } from '../../lib/utils.js';
 import { useEnrollmentsForYear } from '../../lib/enrollments.js';
 import { supabase } from '../../lib/supabase.js';
 import { SkeletonTableRows } from '../Skeleton.jsx';
+import { lireTout } from '../../lib/fetchAll.js';
 
 export default function ComparisonSection({ currentYear, previousYear, currentStudents, currentAttendance }) {
   const { students: prevStudents } = useEnrollmentsForYear(previousYear);
@@ -11,7 +12,7 @@ export default function ComparisonSection({ currentYear, previousYear, currentSt
   useEffect(() => {
     if (!previousYear) { setPrevAttendance(null); return; }
     let cancelled = false;
-    supabase.from('attendance_records').select('statut').eq('school_year_id', previousYear.id)
+    lireTout(supabase, 'attendance_records', 'statut', (q) => q.eq('school_year_id', previousYear.id), { keyOf: null })
       .then(({ data }) => { if (!cancelled) setPrevAttendance(data || []); });
     return () => { cancelled = true; };
   }, [previousYear?.id]);

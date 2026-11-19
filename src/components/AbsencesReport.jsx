@@ -8,6 +8,7 @@ import Dropdown from './Dropdown.jsx';
 import { SkeletonTableRows } from './Skeleton.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
+import { lireTout } from '../lib/fetchAll.js';
 
 function formatHeures(decimalHeures) {
   const total = Number(decimalHeures) || 0;
@@ -88,16 +89,17 @@ export default function AbsencesReport({ school, schoolYear }) {
   const loadAll = () => {
     if (!schoolYear) return;
     const [start, end] = boundsFor(periode);
-    const qAbs = supabase.from('absence_events')
-      .select('*, absence_motifs(code, libelle, categorie)')
-      .eq('school_year_id', schoolYear.id);
-    const qLate = supabase.from('late_events')
-      .select('*, absence_motifs(code, libelle, categorie)')
-      .eq('school_year_id', schoolYear.id);
-    if (start) qAbs.gte('date', start);
-    if (end) qAbs.lte('date', end);
-    if (start) qLate.gte('date', start);
-    if (end) qLate.lte('date', end);
+    // Filtres communs aux absences et aux retards : l'année, et la période choisie.
+    const filtrerPeriode = (q) => {
+      let r = q.eq('school_year_id', schoolYear.id);
+      if (start) r = r.gte('date', start);
+      if (end) r = r.lte('date', end);
+      return r;
+    };
+    const COLONNES = '*, absence_motifs(code, libelle, categorie)';
+    // Lues page par page : l'API plafonne chaque réponse à 1 000 lignes, et une année en compte souvent davantage.
+    const lireAbsences = () => lireTout(supabase, 'absence_events', COLONNES, filtrerPeriode, { keyOf: (r) => r.id });
+    const lireRetards = () => lireTout(supabase, 'late_events', COLONNES, filtrerPeriode, { keyOf: (r) => r.id });
 
     guardedFetch({
       cacheKey: `absences_report_${schoolYear.id}_${periode}`,
@@ -109,8 +111,8 @@ export default function AbsencesReport({ school, schoolYear }) {
           { data: enr, error: e3 },
           { data: cls },
         ] = await Promise.all([
-          qAbs,
-          qLate,
+          lireAbsences(),
+          lireRetards(),
           supabase.from('enrollments')
             .select('student_id, classe_id, students ( id, full_name, matricule ), classes ( id, nom, niveau )')
             .eq('school_year_id', schoolYear.id),

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
 import { guardedFetch, saveCache } from './offlineCache.js';
+import { lireTout } from './fetchAll.js';
 
 // Charge les inscriptions d'une année (élèves, classes, frais). Utilisé par la page
 // et par le préchargement en arrière-plan.
 export async function loadEnrollments(schoolYear) {
   const [{ data, error: e }, { data: fees }] = await Promise.all([
-    supabase
-      .from('enrollments')
-      .select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )')
-      .eq('school_year_id', schoolYear.id),
+    // Page par page : l'API plafonne chaque réponse à 1 000 lignes (une grande école a plus d'élèves).
+    lireTout(supabase, 'enrollments',
+      'montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )',
+      (q) => q.eq('school_year_id', schoolYear.id), { keyOf: null }),
     supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
   ]);
   if (e) return { error: e };

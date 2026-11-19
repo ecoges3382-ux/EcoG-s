@@ -48,3 +48,21 @@ export async function fetchAllRows(fetchPage, { pageSize = 1000, concurrency = 4
   }
   return { data: rows, error: null };
 }
+
+// Identité naturelle d'une présence : un élève n'a qu'une ligne par jour. Sert à écarter les doublons si une présence est
+// saisie pendant la lecture (les lignes lues pour le tableau de bord ne portent pas leur identifiant).
+export const clePresence = (row) => (row.student_id != null && row.date != null ? `${row.student_id}|${row.date}` : null);
+
+// Raccourci : lit toutes les lignes d'une table.
+//   colonnes  : le texte du select (jointures comprises) ;
+//   filtrer   : ajoute les filtres (.eq, .gte…) à la requête et la renvoie ;
+//   tri       : [[colonne, options], …] ; l'identifiant (id) est toujours ajouté en dernier pour des pages stables.
+// Demande des pages de 5 000 lignes : si le serveur n'en sert que 1 000 (plafond par défaut), fetchAllRows s'y adapte.
+export function lireTout(supabase, table, colonnes, filtrer = (q) => q, { tri = [], ...options } = {}) {
+  return fetchAllRows((from, to, avecTotal) => {
+    let q = supabase.from(table).select(colonnes, avecTotal ? { count: 'exact' } : undefined);
+    q = filtrer(q) || q;
+    for (const [colonne, opts] of tri) q = q.order(colonne, opts);
+    return q.order('id').range(from, to);
+  }, { pageSize: 5000, ...options });
+}

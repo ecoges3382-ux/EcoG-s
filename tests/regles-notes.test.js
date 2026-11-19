@@ -7,7 +7,9 @@ import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 
 const SCHEMA = fs.readFileSync(path.resolve(import.meta.dirname, '../supabase/schema.sql'), 'utf8');
-const BLOC = SCHEMA.slice(SCHEMA.indexOf('-- ---------- Lecture rapide des notes'));
+const DEBUT_BLOC = SCHEMA.indexOf('-- ---------- Lecture rapide des notes');
+const FIN_BLOC = SCHEMA.indexOf('-- ---------- Lecture rapide des autres tables'); // le bloc suivant est testé dans regles-lecture.test.js
+const BLOC = SCHEMA.slice(DEBUT_BLOC, FIN_BLOC > DEBUT_BLOC ? FIN_BLOC : undefined);
 const regle = (nom) => SCHEMA.match(new RegExp(`create policy "${nom.replace(/[()]/g, '\\$&')}" on grades[\\s\\S]*?;\\n`))[0];
 const debutFonction = SCHEMA.lastIndexOf('create or replace function current_school_id()');
 const COURANTE = SCHEMA.slice(debutFonction, SCHEMA.indexOf('$$;', SCHEMA.indexOf('$$', debutFonction + 60)) + 3);
