@@ -4,9 +4,10 @@
 import { useState } from 'react';
 import { PERIODES_BULLETIN } from '../lib/bulletin.js';
 import { classifyNote } from '../lib/parentPortal.js';
-import { libelleNote } from '../lib/studentGrades.js';
+import { virgule, noteTexte } from '../lib/formatNote.js';
+import Sur20 from './Sur20.jsx';
 
-const fmt = (n) => Number(n).toFixed(2).replace('.', ',');
+const fmt = (n) => virgule(n, 2);
 const COURT = { 'Trimestre 1': 'T1', 'Trimestre 2': 'T2', 'Trimestre 3': 'T3', 'Semestre 1': 'S1', 'Semestre 2': 'S2' };
 const GROUPES = [
   { type: 'interro', titre: 'Interrogations', couleur: 'var(--forest-text)', fond: 'var(--forest-light)' },
@@ -14,8 +15,8 @@ const GROUPES = [
   { type: 'examen', titre: 'Examens', couleur: 'var(--danger)', fond: 'var(--danger-light)' },
 ];
 
-const LARGEUR_NOTE = 56; // largeur minimale d'une pastille « 19.3/20 »
-const ECART_NOTES = 6;
+const LARGEUR_NOTE = 46; // largeur minimale d'une pastille « 17,8/20 » (le /20 est petit)
+const ECART_NOTES = 5;
 
 function couleurNote(note, sur) {
   const sur20 = (Number(note) / Number(sur)) * 20;
@@ -42,9 +43,9 @@ function GroupeNotes({ groupe, notes, annuel }) {
         <div data-notes-ligne style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${LARGEUR_NOTE}px, 1fr))`, gap: ECART_NOTES, maxWidth: 3 * LARGEUR_NOTE + 2 * ECART_NOTES }}>
           {notes.map((n, i) => (
             <span key={n.id || i} title={`${groupe.titre.replace(/s$/, '')} · ${n.periode}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '3px 2px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontSize: 12, fontWeight: 600, opacity: groupe.type === 'examen' ? 0.75 : 1, whiteSpace: 'nowrap' }}>
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '3px 1px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontSize: 12, fontWeight: 600, opacity: groupe.type === 'examen' ? 0.75 : 1, whiteSpace: 'nowrap' }}>
               {annuel && <span style={{ fontSize: 9.5, fontWeight: 500, color: 'var(--muted)', lineHeight: 1.1 }}>{COURT[n.periode] || n.periode}</span>}
-              {libelleNote(n)}
+              <span>{noteTexte(n.note)}<Sur20 sur={n.sur} /></span>
             </span>
           ))}
         </div>
@@ -62,7 +63,7 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
   const toutesOuvertes = lignes.length > 0 && lignes.every((l) => ouvertes.has(l.id));
   const basculer = (id) => setOuvertes((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const aDesExamens = avecExamens && lignes.some((l) => l.notes.some((n) => classifyNote(n) === 'examen'));
-  const grille = { display: 'grid', gridTemplateColumns: annuel ? `minmax(0, 1fr) repeat(${PERIODES_BULLETIN.length}, 46px) 56px` : 'minmax(0, 1fr) 72px', columnGap: 8 };
+  const grille = { display: 'grid', gridTemplateColumns: annuel ? `minmax(0, 1fr) repeat(${PERIODES_BULLETIN.length}, 46px) 56px` : 'minmax(0, 1fr) 84px', columnGap: 8 };
 
   return (
     <div>
@@ -77,7 +78,7 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
         <div role="row" style={{ ...grille, padding: '0 0 6px', fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', borderBottom: '1px solid var(--line-strong)' }}>
           <span role="columnheader">Matière</span>
           {annuel
-            ? <>{PERIODES_BULLETIN.map((p) => <span key={p} role="columnheader" style={{ textAlign: 'right' }}>{COURT[p]}</span>)}<span role="columnheader" style={{ textAlign: 'right' }}>Année</span></>
+            ? <>{PERIODES_BULLETIN.map((p) => <span key={p} role="columnheader" style={{ textAlign: 'right' }}>{COURT[p]}<Sur20 /></span>)}<span role="columnheader" style={{ textAlign: 'right' }}>Année<Sur20 /></span></>
             : <span role="columnheader" style={{ textAlign: 'right' }}>Moyenne</span>}
         </div>
 
@@ -97,7 +98,7 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
                 {annuel && (l.parTrimestre || []).map((t) => (
                   <span key={t.periode} role="cell" style={{ ...cellule, color: t.moyenne == null ? 'var(--muted)' : couleurNote(t.moyenne, 20) }}>{t.moyenne == null ? '—' : fmt(t.moyenne)}</span>
                 ))}
-                <span role="cell" style={{ ...cellule, fontSize: 14, ...moyenneStyle(l.moyenne) }}>{l.moyenne == null ? '—' : fmt(l.moyenne)}</span>
+                <span role="cell" style={{ ...cellule, fontSize: 14, ...moyenneStyle(l.moyenne) }}>{l.moyenne == null ? '—' : <>{fmt(l.moyenne)}{!annuel && <Sur20 />}</>}</span>
               </button>
 
               {ouverte && (() => {
@@ -125,14 +126,14 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
         {total && (
           <div role="row" style={{ ...grille, alignItems: 'baseline', paddingTop: 12, borderTop: '2px solid var(--line-strong)', marginTop: -1 }}>
             <span role="cell" style={{ fontSize: 13.5, fontWeight: 700 }}>
-              Moyenne générale{annuel ? ' (année)' : ''}<span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>sur 20</span>
+              Moyenne générale{annuel ? ' (année)' : ''}
               {total.appreciation && <span style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>{total.appreciation}</span>}
             </span>
             {annuel && (total.parTrimestre || []).map((p) => (
               <span key={p.label} role="cell" style={{ ...cellule, fontWeight: 600, color: p.value == null ? 'var(--muted)' : couleurNote(p.value, 20) }}>{p.value == null ? '—' : fmt(p.value)}</span>
             ))}
             <span role="cell" style={{ ...cellule, fontSize: 16, color: total.generale == null ? 'var(--muted)' : 'var(--forest-text)', fontWeight: 700 }}>
-              {total.generale == null ? '—' : fmt(total.generale)}
+              {total.generale == null ? '—' : <>{fmt(total.generale)}{!annuel && <Sur20 />}</>}
             </span>
           </div>
         )}

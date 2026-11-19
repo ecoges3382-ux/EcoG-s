@@ -2,6 +2,8 @@ import { downloadCsv } from '../../lib/utils.js';
 import { printDocument, slug } from '../../lib/print.js';
 import { SkeletonTableRows } from '../Skeleton.jsx';
 import { ReportShell, MiniStat, SimpleTable } from './ReportUI.jsx';
+import { virgule } from '../../lib/formatNote.js';
+import Sur20 from '../Sur20.jsx';
 
 export default function ResultatsReport({ school, schoolYear, classResults }) {
   if (!classResults) {
@@ -27,7 +29,7 @@ export default function ResultatsReport({ school, schoolYear, classResults }) {
       ])}
     >
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14, marginBottom: 20 }}>
-        <MiniStat label="Moyenne générale de l'école" value={moyenneEcole != null ? `${moyenneEcole.toFixed(2)}/20` : '—'} />
+        <MiniStat label="Moyenne générale de l'école" value={moyenneEcole != null ? <>{virgule(moyenneEcole, 2)}<Sur20 /></> : '—'} />
         <MiniStat label="Élèves avec des notes" value={avecNotes} />
       </div>
       {classResults.length === 0 ? (
@@ -35,7 +37,7 @@ export default function ResultatsReport({ school, schoolYear, classResults }) {
       ) : (
         <SimpleTable
           columns={['Classe', 'Effectif', 'Avec notes', 'Moyenne']}
-          rows={classResults.map((c) => [c.classe_nom, c.effectif, c.nb_avec_notes, c.moyenne_generale != null ? `${Number(c.moyenne_generale).toFixed(2)}/20` : '—'])}
+          rows={classResults.map((c) => [c.classe_nom, c.effectif, c.nb_avec_notes, c.moyenne_generale != null ? <>{virgule(c.moyenne_generale, 2)}<Sur20 /></> : '—'])}
         />
       )}
     </ReportShell>

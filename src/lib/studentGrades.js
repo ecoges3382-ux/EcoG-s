@@ -5,12 +5,8 @@ import {
 } from './bulletin.js';
 
 export const ORDRE_PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Semestre 2'];
-// Une note telle qu'on l'affiche dans une pastille : « 14/20 », « 8/10 ». Un barème absent ou illisible : la note seule.
-export function libelleNote(n) {
-  const note = Number(n.note);
-  const sur = Number(n.sur);
-  return sur > 0 ? `${note}/${sur}` : String(note);
-}
+// Une note avec son barème en texte simple (info-bulles, lecteurs d'écran) : « 14/20 », « 12,7/20 », « 8/10 ».
+export { noteAvecBareme as libelleNote } from './formatNote.js';
 
 export const TYPES_NOTE = { controle: 'Interro', devoir: 'Devoir', examen: 'Examen' };
 

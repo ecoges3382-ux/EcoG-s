@@ -3,6 +3,7 @@
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, LabelList,
 } from 'recharts';
+import Sur20 from './Sur20.jsx';
 
 const fmt1 = (n) => Number(n).toFixed(1).replace('.', ',');
 
@@ -29,7 +30,7 @@ function TrendTooltip({ active, payload }) {
   return (
     <div style={{ background: 'var(--ink)', padding: '8px 12px', borderRadius: 8, color: 'var(--on-ink)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
       <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, opacity: 0.7 }}>{p.label}</p>
-      <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{fmt1(p.value)} / 20</p>
+      <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{fmt1(p.value)}<Sur20 /></p>
     </div>
   );
 }
@@ -41,7 +42,7 @@ export default function GradesTrendChart({ points }) {
   if (valides.length === 1) {
     return (
       <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-        Une seule période notée pour l'instant ({valides[0].label} : <strong style={{ color: 'var(--ink)' }}>{fmt1(valides[0].value)}/20</strong>). La courbe apparaîtra dès qu'une deuxième période aura des notes.
+        Une seule période notée pour l'instant ({valides[0].label} : <strong style={{ color: 'var(--ink)' }}>{fmt1(valides[0].value)}<Sur20 /></strong>). La courbe apparaîtra dès qu'une deuxième période aura des notes.
       </p>
     );
   }

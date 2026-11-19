@@ -109,10 +109,10 @@ describe('élève sans note', () => {
 });
 
 describe('libellé d\'une note dans une pastille', () => {
-  it('« 14/20 » : le barème est toujours affiché', async () => {
+  it('« 14/20 », « 12,7/20 » : barème toujours affiché, virgule décimale', async () => {
     const { libelleNote } = await import('../src/lib/studentGrades.js');
     expect(libelleNote({ note: 14, sur: 20 })).toBe('14/20');
-    expect(libelleNote({ note: '10.5', sur: '20' })).toBe('10.5/20');
+    expect(libelleNote({ note: '10.5', sur: '20' })).toBe('10,5/20');
   });
 
   it('un autre barème s\'affiche tel quel (8/10, 30/40)', async () => {

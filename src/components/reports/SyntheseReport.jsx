@@ -1,6 +1,8 @@
 import { fmtF } from '../../lib/utils.js';
 import { printDocument, slug } from '../../lib/print.js';
 import { ReportShell, MiniStat, SectionTitle } from './ReportUI.jsx';
+import { virgule } from '../../lib/formatNote.js';
+import Sur20 from '../Sur20.jsx';
 
 export default function SyntheseReport({ school, schoolYear, students, attendance, classResults, effectifsMouvement, personnel }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
@@ -49,7 +51,7 @@ export default function SyntheseReport({ school, schoolYear, students, attendanc
 
       <SectionTitle>Résultats scolaires</SectionTitle>
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 18 }}>
-        <MiniStat label="Moyenne générale" value={moyenneEcole != null ? `${moyenneEcole.toFixed(2)}/20` : '—'} />
+        <MiniStat label="Moyenne générale" value={moyenneEcole != null ? <>{virgule(moyenneEcole, 2)}<Sur20 /></> : '—'} />
         <MiniStat label="Élèves avec des notes" value={(classResults || []).reduce((a, c) => a + Number(c.nb_avec_notes || 0), 0)} />
       </div>
 

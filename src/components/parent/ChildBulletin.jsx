@@ -6,6 +6,7 @@ import Dropdown from '../Dropdown.jsx';
 import { Section } from './ChildFinance.jsx';
 import GradesTrendChart from '../GradesTrendChart.jsx';
 import NotesParMatiere from '../NotesParMatiere.jsx';
+import { moyenneBulletin } from '../../lib/formatNote.js';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 
@@ -201,28 +202,28 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
           {lignes.length > 0 && (
             annuel ? (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.5fr 0.5fr 0.5fr 0.6fr', padding: '0 0 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.72fr 0.72fr 0.72fr 0.82fr', columnGap: 6, padding: '0 0 8px', fontSize: 10, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                   <span>Matière</span><span>T1</span><span>T2</span><span>T3</span><span>Annuelle</span>
                 </div>
                 {lignes.map((l) => (
-                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.5fr 0.5fr 0.5fr 0.6fr', padding: '8px 0', borderTop: '1px solid var(--line)', fontSize: 12.5, alignItems: 'center' }}>
+                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.72fr 0.72fr 0.72fr 0.82fr', columnGap: 6, padding: '8px 0', borderTop: '1px solid var(--line)', fontSize: 12.5, alignItems: 'center' }}>
                     <span>{l.nom}</span>
-                    <span style={{ color: 'var(--muted)' }}>{l.t1 != null ? l.t1.toFixed(2) : '—'}</span>
-                    <span style={{ color: 'var(--muted)' }}>{l.t2 != null ? l.t2.toFixed(2) : '—'}</span>
-                    <span style={{ color: 'var(--muted)' }}>{l.t3 != null ? l.t3.toFixed(2) : '—'}</span>
-                    <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                    <span style={{ color: 'var(--muted)' }}>{moyenneBulletin(l.t1)}</span>
+                    <span style={{ color: 'var(--muted)' }}>{moyenneBulletin(l.t2)}</span>
+                    <span style={{ color: 'var(--muted)' }}>{moyenneBulletin(l.t3)}</span>
+                    <span style={{ fontWeight: 600 }}>{moyenneBulletin(l.moyenne)}</span>
                   </div>
                 ))}
               </>
             ) : (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr', padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                  <span>Matière</span><span>Moyenne /20</span><span>Appréciation</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr', columnGap: 6, padding: '0 0 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  <span>Matière</span><span>Moyenne</span><span>Appréciation</span>
                 </div>
                 {lignes.map((l) => (
-                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13, alignItems: 'center' }}>
+                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr', columnGap: 6, padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13, alignItems: 'center' }}>
                     <span>{l.nom}</span>
-                    <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                    <span style={{ fontWeight: 600 }}>{moyenneBulletin(l.moyenne)}</span>
                     <span style={{ color: 'var(--muted)' }}>{appreciation(l.moyenne) || '—'}</span>
                   </div>
                 ))}
@@ -233,7 +234,7 @@ export default function ChildBulletin({ detail, periode, setPeriode, onChangeYea
           <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 180px', background: 'var(--forest-light)', borderRadius: 10, padding: '12px 16px' }}>
               <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--forest-dark-text)' }}>Moyenne générale</p>
-              <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}</p>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--forest-dark-text)' }}>{moyenneBulletin(moyenneGenerale)}</p>
             </div>
             <div style={{ flex: '1 1 140px', background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '12px 16px' }}>
               <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>Rang</p>

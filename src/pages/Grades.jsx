@@ -17,6 +17,7 @@ import { fetchAllRows } from '../lib/fetchAll.js';
 const PAGE_LECTURE = 5000;
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
+import { moyenneBulletin } from '../lib/formatNote.js';
 
 const PERIODE_OPTIONS = [...PERIODES_BULLETIN, 'annuel'];
 function periodeLabel(p) {
@@ -255,31 +256,31 @@ export default function Grades() {
 
               {annuel ? (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr', padding: '0 0 10px', fontSize: '10.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.45fr 0.8fr 0.8fr 0.8fr 0.9fr 1fr', columnGap: 6, padding: '0 0 10px', fontSize: '10.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                     <span>Matière</span><span>Coef.</span><span>T1</span><span>T2</span><span>T3</span><span>Annuelle</span><span>Appréciation</span>
                   </div>
                   {lignes.map((l) => (
-                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1.8fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13, alignItems: 'center' }}>
+                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1.25fr 0.45fr 0.8fr 0.8fr 0.8fr 0.9fr 1fr', columnGap: 6, padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13, alignItems: 'center' }}>
                       <span>{l.nom}</span>
                       <span style={{ color: 'var(--muted)' }}>×{l.coefficient}</span>
-                      <span style={{ color: 'var(--muted)' }}>{l.t1 != null ? l.t1.toFixed(2) : '—'}</span>
-                      <span style={{ color: 'var(--muted)' }}>{l.t2 != null ? l.t2.toFixed(2) : '—'}</span>
-                      <span style={{ color: 'var(--muted)' }}>{l.t3 != null ? l.t3.toFixed(2) : '—'}</span>
-                      <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                      <span style={{ color: 'var(--muted)' }}>{moyenneBulletin(l.t1)}</span>
+                      <span style={{ color: 'var(--muted)' }}>{moyenneBulletin(l.t2)}</span>
+                      <span style={{ color: 'var(--muted)' }}>{moyenneBulletin(l.t3)}</span>
+                      <span style={{ fontWeight: 600 }}>{moyenneBulletin(l.moyenne)}</span>
                       <span style={{ color: 'var(--muted)' }}>{appreciation(l.moyenne) || '—'}</span>
                     </div>
                   ))}
                 </>
               ) : (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', padding: '0 0 10px', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                    <span>Matière</span><span>Coef.</span><span>Moyenne /20</span><span>Appréciation</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', columnGap: 6, padding: '0 0 10px', fontSize: '11px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    <span>Matière</span><span>Coef.</span><span>Moyenne</span><span>Appréciation</span>
                   </div>
                   {lignes.map((l) => (
-                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13.5, alignItems: 'center' }}>
+                    <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '2fr 0.6fr 0.8fr 1fr', columnGap: 6, padding: '9px 0', borderTop: '1px solid var(--line)', fontSize: 13.5, alignItems: 'center' }}>
                       <span>{l.nom}</span>
                       <span style={{ color: 'var(--muted)' }}>×{l.coefficient}</span>
-                      <span style={{ fontWeight: 600 }}>{l.moyenne != null ? l.moyenne.toFixed(2) : '—'}</span>
+                      <span style={{ fontWeight: 600 }}>{moyenneBulletin(l.moyenne)}</span>
                       <span style={{ color: 'var(--muted)' }}>{appreciation(l.moyenne) || '—'}</span>
                     </div>
                   ))}
@@ -296,7 +297,7 @@ export default function Grades() {
                 <div style={{ flex: '1 1 220px', background: 'var(--forest-light)', borderRadius: 10, padding: '14px 18px' }}>
                   <p style={{ margin: '0 0 4px', fontSize: '11.5px', fontWeight: 600, color: 'var(--forest-dark-text)' }}>Moyenne générale</p>
                   <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: 'var(--forest-dark-text)' }}>
-                    {moyenneGenerale != null ? `${moyenneGenerale.toFixed(2)} / 20` : '—'}
+                    {moyenneBulletin(moyenneGenerale)}
                   </p>
                   {moyenneGenerale != null && (
                     <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--forest-dark-text)' }}>{appreciation(moyenneGenerale)}</p>
@@ -318,7 +319,7 @@ export default function Grades() {
                 </div>
                 <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '10px 14px' }}>
                   <p style={{ margin: '0 0 3px', fontSize: '11px', fontWeight: 600, color: 'var(--muted)' }}>Moyenne de la classe</p>
-                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{moyenneClasse != null ? `${moyenneClasse.toFixed(2)} / 20` : '—'}</p>
+                  <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{moyenneBulletin(moyenneClasse)}</p>
                 </div>
                 <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', borderRadius: 10, padding: '10px 14px' }}>
                   <p style={{ margin: '0 0 3px', fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>Mention</p>
