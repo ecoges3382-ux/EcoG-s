@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, initials, trancheLabel, sortClasses } from '../lib/utils.js';
@@ -32,6 +32,10 @@ export default function StudentDetail() {
   const confirm = useConfirm();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Page d'où l'on vient (ex. les notes) : le bouton « Retour » y ramène. Seul un chemin interne est accepté.
+  const depuis = location.state?.depuis;
+  const retour = depuis && typeof depuis.chemin === 'string' && depuis.chemin.startsWith('/') && !depuis.chemin.startsWith('//') ? depuis : { chemin: '/eleves', libelle: 'Retour aux élèves' };
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   
@@ -191,8 +195,8 @@ export default function StudentDetail() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-        <Link to="/eleves" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
-          <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>Retour aux élèves
+        <Link to={retour.chemin} style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--forest-text)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>
+          <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>{retour.libelle || 'Retour'}
         </Link>
         
         {enrollment && !isHistorical && (
