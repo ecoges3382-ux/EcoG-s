@@ -48,6 +48,14 @@ function subjectPeriodeMoyenne(grades: Grade[], studentId: string, subjectId: st
   return composantes.reduce((a, v) => a + v, 0) / composantes.length;
 }
 
+// Matières de la classe d'un élève : celles qui n'ont pas de niveau (communes à toutes les classes) et celles rattachées à
+// SA classe. Côté équipe, une matière est rattachée à un NOM de classe (« 5ème B » : c'est ce que propose l'écran Matières) ;
+// le niveau pédagogique (« 5ème ») est accepté aussi, pour les matières enregistrées ainsi. Comparer seulement au niveau
+// cachait aux parents les matières propres à une classe avec section, et faussait le rang.
+function matieresDeLaClasse(subjects: Subject[], classeNom: string | null, classeNiveau: string | null): Subject[] {
+  return subjects.filter((s) => !s.niveau || s.niveau === classeNom || s.niveau === classeNiveau);
+}
+
 function periodeMoyenneGenerale(subjects: Subject[], grades: Grade[], studentId: string, periode: string): number | null {
   const avecNotes = subjects
     .map((su) => ({ coefficient: Number(su.coefficient) || 0, moyenne: subjectPeriodeMoyenne(grades, studentId, su.id, periode) }))
@@ -284,7 +292,7 @@ Deno.serve(async (req) => {
 
       const subjectsById = new Map((subjects || []).map((s: { id: string }) => [s.id, s]));
       const gradesWithSubject = (myGrades || []).map((g: { subject_id: string }) => ({ ...g, subject: subjectsById.get(g.subject_id) || null }));
-      const subjectsForNiveau = (subjects || []).filter((s: { niveau: string | null }) => !s.niveau || s.niveau === niveau);
+      const subjectsForNiveau = matieresDeLaClasse(subjects || [], enr?.classes?.nom || null, niveau);
 
       // Classement : calculé côté serveur à partir des notes de TOUTE la
       // classe (même formule que le bulletin admin, src/lib/bulletin.js),

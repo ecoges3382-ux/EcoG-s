@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
 import { fmtF, MODES, trancheLabel, TYPES_FRAIS } from '../../lib/utils.js';
-import { tranchesPourType, trancheApresChangementDeType } from '../../lib/paymentForm.js';
+import { optionsPaiement, montantPropose, choisirTranche, depassement, trancheApresChangementDeType } from '../../lib/paymentForm.js';
 import PaymentProgress from '../../components/PaymentProgress.jsx';
 import { useSelectedSchoolYear } from '../../lib/schoolYear.jsx';
 import MoneyInput from '../../components/MoneyInput.jsx';
@@ -366,31 +366,24 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
       .then(({ data }) => setSchoolYearInfo(data));
   }, [schoolYearId]);
 
+  // Choix de « Tranche / Type » d'après ce que l'élève a déjà payé (voir src/lib/paymentForm.js).
+  const choixTranche = optionsPaiement(typeFrais, currentStudent, schoolYearInfo, currentFeeSchedule);
+  const clesChoix = choixTranche.map((c) => c.id).join();
+
+  // Le choix sélectionné doit rester dans la liste (une tranche soldée disparaît, « Complet » devient « Solde »…).
   useEffect(() => {
-    const scolarite = Number(currentStudent?.montant_du) || Number(currentFeeSchedule?.montant_scolarite) || 0;
-    const connexe = Number(currentStudent?.frais_connexe_du) || Number(currentFeeSchedule?.montant_connexe) || 0;
-    const inscription = Number(currentFeeSchedule?.montant_inscription || currentFeeSchedule?.montant_reinscription) || 0;
+    const valide = choisirTranche(choixTranche, tranche);
+    if (valide !== tranche) setTranche(valide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clesChoix]);
 
-    let amount = null;
-    
-    if (typeFrais === 'scolarite') {
-      if (tranche === 'tranche1') amount = Number(currentFeeSchedule?.montant_tranche1) || 0;
-      else if (tranche === 'tranche2') amount = Number(currentFeeSchedule?.montant_tranche2) || 0;
-      else if (tranche === 'tranche3') amount = Number(currentFeeSchedule?.montant_tranche3) || 0;
-      else if (tranche === 'complet') amount = scolarite;
-      else if (tranche === 'moitie') amount = scolarite / 2;
-    } else if (typeFrais === 'connexe') {
-      if (tranche === 'complet') amount = connexe;
-    } else if (typeFrais === 'inscription') {
-      if (tranche === 'complet') amount = inscription;
-    }
-
-    if (amount !== null && !isNaN(amount) && amount > 0) {
-      setMontant(String(Math.round(amount)));
-    } else if (tranche === 'autre' || typeFrais === 'autre') {
-      setMontant('');
-    }
-  }, [typeFrais, tranche, currentStudent?.montant_du, currentStudent?.frais_connexe_du, currentFeeSchedule]);
+  // Montant pré-rempli : celui du choix sélectionné (le reste d'une tranche, le solde, la moitié…).
+  useEffect(() => {
+    const propose = montantPropose(choixTranche, tranche);
+    if (propose !== null) setMontant(String(propose));
+    else if (tranche === 'autre' || typeFrais === 'autre') setMontant('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFrais, tranche, clesChoix, currentStudent?.montant_du, currentStudent?.montant_paye, currentStudent?.frais_connexe_du, currentStudent?.frais_connexe_paye, currentFeeSchedule, schoolYearInfo]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -497,13 +490,16 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div><label style={modalLabelStyle}>Type de frais</label><Dropdown value={typeFrais} onChange={changerTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
-          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={tranchesPourType(typeFrais).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
+          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={choixTranche.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={modalLabelStyle}>Montant</label>
             <MoneyInput value={montant} onChange={setMontant} style={{ ...modalInputStyle, backgroundColor: isMontantEditable ? 'var(--paper)' : 'var(--line)' }} suffix="F CFA" disabled={!isMontantEditable} />
+            {depassement(typeFrais, montant, currentStudent) > 0 && (
+              <p style={{ margin: '-8px 0 10px', fontSize: 11.5, fontWeight: 600, color: 'var(--amber)' }}>Ce montant dépasse de {fmtF(depassement(typeFrais, montant, currentStudent))} ce qui reste dû.</p>
+            )}
           </div>
           <div><label style={modalLabelStyle}>Mode</label><Dropdown value={mode} onChange={setMode} options={MODES.map((m) => ({ value: m.id, label: m.label }))} style={modalInputStyle} /></div>
         </div>

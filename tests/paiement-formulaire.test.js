@@ -1,6 +1,7 @@
 // Formulaires d'encaissement : quelles tranches proposer selon le type de frais, et le détail de ce qui est déjà payé.
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { tranchesPourType, trancheValidePourType, trancheApresChangementDeType, detailEncaissements } from '../src/lib/paymentForm.js';
+import { tranchesPourType, trancheValidePourType, trancheApresChangementDeType, detailEncaissements, optionsPaiement, montantPropose, choisirTranche, depassement } from '../src/lib/paymentForm.js';
+import { fmtF } from '../src/lib/utils.js';
 
 beforeAll(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-19T08:00:00Z')); });
 afterAll(() => { vi.useRealTimers(); });
@@ -110,5 +111,105 @@ describe('détail de ce qui est déjà payé', () => {
   it('sans grille de frais, le dû est réparti sur les échéances configurées', () => {
     const d = detailEncaissements(eleve(0, { frais_connexe_du: 0 }), annee, null);
     expect(d.echeances.map((x) => x.montant)).toEqual([50000, 50000, 50000]);
+  });
+});
+
+describe('choix proposés selon ce que l\'élève a déjà payé', () => {
+  const annee = { date_tranche1: '2026-10-01', date_tranche2: '2027-01-15', date_tranche3: '2027-04-01', date_connexe: '2026-09-15' };
+  const grille = { montant_tranche1: 50000, montant_tranche2: 50000, montant_tranche3: 50000, montant_scolarite: 150000, montant_connexe: 20000, montant_inscription: 10000 };
+  const eleve = (paye, extra = {}) => ({ montant_du: 150000, montant_paye: paye, frais_connexe_du: 25000, frais_connexe_paye: 0, ...extra });
+  const choix = (type, e, a = annee, g = grille) => optionsPaiement(type, e, a, g);
+  const resume = (c) => c.map((x) => [x.id, x.montant]);
+
+  it('rien payé : les trois tranches, la moitié, « Complet » (tout le dû) et « Autre »', () => {
+    const c = choix('scolarite', eleve(0));
+    expect(resume(c)).toEqual([['tranche1', 50000], ['tranche2', 50000], ['tranche3', 50000], ['moitie', 75000], ['complet', 150000], ['autre', null]]);
+    expect(c.find((x) => x.id === 'complet').label).toBe('Complet');
+  });
+
+  it('73 000 payés (ton cas) : plus de 1ère tranche, plus de Moitié, « Complet » devient « Solde » du reste', () => {
+    const c = choix('scolarite', eleve(73000));
+    expect(c.map((x) => x.id)).toEqual(['tranche2', 'tranche3', 'complet', 'autre']);
+    expect(c.find((x) => x.id === 'tranche2')).toMatchObject({ label: `2ème tranche (reste ${fmtF(27000)})`, montant: 27000 });
+    expect(c.find((x) => x.id === 'tranche3')).toMatchObject({ label: '3ème tranche', montant: 50000 });
+    expect(c.find((x) => x.id === 'complet')).toMatchObject({ label: `Solde (reste ${fmtF(77000)})`, montant: 77000 });
+    expect(c.some((x) => x.label === 'Complet')).toBe(false);
+  });
+
+  it('une tranche payée en partie propose son reste, jamais son montant entier', () => {
+    expect(montantPropose(choix('scolarite', eleve(73000)), 'tranche2')).toBe(27000);
+    expect(montantPropose(choix('scolarite', eleve(20000)), 'tranche1')).toBe(30000);
+  });
+
+  it('deux tranches payées : il ne reste que la 3ème et le solde', () => {
+    const c = choix('scolarite', eleve(100000));
+    expect(resume(c)).toEqual([['tranche3', 50000], ['complet', 50000], ['autre', null]]);
+  });
+
+  it('tout l\'écolage payé : plus que « Autre »', () => {
+    expect(choix('scolarite', eleve(150000)).map((x) => x.id)).toEqual(['autre']);
+    expect(choix('scolarite', eleve(160000)).map((x) => x.id)).toEqual(['autre']);
+  });
+
+  it('aucun choix ne propose plus que le reste dû (hors « Autre », saisi à la main)', () => {
+    for (const paye of [0, 1000, 49999, 50000, 73000, 99999, 120000, 149999]) {
+      const reste = 150000 - paye;
+      for (const c of choix('scolarite', eleve(paye)).filter((x) => x.montant !== null)) {
+        expect(c.montant, `payé ${paye}, ${c.id}`).toBeLessThanOrEqual(c.id === 'moitie' ? 75000 : reste);
+      }
+    }
+  });
+
+  it('frais connexes : « Complet » si rien payé, « Solde » du reste sinon, rien si tout est payé', () => {
+    expect(resume(choix('connexe', eleve(0)))).toEqual([['complet', 25000], ['autre', null]]);
+    const partiel = choix('connexe', eleve(0, { frais_connexe_paye: 10000 }));
+    expect(partiel[0]).toMatchObject({ id: 'complet', label: `Solde (reste ${fmtF(15000)})`, montant: 15000 });
+    expect(choix('connexe', eleve(0, { frais_connexe_paye: 25000 })).map((x) => x.id)).toEqual(['autre']);
+  });
+
+  it('frais connexes sans montant enregistré pour l\'élève : le montant de la grille, comme avant', () => {
+    expect(resume(choix('connexe', eleve(0, { frais_connexe_du: 0 })))).toEqual([['complet', 20000], ['autre', null]]);
+  });
+
+  it('inscription : « Complet » au montant de la grille, et « Autre »', () => {
+    expect(resume(choix('inscription', eleve(0)))).toEqual([['complet', 10000], ['autre', null]]);
+  });
+
+  it('année scolaire pas encore chargée : la liste d\'origine, montants de la grille', () => {
+    const c = optionsPaiement('scolarite', eleve(0), null, grille);
+    expect(c.map((x) => x.id)).toEqual(['tranche1', 'tranche2', 'tranche3', 'moitie', 'complet', 'autre']);
+    expect(montantPropose(c, 'complet')).toBe(150000);
+  });
+
+  it('« Autre » ne propose aucun montant (il se saisit à la main)', () => {
+    expect(montantPropose(choix('scolarite', eleve(0)), 'autre')).toBeNull();
+    expect(montantPropose(choix('scolarite', eleve(0)), 'inexistant')).toBeNull();
+  });
+});
+
+describe('choix sélectionné qui reste valable', () => {
+  const c = [{ id: 'tranche3' }, { id: 'complet' }, { id: 'autre' }];
+  it('un choix toujours présent est gardé', () => { expect(choisirTranche(c, 'tranche3')).toBe('tranche3'); });
+  it('un choix disparu (tranche soldée) revient à « Complet »/« Solde »', () => { expect(choisirTranche(c, 'tranche1')).toBe('complet'); });
+  it('sans « Complet », on prend le premier choix', () => { expect(choisirTranche([{ id: 'autre' }], 'complet')).toBe('autre'); });
+});
+
+describe('dépassement du reste dû', () => {
+  const e = { montant_du: 150000, montant_paye: 73000, frais_connexe_du: 25000, frais_connexe_paye: 10000 };
+  it('écolage : montant au-delà du reste (77 000)', () => {
+    expect(depassement('scolarite', 77000, e)).toBe(0);
+    expect(depassement('scolarite', 80000, e)).toBe(3000);
+    expect(depassement('scolarite', '150000', e)).toBe(73000); // « Complet » d'avant : 73 000 de trop
+  });
+  it('connexes : montant au-delà du reste (15 000)', () => {
+    expect(depassement('connexe', 15000, e)).toBe(0);
+    expect(depassement('connexe', 20000, e)).toBe(5000);
+  });
+  it('inscription et autres frais : pas de reste suivi, donc aucun avertissement', () => {
+    expect(depassement('inscription', 999999, e)).toBe(0);
+    expect(depassement('autre', 999999, e)).toBe(0);
+  });
+  it('tout payé : pas d\'avertissement de dépassement (l\'écran dit déjà « tout payé »)', () => {
+    expect(depassement('scolarite', 5000, { ...e, montant_paye: 150000 })).toBe(0);
   });
 });

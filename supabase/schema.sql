@@ -4292,3 +4292,48 @@ alter function public.enforce_personnel_plan() set search_path = public;
 alter function public.protect_school_billing() set search_path = public;
 revoke execute on function public.check_plan_feature(uuid, text) from public, anon, authenticated;
 revoke execute on function public.check_whatsapp_quota(uuid) from public, anon, authenticated;
+
+-- ---------- Lecture rapide des notes (règles de sécurité de la table grades) ----------
+-- Les règles « grades: select » appelaient current_school_id(), current_role_name() et auth.uid() pour CHAQUE ligne lue.
+-- Quand l'application lit les notes par pages de 1 000 (OFFSET), chaque page réévalue aussi toutes les lignes sautées :
+-- sur un jeu de 30 000 notes, 17 secondes au lieu de 1 seconde. Enveloppées dans (select ...), ces fonctions ne sont
+-- évaluées qu'UNE fois par requête. La condition est exactement la même : mêmes lignes visibles, pour les mêmes personnes.
+-- Le bloc vérifie d'abord que la règle en place est bien celle attendue ; sinon il ne modifie RIEN et le dit.
+-- L'index sert l'ordre de lecture de la page Notes (année, puis date décroissante).
+do $$
+declare
+  q text;
+begin
+  select qual into q from pg_policies where schemaname = 'public' and tablename = 'grades' and policyname = 'grades: select (personnel)';
+  if q is null then
+    raise exception 'Règle "grades: select (personnel)" introuvable : rien n''a été modifié.';
+  elsif q ~* 'select current_school_id' then
+    raise notice 'Règle "grades: select (personnel)" déjà optimisée.';
+  elsif q ~* 'current_school_id\(\)' and q ~* 'current_role_name\(\)' and q ~* 'fondateur' and q ~* 'directeur'
+        and q ~* 'secretaire' and q ~* 'enseignant' and length(q) < 600 then
+    alter policy "grades: select (personnel)" on grades using (
+      school_id = (select current_school_id())
+      and (select current_role_name()) in ('fondateur', 'directeur', 'secretaire', 'enseignant')
+    );
+  else
+    raise exception 'La règle "grades: select (personnel)" ne ressemble pas à celle attendue : rien n''a été modifié. Texte actuel : %', q;
+  end if;
+
+  select qual into q from pg_policies where schemaname = 'public' and tablename = 'grades' and policyname = 'grades: select (parent)';
+  if q is null then
+    raise exception 'Règle "grades: select (parent)" introuvable : rien n''a été modifié.';
+  elsif q ~* 'select auth\.uid' then
+    raise notice 'Règle "grades: select (parent)" déjà optimisée.';
+  elsif q ~* 'student_guardians' and q ~* 'auth\.uid\(\)' and length(q) < 600 then
+    alter policy "grades: select (parent)" on grades using (
+      exists (
+        select 1 from student_guardians sg
+        where sg.student_id = grades.student_id and sg.parent_profile_id = (select auth.uid())
+      )
+    );
+  else
+    raise exception 'La règle "grades: select (parent)" ne ressemble pas à celle attendue : rien n''a été modifié. Texte actuel : %', q;
+  end if;
+end $$;
+
+create index if not exists grades_year_created_idx on grades (school_year_id, created_at desc, id);

@@ -11,6 +11,10 @@ import Dropdown from '../components/Dropdown.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { fetchAllRows } from '../lib/fetchAll.js';
+
+// Taille de page demandée : le serveur répond au plus 1 000 lignes (réglage par défaut) ; s'il en sert davantage, tant mieux,
+// il y aura moins de pages. fetchAllRows suit ce qu'il sert réellement.
+const PAGE_LECTURE = 5000;
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
 
@@ -67,7 +71,7 @@ export default function Grades() {
             .select('id, student_id, subject_id, type, note, sur, periode', avecTotal ? { count: 'exact' } : undefined)
             .eq('school_year_id', schoolYear.id)
             .order('id')
-            .range(from, to)),
+            .range(from, to), { pageSize: PAGE_LECTURE }),
         ]);
         if (enrError) return { error: enrError };
         if (grError) return { error: grError };
