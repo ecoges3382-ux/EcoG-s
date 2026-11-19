@@ -8,6 +8,9 @@ import { useToast } from '../Toast.jsx';
 import { useConfirm } from '../ConfirmDialog.jsx';
 import Dropdown from '../Dropdown.jsx';
 import OfflineBanner from '../OfflineBanner.jsx';
+import ChampRecherche from '../ChampRecherche.jsx';
+import useHauteurListe from '../../lib/useHauteurListe.js';
+import { correspondAuxMots } from '../../lib/texte.js';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { SkeletonRow } from '../Skeleton.jsx';
 import ModalContainer from '../ModalContainer.jsx';
@@ -93,6 +96,13 @@ export default function StaffAccountsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
 
+  // La liste défile dans son cadre, comme celle des élèves ; on la filtre avec le cadre de recherche (nom, e-mail, téléphone, rôle).
+  const [recherche, setRecherche] = useState('');
+  const rechercheActive = recherche.trim() !== '';
+  const [listeRef, hauteurListe] = useHauteurListe([accounts !== null, error, offline, rechercheActive]);
+  const affiches = (accounts || []).filter((a) => !rechercheActive || correspondAuxMots(
+    `${a.full_name} ${a.email || ''} ${a.phone || ''} ${ROLES[a.role]?.label || a.role}`, recherche));
+
   async function reload() {
     await guardedFetch({
       cacheKey: `staff_accounts_${profile.school_id}`,
@@ -150,13 +160,24 @@ export default function StaffAccountsTab() {
       {offline && <OfflineBanner />}
       {!accounts && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
-      {accounts && (
-        <div className="card-bold">
-          {accounts.map((a, i) => (
+      {accounts && accounts.length > 0 && (
+        <>
+          <ChampRecherche value={recherche} onChange={setRecherche} dataTour="staff-accounts-search" placeholder="Rechercher un compte (nom, e-mail, rôle)…" style={{ marginBottom: 12, maxWidth: 520 }} />
+          {rechercheActive && (
+            <p style={{ margin: '0 0 12px', fontSize: 12.5, fontWeight: 600, color: affiches.length === 0 ? 'var(--danger)' : 'var(--muted)' }}>
+              {affiches.length === 0 ? `Aucun compte ne correspond à « ${recherche.trim()} ».` : `${affiches.length} compte${affiches.length > 1 ? 's' : ''} sur ${accounts.length} · recherche « ${recherche.trim()} »`}
+            </p>
+          )}
+        </>
+      )}
+
+      {accounts && (affiches.length > 0 || accounts.length === 0) && (
+        <div ref={listeRef} data-tour="staff-accounts-list" className="card-bold" style={{ maxHeight: hauteurListe ?? 'calc(100vh - 250px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+          {affiches.map((a, i) => (
             <AccountRow
               key={a.id} account={a} avatarBg="var(--forest-light)" avatarColor="var(--forest-text)"
               subtitle={`${a.email || '—'}${a.phone ? ` · ${a.phone}` : ''}`}
-              isLast={i === accounts.length - 1} onEdit={() => openEdit(a)}
+              isLast={i === affiches.length - 1} onEdit={() => openEdit(a)}
               canDelete={a.role !== 'fondateur' && a.id !== profile.id} onDelete={() => handleDelete(a)}
               badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark-text)' }}>{ROLES[a.role]?.label || a.role}</span>}
             />

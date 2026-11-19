@@ -10,6 +10,9 @@ import NameInput from '../NameInput.jsx';
 import { useToast } from '../Toast.jsx';
 import { useConfirm } from '../ConfirmDialog.jsx';
 import OfflineBanner from '../OfflineBanner.jsx';
+import ChampRecherche from '../ChampRecherche.jsx';
+import useHauteurListe from '../../lib/useHauteurListe.js';
+import { correspondAuxMots } from '../../lib/texte.js';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { SkeletonRow, SkeletonLine } from '../Skeleton.jsx';
 import ModalContainer from '../ModalContainer.jsx';
@@ -49,24 +52,12 @@ export default function ParentAccessTab() {
   const [editingInfo, setEditingInfo] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
-  // La liste défile dans son cadre, comme celle des élèves. Le cadre prend la place restante sous son début de page (le haut
-  // varie : sur téléphone, l'en-tête est plus haut et la barre du bas prend de la place).
-  const listeRef = useRef(null);
-  const [hauteurListe, setHauteurListe] = useState(null);
-  const listePrete = accesses !== null;
-  useLayoutEffect(() => {
-    function mesurer() {
-      const liste = listeRef.current;
-      if (!liste) return;
-      const haut = liste.getBoundingClientRect().top + (document.getElementById('screen')?.scrollTop || 0);
-      const telephone = window.innerWidth <= 900;
-      // Sur téléphone l'en-tête est haut : on garde au moins ~4 lignes visibles (la page défile alors, comme les autres).
-      setHauteurListe(Math.max(telephone ? 290 : 200, Math.round(window.innerHeight - haut - (telephone ? 96 : 24))));
-    }
-    mesurer();
-    window.addEventListener('resize', mesurer);
-    return () => window.removeEventListener('resize', mesurer);
-  }, [listePrete, error, offline]);
+  // La liste défile dans son cadre, comme celle des élèves ; on la filtre avec le cadre de recherche.
+  const [recherche, setRecherche] = useState('');
+  const rechercheActive = recherche.trim() !== '';
+  const [listeRef, hauteurListe] = useHauteurListe([accesses !== null, error, offline, rechercheActive]);
+  const affiches = (accesses || []).filter((a) => !rechercheActive || correspondAuxMots(
+    `${a.civilite === 'Mme' ? 'Mme' : 'M.'} ${a.full_name} ${a.code} ${(a.parent_access_students || []).map((r) => r.students?.full_name).filter(Boolean).join(' ')}`, recherche));
 
   async function reload() {
     await guardedFetch({
@@ -139,13 +130,24 @@ export default function ParentAccessTab() {
       {offline && <OfflineBanner />}
       {!accesses && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
-      {accesses && (
+      {accesses && accesses.length > 0 && (
+        <>
+          <ChampRecherche value={recherche} onChange={setRecherche} dataTour="parent-access-search" placeholder="Rechercher un parent, un code ou un enfant…" style={{ marginBottom: 12, maxWidth: 520 }} />
+          {rechercheActive && (
+            <p style={{ margin: '0 0 12px', fontSize: 12.5, fontWeight: 600, color: affiches.length === 0 ? 'var(--danger)' : 'var(--muted)' }}>
+              {affiches.length === 0 ? `Aucun accès ne correspond à « ${recherche.trim()} ».` : `${affiches.length} accès sur ${accesses.length} · recherche « ${recherche.trim()} »`}
+            </p>
+          )}
+        </>
+      )}
+
+      {accesses && (affiches.length > 0 || accesses.length === 0) && (
         <div ref={listeRef} data-tour="parent-access-list" className="card-bold" style={{ maxHeight: hauteurListe ?? 'calc(100vh - 250px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
-          {accesses.map((a, i) => (
+          {affiches.map((a, i) => (
             <ParentAccessRow
               key={a.id}
               access={a}
-              isLast={i === accesses.length - 1}
+              isLast={i === affiches.length - 1}
               menuOpen={menuForId === a.id}
               onToggleMenu={() => setMenuForId((prev) => (prev === a.id ? null : a.id))}
               onCloseMenu={() => setMenuForId(null)}
@@ -265,20 +267,43 @@ function NewParentAccessModal({ onClose, onCreated }) {
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} />
 
         <label style={labelStyle}>Élève(s) rattaché(s)</label>
-        <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
-          {students === null && <SkeletonLine width="70%" />}
-          {students?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun élève inscrit.</p>}
-          {students?.map((s) => (
-            <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
-              <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
-              {s.full_name} <span style={{ color: 'var(--muted)' }}>· {s.niveau}</span>
-            </label>
-          ))}
-        </div>
+        <ChoixEleves students={students} selectedIds={selectedIds} onToggle={toggleStudent} hauteur={160} avecAucunEleve />
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Créer" submittingLabel="Création…" />
       </form>
     </ModalShell>
+  );
+}
+
+// Liste d'élèves à cocher, avec un cadre de recherche (nom ou classe). Les élèves cochés le restent même quand la recherche les
+// masque : le compteur le rappelle.
+function ChoixEleves({ students, selectedIds, onToggle, hauteur, avecAucunEleve }) {
+  const [recherche, setRecherche] = useState('');
+  const actif = recherche.trim() !== '';
+  const visibles = (students || []).filter((s) => !actif || correspondAuxMots(`${s.full_name} ${s.niveau}`, recherche));
+  return (
+    <div style={{ marginBottom: 18 }}>
+      {students && students.length > 0 && (
+        <ChampRecherche value={recherche} onChange={setRecherche} dataTour="choix-eleves-recherche" placeholder="Rechercher un élève ou une classe…" style={{ marginBottom: 8 }} inputStyle={{ padding: '8px 38px 8px 36px', fontSize: 13.5 }} />
+      )}
+      <div data-tour="choix-eleves-liste" style={{ maxHeight: hauteur, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px' }}>
+        {students === null && <SkeletonLine width="70%" />}
+        {avecAucunEleve && students?.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)', margin: '8px 0' }}>Aucun élève inscrit.</p>}
+        {students?.length > 0 && visibles.length === 0 && <p style={{ fontSize: 13, color: 'var(--danger)', margin: '8px 0' }}>Aucun élève ne correspond à « {recherche.trim()} ».</p>}
+        {visibles.map((s) => (
+          <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
+            <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => onToggle(s.id)} />
+            {s.full_name} <span style={{ color: 'var(--muted)' }}>· {s.niveau}</span>
+          </label>
+        ))}
+      </div>
+      {students && students.length > 0 && (
+        <p style={{ margin: '6px 0 0', fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
+          {selectedIds.length === 0 ? 'Aucun élève coché' : `${selectedIds.length} élève${selectedIds.length > 1 ? 's' : ''} coché${selectedIds.length > 1 ? 's' : ''}`}
+          {actif && ` · ${visibles.length} affiché${visibles.length > 1 ? 's' : ''}`}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -314,15 +339,7 @@ function EditParentAccessStudentsModal({ access, onClose, onSaved }) {
   return (
     <ModalShell title={`Enfants rattachés — ${access.full_name}`} onClose={onClose}>
       <form onSubmit={handleSubmit}>
-        <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--line-strong)', borderRadius: 9, padding: '6px 10px', marginBottom: 18 }}>
-          {students === null && <SkeletonLine width="70%" />}
-          {students?.map((s) => (
-            <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', fontSize: 13, cursor: 'pointer' }}>
-              <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleStudent(s.id)} />
-              {s.full_name} <span style={{ color: 'var(--muted)' }}>· {s.niveau}</span>
-            </label>
-          ))}
-        </div>
+        <ChoixEleves students={students} selectedIds={selectedIds} onToggle={toggleStudent} hauteur={220} />
         {error && <p style={{ margin: '0 0 14px', fontSize: '12.5px', color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
         <ModalActions onCancel={onClose} submitting={submitting} submitLabel="Enregistrer" submittingLabel="Enregistrement…" />
       </form>
