@@ -16,27 +16,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      # La clé publique (anon) est celle que contient déjà l'application. On la demande à Supabase avec le jeton déjà utilisé
-      # pour déployer les fonctions : rien de plus à configurer. Un secret SUPABASE_ANON_KEY, s'il existe, est utilisé en priorité.
+      # La clé publique (anon / publishable) est celle que contient déjà l'application (variable VITE_SUPABASE_ANON_KEY de Vercel).
+      # Elle se range dans GitHub : Settings > Secrets and variables > Actions > onglet « Secrets » > « Repository secrets »,
+      # sous le nom SUPABASE_ANON_KEY (VITE_SUPABASE_ANON_KEY est accepté aussi). Le jeton SUPABASE_ACCESS_TOKEN du déploiement des
+      # fonctions n'a pas le droit de lire les clés du projet : on ne peut donc pas la lui demander.
       - name: Envoyer le signal
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_ANON_KEY_SECRET: ${{ secrets.SUPABASE_ANON_KEY }}
+          CLE_A: ${{ secrets.SUPABASE_ANON_KEY }}
+          CLE_B: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           PROJET: xdumihqihcffegjcfhyi
           VERSION: ${{ github.event.deployment.sha || github.sha }}
+          MANUEL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           set -euo pipefail
-          CLE="${SUPABASE_ANON_KEY_SECRET:-}"
+          CLE="${CLE_A:-${CLE_B:-}}"
           if [ -z "$CLE" ]; then
-            CLE=$(supabase projects api-keys --project-ref "$PROJET" -o json | jq -r '[.[] | select(.name == "anon")][0].api_key // empty')
-          fi
-          if [ -z "$CLE" ]; then
-            echo "Clé publique introuvable : ajoute le secret SUPABASE_ANON_KEY dans GitHub (la clé « anon » de Supabase)." >&2
-            exit 1
+            MSG="Signal de mise à jour NON envoyé : aucun secret SUPABASE_ANON_KEY (ni VITE_SUPABASE_ANON_KEY) n'est visible par ce workflow. Ajoute-le dans Settings > Secrets and variables > Actions > Repository secrets (la clé publique « anon » de Supabase, pas la clé secrète)."
+            echo "SUPABASE_ANON_KEY visible : non / VITE_SUPABASE_ANON_KEY visible : non"
+            # Lancé à la main : on veut voir l'échec. Lancé par une publication : simple avertissement (la publication n'est pas en cause).
+            if [ "$MANUEL" = "true" ]; then echo "::error::$MSG"; exit 1; fi
+            echo "::warning::$MSG"
+            exit 0
           fi
           echo "::add-mask::$CLE"
           CORPS=$(jq -n --arg v "$VERSION" '{messages: [{topic: "app-version", event: "deploy", payload: {version: $v}, private: false}]}')
