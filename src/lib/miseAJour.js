@@ -44,3 +44,15 @@ export function planifierApresSignal(verifier, { delais = DELAIS_APRES_SIGNAL, s
   const minuteries = delais.map((d) => setTimer(() => verifier({ force: d === 0 }), d));
   return () => minuteries.forEach((m) => clearTimer(m));
 }
+
+// Vrai si un service worker est DÉJÀ inscrit sur cet appareil (par exemple parce que le personnel y a ouvert l'application). Sert
+// au portail parent : on n'inscrit rien chez les parents qui n'en ont pas (téléchargement de ~2,5 Mo), mais là où il existe déjà,
+// il sert une ancienne copie du site tant qu'on ne l'a pas mis à jour.
+export async function serviceWorkerDejaInscrit(nav = typeof navigator !== 'undefined' ? navigator : null) {
+  try {
+    if (!nav || !nav.serviceWorker || typeof nav.serviceWorker.getRegistration !== 'function') return false;
+    return Boolean(await nav.serviceWorker.getRegistration());
+  } catch {
+    return false;
+  }
+}

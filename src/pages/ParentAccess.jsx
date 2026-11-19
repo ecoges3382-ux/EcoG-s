@@ -6,6 +6,7 @@ import { PERIODES_BULLETIN } from '../lib/bulletin.js';
 import PaymentReceipt from '../components/PaymentReceipt.jsx';
 import FinancialStatement from '../components/FinancialStatement.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import MiseAJourSiInscrit from '../components/MiseAJourSiInscrit.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { saveCache, loadCache } from '../lib/offlineCache.js';
 import { computeEcheances } from '../lib/retard.js';
@@ -20,6 +21,15 @@ import ChildBulletin from '../components/parent/ChildBulletin.jsx';
 const STORAGE_KEY = 'ecoges_parent_access_code';
 
 export default function ParentAccess() {
+  return (
+    <>
+      <ParentAccessContenu />
+      <MiseAJourSiInscrit />
+    </>
+  );
+}
+
+function ParentAccessContenu() {
   const [searchParams] = useSearchParams();
   const [codeInput, setCodeInput] = useState(searchParams.get('code') || '');
   const [code, setCode] = useState('');

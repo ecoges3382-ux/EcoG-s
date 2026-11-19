@@ -14,6 +14,9 @@ const GROUPES = [
   { type: 'examen', titre: 'Examens', couleur: 'var(--danger)', fond: 'var(--danger-light)' },
 ];
 
+const LARGEUR_NOTE = 56; // largeur minimale d'une pastille « 19.3/20 »
+const ECART_NOTES = 6;
+
 function couleurNote(note, sur) {
   const sur20 = (Number(note) / Number(sur)) * 20;
   if (sur20 >= 14) return 'var(--success)';
@@ -24,7 +27,8 @@ const moyenneStyle = (m) => ({ fontWeight: 700, color: m == null ? 'var(--muted)
 const cellule = { textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums' };
 
 // Un type de notes : sa pastille et son compteur, puis les notes juste en dessous, TROIS PAR LIGNE au plus (les suivantes passent
-// à la ligne). Les colonnes de la grille ont la même largeur : les notes restent alignées d'une ligne à l'autre.
+// à la ligne). La grille est plafonnée à la largeur de trois pastilles ; quand la colonne est trop étroite (demi-largeur d'un
+// téléphone), elle n'en met que deux par ligne plutôt que de les écraser. Colonnes de même largeur : notes alignées.
 function GroupeNotes({ groupe, notes, annuel }) {
   return (
     <div style={{ minWidth: 0 }}>
@@ -35,7 +39,7 @@ function GroupeNotes({ groupe, notes, annuel }) {
       {notes.length === 0 ? (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>Aucune note</p>
       ) : (
-        <div data-notes-ligne style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 58px))', gap: 6 }}>
+        <div data-notes-ligne style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${LARGEUR_NOTE}px, 1fr))`, gap: ECART_NOTES, maxWidth: 3 * LARGEUR_NOTE + 2 * ECART_NOTES }}>
           {notes.map((n, i) => (
             <span key={n.id || i} title={`${groupe.titre.replace(/s$/, '')} · ${n.periode}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '3px 2px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontSize: 12, fontWeight: 600, opacity: groupe.type === 'examen' ? 0.75 : 1, whiteSpace: 'nowrap' }}>
@@ -133,7 +137,6 @@ export default function NotesParMatiere({ lignes, annuel, total, ariaLabel, avec
           </div>
         )}
       </div>
-      <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--muted)' }}>Notes sur 20, sauf barème indiqué (ex. 8/10).</p>
       {aDesExamens && <p style={{ margin: '8px 0 0', fontSize: 11, color: 'var(--muted)' }}>Les examens sont affichés mais ne comptent pas dans la moyenne du trimestre.</p>}
     </div>
   );

@@ -5,7 +5,8 @@ import {
   CANAL_VERSION, EVENEMENT_DEPLOIEMENT, DELAI_VERIFICATION, DELAI_RAPPEL, creerVerificateur, planifierApresSignal,
 } from '../lib/miseAJour.js';
 
-export default function UpdateButton() {
+// tempsReel : écoute le signal de déploiement (espace du personnel). Le portail parent s'en passe : pas de connexion Realtime de plus.
+export default function UpdateButton({ tempsReel = true }) {
   const [updating, setUpdating] = useState(false);
   const inscription = useRef(null);
   const verifierRef = useRef(null);
@@ -49,6 +50,7 @@ export default function UpdateButton() {
   // attendre la prochaine minute. Le signal ne contient rien : l'application refait elle-même la vérification, donc un faux
   // signal ne peut rien causer de plus qu'une vérification.
   useEffect(() => {
+    if (!tempsReel) return undefined;
     let annulerSerie = null;
     let canal = null;
     try {
@@ -65,7 +67,7 @@ export default function UpdateButton() {
       if (annulerSerie) annulerSerie();
       try { if (canal) supabase.removeChannel(canal); } catch { /* canal déjà fermé : on ignore */ }
     };
-  }, []);
+  }, [tempsReel]);
 
   // « Plus tard » ne cache la bannière que pour un temps : la mise à jour attend toujours, la bannière revient.
   const rappel = useRef(null);
