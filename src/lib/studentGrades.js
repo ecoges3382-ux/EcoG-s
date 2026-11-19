@@ -5,6 +5,14 @@ import {
 } from './bulletin.js';
 
 export const ORDRE_PERIODES = ['Trimestre 1', 'Trimestre 2', 'Trimestre 3', 'Semestre 1', 'Semestre 2'];
+// Une note telle qu'on l'affiche dans une pastille : « 14 » pour une note sur 20 (le /20 est dit une fois pour toutes sous le
+// tableau, ce qui laisse la place d'en mettre trois par ligne), « 8/10 » quand le barème est différent.
+export function libelleNote(n) {
+  const note = Number(n.note);
+  const sur = Number(n.sur);
+  return !(sur > 0) || sur === 20 ? String(note) : `${note}/${sur}`;
+}
+
 export const TYPES_NOTE = { controle: 'Interro', devoir: 'Devoir', examen: 'Examen' };
 
 // Périodes où l'élève a au moins une note, dans l'ordre de l'année.
