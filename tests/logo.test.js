@@ -41,10 +41,16 @@ describe('icônes et images de partage', () => {
     expect(pngTaille(lire(fichier))).toEqual({ w, h });
   });
 
-  it('l\'image de partage (Facebook, WhatsApp, X) est carrée (1200 x 1200) et reste légère', () => {
+  it('l\'image de partage par défaut (WhatsApp, X…) est carrée (1200 x 1200) et reste légère', () => {
     const buf = lire('og-image.jpg');
     expect(jpegTaille(buf)).toEqual({ w: 1200, h: 1200 });
     expect(buf.length).toBeLessThan(300 * 1024); // WhatsApp ignore les images trop lourdes
+  });
+
+  it('l\'image de partage Facebook est le logo rectangulaire (1200 x 630) et reste légère', () => {
+    const buf = lire('og-facebook.jpg');
+    expect(jpegTaille(buf)).toEqual({ w: 1200, h: 630 });
+    expect(buf.length).toBeLessThan(300 * 1024);
   });
 
   it('favicon.ico contient les tailles 16, 32 et 48', () => {
@@ -66,12 +72,30 @@ describe('références dans index.html et le manifeste', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const vite = readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8');
 
-  it('l\'image de partage est une adresse complète vers un fichier qui existe', () => {
+  it('l\'image de partage est une adresse complète, servie selon le robot (WhatsApp, Facebook, autres)', () => {
     const og = html.match(/property="og:image" content="([^"]+)"/)[1];
     expect(og).toMatch(/^https:\/\//);
-    expect(existsSync(publicPath(new URL(og).pathname))).toBe(true);
-    expect(html).toMatch(/property="og:image:width" content="1200"/);
-    expect(html).toMatch(/property="og:image:height" content="1200"/);
+    const chemin = new URL(og).pathname;
+    expect(existsSync(publicPath(chemin))).toBe(false); // pas un vrai fichier : vercel.json choisit l'image
+    // pas de largeur/hauteur annoncées : elles seraient fausses pour l'une des deux images
+    expect(html).not.toMatch(/og:image:(width|height)/);
+    const regles = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')).rewrites;
+    const celles = regles.filter((r) => r.source === chemin);
+    const ua = (r) => (r.has && r.has[0].value) || null;
+    const cible = (agent) => (celles.find((r) => !r.has || new RegExp(r.has[0].value).test(agent)) || {}).destination;
+    // WhatsApp peut se présenter aussi comme Facebook : il doit tomber sur l'image carrée
+    expect(cible('WhatsApp/2.24.1 A')).toBe('/og-image.jpg');
+    expect(cible('facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) WhatsApp/2.24')).toBe('/og-image.jpg');
+    expect(cible('facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)')).toBe('/og-facebook.jpg');
+    expect(cible('Facebot')).toBe('/og-facebook.jpg');
+    expect(cible('Twitterbot/1.0')).toBe('/og-image.jpg');
+    expect(cible('')).toBe('/og-image.jpg');
+    for (const r of celles) expect(existsSync(publicPath(r.destination))).toBe(true);
+    expect(celles.some((r) => ua(r) === null)).toBe(true); // une règle par défaut existe
+    // ces règles passent avant celle qui renvoie tout le reste vers l'application
+    const iPartage = regles.findIndex((r) => r.source === chemin);
+    const iApplication = regles.findIndex((r) => r.destination === '/index.html');
+    expect(iPartage).toBeLessThan(iApplication);
     expect(html).toMatch(/name="twitter:card" content="summary"/); // image carrée : carte « summary », pas « summary_large_image »
     expect(html).toContain(`name="twitter:image" content="${og}"`);
   });
@@ -90,5 +114,6 @@ describe('références dans index.html et le manifeste', () => {
 
   it('l\'image de partage n\'est pas préchargée dans le cache de l\'appli (inutile hors ligne)', () => {
     expect(vite).toContain("'og-image.jpg'");
+    expect(vite).toContain("'og-facebook.jpg'");
   });
 });
