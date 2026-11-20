@@ -36,7 +36,7 @@ export default defineConfig({
         // woff2 seulement (tous les navigateurs actuels) ; brand/ et icons/ ne
         // servent pas à l'application (sources de logo, icône de manifeste).
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        globIgnores: ['brand/**', 'icons/**'],
+        globIgnores: ['brand/**', 'icons/**', 'og-image.jpg'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/functions/],
         importScripts: ['/push-sw.js'],

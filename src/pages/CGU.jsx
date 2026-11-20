@@ -79,7 +79,7 @@ export default function CGU() {
     <div style={{ minHeight: '100vh', background: 'var(--cream)', padding: '40px 20px' }}>
       <div style={{ maxWidth: 780, margin: '0 auto' }}>
         <Link to="/" style={{ display: 'inline-block', marginBottom: 24 }}>
-          <Wordmark tone="onLight" height={40} />
+          <Wordmark tone="onLight" height={50} />
         </Link>
 
         <div className="card-bold" style={{ padding: '32px 28px' }}>

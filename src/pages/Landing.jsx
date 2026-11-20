@@ -165,7 +165,7 @@ function Nav() {
       <header className={`lp-nav ${solid ? 'is-solid' : ''}`}>
         <div className="lp-wrap lp-nav-inner">
           <a href="#top" className="lp-brand" aria-label="EcoGès, retour en haut">
-            <Wordmark className="lp-brand-wordmark" height={30} tone={solid ? 'onLight' : 'onDark'} />
+            <Wordmark className="lp-brand-wordmark" height={40} tone={solid ? 'onLight' : 'onDark'} />
           </a>
           <nav className="lp-nav-links">
             <a href="#fonctions">Fonctions</a>
