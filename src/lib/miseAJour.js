@@ -18,24 +18,27 @@ export const DELAIS_APRES_SIGNAL = [0, 8 * 1000, 20 * 1000];
 /**
  * Crée la fonction qui va chercher une nouvelle version.
  *  - donneInscription() : l'inscription du service worker (null tant qu'elle n'existe pas) ;
+ *  - controlerVersion() : optionnel, lit la version en ligne (indépendant du service worker) ;
  *  - maintenant() : l'heure (injectable pour les tests).
  * `verifier({ force })` ne fait rien si une vérification vient d'avoir lieu (sauf force) ; ne lève jamais d'erreur (hors
  * connexion, la vérification échoue simplement : elle sera retentée).
  */
-export function creerVerificateur({ donneInscription, maintenant = Date.now, ecartMinimum = ECART_MINIMUM }) {
+export function creerVerificateur({ donneInscription, controlerVersion = null, maintenant = Date.now, ecartMinimum = ECART_MINIMUM }) {
   let derniere = -Infinity;
   return async function verifier({ force = false } = {}) {
     const inscription = donneInscription();
-    if (!inscription || typeof inscription.update !== 'function') return false;
+    const peutMettreAJour = Boolean(inscription) && typeof inscription.update === 'function';
+    if (!peutMettreAJour && !controlerVersion) return false;
     const t = maintenant();
     if (!force && t - derniere < ecartMinimum) return false;
     derniere = t;
-    try {
-      await inscription.update();
-      return true;
-    } catch {
-      return false;
-    }
+    // Deux contrôles indépendants : le service worker (qui peut rater une mise à jour) et la lecture directe de la version en
+    // ligne (qui ne dépend de personne). L'échec de l'un n'empêche pas l'autre.
+    const resultats = await Promise.all([
+      peutMettreAJour ? Promise.resolve().then(() => inscription.update()).then(() => true, () => false) : false,
+      controlerVersion ? Promise.resolve().then(() => controlerVersion()).then(() => true, () => false) : false,
+    ]);
+    return resultats.some(Boolean);
   };
 }
 

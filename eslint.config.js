@@ -20,7 +20,7 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       parserOptions: { ecmaFeatures: { jsx: true } },
-      globals: { ...globals.browser, ...globals.es2021 },
+      globals: { ...globals.browser, ...globals.es2021, __BUILD_ID__: 'readonly' },
     },
     plugins: { react, 'react-hooks': reactHooks },
     rules: {

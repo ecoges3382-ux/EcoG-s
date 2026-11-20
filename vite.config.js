@@ -1,9 +1,21 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+
+// Identifiant de cette compilation = celui que `npm run build` vient d'écrire dans public/version.json (et qui sera donc publié
+// avec le site). L'application le compare à la version en ligne pour savoir si elle est périmée.
+function identifiantDeCompilation() {
+  try {
+    const { version } = JSON.parse(readFileSync(new URL('./public/version.json', import.meta.url), 'utf8'));
+    if (version) return String(version);
+  } catch { /* fichier absent : compilation hors `npm run build` */ }
+  return String(Date.now());
+}
 
 export default defineConfig({
   base: '/',
+  define: { __BUILD_ID__: JSON.stringify(identifiantDeCompilation()) },
   plugins: [
     react(),
     VitePWA({

@@ -1,19 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { supabase } from '../lib/supabase.js';
 import {
   CANAL_VERSION, EVENEMENT_DEPLOIEMENT, DELAI_VERIFICATION, DELAI_RAPPEL, creerVerificateur, planifierApresSignal,
 } from '../lib/miseAJour.js';
+import {
+  VERSION_INSTALLEE, versionPerimee, rechargementPropre, controlerVersion, majEtat, lireEtat, abonner, enregistrerVerification,
+} from '../lib/versionApp.js';
 
 // tempsReel : écoute le signal de déploiement (espace du personnel). Le portail parent s'en passe : pas de connexion Realtime de plus.
 export default function UpdateButton({ tempsReel = true }) {
   const [updating, setUpdating] = useState(false);
   const inscription = useRef(null);
   const verifierRef = useRef(null);
-  if (!verifierRef.current) verifierRef.current = creerVerificateur({ donneInscription: () => inscription.current });
+  if (!verifierRef.current) verifierRef.current = creerVerificateur({ donneInscription: () => inscription.current, controlerVersion });
+  // Deuxième détection, indépendante du service worker : la version en ligne n'est pas celle qui tourne ici.
+  const etat = useSyncExternalStore(abonner, lireEtat);
+  const perimee = versionPerimee(VERSION_INSTALLEE, etat.versionEnLigne);
+  const [masquee, setMasquee] = useState(false);
 
   const {
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegistered(r) {
@@ -25,6 +32,14 @@ export default function UpdateButton({ tempsReel = true }) {
       console.error('Erreur Service Worker:', error);
     },
   });
+
+  // Le diagnostic (Paramètres) peut demander une vérification immédiate ; et on en fait une dès l'ouverture, sans attendre
+  // l'inscription du service worker.
+  useEffect(() => {
+    const verifier = (opts) => verifierRef.current(opts);
+    verifier({ force: true });
+    return enregistrerVerification(() => verifier({ force: true }));
+  }, []);
 
   // Quand chercher une nouvelle version : toutes les minutes tant que l'application est visible, et surtout DÈS qu'on y revient
   // (retour au premier plan, onglet réaffiché, réseau retrouvé). Sur téléphone, une application en arrière-plan gèle ses
@@ -50,18 +65,20 @@ export default function UpdateButton({ tempsReel = true }) {
   // attendre la prochaine minute. Le signal ne contient rien : l'application refait elle-même la vérification, donc un faux
   // signal ne peut rien causer de plus qu'une vérification.
   useEffect(() => {
-    if (!tempsReel) return undefined;
+    if (!tempsReel) { majEtat({ canal: 'désactivé' }); return undefined; }
     let annulerSerie = null;
     let canal = null;
     try {
       canal = supabase.channel(CANAL_VERSION)
         .on('broadcast', { event: EVENEMENT_DEPLOIEMENT }, () => {
+          majEtat({ dernierSignal: Date.now() });
           if (annulerSerie) annulerSerie();
           annulerSerie = planifierApresSignal((opts) => verifierRef.current(opts));
         })
-        .subscribe();
+        .subscribe((statut) => majEtat({ canal: statut }));
     } catch (err) {
       console.error('Canal de mise à jour indisponible:', err);
+      majEtat({ canal: 'indisponible' });
     }
     return () => {
       if (annulerSerie) annulerSerie();
@@ -72,29 +89,36 @@ export default function UpdateButton({ tempsReel = true }) {
   // « Plus tard » ne cache la bannière que pour un temps : la mise à jour attend toujours, la bannière revient.
   const rappel = useRef(null);
   useEffect(() => () => clearTimeout(rappel.current), []);
-  useEffect(() => { if (needRefresh) clearTimeout(rappel.current); }, [needRefresh]);
 
   const handleUpdate = async () => {
     setUpdating(true);
+    if (!needRefresh) {
+      // Le service worker n'a rien signalé mais la version en ligne est différente : il n'y a pas de nouveau service worker
+      // à activer, on repart d'une copie propre.
+      await rechargementPropre();
+      return;
+    }
+    // Si l'activation classique n'aboutit pas en quelques secondes, on repart d'une copie propre plutôt que de rester bloqué.
+    const secours = setTimeout(() => rechargementPropre(), 8000);
     try {
       // Cette fonction de Workbox force le nouveau Service Worker à prendre
       // le contrôle et recharge la page automatiquement.
       await updateServiceWorker(true);
     } catch (error) {
       console.error("Erreur lors de la mise à jour:", error);
+      clearTimeout(secours);
       window.location.reload();
     }
-    setUpdating(false);
   };
 
   const close = () => {
-    setNeedRefresh(false);
+    setMasquee(true);
     clearTimeout(rappel.current);
-    rappel.current = setTimeout(() => setNeedRefresh(true), DELAI_RAPPEL);
+    rappel.current = setTimeout(() => setMasquee(false), DELAI_RAPPEL);
   };
 
   // On n'affiche rien s'il n'y a pas de mise à jour
-  if (!needRefresh) return null;
+  if (!(needRefresh || perimee) || masquee) return null;
 
   return (
     <div style={{

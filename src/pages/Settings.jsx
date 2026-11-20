@@ -1,6 +1,7 @@
 import SchoolCountryCard from '../components/SchoolCountryCard.jsx';
 import EnableNotifications from '../components/EnableNotifications.jsx';
 import DisplaySizeCard from '../components/DisplaySizeCard.jsx';
+import DiagnosticMiseAJour from '../components/DiagnosticMiseAJour.jsx';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
@@ -238,6 +239,8 @@ export default function Settings() {
         <EnableNotifications />
 
         <DisplaySizeCard />
+
+        {isFondateur && <DiagnosticMiseAJour />}
 
         <div className="card-bold" style={{ padding: '16px 20px' }}>
           <p style={{ margin: '0 0 3px', fontSize: '13.5px', fontWeight: 600 }}>Visites guidées</p>
