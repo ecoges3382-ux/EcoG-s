@@ -37,7 +37,7 @@ export default function Login() {
         
         {/* 👇 CORRECTION ICI : On utilise Flexbox pour forcer le centrage du logo 👇 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 28 }}>
-          <Wordmark tone="onLight" height={46} style={{ marginBottom: 14 }} />
+          <Wordmark tone="onLight" height={58} style={{ marginBottom: 14 }} />
           <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
             Connexion à votre espace de gestion scolaire
           </p>
