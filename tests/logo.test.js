@@ -41,9 +41,9 @@ describe('icônes et images de partage', () => {
     expect(pngTaille(lire(fichier))).toEqual({ w, h });
   });
 
-  it('l\'image de partage (Facebook, WhatsApp, X) fait 1200 x 630 et reste légère', () => {
+  it('l\'image de partage (Facebook, WhatsApp, X) est carrée (1200 x 1200) et reste légère', () => {
     const buf = lire('og-image.jpg');
-    expect(jpegTaille(buf)).toEqual({ w: 1200, h: 630 });
+    expect(jpegTaille(buf)).toEqual({ w: 1200, h: 1200 });
     expect(buf.length).toBeLessThan(300 * 1024); // WhatsApp ignore les images trop lourdes
   });
 
@@ -71,7 +71,8 @@ describe('références dans index.html et le manifeste', () => {
     expect(og).toMatch(/^https:\/\//);
     expect(existsSync(publicPath(new URL(og).pathname))).toBe(true);
     expect(html).toMatch(/property="og:image:width" content="1200"/);
-    expect(html).toMatch(/property="og:image:height" content="630"/);
+    expect(html).toMatch(/property="og:image:height" content="1200"/);
+    expect(html).toMatch(/name="twitter:card" content="summary"/); // image carrée : carte « summary », pas « summary_large_image »
     expect(html).toContain(`name="twitter:image" content="${og}"`);
   });
 
