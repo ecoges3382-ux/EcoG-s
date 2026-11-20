@@ -1,5 +1,34 @@
 {
   "rewrites": [
-    { "source": "/((?!version\\.json$).*)", "destination": "/index.html" }
+    {
+      "source": "/partage.jpg",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*WhatsApp.*"
+        }
+      ],
+      "destination": "/og-image.jpg"
+    },
+    {
+      "source": "/partage.jpg",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot).*"
+        }
+      ],
+      "destination": "/og-facebook.jpg"
+    },
+    {
+      "source": "/partage.jpg",
+      "destination": "/og-image.jpg"
+    },
+    {
+      "source": "/((?!version\\.json$).*)",
+      "destination": "/index.html"
+    }
   ]
 }
