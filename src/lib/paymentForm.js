@@ -11,8 +11,33 @@ export function tranchesPourType(typeFrais) {
 }
 
 export function trancheValidePourType(typeFrais, tranche) {
+  const ids = decouperTranches(tranche);
+  if (ids.length > 1) return typeFrais === 'scolarite' && ids.every(estTrancheNumero);
   return tranchesPourType(typeFrais).some((t) => t.id === tranche);
 }
+
+// Plusieurs tranches d'écolage payées d'un coup : l'identifiant du choix est « tranche1+tranche2 ». On ne peut cocher que des tranches
+// qui se suivent en partant de la première à payer (l'application remplit les tranches dans l'ordre : 1ère, puis 2ème…), donc cocher la
+// 3ème coche aussi la 1ère et la 2ème, et décocher la 1ère décoche les suivantes.
+const SEPARATEUR_TRANCHES = '+';
+const estTrancheNumero = (id) => /^tranche\d+$/.test(id);
+export const decouperTranches = (id) => String(id == null ? '' : id).split(SEPARATEUR_TRANCHES).filter(Boolean);
+
+// Tranches cochées d'un identifiant de choix (liste vide si c'est un choix « exclusif » : Moitié, Complet, Autre…).
+export function tranchesCochees(id) {
+  const ids = decouperTranches(id);
+  return ids.length > 0 && ids.every(estTrancheNumero) ? ids : [];
+}
+
+// Nouvelle sélection quand on coche ou décoche la tranche `id`. `choix` : la liste proposée ; `selection` : les tranches déjà cochées.
+export function basculerTranche(choix, selection, id) {
+  const numeros = choix.filter((c) => estTrancheNumero(c.id)).map((c) => c.id);
+  const i = numeros.indexOf(id);
+  if (i < 0) return selection;
+  return selection.includes(id) ? numeros.slice(0, i) : numeros.slice(0, i + 1);
+}
+
+export const identifiantTranches = (selection) => selection.join(SEPARATEUR_TRANCHES);
 
 // Quand on change de type de frais, la tranche choisie doit rester permise ; sinon on revient à « Complet ».
 export function trancheApresChangementDeType(nouveauType, trancheActuelle) {
@@ -104,6 +129,12 @@ export function optionsPaiement(typeFrais, eleve, anneeScolaire, grilleFrais) {
 
 // Montant à pré-remplir pour le choix sélectionné (null : on ne touche pas au champ, ou il se saisit à la main).
 export function montantPropose(choix, trancheId) {
+  const cochees = tranchesCochees(trancheId);
+  if (cochees.length > 1) {
+    // Plusieurs tranches d'un coup : la somme de ce qui reste à payer sur chacune.
+    const total = cochees.reduce((somme, id) => somme + entier(choix.find((x) => x.id === id)?.montant), 0);
+    return total > 0 ? total : null;
+  }
   const c = choix.find((x) => x.id === trancheId);
   const m = c ? entier(c.montant) : 0;
   return m > 0 ? m : null;
@@ -112,6 +143,8 @@ export function montantPropose(choix, trancheId) {
 // Le choix sélectionné doit toujours exister dans la liste : sinon « Complet » (ou « Solde ») s'il y est, sinon le premier.
 export function choisirTranche(choix, actuelle) {
   if (choix.some((c) => c.id === actuelle)) return actuelle;
+  const cochees = tranchesCochees(actuelle);
+  if (cochees.length > 1 && cochees.every((id) => choix.some((c) => c.id === id))) return actuelle; // plusieurs tranches, toujours à payer
   return choix.some((c) => c.id === 'complet') ? 'complet' : (choix[0]?.id || 'autre');
 }
 

@@ -20,6 +20,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import SelectionBar from '../../components/SelectionBar.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import ChampRecherche from '../../components/ChampRecherche.jsx';
+import ChoixTranche from '../../components/ChoixTranche.jsx';
 import { correspondAuxMots } from '../../lib/texte.js';
 import { translateError } from '../../lib/errors.js';
 import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
@@ -536,7 +537,7 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div><label style={modalLabelStyle}>Type de frais</label><Dropdown value={typeFrais} onChange={changerTypeFrais} options={TYPES_FRAIS.filter((t) => !t.hidden).map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
-          <div><label style={modalLabelStyle}>Tranche / Type</label><Dropdown value={tranche} onChange={setTranche} options={choixTranche.map((t) => ({ value: t.id, label: t.label }))} style={modalInputStyle} /></div>
+          <div><label style={modalLabelStyle}>Tranche / Type</label><ChoixTranche value={tranche} onChange={setTranche} choix={choixTranche} style={modalInputStyle} /></div>
         </div>
 
         <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
