@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const signer = vi.fn();
 vi.mock('../src/lib/supabase.js', () => ({ supabase: { storage: { from: (b) => ({ createSignedUrl: (...a) => signer(b, ...a) }) } } }));
 
-const { nomFichierChat, typeParNom, partageDisponible, adresseFichierChat, preparerFichierChat, partagerFichierChat, enregistrerFichierChat } = await import('../src/lib/fichiersChat.js');
+const { nomFichierChat, typeParNom, partageDisponible, adresseFichierChat, preparerFichierChat, partagerFichierChat, enregistrerFichierChat, ouvrirFichierChat } = await import('../src/lib/fichiersChat.js');
 
 let n = 0;
 const msg = (extra = {}) => ({ id: `m${++n}`, file_url: `S/C/${n}-abc.png`, file_type: 'image', file_name: 'photo classe.png', ...extra });
@@ -116,5 +116,41 @@ describe('enregistrement', () => {
     vi.stubGlobal('document', { createElement: vi.fn(() => lien), body: { appendChild: vi.fn() } });
     expect(await enregistrerFichierChat(msg())).toBe(false);
     expect(lien.click).not.toHaveBeenCalled();
+  });
+});
+
+describe('ouverture d\'un fichier (pas de pop-up bloqué sur iPhone)', () => {
+  function simulerNavigateur({ popupAutorise = true } = {}) {
+    const ordre = [];
+    const fenetre = { location: { href: '' }, opener: {}, close: vi.fn(() => ordre.push('fermee')) };
+    const lien = { click: vi.fn(() => ordre.push('telechargement')), remove: vi.fn() };
+    vi.stubGlobal('window', { open: vi.fn(() => { ordre.push('onglet-ouvert'); return popupAutorise ? fenetre : null; }) });
+    vi.stubGlobal('document', { createElement: vi.fn(() => lien), body: { appendChild: vi.fn() } });
+    signer.mockImplementation(async () => { ordre.push('adresse-demandee'); return { data: { signedUrl: 'https://stockage/signe' }, error: null }; });
+    return { ordre, fenetre, lien };
+  }
+  it('ouvre l\'onglet AVANT de demander l\'adresse (sinon Safari le bloque), puis le dirige vers le fichier', async () => {
+    const { ordre, fenetre } = simulerNavigateur();
+    expect(await ouvrirFichierChat(msg({ file_type: 'file', file_name: 'a.pdf' }))).toBe(true);
+    expect(ordre).toEqual(['onglet-ouvert', 'adresse-demandee']);
+    expect(fenetre.location.href).toBe('https://stockage/signe');
+    expect(fenetre.opener).toBeNull();
+  });
+  it('si le navigateur refuse quand même l\'onglet, le fichier est téléchargé à la place', async () => {
+    const { ordre, lien } = simulerNavigateur({ popupAutorise: false });
+    expect(await ouvrirFichierChat(msg({ file_type: 'file', file_name: 'a.pdf' }))).toBe(true);
+    expect(ordre).toContain('telechargement');
+    expect(lien.download).toBe('a.pdf');
+  });
+  it('adresse impossible : l\'onglet vide est refermé, et on le dit', async () => {
+    const { fenetre } = simulerNavigateur();
+    signer.mockResolvedValue({ data: null, error: { message: 'non' } });
+    expect(await ouvrirFichierChat(msg())).toBe(false);
+    expect(fenetre.close).toHaveBeenCalledTimes(1);
+  });
+  it('message sans fichier : rien n\'est ouvert', async () => {
+    const { } = simulerNavigateur();
+    expect(await ouvrirFichierChat({})).toBe(false);
+    expect(window.open).not.toHaveBeenCalled();
   });
 });
