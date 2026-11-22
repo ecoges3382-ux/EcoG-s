@@ -14,6 +14,9 @@ import { correspondAuxMots } from '../../lib/texte.js';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { SkeletonRow } from '../Skeleton.jsx';
 import NomPersonnel from '../NomPersonnel.jsx';
+import { creerFicheDepuisCompte } from '../../lib/ficheDepuisCompte.js';
+import { oublierPersonnel } from '../../lib/fichePersonnel.js';
+import { hasFeature } from '../../lib/plan.js';
 import ModalContainer from '../ModalContainer.jsx';
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
@@ -199,7 +202,11 @@ export default function StaffAccountsTab() {
 
 function StaffAccountModal({ editing, onClose, onSaved }) {
   const showToast = useToast();
+  const { profile } = useAuth();
   const isEditing = !!editing;
+  // Créer aussi la fiche du personnel : proposé à la création seulement, et si le forfait inclut le personnel.
+  const peutCreerFiche = !isEditing && hasFeature(profile?.schools?.plan || 'decouverte', 'personnel');
+  const [creerFiche, setCreerFiche] = useState(true);
 
   const [fullName, setFullName] = useState(editing?.full_name || '');
   const [role, setRole] = useState(editing?.role || CREATABLE_STAFF_ROLES[0]);
@@ -254,7 +261,18 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
       return;
     }
     
-    showToast(isEditing ? 'Compte mis à jour' : 'Invitation envoyée par e-mail !');
+    if (isEditing) { showToast('Compte mis à jour'); onSaved(); return; }
+
+    // Compte créé. Sa fiche du personnel : déjà reliée par le serveur si elle existait ; sinon on la crée si c'est demandé.
+    let message = 'Invitation envoyée par e-mail !';
+    if (data?.fiche_reliee) {
+      message += ' Le compte est relié à sa fiche du personnel.';
+    } else if (peutCreerFiche && creerFiche && data?.profile_id) {
+      const r = await creerFicheDepuisCompte(supabase, { schoolId: profile.school_id, profileId: data.profile_id, fullName: fullName.trim(), role, email: email.trim(), phone: body.phone });
+      message += r.ok ? ' Sa fiche du personnel a été créée.' : " Sa fiche du personnel n'a pas pu être créée (ajoute-la depuis Personnel).";
+    }
+    oublierPersonnel();
+    showToast(message);
     onSaved();
   }
 
@@ -289,6 +307,18 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
               <i className="ti ti-mail" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
               Un e-mail sera envoyé à cette adresse pour que l'utilisateur crée son propre mot de passe.
             </p>
+          )}
+
+          {peutCreerFiche && (
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, margin: '0 0 18px', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}>
+              <input type="checkbox" checked={creerFiche} onChange={(e) => setCreerFiche(e.target.checked)} style={{ accentColor: 'var(--forest)', width: 16, height: 16, marginTop: 2, flexShrink: 0 }} />
+              <span>
+                <strong>Créer aussi sa fiche du personnel</strong>
+                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                  Pour le salaire, les matières et les classes. Inutile si elle a déjà une fiche : le compte y sera relié tout seul.
+                </span>
+              </span>
+            </label>
           )}
 
           <div style={{ marginBottom: 16, padding: '14px 16px', background: 'var(--cream)', borderRadius: 12, border: '1px solid var(--line)' }}>

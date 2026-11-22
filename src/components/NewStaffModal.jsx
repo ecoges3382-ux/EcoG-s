@@ -11,14 +11,9 @@ import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
+import { nextMatricule } from '../lib/ficheDepuisCompte.js';
 
 const ROLES = ['Enseignant', 'Censeur', 'Secrétaire', 'Directeur', 'Fondateur'];
-const PREFIXES = { Enseignant: 'ENS', Censeur: 'CEN', Secrétaire: 'SEC', Directeur: 'DIR', Fondateur: 'FON' };
-
-function nextMatricule(existingStaff, role) {
-  const count = existingStaff.filter((p) => p.role === role).length + 1;
-  return `${PREFIXES[role] || 'PER'}-${String(count).padStart(4, '0')}`;
-}
 
 function MultiSelect({ label, options, selectedIds, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
