@@ -7,7 +7,7 @@ import { useOnlineUsers } from '../lib/presence.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import NomPersonnel, { LienFiche } from '../components/NomPersonnel.jsx';
 import VisionneuseImage from '../components/VisionneuseImage.jsx';
-import { enregistrerFichierChat, partageDisponible, partagerFichierChat, preparerFichierChat } from '../lib/fichiersChat.js';
+import { enregistrerFichierChat, ouvrirFichierChat, partageDisponible, partagerFichierChat, preparerFichierChat } from '../lib/fichiersChat.js';
 
 const AVATAR_COLORS = ['#0F4C3A', '#C4622D', '#C99A3D', '#2E6B47', '#8F4620', '#4A6670', '#5B3A8E'];
 function avatarColor(seed) {
@@ -123,11 +123,7 @@ function SecureChatImage({ m, src, isMe, onLoad }) {
 }
 
 async function openFile(m) {
-  if (!m.file_url) return;
-  if (m.file_url.startsWith('http')) { window.open(m.file_url, '_blank', 'noopener'); return; }
-  const { data } = await supabase.storage.from('chat-files').createSignedUrl(m.file_url, 300);
-  if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener');
-  else alert("Impossible d'ouvrir le fichier.");
+  if (!(await ouvrirFichierChat(m))) alert("Impossible d'ouvrir le fichier.");
 }
 
 function MessageContent({ m, isMe, onImageLoad, onFileOptions }) {

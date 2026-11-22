@@ -99,3 +99,20 @@ export async function enregistrerFichierChat(m) {
   a.remove();
   return true;
 }
+
+/**
+ * Ouvre un fichier du Chat dans un nouvel onglet (PDF, document...).
+ * Le nouvel onglet est ouvert TOUT DE SUITE, pendant le toucher : sur iPhone, Safari bloque (« Ce site tente d'ouvrir un pop-up »)
+ * tout onglet ouvert après une attente, comme celle de l'adresse sécurisée. On l'ouvre donc vide, puis on le dirige vers le fichier.
+ * Si le navigateur refuse quand même l'onglet, on télécharge le fichier à la place. Rend true si le fichier est ouvert ou téléchargé.
+ */
+export async function ouvrirFichierChat(m) {
+  if (!m?.file_url) return false;
+  const fenetre = window.open('', '_blank');
+  const url = await adresseFichierChat(m, { secondes: 300 });
+  if (!url) { if (fenetre) fenetre.close(); return false; }
+  if (!fenetre) return enregistrerFichierChat(m);
+  try { fenetre.opener = null; } catch { /* sans importance */ }
+  fenetre.location.href = url;
+  return true;
+}
