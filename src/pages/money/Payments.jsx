@@ -30,6 +30,7 @@ export default function Payments() {
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
   const [students, setStudents] = useState([]);
+  const [studentsLoaded, setStudentsLoaded] = useState(false); // le premier appel (paiements) revient avant celui des élèves
   const [feeSchedules, setFeeSchedules] = useState([]);
   const [schoolYearInfo, setSchoolYearInfo] = useState(null);
   const [error, setError] = useState('');
@@ -143,6 +144,7 @@ export default function Payments() {
         frais_connexe_paye: e.frais_connexe_paye,
       }))
       .sort((a, b) => a.full_name.localeCompare(b.full_name)));
+    setStudentsLoaded(true);
 
     const { data: fs } = await supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id);
     setFeeSchedules(fs || []);
@@ -254,7 +256,9 @@ export default function Payments() {
 
       {payments.length === 0 ? (
         <div className="card-bold">
-          {students.length === 0 ? (
+          {!studentsLoaded ? (
+            <SkeletonRow count={3} avatar={false} />
+          ) : students.length === 0 ? (
             <EmptyState icon={<UsersIcon />} title="Aucun élève inscrit cette année" subtitle="Il faut d'abord inscrire au moins un élève." actionLabel="Aller vers Élèves" actionTo="/eleves" />
           ) : (
             <EmptyState icon={<ReceiptIcon />} title="Aucun paiement enregistré" subtitle="Dès qu'un parent paie, enregistre-le ici." actionLabel={canManage ? 'Enregistrer un paiement' : undefined} onAction={canManage ? () => setModalOpen(true) : undefined} />
@@ -321,6 +325,7 @@ export default function Payments() {
 }
 
 function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClose, onCreated }) {
+  const confirm = useConfirm();
   const showToast = useToast();
   const { profile } = useAuth();
   const classes = [...new Set(students.map((s) => s.niveau))].sort();
@@ -389,7 +394,10 @@ function NewPaymentModal({ schoolId, schoolYearId, students, feeSchedules, onClo
     e.preventDefault();
     if (!studentId || !montant) { setError("L'élève et le montant sont obligatoires."); return; }
     if (dejaPaye) { setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais."); return; }
-    
+    // Paiement plus grand que ce qui reste dû : on ne bloque pas (un parent peut avancer de l'argent), mais on demande confirmation.
+    const trop = depassement(typeFrais, montant, currentStudent);
+    if (trop > 0 && !(await confirm(`Ce paiement de ${fmtF(Number(montant))} dépasse de ${fmtF(trop)} ce qui reste dû. L'élève aura un crédit de ${fmtF(trop)}. Enregistrer quand même ?`, { confirmLabel: 'Enregistrer quand même' }))) return;
+
     setSubmitting(true);
     setError('');
     const payload = {
