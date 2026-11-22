@@ -48,7 +48,7 @@ export default function YearKpis({ students, attendance, classResults }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
-        <Stat label="Encaissé" value={fmtF(totalPaye)} color="var(--success)" to="/recouvrement" />
+        <Stat label="Écolage encaissé" value={fmtF(totalPaye)} color="var(--success)" to="/recouvrement" />
         <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" to="/recouvrement?statut=avec_solde" />
         <Stat label="Élèves à jour / avec solde" value={`${nbAJour} / ${nbAvecSolde}`} to="/recouvrement" />
       </div>
