@@ -13,6 +13,7 @@ import useHauteurListe from '../../lib/useHauteurListe.js';
 import { correspondAuxMots } from '../../lib/texte.js';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { SkeletonRow } from '../Skeleton.jsx';
+import NomPersonnel from '../NomPersonnel.jsx';
 import ModalContainer from '../ModalContainer.jsx';
 
 const CREATABLE_STAFF_ROLES = ['directeur', 'censeur', 'secretaire', 'enseignant'];
@@ -352,7 +353,7 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, 
           {initials(account.full_name)}
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}>{account.full_name}</p>
+          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}><NomPersonnel nom={account.full_name} email={account.email} phone={account.phone} /></p>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>
         </div>
       </div>
