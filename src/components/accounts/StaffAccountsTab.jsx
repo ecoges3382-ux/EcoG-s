@@ -13,7 +13,7 @@ import useHauteurListe from '../../lib/useHauteurListe.js';
 import { correspondAuxMots } from '../../lib/texte.js';
 import { guardedFetch } from '../../lib/offlineCache.js';
 import { SkeletonRow } from '../Skeleton.jsx';
-import NomPersonnel from '../NomPersonnel.jsx';
+import NomPersonnel, { useFicheEtat } from '../NomPersonnel.jsx';
 import { creerFicheDepuisCompte } from '../../lib/ficheDepuisCompte.js';
 import { oublierPersonnel } from '../../lib/fichePersonnel.js';
 import { hasFeature } from '../../lib/plan.js';
@@ -183,6 +183,7 @@ export default function StaffAccountsTab() {
               subtitle={`${a.email || '—'}${a.phone ? ` · ${a.phone}` : ''}`}
               isLast={i === affiches.length - 1} onEdit={() => openEdit(a)}
               canDelete={a.role !== 'fondateur' && a.id !== profile.id} onDelete={() => handleDelete(a)}
+              peutCreerFiche={isFondateur && hasFeature(profile?.schools?.plan || 'decouverte', 'personnel')} schoolId={profile.school_id}
               badge={<span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 20, background: 'var(--forest-light)', color: 'var(--forest-dark-text)' }}>{ROLES[a.role]?.label || a.role}</span>}
             />
           ))}
@@ -375,10 +376,27 @@ function StaffAccountModal({ editing, onClose, onSaved }) {
   );
 }
 
-function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, canDelete, onDelete, badge }) {
+function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, canDelete, onDelete, badge, peutCreerFiche, schoolId }) {
+  const showToast = useToast();
+  const confirm = useConfirm();
+  const { pret, id: ficheId } = useFicheEtat({ id: account.id, nom: account.full_name, email: account.email, phone: account.phone });
+  const [creation, setCreation] = useState(false);
+  // Un compte sans fiche du personnel (jamais ajoutée, ou compte créé avant que la fiche soit proposée) : bouton pour la créer en un geste.
+  const afficherCreerFiche = peutCreerFiche && pret && !ficheId && account.role !== 'parent';
+
+  async function creerFiche() {
+    if (!(await confirm(`Créer la fiche du personnel de ${account.full_name} (${ROLES[account.role]?.label || account.role}) et la relier à son compte ?`, { confirmLabel: 'Créer la fiche' }))) return;
+    setCreation(true);
+    const r = await creerFicheDepuisCompte(supabase, { schoolId, profileId: account.id, fullName: account.full_name, role: account.role, email: account.email, phone: account.phone });
+    setCreation(false);
+    if (!r.ok) { showToast(`Fiche non créée : ${r.erreur?.message || 'erreur'}`); return; }
+    oublierPersonnel(); // la liste se met à jour : le bouton disparaît et le nom devient cliquable
+    showToast('Fiche du personnel créée et reliée au compte');
+  }
+
   return (
-    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 8, padding: '13px 20px', borderBottom: isLast ? 'none' : '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 1 200px' }}>
         <div style={{ width: 34, height: 34, borderRadius: 9, background: avatarBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 12, fontWeight: 600, color: avatarColor, flexShrink: 0 }}>
           {initials(account.full_name)}
         </div>
@@ -387,8 +405,13 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, 
           <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', marginLeft: 'auto' }}>
         {badge}
+        {afficherCreerFiche && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); creerFiche(); }} disabled={creation} title="Ce compte n'a pas de fiche du personnel" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, padding: '6px 11px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: creation ? 'default' : 'pointer', opacity: creation ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+            <i className="ti ti-id" style={{ fontSize: 15 }} aria-hidden="true"></i>{creation ? 'Création…' : 'Créer la fiche'}
+          </button>
+        )}
         <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ ...iconButtonStyle, color: 'var(--muted)' }} title="Modifier ce compte">
           <PencilIcon />
         </button>
