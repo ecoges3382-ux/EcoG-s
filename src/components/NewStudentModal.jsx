@@ -10,6 +10,8 @@ import PhoneInput, { composePhone, decomposePhone } from './PhoneInput.jsx';
 import { useSchoolDial } from '../lib/schoolCountry.js';
 import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
+import { trouverDoublonsParent } from '../lib/parents.js';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import HelpTooltip from './HelpTooltip.jsx';
@@ -27,6 +29,7 @@ const PAIEMENT_TRANCHES = [
 
 export default function NewStudentModal({ schoolId, schoolYearId, classes, canManageParents, student = null, isHistorical = false, onClose, onCreated }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
   const isEditing = !!student;
   const canEditEnrollment = !isEditing || !isHistorical;
@@ -302,7 +305,19 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
 
     // --- CRÉATION D'UN NOUVEL ÉLÈVE ---
 
-    const studentParentPhone = (canManageParents && !useExistingParent && parentNom.trim())
+    // Un parent du même nom et du même numéro existe déjà ? On propose de lier l'élève à ce parent plutôt que d'en créer un deuxième.
+    let idParentLie = useExistingParent && selectedExistingParentId ? selectedExistingParentId : null;
+    if (!idParentLie && canManageParents && !useExistingParent && parentNom.trim()) {
+      const doublons = trouverDoublonsParent(existingParents, { nom: parentNom, prenom: parentPrenom, phone: composePhone(parentAccessDial, parentAccessLocal) });
+      if (doublons.length > 0) {
+        const d = doublons[0];
+        const lier = await confirm(`Un parent « ${d.full_name || `${d.nom} ${d.prenom}`.trim()} » avec le même numéro existe déjà. Lier cet élève à ce parent plutôt que d'en créer un deuxième ?`, { confirmLabel: 'Lier au parent existant', cancelLabel: 'Créer un nouveau parent', danger: false });
+        if (lier) idParentLie = d.id;
+      }
+    }
+    const creerParent = canManageParents && !idParentLie && !useExistingParent && parentNom.trim();
+
+    const studentParentPhone = creerParent
       ? composePhone(parentAccessDial, parentAccessLocal) || null
       : null;
 
@@ -318,7 +333,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
       p_classe_id: classeId || null,
       p_montant_du: Number(montantDu) || 0,
       p_frais_connexe_du: Number(selectedClasse ? feeSchedules[selectedClasse.niveau]?.montant_connexe : 0) || 0,
-      p_existing_parent_access_id: useExistingParent && selectedExistingParentId ? selectedExistingParentId : null,
+      p_existing_parent_access_id: idParentLie,
       p_paiement_montant: Number(paiementMontant) || 0,
       p_paiement_tranche: paiementTranche,
       p_paiement_mode: paiementMode,
@@ -338,7 +353,7 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
     let newParentCode = null;
     let newParent2Code = null;
 
-    if (canManageParents && !useExistingParent && parentNom.trim()) {
+    if (creerParent) {
       let created = null;
       for (let attempt = 0; attempt < 5 && !created; attempt++) {
         const { data, error: paError } = await supabase.from('parent_access').insert({

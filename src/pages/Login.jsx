@@ -108,9 +108,6 @@ export default function Login() {
         <p style={{ margin: '18px 0 0', fontSize: '12.5px', color: 'var(--muted)', textAlign: 'center' }}>
           Nouvelle école ? <Link to="/inscription" style={{ color: 'var(--forest-text)', fontWeight: 600 }}>Créer une école</Link>
         </p>
-        <p style={{ margin: '10px 0 0', fontSize: 11.5, color: 'var(--muted)', textAlign: 'center' }}>
-          <Link to="/inscription-administrateur" style={{ color: 'var(--muted)' }}>Administrateur de la plateforme ? Créer un compte</Link>
-        </p>
       </div>
     </div>
   );
