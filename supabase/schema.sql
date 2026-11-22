@@ -3652,6 +3652,15 @@ alter table schools add column if not exists indicatif_pays text not null defaul
 alter table schools drop constraint if exists schools_indicatif_pays_check;
 alter table schools add constraint schools_indicatif_pays_check check (indicatif_pays ~ '^[0-9]{1,3}$');
 
+-- ---------- Rappels de paiement automatiques : réglages de l'école ----------
+-- Le fondateur peut couper les rappels WhatsApp envoyés chaque matin par cron-reminders, ou choisir ses jalons (jours par rapport
+-- à l'échéance : 15, 7, 3 avant, -3 = 3 jours après). Modifiable dans Paramètres > WhatsApp (couvert par la règle de mise à jour de
+-- l'école, réservée au fondateur). Valeurs par défaut = comportement d'avant : tout activé.
+alter table schools add column if not exists rappels_auto boolean not null default true;
+alter table schools add column if not exists rappels_jalons integer[] not null default '{15,7,3,-3}';
+alter table schools drop constraint if exists schools_rappels_jalons_check;
+alter table schools add constraint schools_rappels_jalons_check check (rappels_jalons <@ array[15, 7, 3, -3]);
+
 -- =====================================================================================================
 -- Éléments créés à la main en production (hors de ce fichier jusqu'ici), rapatriés ici pour que le projet
 -- puisse être recréé à l'identique. Relevés directement dans la base de production : colonnes, contraintes,

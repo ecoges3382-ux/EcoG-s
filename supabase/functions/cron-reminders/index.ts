@@ -16,7 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const SITE_URL = 'https://eco-ges.vercel.app';
-const MILESTONES = [15, 7, 3, -3];            // jours avant (+) ou après (-) l'échéance
+const MILESTONES = [15, 7, 3, -3];            // jours avant (+) ou après (-) l'échéance : l'ensemble des jalons possibles
 const DEDUPE_DAYS = 40;                         // fenêtre où un même rappel ne doit pas être renvoyé
 const MAX_FAILURES = 2;                         // au-delà, on arrête de réessayer ce parent pour ce rappel
 const TIME_BUDGET_MS = 110_000;                 // la fonction s'arrête avant sa limite de durée
@@ -61,6 +61,15 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Réglages de l'école (Paramètres > WhatsApp). Copie de reglagesRappels dans src/lib/rappelsAuto.js (tests/rappels-auto.test.js).
+// Sans colonnes en base ou sans réglage : tout est activé, comme avant. Un jalon inconnu est ignoré.
+// deno-lint-ignore no-explicit-any
+function reglagesRappels(row: any) {
+  if (!row) return { actif: true, jalons: [...MILESTONES] };
+  const brut = Array.isArray(row.rappels_jalons) ? row.rappels_jalons : MILESTONES;
+  return { actif: row.rappels_auto !== false, jalons: MILESTONES.filter((j) => brut.includes(j)) };
+}
 
 function formatDateFr(dateStr: string | null) {
   if (!dateStr) return '';
@@ -271,6 +280,12 @@ Deno.serve(async (req) => {
       const { data: school } = await adminClient.from('schools').select('plan, statut, name').eq('id', schoolId).single();
       if (!school || school.plan === 'decouverte' || (school.statut !== 'actif' && school.statut !== 'essai')) continue;
 
+      // Le fondateur peut couper les rappels ou choisir ses jalons. Lecture à part : si les colonnes n'existent pas encore
+      // (mise à jour de la base pas faite), on garde le comportement d'avant, jamais une panne d'envoi à cause de ça.
+      const { data: reglagesRow, error: reglagesError } = await adminClient.from('schools').select('rappels_auto, rappels_jalons').eq('id', schoolId).maybeSingle();
+      const reglages = reglagesRappels(reglagesError ? null : reglagesRow);
+      if (!reglages.actif || reglages.jalons.length === 0) continue;
+
       const dial = await getSchoolDial(adminClient, schoolId); // indicatif ajouté aux numéros saisis sans « + »
       const { data: schoolYears } = await adminClient
         .from('school_years')
@@ -288,7 +303,7 @@ Deno.serve(async (req) => {
         { type: 'connexe', date: schoolYear.date_connexe, label: 'les frais connexes', verbe: 'arrivent' },
       ]
         .map((e) => ({ ...e, jours: daysUntil(e.date) }))
-        .filter((e) => e.jours !== null && MILESTONES.includes(e.jours as number));
+        .filter((e) => e.jours !== null && reglages.jalons.includes(e.jours as number));
       if (milestones.length === 0) continue;
 
       // Quota du mois : au-delà, les rappels de cette école attendent le mois suivant (jamais d'envoi hors quota).

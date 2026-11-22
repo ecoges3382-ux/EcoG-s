@@ -7,6 +7,8 @@ import { useToast } from '../components/Toast.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
+import RappelsAutoCard from '../components/RappelsAutoCard.jsx';
+import { useCurrentSchoolYear } from '../lib/schoolYear.jsx';
 
 const CAN_VIEW_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const MESSAGE_TYPES = Object.keys(WHATSAPP_TYPE_LABELS);
@@ -25,6 +27,7 @@ const STATUT_BADGE = {
 export default function SettingsWhatsApp() {
   const { profile } = useAuth();
   const canView = CAN_VIEW_ROLES.includes(profile.role);
+  const { schoolYear } = useCurrentSchoolYear(profile.school_id);
   const [config, setConfig] = useState(null);
   const [error, setError] = useState('');
   const [messages, setMessages] = useState(null);
@@ -100,6 +103,8 @@ export default function SettingsWhatsApp() {
       {config && (
         <>
           <HealthCard schoolId={profile.school_id} openwa={openwa} metaStatut={config.statut} />
+          {/* Les rappels automatiques passent par OpenWA : sans OpenWA actif, il n'y a rien à régler. */}
+          {openwa && schoolYear && <RappelsAutoCard schoolId={profile.school_id} schoolYear={schoolYear} canEdit={profile.role === 'fondateur'} />}
           {/* École sur OpenWA : le formulaire de l'API officielle de Meta ne la concerne pas, on ne l'affiche pas. */}
           {openwa === false && <ConfigCard config={config} onSaved={reloadConfig} />}
           <HistoryCard messages={messages} />
