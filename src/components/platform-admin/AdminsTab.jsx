@@ -133,6 +133,10 @@ export default function AdminsTab({ onChanged }) {
             <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 22, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--ink)' }}>{newInvite.code}</p>
             <button type="button" onClick={() => copyWithToast(newInvite.code)} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: 11.5, cursor: 'pointer' }}>Copier</button>
           </div>
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--clay-text)' }}>
+            Adresse de création du compte (à donner avec le code, elle n'est plus affichée sur la page de connexion) :{' '}
+            <strong style={{ wordBreak: 'break-all' }}>{`${window.location.origin}/inscription-administrateur`}</strong>
+          </p>
         </div>
       )}
 
