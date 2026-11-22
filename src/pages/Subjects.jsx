@@ -10,6 +10,7 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import LienPersonnel from '../components/LienPersonnel.jsx';
 import { translateError } from '../lib/errors.js';
 
 function BookIcon() {
@@ -66,7 +67,7 @@ export default function Subjects() {
       onSuccess: () => setError(''),
     });
     const [{ data: te }, { data: cl }] = await Promise.all([
-      supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
+      supabase.from('staff').select('id, full_name').ilike('role', 'enseignant').order('full_name'),
       supabase.from('classes').select('id, nom, niveau, section'),
     ]);
     setTeachers(te || []);
@@ -145,7 +146,7 @@ export default function Subjects() {
                 <span style={{ fontSize: '13.5px', fontWeight: 600, ...stickyColStyle('var(--paper)'), paddingLeft: selectMode ? 0 : 20 }}>{s.nom}</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--forest-text)', background: 'var(--forest-light)', padding: '3px 9px', borderRadius: 20, width: 'fit-content' }}>×{s.coefficient}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.niveau || 'Tous niveaux'}</span>
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{s.staff?.full_name || '—'}</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}><LienPersonnel id={s.enseignant_id} nom={s.staff?.full_name} /></span>
                 
                 {!selectMode && (
                   <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', paddingRight: 20 }}>

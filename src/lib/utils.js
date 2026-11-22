@@ -226,6 +226,9 @@ const ROLES_PERSONNEL = {
   fondateur: 'Fondateur', directeur: 'Directeur', censeur: 'Censeur', secretaire: 'Secrétaire', enseignant: 'Enseignant',
   comptable: 'Comptable', econome: 'Économe', surveillant: 'Surveillant', intendant: 'Intendant',
 };
+// Vrai pour un enseignant, quelle que soit l'écriture du rôle en base (« Enseignant », « enseignant »).
+export const estEnseignant = (role) => libelleRolePersonnel(role) === 'Enseignant';
+
 export function libelleRolePersonnel(role) {
   const brut = String(role == null ? '' : role).trim();
   if (!brut) return '';

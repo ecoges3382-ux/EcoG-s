@@ -11,6 +11,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import LienPersonnel from '../components/LienPersonnel.jsx';
 import PlanLocked from '../components/PlanLocked.jsx';
 
 const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
@@ -55,7 +56,7 @@ export default function Schedule() {
           supabase.from('schedule_entries')
             .select('*, classes ( nom ), staff ( full_name )')
             .eq('school_year_id', schoolYear.id),
-          supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
+          supabase.from('staff').select('id, full_name').ilike('role', 'enseignant').order('full_name'),
           supabase.from('classes').select('id, nom, niveau, section'),
           supabase.from('schedule_slots').select('*').eq('school_id', profile.school_id).order('ordre'),
         ]);
@@ -162,7 +163,7 @@ export default function Schedule() {
                       </button>
                     </div>
                   </div>
-                  <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--muted)' }}>{view === 'classe' ? (c.staff?.full_name || '—') : c.classes?.nom}</p>
+                  <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--muted)' }}>{view === 'classe' ? <LienPersonnel id={c.enseignant_id} nom={c.staff?.full_name} /> : c.classes?.nom}</p>
                   <span style={{ fontSize: 11, color: 'var(--forest-text)', fontWeight: 600 }}>{slotLabel[c.slot_id] || '—'}</span>
                 </div>
               ))}

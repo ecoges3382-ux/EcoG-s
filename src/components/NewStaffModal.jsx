@@ -4,7 +4,7 @@ import { toInternational } from '../lib/phone.js';
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase.js';
-import { displayName } from '../lib/utils.js';
+import { displayName, libelleRolePersonnel, estEnseignant } from '../lib/utils.js';
 import PhotoPicker from './PhotoPicker.jsx';
 import NameInput from './NameInput.jsx';
 import MoneyInput from './MoneyInput.jsx';
@@ -94,7 +94,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const showToast = useToast();
   const [nom, setNom] = useState(editing?.nom || '');
   const [prenom, setPrenom] = useState(editing?.prenom || '');
-  const [role, setRole] = useState(editing?.role || ROLES[0]);
+  const [role, setRole] = useState(editing?.role ? libelleRolePersonnel(editing.role) : ROLES[0]); // « enseignant » en base s'affiche « Enseignant »
   const [niveauEtudes, setNiveauEtudes] = useState(editing?.niveau_etudes || '');
   
   const [classNames, setClassNames] = useState(editing?.classes || []);
@@ -103,7 +103,7 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   );
   
   const [dispenseCours, setDispenseCours] = useState(() => {
-    if (editing?.role === 'Enseignant') return true;
+    if (estEnseignant(editing?.role)) return true;
     return (editing?.classes?.length > 0) || availableSubjects.some((s) => s.enseignant_id === editing?.id);
   });
 

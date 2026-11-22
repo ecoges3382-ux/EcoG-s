@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, fmtF, libelleRolePersonnel, MODES, modeLabel } from '../lib/utils.js';
+import { initials, fmtF, libelleRolePersonnel, estEnseignant, MODES, modeLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -134,7 +134,7 @@ export default function StaffDetail() {
       <div className="card-bold" style={{ padding: '18px 20px', maxWidth: 640, marginBottom: 20 }}>
         <Row label="Niveau d'études" value={person.niveau_etudes || '—'} />
         <Row label="Classe(s)" value={(person.classes || []).length ? person.classes.join(', ') : '—'} />
-        {person.role === 'Enseignant' && (
+        {estEnseignant(person.role) && (
           <Row label="Matière(s)" value={subjects?.length ? subjects.map((s) => s.nom).join(', ') : '—'} />
         )}
         <Row label="Téléphone" value={person.phone || '—'} />

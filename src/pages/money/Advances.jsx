@@ -11,6 +11,7 @@ import AmountAwareTextarea from '../../components/AmountAwareTextarea.jsx';
 import { useToast } from '../../components/Toast.jsx';
 import { useConfirm } from '../../components/ConfirmDialog.jsx';
 import { SkeletonRow } from '../../components/Skeleton.jsx';
+import LienPersonnel from '../../components/LienPersonnel.jsx';
 import OfflineBanner from '../../components/OfflineBanner.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import SelectionBar from '../../components/SelectionBar.jsx';
@@ -153,7 +154,7 @@ export default function Advances() {
                     <input type="checkbox" checked={selectedIds.includes(a.id)} onChange={() => toggleOne(a.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
                   )}
                   <div>
-                    <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
+                    <span style={{ fontSize: '13.5px', fontWeight: 600 }}><LienPersonnel id={a.staff_id} nom={a.staff?.full_name} /></span>
                     <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {libelleRolePersonnel(a.staff?.role)}</span>
                   </div>
                 </div>

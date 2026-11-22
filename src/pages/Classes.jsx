@@ -11,6 +11,7 @@ import SelectionBar from '../components/SelectionBar.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonTableRows } from '../components/Skeleton.jsx';
+import LienPersonnel from '../components/LienPersonnel.jsx';
 import { translateError } from '../lib/errors.js';
 
 function BuildingIcon() {
@@ -70,7 +71,7 @@ export default function Classes() {
     });
     const [{ data: en }, { data: te }] = await Promise.all([
       supabase.from('enrollments').select('classe_id').eq('school_year_id', schoolYear.id),
-      supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
+      supabase.from('staff').select('id, full_name').ilike('role', 'enseignant').order('full_name'),
     ]);
     setEnrollments(en || []);
     setTeachers(te || []);
@@ -166,7 +167,7 @@ export default function Classes() {
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.niveau}</span>
                   <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.salle || '—'}</span>
                   <span style={{ fontSize: 13 }}>{effectif}{c.capacite ? ` / ${c.capacite}` : ''}</span>
-                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{c.staff?.full_name || '—'}</span>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}><LienPersonnel id={c.prof_principal_id} nom={c.staff?.full_name} /></span>
                   
                   {!selectMode && (
                     <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end', paddingRight: 20 }}>
