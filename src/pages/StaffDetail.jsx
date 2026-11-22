@@ -13,6 +13,7 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
+import CompteLieCard from '../components/CompteLieCard.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
@@ -142,6 +143,8 @@ export default function StaffDetail() {
         <Row label="Date d'entrée" value={person.date_entree ? new Date(person.date_entree).toLocaleDateString('fr-FR') : '—'} />
         <Row label="Salaire mensuel" value={person.salaire_mensuel != null ? fmtF(person.salaire_mensuel) : '—'} topBorder />
       </div>
+
+      {profile.role === 'fondateur' && <CompteLieCard person={person} onChanged={() => reloadPerson(() => false)} />}
 
       {schoolYear && (
         <SalariesCard

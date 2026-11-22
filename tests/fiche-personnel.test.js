@@ -44,3 +44,23 @@ describe('fiche du personnel d\'un compte', () => {
     expect(trouverFiche({ nom: 'Céline Fondatrice', email: 'f@e.bj' }, personnel)).toBeNull();
   });
 });
+
+describe('lien enregistré (staff.profile_id)', () => {
+  const liste = [
+    { id: 'a', full_name: 'AGOSSOU Koffi', email: 'koffi@ecole.bj', phone: null, profile_id: 'u1' },
+    { id: 'b', full_name: 'MENSAH Ismaël', email: null, phone: null, profile_id: null },
+    { id: 'c', full_name: 'MENSAH Ismaël', email: null, phone: null, profile_id: 'u3' },
+  ];
+  it('le lien enregistré fait foi, même si l\'e-mail, le téléphone et le nom ne correspondent à rien', () => {
+    expect(trouverFiche({ id: 'u1', nom: 'Un tout autre nom', email: 'autre@x.bj' }, liste)).toBe('a');
+  });
+  it('un compte relié à une fiche ne prend pas la fiche d\'un autre, même au même e-mail', () => {
+    expect(trouverFiche({ id: 'u9', nom: 'Koffi A.', email: 'koffi@ecole.bj' }, liste)).toBeNull();
+  });
+  it('un compte pas encore relié retrouve sa fiche non reliée par le nom (les fiches reliées à d\'autres sont écartées : plus d\'homonymie)', () => {
+    expect(trouverFiche({ id: 'u2', nom: 'Ismaël MENSAH' }, liste)).toBe('b');
+  });
+  it('sans lien enregistré nulle part (base pas à jour), on devine comme avant', () => {
+    expect(trouverFiche({ id: 'u1', nom: 'AGOSSOU Koffi' }, [{ id: 'x', full_name: 'AGOSSOU Koffi' }])).toBe('x');
+  });
+});

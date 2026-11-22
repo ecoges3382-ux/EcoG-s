@@ -169,6 +169,13 @@ Deno.serve(async (req) => {
       throw new Error(insertError.message);
     }
 
+    // Relier tout de suite ce compte à sa fiche du personnel, s'il y en a une seule qui correspond (e-mail, téléphone ou nom exact).
+    // Jamais bloquant : sans correspondance sûre, ou si la base n'a pas encore cette fonction, le compte est créé sans lien, et le
+    // fondateur peut le relier à la main depuis la fiche.
+    try {
+      await adminClient.rpc('lier_comptes_fiches', { p_appliquer: true, p_profile: created.user.id });
+    } catch (_err) { /* rapprochement facultatif */ }
+
     return jsonResponse({ ok: true });
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : String(err) }, 400);
