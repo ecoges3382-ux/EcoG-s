@@ -7,6 +7,7 @@ import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import DoublonsParents from '../components/DoublonsParents.jsx';
 import PlanLocked from '../components/PlanLocked.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
@@ -60,7 +61,7 @@ export default function Parents() {
       load: async () => {
         const { data, error: fetchError } = await supabase
           .from('parent_access')
-          .select('id, full_name, phone, parent_access_students ( students ( id ) )')
+          .select('id, full_name, nom, prenom, phone, created_at, parent_access_students ( students ( id ) )')
           .order('full_name');
         return fetchError ? { error: fetchError } : { data };
       },
@@ -152,6 +153,7 @@ export default function Parents() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)', marginBottom: 14 }}>{error}</p>}
+      {parents && !selectMode && <DoublonsParents parents={parents} onDone={reload} />}
       {!parents && !error && <div className="card-bold"><SkeletonRow count={5} /></div>}
 
       {parents && parents.length === 0 && (
