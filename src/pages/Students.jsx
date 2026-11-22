@@ -28,8 +28,15 @@ function statusOf(s, schoolYear, feeSchedule) {
     return { label: 'Moratoire', bg: 'var(--chip-bg)', fg: 'var(--muted)' };
   }
   const calendrierConfigure = !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe));
+  const resteEcolage = Number(s.montant_du) - Number(s.montant_paye);
+  const resteConnexe = Number(s.frais_connexe_du || 0) - Number(s.frais_connexe_paye || 0);
+  // Plus rien à payer : jamais « À relancer ». Un solde négatif est un crédit (l'élève a payé plus que le dû).
+  if (resteEcolage <= 0 && resteConnexe <= 0) {
+    return resteEcolage < 0 ? { label: 'Crédit', bg: 'var(--success-light)', fg: 'var(--success)' } : { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
+  }
   if (calendrierConfigure) {
-    if (relance.relance) return { label: 'À relancer', bg: 'var(--danger-light)', fg: 'var(--danger)' };
+    // Écolage soldé (ou trop payé) mais des frais connexes en retard : on le dit, sinon « À relancer » à côté d'un solde négatif surprend.
+    if (relance.relance) return { label: resteEcolage <= 0 ? 'Connexes à relancer' : 'À relancer', bg: 'var(--danger-light)', fg: 'var(--danger)' };
     return { label: 'À jour', bg: 'var(--success-light)', fg: 'var(--success)' };
   }
   const reste = Number(s.montant_du) - Number(s.montant_paye);
@@ -480,7 +487,7 @@ export default function Students() {
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{s.niveau}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{new Date(s.created_at).toLocaleDateString('fr-FR')}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{s.parent_phone || '—'}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(reste)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{reste < 0 ? `Crédit ${fmtF(-reste)}` : fmtF(reste)}</span>
                   <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>{status.label}</span>
                 </Link>
                 {!selectMode && (canEdit || canDelete) && (
