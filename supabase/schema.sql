@@ -3661,6 +3661,43 @@ alter table schools add column if not exists rappels_jalons integer[] not null d
 alter table schools drop constraint if exists schools_rappels_jalons_check;
 alter table schools add constraint schools_rappels_jalons_check check (rappels_jalons <@ array[15, 7, 3, -3]);
 
+-- ---------- Rappels automatiques : validation par le fondateur avant l'envoi ----------
+-- Réglage « Me demander de valider avant l'envoi » (désactivé par défaut = comportement d'avant). Quand il est activé, le matin
+-- cron-reminders ne parle plus aux parents directement : il prépare la liste du jour ici (statut « a_valider »). Le fondateur peut
+-- valider (« valide », part au prochain passage), refuser (« refuse », ne part jamais) ou ne rien faire : à l'heure limite
+-- (HEURE_LIMITE_UTC dans cron-reminders et src/lib/validationRappels.js) tout ce qui n'est pas refusé part automatiquement.
+-- Un rappel dont le parent a payé entre-temps passe à « annule » ; un rappel d'un jour passé jamais envoyé passe à « expire ».
+alter table schools add column if not exists rappels_validation boolean not null default false;
+
+create table if not exists rappels_a_valider (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  parent_access_id uuid not null references parent_access(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  template_name text not null,
+  destinataire_phone text not null,
+  contenu text not null,
+  jour date not null,
+  statut text not null default 'a_valider' check (statut in ('a_valider', 'valide', 'refuse', 'envoye', 'annule', 'expire')),
+  decide_le timestamptz,
+  created_at timestamptz not null default now(),
+  unique (school_id, parent_access_id, student_id, template_name, jour)
+);
+create index if not exists rappels_a_valider_school_jour_idx on rappels_a_valider(school_id, jour);
+alter table rappels_a_valider enable row level security;
+
+-- Seul le fondateur de l'école lit et tranche. Il ne peut changer QUE le statut (valide / refuse / a_valider), jamais le texte ni le
+-- numéro, et seulement tant que le rappel n'est pas parti. Aucune policy insert/delete : seul cron-reminders (service_role) écrit.
+drop policy if exists "rappels_a_valider: select" on rappels_a_valider;
+create policy "rappels_a_valider: select" on rappels_a_valider
+  for select using (school_id = current_school_id() and current_role_name() = 'fondateur');
+drop policy if exists "rappels_a_valider: update" on rappels_a_valider;
+create policy "rappels_a_valider: update" on rappels_a_valider
+  for update using (school_id = current_school_id() and current_role_name() = 'fondateur' and statut in ('a_valider', 'valide', 'refuse'))
+  with check (school_id = current_school_id() and current_role_name() = 'fondateur' and statut in ('a_valider', 'valide', 'refuse'));
+revoke update on rappels_a_valider from authenticated;
+grant update (statut, decide_le) on rappels_a_valider to authenticated;
+
 -- =====================================================================================================
 -- Éléments créés à la main en production (hors de ce fichier jusqu'ici), rapatriés ici pour que le projet
 -- puisse être recréé à l'identique. Relevés directement dans la base de production : colonnes, contraintes,

@@ -12,12 +12,13 @@ const CAS = [
   undefined, null, {}, { rappels_auto: true, rappels_jalons: [15, 7, 3, -3] }, { rappels_auto: false, rappels_jalons: [15, 7, 3, -3] },
   { rappels_auto: true, rappels_jalons: [7] }, { rappels_auto: true, rappels_jalons: [] }, { rappels_auto: true, rappels_jalons: [99, 3] },
   { rappels_auto: null, rappels_jalons: null }, { rappels_auto: true, rappels_jalons: [-3, 15] },
+  { rappels_validation: true }, { rappels_validation: false }, { rappels_validation: 'oui' }, { rappels_auto: false, rappels_validation: true },
 ];
 
 describe('réglages des rappels', () => {
   it('sans réglage enregistré : tout est activé, comme avant', () => {
-    expect(reglagesRappels(null)).toEqual({ actif: true, jalons: JALONS });
-    expect(reglagesRappels({})).toEqual({ actif: true, jalons: JALONS });
+    expect(reglagesRappels(null)).toEqual({ actif: true, jalons: JALONS, validation: false });
+    expect(reglagesRappels({})).toEqual({ actif: true, jalons: JALONS, validation: false });
   });
   it('un interrupteur coupé désactive', () => expect(reglagesRappels({ rappels_auto: false }).actif).toBe(false));
   it('garde les jalons choisis, dans l\'ordre habituel, et ignore les inconnus', () => {

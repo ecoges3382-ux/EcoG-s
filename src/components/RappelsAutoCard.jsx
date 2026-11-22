@@ -8,6 +8,7 @@ import { useEnrollmentsForYear } from '../lib/enrollments.js';
 import { JALONS, LIBELLE_JALON, reglagesRappels, prochainsRappels } from '../lib/rappelsAuto.js';
 import { SkeletonRow } from './Skeleton.jsx';
 import Interrupteur from './Interrupteur.jsx';
+import { heureLimiteBenin } from '../lib/validationRappels.js';
 
 const quand = (jours) => (jours === 0 ? "aujourd'hui" : jours === 1 ? 'demain' : `dans ${jours} jours`);
 
@@ -17,6 +18,8 @@ export default function RappelsAutoCard({ schoolId, schoolYear, canEdit }) {
   const [charge, setCharge] = useState(null); // null = lecture en cours, 'ancienne-base' = colonnes absentes, objet = réglages enregistrés
   const [actif, setActif] = useState(true);
   const [jalons, setJalons] = useState(JALONS);
+  const [validation, setValidation] = useState(false);
+  const [validationDispo, setValidationDispo] = useState(false); // false tant que la base n'a pas la colonne rappels_validation
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [ouverts, setOuverts] = useState({});
@@ -29,10 +32,16 @@ export default function RappelsAutoCard({ schoolId, schoolYear, canEdit }) {
       const r = reglagesRappels(data);
       setCharge(r); setActif(r.actif); setJalons(r.jalons);
     });
+    // La validation se lit à part : sans sa colonne (mise à jour de la base pas faite), le reste de la carte fonctionne comme avant.
+    supabase.from('schools').select('rappels_validation').eq('id', schoolId).maybeSingle().then(({ data, error: e }) => {
+      if (annule || e) return;
+      setValidationDispo(true); setValidation(data?.rappels_validation === true);
+      setCharge((c) => (c && c !== 'ancienne-base' ? { ...c, validation: data?.rappels_validation === true } : c));
+    });
     return () => { annule = true; };
   }, [schoolId]);
 
-  const modifie = charge && charge !== 'ancienne-base' && (actif !== charge.actif || jalons.join() !== charge.jalons.join());
+  const modifie = charge && charge !== 'ancienne-base' && (actif !== charge.actif || jalons.join() !== charge.jalons.join() || (validationDispo && validation !== charge.validation));
   const envois = useMemo(
     () => (actif && students ? prochainsRappels({ schoolYear, eleves: students, jalons }) : []),
     [actif, students, schoolYear, jalons],
@@ -44,11 +53,12 @@ export default function RappelsAutoCard({ schoolId, schoolYear, canEdit }) {
 
   async function enregistrer() {
     setSaving(true); setError('');
-    const { data, error: e } = await supabase.from('schools').update({ rappels_auto: actif, rappels_jalons: jalons }).eq('id', schoolId).select('rappels_auto');
+    const champs = { rappels_auto: actif, rappels_jalons: jalons, ...(validationDispo ? { rappels_validation: validation } : {}) };
+    const { data, error: e } = await supabase.from('schools').update(champs).eq('id', schoolId).select('rappels_auto');
     setSaving(false);
     if (e) { setError(e.message); return; }
     if (!data || data.length === 0) { setError("Seul le fondateur de l'école peut modifier ce réglage."); return; }
-    setCharge({ actif, jalons });
+    setCharge({ actif, jalons, validation: validationDispo ? validation : false });
     showToast('Réglages enregistrés');
   }
 
@@ -89,6 +99,16 @@ export default function RappelsAutoCard({ schoolId, schoolYear, canEdit }) {
               );
             })}
           </div>
+          {validationDispo && (
+            <div style={{ marginBottom: 14 }}>
+              <Interrupteur actif={validation} onChange={setValidation} disabled={!canEdit || !actif} label="Me demander de valider avant l'envoi" />
+              <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
+                {validation
+                  ? `Chaque matin, la liste du jour apparaît dans Recouvrement. Vous validez ou vous refusez. Sans réponse de votre part, tout ce qui n'est pas refusé part automatiquement à ${heureLimiteBenin()} h (heure du Bénin).`
+                  : 'Désactivé : les rappels partent directement le matin, sans passer par vous.'}
+              </p>
+            </div>
+          )}
           {actif && jalons.length === 0 && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--danger)', fontWeight: 600 }}>Aucun moment coché : aucun rappel ne partira.</p>}
           {error && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--danger)', fontWeight: 600 }}>{error}</p>}
           {!canEdit && <p style={{ margin: '0 0 12px', fontSize: 12, color: 'var(--muted)' }}>Seul le fondateur peut modifier ces réglages.</p>}
