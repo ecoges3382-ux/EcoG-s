@@ -234,7 +234,7 @@ export default function Recouvrement() {
     return [
       { name: 'Payé en totalité', value: totaux.nbAJour, color: 'var(--success)' },
       { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant' || s.statutKey === 'moratoire' || s.statutKey === 'moratoire_expirant').length, color: 'var(--amber)' },
-      { name: 'Impayé / En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
+      { name: 'En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
     ].filter(d => d.value > 0);
   }, [enrichis, totaux.nbAJour]);
 
@@ -441,12 +441,12 @@ export default function Recouvrement() {
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>{fmtF(totaux.totalReste)}</p>
             </div>
             <div style={{ background: 'var(--success-light)', padding: '16px', borderRadius: 12 }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Total encaissé</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Encaissé (écolage + frais connexes)</p>
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--success)' }}>{fmtF(totaux.totalEncaisse)}</p>
             </div>
             
             <div style={{ background: 'var(--paper)', border: '1px solid var(--line-strong)', padding: '16px', borderRadius: 12 }}>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Total attendu</p>
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Attendu (écolage + frais connexes)</p>
               <p style={{ margin: '4px 0 0', fontFamily: 'var(--serif)', fontSize: 28, fontWeight: 700, color: 'var(--ink)' }}>{fmtF(totaux.totalAttendu)}</p>
             </div>
 

@@ -214,6 +214,19 @@ export function typeFraisLabel(id) {
   return TYPES_FRAIS.find((t) => t.id === id)?.label || id;
 }
 
+// Rôle d'un membre du personnel tel qu'on l'AFFICHE : majuscule et accent (« secretaire » devient « Secrétaire »). La valeur enregistrée
+// en base ne change pas : certains membres ont « Enseignant », d'autres « enseignant » ou « secretaire ».
+const ROLES_PERSONNEL = {
+  fondateur: 'Fondateur', directeur: 'Directeur', censeur: 'Censeur', secretaire: 'Secrétaire', enseignant: 'Enseignant',
+  comptable: 'Comptable', econome: 'Économe', surveillant: 'Surveillant', intendant: 'Intendant',
+};
+export function libelleRolePersonnel(role) {
+  const brut = String(role == null ? '' : role).trim();
+  if (!brut) return '';
+  const cle = brut.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return ROLES_PERSONNEL[cle] || brut.charAt(0).toUpperCase() + brut.slice(1);
+}
+
 export const ROLES = {
   fondateur: { label: 'Fondateur' },
   directeur: { label: 'Directeur' },

@@ -76,7 +76,7 @@ export default function TrendsSection({ schoolYear, attendance }) {
         <div>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Tendances mensuelles</p>
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-            Encaissements et présences · {months.length} mois affichés
+            Revenus et présences · {months.length} mois affichés
           </p>
         </div>
       </div>
@@ -85,7 +85,7 @@ export default function TrendsSection({ schoolYear, attendance }) {
         
         <div style={{ marginBottom: 24 }}>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest-text)' }}>
-            Encaissements {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
+            Revenus totaux {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
           </p>
           
           {loadError ? (
@@ -120,6 +120,7 @@ export default function TrendsSection({ schoolYear, attendance }) {
               </ResponsiveContainer>
             </div>
           )}
+          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>Inclut tous les paiements enregistrés : écolage, frais connexes, inscriptions et autres.</p>
         </div>
 
         <div>

@@ -53,8 +53,8 @@ export const TOURS = {
     steps: [
       {
         target: 'money-tabs',
-        title: 'Les 5 onglets de l\'argent',
-        text: 'Écolage, frais connexes, paiements, dépenses et avances sur salaire. Chaque onglet a son propre tableau de bord.',
+        title: 'Les 7 onglets de l\'argent',
+        text: 'Droit d\'écolage, frais connexes, paiements, dépenses, salaires, avances sur salaire et bilan financier. Chaque onglet a son propre tableau de bord.',
       },
       {
         target: 'money-kpis',
