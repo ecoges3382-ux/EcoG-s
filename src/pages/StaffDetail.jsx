@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, fmtF, MODES, modeLabel } from '../lib/utils.js';
+import { initials, fmtF, libelleRolePersonnel, MODES, modeLabel } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import MoneyInput from '../components/MoneyInput.jsx';
 import { useToast } from '../components/Toast.jsx';
@@ -127,7 +127,7 @@ export default function StaffDetail() {
               <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20, background: 'var(--danger-light)', color: 'var(--danger)' }}>Archivé</span>
             )}
           </div>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{person.role}{person.matricule ? ` · ${person.matricule}` : ''}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--muted)' }}>{libelleRolePersonnel(person.role)}{person.matricule ? ` · ${person.matricule}` : ''}</p>
         </div>
       </div>
 

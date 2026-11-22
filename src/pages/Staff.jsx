@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, fmtF, downloadCsv, sortClasses, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
+import { initials, fmtF, libelleRolePersonnel, downloadCsv, sortClasses, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -406,7 +406,7 @@ export default function Staff() {
                         </div>
                         
                         <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
-                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role}</span>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{libelleRolePersonnel(p.role)}</span>
                         <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
                         <span style={{ fontSize: 13 }}>
                           {salaireManquant ? (
@@ -422,7 +422,7 @@ export default function Staff() {
                         <span style={{ fontSize: 13, fontWeight: avance > 0 ? 600 : 400, color: avance > 0 ? 'var(--amber)' : 'var(--muted)' }}>
                           {fmtF(avance)}
                           {avanceEnAttente > 0 && (
-                            <span title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`} style={{ color: 'var(--clay-text)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}>*</span>
+                            <span title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`} aria-label={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation`} style={{ color: 'var(--clay-text)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}>*</span>
                           )}
                         </span>
                         <span style={{ fontSize: 13, fontWeight: 600, color: reste == null ? 'var(--muted)' : (reste < 0 ? 'var(--danger)' : 'var(--success)') }}>
@@ -447,6 +447,12 @@ export default function Staff() {
                 })}
               </div>
             </div>
+          )}
+
+          {visibleStaff.some((p) => avanceEnAttenteFor(p.id) > 0) && (
+            <p style={{ margin: '10px 2px 0', fontSize: 12, color: 'var(--muted)' }}>
+              <span style={{ color: 'var(--clay-text)', fontWeight: 700 }}>*</span> Avance en attente d'approbation : elle n'est pas encore déduite du salaire.
+            </p>
           )}
 
           {selectMode && (

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
-import { fmtF } from '../../lib/utils.js';
+import { fmtF, libelleRolePersonnel } from '../../lib/utils.js';
 import { useSelectedSchoolYear } from '../../lib/schoolYear.jsx';
 import Dropdown from '../../components/Dropdown.jsx';
 import MoneyInput from '../../components/MoneyInput.jsx';
@@ -154,7 +154,7 @@ export default function Advances() {
                   )}
                   <div>
                     <span style={{ fontSize: '13.5px', fontWeight: 600 }}>{a.staff?.full_name || '—'}</span>
-                    <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {a.staff?.role}</span>
+                    <span style={{ fontSize: '11.5px', color: 'var(--muted)' }}> · {libelleRolePersonnel(a.staff?.role)}</span>
                   </div>
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{fmtF(a.montant)}{a.statut === 'approuvee' && Number(a.solde) > 0 ? ` (reste ${fmtF(a.solde)})` : ''}</span>
@@ -193,7 +193,7 @@ export default function Advances() {
 
       {staff.length > 0 ? (
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: '18px 20px', maxWidth: 480, display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 24 }}>
-          <Dropdown value={staffId} onChange={setStaffId} options={staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }))} style={smallInput} wrapperStyle={{ flex: '2 1 180px', width: 'auto' }} />
+          <Dropdown value={staffId} onChange={setStaffId} options={staff.map((p) => ({ value: p.id, label: `${p.full_name} (${libelleRolePersonnel(p.role)})` }))} style={smallInput} wrapperStyle={{ flex: '2 1 180px', width: 'auto' }} />
           <MoneyInput value={montant} onChange={setMontant} suffix="F CFA" style={{ ...smallInput, flex: '1 1 120px' }} />
           <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Motif (facultatif)" style={{ ...smallInput, flex: '2 1 160px' }} />
           <button type="submit" disabled={submitting} style={{ background: 'var(--forest)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 13, padding: '10px 18px', borderRadius: 9, opacity: submitting ? 0.7 : 1 }}>
@@ -222,9 +222,9 @@ function EditAdvanceModal({ advance, staff, onClose, onSaved }) {
   const rembourse = Number(advance.montant_rembourse) || 0;
 
   const staffOptions = (() => {
-    const opts = staff.map((p) => ({ value: p.id, label: `${p.full_name} (${p.role})` }));
+    const opts = staff.map((p) => ({ value: p.id, label: `${p.full_name} (${libelleRolePersonnel(p.role)})` }));
     if (advance.staff_id && !opts.find((o) => o.value === advance.staff_id)) {
-      opts.unshift({ value: advance.staff_id, label: `${advance.staff?.full_name || '—'}${advance.staff?.role ? ` (${advance.staff.role})` : ''} — inactif` });
+      opts.unshift({ value: advance.staff_id, label: `${advance.staff?.full_name || '—'}${advance.staff?.role ? ` (${libelleRolePersonnel(advance.staff.role)})` : ''} — inactif` });
     }
     return opts;
   })();

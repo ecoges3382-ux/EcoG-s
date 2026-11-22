@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
-import { fmtF, MODES, stickyColStyle, stickyHeaderStyle } from '../../lib/utils.js';
+import { fmtF, libelleRolePersonnel, MODES, stickyColStyle, stickyHeaderStyle } from '../../lib/utils.js';
 import Dropdown from '../../components/Dropdown.jsx';
 import MoneyInput from '../../components/MoneyInput.jsx';
 import DatePicker from '../../components/DatePicker.jsx';
@@ -183,7 +183,7 @@ export default function SalairesSection() {
                   {/* Cellule figée et opaque */}
                   <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, zIndex: 2 }}>
                     <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{p.role}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{libelleRolePersonnel(p.role)}</p>
                   </div>
                   
                   <span>{prevu > 0 ? fmtF(prevu) : '—'}</span>
