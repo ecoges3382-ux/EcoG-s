@@ -448,3 +448,8 @@ html.dark-mode {
   --adm-a4: #FCA5A5;
   --adm-thumb: #EBCB82;
 }
+
+/* Paramètres : cartes en colonnes (2 quand la largeur le permet, 1 sur téléphone). Une carte garde sa hauteur naturelle : pas de blanc
+   sous les plus courtes, contrairement à une grille où chaque ligne prend la hauteur de sa carte la plus haute. */
+.colonnes-parametres { columns: 350px 2; column-gap: 16px; max-width: 1060px; }
+.colonnes-parametres > * { break-inside: avoid; margin: 0 0 16px; }

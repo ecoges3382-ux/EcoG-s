@@ -7,6 +7,7 @@ import { useToast } from './Toast.jsx';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
 import { JALONS, LIBELLE_JALON, reglagesRappels, prochainsRappels } from '../lib/rappelsAuto.js';
 import { SkeletonRow } from './Skeleton.jsx';
+import Interrupteur from './Interrupteur.jsx';
 
 const quand = (jours) => (jours === 0 ? "aujourd'hui" : jours === 1 ? 'demain' : `dans ${jours} jours`);
 
@@ -74,10 +75,9 @@ export default function RappelsAutoCard({ schoolId, schoolYear, canEdit }) {
 
       {charge && charge !== 'ancienne-base' && (
         <>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, fontWeight: 600, marginBottom: 14, cursor: canEdit ? 'pointer' : 'default' }}>
-            <input type="checkbox" checked={actif} disabled={!canEdit} onChange={(e) => setActif(e.target.checked)} style={{ width: 16, height: 16 }} />
-            Envoyer les rappels automatiquement
-          </label>
+          <div style={{ marginBottom: 14 }}>
+            <Interrupteur actif={actif} onChange={setActif} disabled={!canEdit} label="Envoyer les rappels automatiquement" />
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }} role="group" aria-label="Moments d'envoi">
             {JALONS.map((j) => {
               const coche = jalons.includes(j);

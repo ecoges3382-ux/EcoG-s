@@ -112,7 +112,8 @@ export default function Settings() {
     <div>
       <p className="page-title" style={{ margin: '0 0 20px', fontFamily: 'var(--serif)', fontSize: 24, fontWeight: 600, color: 'var(--ink)' }}>Paramètres</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(350px, 100%), 1fr))', gap: 16, maxWidth: 1060 }}>
+      {/* Cartes rangées en colonnes : chacune garde sa hauteur, sans grand blanc sous les plus courtes. */}
+      <div className="colonnes-parametres">
         
         <form onSubmit={handleSubmit} className="card-bold" style={{ padding: 22 }}>
           <p style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Identité de l'établissement</p>
