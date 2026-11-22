@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { initials, ROLES } from '../lib/utils.js';
 import { useOnlineUsers } from '../lib/presence.js';
+import { SkeletonRow } from '../components/Skeleton.jsx';
 
 const AVATAR_COLORS = ['#0F4C3A', '#C4622D', '#C99A3D', '#2E6B47', '#8F4620', '#4A6670', '#5B3A8E'];
 function avatarColor(seed) {
@@ -453,6 +454,7 @@ function ChatContent() {
   const { profile } = useAuth();
   const online = useOnlineUsers();
   const [conversations, setConversations] = useState([]);
+  const [convsLoaded, setConvsLoaded] = useState(false); // faux « Aucune conversation. » tant que la liste n'est pas arrivée
   const [activeConv, setActiveConv] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -568,7 +570,7 @@ function ChatContent() {
       if (staffErr) setError("Impossible de charger la liste des collègues."); else setStaff(staffData || []);
 
       const { data: convs, error: convsErr } = await supabase.from('chat_conversations').select(`id, type, name, chat_participants ( user_id, last_read_at, profiles ( full_name, role ) )`);
-      if (convsErr) { setError("Impossible de charger les conversations."); return; }
+      if (convsErr) { setError("Impossible de charger les conversations."); setConvsLoaded(true); return; }
       
       const generals = (convs || []).filter(c => c.type === 'general').sort((a, b) => (a.id < b.id ? -1 : 1));
       const firstGeneral = generals[0];
@@ -576,6 +578,7 @@ function ChatContent() {
       const visibleConvs = firstGeneral ? [firstGeneral, ...privates] : privates;
 
       setConversations(visibleConvs);
+      setConvsLoaded(true);
       await loadUnreadCounts(visibleConvs);
       await loadLastMessages(visibleConvs);
       
@@ -1061,7 +1064,8 @@ function ChatContent() {
       )}
 
       <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain', minHeight: 0 }}>
-        {filteredConvs.length === 0 && (
+        {!convsLoaded && <SkeletonRow count={4} />}
+        {convsLoaded && filteredConvs.length === 0 && (
           <div style={{ padding: 30, textAlign: 'center' }}>
             <i className="ti ti-message-circle" style={{ fontSize: 40, color: 'var(--line-strong)' }}></i>
             <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--muted)' }}>Aucune conversation.</p>

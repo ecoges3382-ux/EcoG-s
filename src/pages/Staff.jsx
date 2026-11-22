@@ -212,7 +212,7 @@ export default function Staff() {
   }
 
   function exportCsv() {
-    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', 'Avance approuvée (déduite)', 'Avance en attente (non déduite)', 'Reste à percevoir', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
+    const rows = [['Nom', 'Matricule', 'Statut', 'Rôle', "Niveau d'études", 'Salaire mensuel', 'Avance approuvée (déduite)', 'Avance en attente (non déduite)', 'Net après avance', "Date d'entrée", 'Classe(s)', 'Matière(s)', 'Téléphone', 'E-mail']];
     visibleStaff.forEach((p) => {
       const deduit = avanceDeduiteFor(p.id);
       const enAttente = avanceEnAttenteFor(p.id);
@@ -380,7 +380,7 @@ export default function Staff() {
                   <span>Niveau</span>
                   <span>Salaire</span>
                   <span>Avance</span>
-                  <span>Reste</span>
+                  <span title="Salaire mensuel moins les avances approuvées. Ne tient pas compte des versements déjà faits : voir l'onglet Salaires.">Net après avance</span>
                   <span>Classe(s)</span>
                   <span>Matière(s)</span>
                   {!selectMode && <span></span>}

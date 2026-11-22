@@ -70,6 +70,7 @@ export default function Overview() {
 
   function statutOf(s) {
     if (s.relance.moratoire) return { label: 'Moratoire', color: null };
+    if (s.reste < 0) return { label: 'Crédit', color: 'success' }; // a payé plus que le dû : jamais « À relancer »
     if (s.reste <= 0) return { label: 'À jour', color: 'success' };
     if (calendrierConfigure) return s.relance.relance ? { label: 'À relancer', color: 'danger' } : { label: 'Dans les délais', color: 'amber' };
     return { label: 'Solde restant', color: 'amber' };
@@ -149,7 +150,7 @@ export default function Overview() {
                 </div>
                 <span style={{ fontSize: 13 }}>{fmtF(s.montant_du)}</span>
                 <span style={{ fontSize: 13 }}>{fmtF(s.montant_paye)}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: s.reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{fmtF(s.reste)}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: s.reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{s.reste < 0 ? `Crédit ${fmtF(-s.reste)}` : fmtF(s.reste)}</span>
                 <span style={{ background: st.color ? `var(--${st.color}-light)` : 'var(--chip-bg)', color: st.color ? `var(--${st.color})` : 'var(--muted)', fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>
                   {st.label}
                 </span>

@@ -224,7 +224,7 @@ export default function StudentDetail() {
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>{enrollment?.classes?.nom || 'Aucune classe cette année'}</span>
             {relance?.moratoire && <span style={{ background: 'var(--chip-bg)', color: 'var(--muted)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire</span>}
             {relance?.moratoireExpirant && <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire — {relance.joursRestantsMoratoire}j restants</span>}
-            {relance?.relance && <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>À relancer</span>}
+            {relance?.relance && <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>{reste <= 0 ? 'Connexes à relancer' : 'À relancer'}</span>}
           </div>
         </div>
       </div>

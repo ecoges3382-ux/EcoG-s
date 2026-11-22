@@ -9,12 +9,14 @@ import AmountAwareTextarea from './AmountAwareTextarea.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
 import { translateError } from '../lib/errors.js';
 import ModalContainer from './ModalContainer.jsx';
 import PaymentReceipt from './PaymentReceipt.jsx';
 
 export default function QuickPaymentModal({ student, feeSchedules, onClose, onSaved }) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const { profile } = useAuth();
 
   const [typeFrais, setTypeFrais] = useState('scolarite');
@@ -74,6 +76,9 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
       setError("Impossible d'enregistrer : cet élève a déjà tout payé pour ce type de frais. Choisis « Autre » pour un paiement exceptionnel.");
       return;
     }
+    // Paiement plus grand que ce qui reste dû : on ne bloque pas (un parent peut avancer de l'argent), mais on demande confirmation.
+    const trop = depassement(typeFrais, montant, student);
+    if (trop > 0 && !(await confirm(`Ce paiement de ${fmtF(Number(montant))} dépasse de ${fmtF(trop)} ce qui reste dû. L'élève aura un crédit de ${fmtF(trop)}. Enregistrer quand même ?`, { confirmLabel: 'Enregistrer quand même' }))) return;
 
     setSubmitting(true);
     setError('');
