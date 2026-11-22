@@ -10,6 +10,7 @@ import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './ConfirmDialog.jsx';
+import ChoixTranche from './ChoixTranche.jsx';
 import { translateError } from '../lib/errors.js';
 import ModalContainer from './ModalContainer.jsx';
 import PaymentReceipt from './PaymentReceipt.jsx';
@@ -225,7 +226,7 @@ export default function QuickPaymentModal({ student, feeSchedules, onClose, onSa
           </div>
           <div>
             <label style={labelStyle}>Tranche / Type</label>
-            <Dropdown value={tranche} onChange={setTranche} options={choixTranche.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
+            <ChoixTranche value={tranche} onChange={setTranche} choix={choixTranche} style={inputStyle} />
           </div>
         </div>
 

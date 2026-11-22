@@ -188,7 +188,13 @@ export const TRANCHES = [
   { id: 'complet', label: 'Complet' },
   { id: 'autre', label: 'Autre' },
 ];
+// Un paiement de plusieurs tranches d'un coup est enregistré « tranche1+tranche2 » : affiché « 1ère + 2ème tranche ».
 export function trancheLabel(id) {
+  const ids = String(id == null ? '' : id).split('+');
+  if (ids.length > 1 && ids.every((x) => /^tranche\d+$/.test(x))) {
+    const ordinal = (x) => TRANCHES.find((t) => t.id === x)?.label.replace(' tranche', '') || x;
+    return `${ids.map(ordinal).join(' + ')} tranche`;
+  }
   return TRANCHES.find((t) => t.id === id)?.label || (id === 'partiel' ? 'Partiel' : id);
 }
 

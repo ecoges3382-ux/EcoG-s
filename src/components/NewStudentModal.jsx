@@ -12,6 +12,8 @@ import NameInput from './NameInput.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './ConfirmDialog.jsx';
 import { trouverDoublonsParent } from '../lib/parents.js';
+import { tranchesCochees } from '../lib/paymentForm.js';
+import ChoixTranche from './ChoixTranche.jsx';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import HelpTooltip from './HelpTooltip.jsx';
@@ -126,7 +128,9 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
   useEffect(() => {
     if (paiementMontantTouched) return;
     const fee = selectedClasse ? feeSchedules[selectedClasse.niveau] : null;
-    if (paiementTranche === 'tranche1') setPaiementMontant(fee?.montant_tranche1 ?? 0);
+    const cochees = tranchesCochees(paiementTranche);
+    if (cochees.length > 1) setPaiementMontant(cochees.reduce((somme, id) => somme + (Number(fee?.[`montant_${id}`]) || 0), 0)); // plusieurs tranches d'un coup
+    else if (paiementTranche === 'tranche1') setPaiementMontant(fee?.montant_tranche1 ?? 0);
     else if (paiementTranche === 'tranche2') setPaiementMontant(fee?.montant_tranche2 ?? 0);
     else if (paiementTranche === 'tranche3') setPaiementMontant(fee?.montant_tranche3 ?? 0);
     else if (paiementTranche === 'complet') setPaiementMontant(montantDu);
@@ -572,7 +576,16 @@ export default function NewStudentModal({ schoolId, schoolYearId, classes, canMa
             <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: paiementMontant > 0 ? 12 : 0 }}>
               <div>
                 <label style={labelStyle}>Pour</label>
-                <Dropdown value={paiementTranche} onChange={handleTrancheChange} options={PAIEMENT_TRANCHES.map((t) => ({ value: t.id, label: t.label }))} style={inputStyle} />
+                <ChoixTranche
+                  value={paiementTranche}
+                  onChange={handleTrancheChange}
+                  choix={PAIEMENT_TRANCHES.map((t) => {
+                    const fee = selectedClasse ? feeSchedules[selectedClasse.niveau] : null;
+                    const montant = /^tranche\d+$/.test(t.id) ? Number(fee?.[`montant_${t.id}`]) || 0 : t.id === 'complet' ? Number(montantDu) || 0 : 0;
+                    return { ...t, montant };
+                  })}
+                  style={inputStyle}
+                />
               </div>
               <div>
                 <label style={labelStyle}>Montant versé</label>
