@@ -53,7 +53,7 @@ export function ConfirmProvider({ children }) {
           onClick={(e) => { if (e.target === e.currentTarget) settle(false); }}
         >
           <div className="confirm-dialog-in" style={{ background: 'var(--paper)', borderRadius: 16, maxWidth: 400, width: '100%', padding: 24, boxShadow: '0 30px 60px -20px rgba(0,0,0,0.45)' }}>
-            <p style={{ margin: '0 0 22px', fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.6 }}>{state.message}</p>
+            <p style={{ margin: '0 0 22px', fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{state.message}</p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button type="button" onClick={() => settle(false)} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', fontWeight: 600, fontSize: '13.5px' }}>
                 {state.cancelLabel}

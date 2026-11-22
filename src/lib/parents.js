@@ -9,7 +9,7 @@ export function cleNumero(phone) {
 }
 
 // Les mots du nom, sans accents, dans l'ordre alphabétique : « Ina KEITA » et « KEITA Ina » sont le même nom.
-function cleNom(nom, prenom) {
+export function cleNom(nom, prenom) {
   return sansAccents(`${nom || ''} ${prenom || ''}`).split(/[\s'-]+/).filter(Boolean).sort().join(' ');
 }
 
@@ -27,4 +27,43 @@ export function trouverDoublonsParent(parents, { nom, prenom, phone }) {
     const existant = p.nom || p.prenom ? cleNom(p.nom, p.prenom) : cleNom(p.full_name, '');
     return existant === nomCle;
   });
+}
+
+// Clé de nom d'un parent déjà enregistré : nom + prénom s'ils existent, sinon le nom complet.
+function cleNomParent(p) {
+  return p.nom || p.prenom ? cleNom(p.nom, p.prenom) : cleNom(p.full_name, '');
+}
+
+const nbEnfants = (p) => (p.parent_access_students || []).length;
+
+/**
+ * Le parent à garder dans un groupe de doublons : celui qui a le plus d'enfants rattachés, à égalité le plus ancien (c'est lui dont
+ * le lien d'accès circule déjà le plus), à égalité l'identifiant le plus petit (résultat stable).
+ */
+export function parentAGarder(membres) {
+  return [...membres].sort((a, b) =>
+    nbEnfants(b) - nbEnfants(a)
+    || String(a.created_at || '9999').localeCompare(String(b.created_at || '9999'))
+    || String(a.id).localeCompare(String(b.id)),
+  )[0];
+}
+
+/**
+ * Doublons déjà enregistrés : des parents de même nom ET de même numéro (comme pour l'alerte à la création). Sans numéro, jamais de
+ * rapprochement. Renvoie des groupes { cle, membres, conseille } (au moins deux parents), triés par nom ; `conseille` = id à garder.
+ */
+export function grouperDoublonsParents(parents) {
+  const groupes = new Map();
+  for (const p of parents || []) {
+    const numero = cleNumero(p.phone);
+    const nom = cleNomParent(p);
+    if (!numero || !nom) continue;
+    const cle = `${nom}|${numero}`;
+    if (!groupes.has(cle)) groupes.set(cle, []);
+    groupes.get(cle).push(p);
+  }
+  return [...groupes.entries()]
+    .filter(([, membres]) => membres.length > 1)
+    .map(([cle, membres]) => ({ cle, membres, conseille: parentAGarder(membres).id }))
+    .sort((a, b) => a.cle.localeCompare(b.cle));
 }
