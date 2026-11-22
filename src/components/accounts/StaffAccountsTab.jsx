@@ -353,7 +353,7 @@ function AccountRow({ account, avatarBg, avatarColor, subtitle, isLast, onEdit, 
           {initials(account.full_name)}
         </div>
         <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}><NomPersonnel nom={account.full_name} email={account.email} phone={account.phone} /></p>
+          <p style={{ margin: 0, fontSize: '13.5px', fontWeight: 600 }}><NomPersonnel userId={account.id} nom={account.full_name} email={account.email} phone={account.phone} /></p>
           <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>
         </div>
       </div>

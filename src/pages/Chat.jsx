@@ -281,7 +281,7 @@ function MessageRow({ item, isMe, showSender, senderOnline, readStatus, original
           )}
           {!isMe && showSender && item.first && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, whiteSpace: 'normal' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: avatarColor(m.sender_id) }}><NomPersonnel nom={senderName} /></span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: avatarColor(m.sender_id) }}><NomPersonnel userId={m.sender_id} nom={senderName} /></span>
               {senderRole && <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--muted)', padding: '1px 6px', borderRadius: 6, background: 'var(--line)' }}>{senderRole}</span>}
             </div>
           )}
@@ -1097,7 +1097,7 @@ function ChatContent() {
                   <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{ROLES[s.role]?.label || s.role}</p>
                 </div>
               </button>
-              <LienFiche nom={s.full_name} />
+              <LienFiche userId={s.id} nom={s.full_name} />
               </div>
             ))}
           </div>
@@ -1183,7 +1183,7 @@ function ChatContent() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   {activeConv.type === 'general' && <i className="ti ti-pin-filled" style={{ fontSize: 13, color: 'var(--muted)' }}></i>}
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.isGroup ? info.name : <NomPersonnel nom={info.name} />}</p>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.isGroup ? info.name : <NomPersonnel userId={info.otherId} nom={info.name} />}</p>
                 </div>
                 <div style={{ marginTop: 1, fontSize: 11.5, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: typingText || otherOnline ? ONLINE_GREEN : 'var(--muted)', fontStyle: typingText ? 'italic' : 'normal' }}>
                   {typingText

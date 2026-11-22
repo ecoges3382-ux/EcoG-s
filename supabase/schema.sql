@@ -3710,6 +3710,116 @@ create policy "rappels_a_valider: update" on rappels_a_valider
 revoke update on rappels_a_valider from authenticated;
 grant update (statut, decide_le) on rappels_a_valider to authenticated;
 
+-- ---------- Lien entre un compte de connexion et une fiche du personnel ----------
+-- Jusqu'ici l'application devinait la fiche d'un compte (e-mail, puis téléphone, puis nom exact). Désormais la fiche du personnel porte
+-- l'identifiant du compte de la personne (vide = pas de compte, ou pas encore relié). Une fiche pour un compte, un compte pour une fiche.
+alter table staff add column if not exists profile_id uuid references profiles(id) on delete set null;
+create unique index if not exists staff_profile_id_unique on staff(profile_id) where profile_id is not null;
+
+-- Garde-fou : le compte relié doit être de la MÊME école (jamais un compte d'une autre école, jamais un compte parent), et seul le
+-- fondateur (qui gère les comptes) peut relier ou délier depuis l'application. Le serveur et l'éditeur SQL (pas d'utilisateur connecté)
+-- passent : c'est ce qui permet le rapprochement automatique ci-dessous.
+create or replace function public.staff_profile_garde()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path = public
+as $function$
+begin
+  if new.profile_id is not null and (tg_op = 'INSERT' or new.profile_id is distinct from old.profile_id) then
+    if not exists (select 1 from profiles p where p.id = new.profile_id and p.school_id = new.school_id and p.role <> 'parent') then
+      raise exception 'Ce compte n''appartient pas à cette école.';
+    end if;
+  end if;
+  if (tg_op = 'INSERT' and new.profile_id is not null) or (tg_op = 'UPDATE' and new.profile_id is distinct from old.profile_id) then
+    if auth.uid() is not null and coalesce(current_role_name(), '') <> 'fondateur' then
+      raise exception 'Seul le fondateur peut relier une fiche à un compte.';
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+drop trigger if exists trg_staff_profile_garde on staff;
+create trigger trg_staff_profile_garde before insert or update on staff
+  for each row execute function staff_profile_garde();
+
+-- Clés de rapprochement (mêmes règles que src/lib/fichePersonnel.js) : nom sans accents ni majuscules, mots triés ; 8 derniers
+-- chiffres d'un numéro.
+create or replace function public.cle_nom_personne(p text)
+ returns text
+ language sql
+ immutable
+ set search_path = public
+as $function$
+  select nullif(coalesce((
+    select string_agg(w, ' ' order by w)
+    from unnest(regexp_split_to_array(translate(lower(coalesce(p, '')), 'àâäáãéèêëíìîïóòôöõúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'), E'[\\s''\\-]+')) w
+    where w <> ''
+  ), ''), '');
+$function$;
+
+create or replace function public.cle_telephone_personne(p text)
+ returns text
+ language sql
+ immutable
+ set search_path = public
+as $function$
+  select case when length(regexp_replace(coalesce(p, ''), '\D', '', 'g')) >= 8 then right(regexp_replace(p, '\D', '', 'g'), 8) end;
+$function$;
+
+-- Rapproche les fiches du personnel et les comptes qui ne sont pas encore reliés : d'abord par e-mail, puis par téléphone, puis par
+-- nom exact (dans l'ordre : ce qui est relié à une étape n'est plus candidat aux suivantes). On ne relie QUE s'il y a exactement une
+-- fiche et exactement un compte de la même école pour la même clé (jamais un homonyme), jamais un compte parent, et jamais une fiche
+-- d'une école dont le forfait n'inclut pas le personnel (la base refuse de la modifier).
+--   p_appliquer = false : aperçu, ne modifie rien. true : enregistre les liens.
+--   p_profile : ne rapprocher que ce compte (utilisé à la création d'un compte).
+-- Rend une ligne par lien : méthode, fiche, compte. Réservée au serveur et à l'éditeur SQL.
+create or replace function public.lier_comptes_fiches(p_appliquer boolean default false, p_profile uuid default null)
+ returns table (methode text, staff_id uuid, fiche text, profile_id uuid, compte text)
+ language plpgsql
+ security definer
+ set search_path = public
+as $function$
+#variable_conflict use_column
+declare
+  m text;
+  cle_s text;
+  cle_p text;
+begin
+  create temporary table if not exists _liens (methode text, staff_id uuid, profile_id uuid) on commit drop;
+  truncate _liens;
+  foreach m in array array['email', 'telephone', 'nom'] loop
+    cle_s := case m when 'email' then 'nullif(lower(btrim(s.email)), '''')' when 'telephone' then 'cle_telephone_personne(s.phone)' else 'cle_nom_personne(s.full_name)' end;
+    cle_p := case m when 'email' then 'nullif(lower(btrim(p.email)), '''')' when 'telephone' then 'cle_telephone_personne(p.phone)' else 'cle_nom_personne(p.full_name)' end;
+    execute format($q$
+      insert into _liens
+      with s as (
+        select s.id, s.school_id, %1$s as k from staff s
+        where s.profile_id is null and check_plan_feature(s.school_id, 'personnel') and s.id not in (select staff_id from _liens)
+      ), p as (
+        select p.id, p.school_id, %2$s as k from profiles p
+        where p.role <> 'parent' and (%3$L::uuid is null or p.id = %3$L::uuid)
+          and p.id not in (select profile_id from staff where profile_id is not null) and p.id not in (select profile_id from _liens)
+      ), sc as (select school_id, k, count(*) n from s where k is not null group by 1, 2),
+         pc as (select school_id, k, count(*) n from p where k is not null group by 1, 2)
+      select %4$L, s.id, p.id from s
+        join p on p.school_id = s.school_id and p.k = s.k
+        join sc on sc.school_id = s.school_id and sc.k = s.k and sc.n = 1
+        join pc on pc.school_id = p.school_id and pc.k = p.k and pc.n = 1
+    $q$, cle_s, cle_p, p_profile, m);
+  end loop;
+  if p_appliquer then
+    update staff st set profile_id = l.profile_id from _liens l where st.id = l.staff_id and st.profile_id is null;
+  end if;
+  return query
+    select l.methode, l.staff_id, st.full_name, l.profile_id, pr.full_name
+    from _liens l join staff st on st.id = l.staff_id join profiles pr on pr.id = l.profile_id
+    order by l.methode, st.full_name;
+end;
+$function$;
+revoke all on function public.lier_comptes_fiches(boolean, uuid) from public, anon, authenticated;
+grant execute on function public.lier_comptes_fiches(boolean, uuid) to service_role;
+
 -- =====================================================================================================
 -- Éléments créés à la main en production (hors de ce fichier jusqu'ici), rapatriés ici pour que le projet
 -- puisse être recréé à l'identique. Relevés directement dans la base de production : colonnes, contraintes,
