@@ -79,3 +79,17 @@ describe('code', () => {
     expect(lire('src/components/NewStaffModal.jsx')).toMatch(/import \{ nextMatricule \} from '\.\.\/lib\/ficheDepuisCompte\.js'/);
   });
 });
+
+describe('bouton « Créer la fiche » (comptes existants)', () => {
+  const lire = (f) => fs.readFileSync(path.resolve(import.meta.dirname, '..', f), 'utf8');
+  it('visible seulement pour le fondateur, si le forfait inclut le personnel, une fois la liste lue, et si le compte n\'a pas de fiche', () => {
+    const s = lire('src/components/accounts/StaffAccountsTab.jsx');
+    expect(s).toMatch(/peutCreerFiche=\{isFondateur && hasFeature\(profile\?\.schools\?\.plan \|\| 'decouverte', 'personnel'\)\}/);
+    expect(s).toMatch(/const afficherCreerFiche = peutCreerFiche && pret && !ficheId && account\.role !== 'parent';/);
+  });
+  it('les écrans se remettent à jour quand le personnel change', () => {
+    const s = lire('src/lib/fichePersonnel.js');
+    expect(s).toMatch(/abonnes\.forEach\(\(recharger\) => recharger\(\)\)/);
+    expect(s).toMatch(/abonnes\.delete\(charger\)/); // pas de fuite : l'abonnement est retiré au démontage
+  });
+});

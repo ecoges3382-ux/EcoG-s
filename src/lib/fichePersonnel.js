@@ -55,14 +55,22 @@ function lirePersonnel() {
   return memoire.promesse;
 }
 
-export function oublierPersonnel() { memoire = { lu: 0, promesse: null }; }
+// Les écrans qui affichent des fiches se mettent à jour d'eux-mêmes quand le personnel change (fiche créée, compte relié ou délié).
+const abonnes = new Set();
+
+export function oublierPersonnel() {
+  memoire = { lu: 0, promesse: null };
+  abonnes.forEach((recharger) => recharger());
+}
 
 export function usePersonnel() {
   const [liste, setListe] = useState(null);
   useEffect(() => {
     let annule = false;
-    lirePersonnel().then((l) => { if (!annule) setListe(l); });
-    return () => { annule = true; };
+    const charger = () => lirePersonnel().then((l) => { if (!annule) setListe(l); });
+    charger();
+    abonnes.add(charger);
+    return () => { annule = true; abonnes.delete(charger); };
   }, []);
   return liste;
 }

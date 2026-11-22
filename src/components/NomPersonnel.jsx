@@ -4,9 +4,14 @@ import { Link } from 'react-router-dom';
 import LienPersonnel from './LienPersonnel.jsx';
 import { usePersonnel, trouverFiche } from '../lib/fichePersonnel.js';
 
-export function useFichePersonnel(personne) {
+// { pret, id } : pret = la liste du personnel est lue (sans cela, « pas de fiche » et « pas encore lu » se confondent).
+export function useFicheEtat(personne) {
   const personnel = usePersonnel();
-  return personnel ? trouverFiche(personne, personnel) : null;
+  return { pret: personnel !== null, id: personnel ? trouverFiche(personne, personnel) : null };
+}
+
+export function useFichePersonnel(personne) {
+  return useFicheEtat(personne).id;
 }
 
 export default function NomPersonnel({ userId, nom, email, phone, style }) {
