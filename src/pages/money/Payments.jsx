@@ -19,8 +19,13 @@ import OfflineBanner from '../../components/OfflineBanner.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import SelectionBar from '../../components/SelectionBar.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
+import ChampRecherche from '../../components/ChampRecherche.jsx';
+import { correspondAuxMots } from '../../lib/texte.js';
 import { translateError } from '../../lib/errors.js';
 import { TrashIcon, UsersIcon, ReceiptIcon } from './icons.jsx';
+
+// Nombre de paiements chargés d'un coup ; le bouton « Afficher plus » en charge autant de plus.
+const PAGE_PAIEMENTS = 100;
 
 export default function Payments() {
   const { profile } = useAuth();
@@ -29,6 +34,9 @@ export default function Payments() {
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const canManage = ['fondateur', 'directeur', 'secretaire'].includes(profile.role);
   const [payments, setPayments] = useState(null);
+  const [limite, setLimite] = useState(PAGE_PAIEMENTS); // nombre de paiements chargés (les plus récents d'abord)
+  const [recherche, setRecherche] = useState('');
+  const [chargementPlus, setChargementPlus] = useState(false);
   const [students, setStudents] = useState([]);
   const [studentsLoaded, setStudentsLoaded] = useState(false); // le premier appel (paiements) revient avant celui des élèves
   const [feeSchedules, setFeeSchedules] = useState([]);
@@ -109,7 +117,7 @@ export default function Payments() {
     reload();
   }
 
-  async function reload() {
+  async function reload(limiteVoulue = limite) {
     if (!schoolYear) return;
     await guardedFetch({
       cacheKey: `payments_${schoolYear.id}`,
@@ -121,7 +129,7 @@ export default function Payments() {
           .eq('school_year_id', schoolYear.id)
           .order('date', { ascending: false })
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(limiteVoulue);
         return payError ? { error: payError } : { data };
       },
       setData: setPayments,
@@ -163,11 +171,23 @@ export default function Payments() {
     );
   }
 
-  const totalEncaisse = payments.reduce((a, p) => a + Number(p.montant), 0);
-  const partiels = payments.filter((p) => p.tranche !== 'complet').length;
+  // Moins de paiements reçus que demandés : on les a tous. Sinon il en reste d'autres, plus anciens.
+  const toutCharge = payments.length < limite;
+  const liste = recherche.trim() ? payments.filter((p) => correspondAuxMots(p.students?.full_name, recherche)) : payments;
 
-  const paymentsScolarite = payments.filter((p) => p.type_frais === 'scolarite');
-  const paymentsAutres = payments.filter((p) => p.type_frais !== 'scolarite');
+  const totalEncaisse = liste.reduce((a, p) => a + Number(p.montant), 0);
+  const partiels = liste.filter((p) => p.tranche !== 'complet').length;
+
+  const paymentsScolarite = liste.filter((p) => p.type_frais === 'scolarite');
+  const paymentsAutres = liste.filter((p) => p.type_frais !== 'scolarite');
+
+  async function afficherPlus() {
+    const suivant = limite + PAGE_PAIEMENTS;
+    setChargementPlus(true);
+    setLimite(suivant);
+    await reload(suivant);
+    setChargementPlus(false);
+  }
 
   const totalScolarite = paymentsScolarite.reduce((a, p) => a + Number(p.montant), 0);
   const totalAutres = paymentsAutres.reduce((a, p) => a + Number(p.montant), 0);
@@ -236,8 +256,8 @@ export default function Payments() {
     <div>
       {offline && <OfflineBanner />}
       <div className="desktop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 22 }}>
-        <Stat label="Total encaissé (100 derniers)" value={fmtF(totalEncaisse)} color="var(--success)" />
-        <Stat label="Nb paiements (affichés)" value={payments.length} />
+        <Stat label={recherche.trim() ? 'Total des paiements trouvés' : toutCharge ? 'Total encaissé' : `Total encaissé (${payments.length} derniers)`} value={fmtF(totalEncaisse)} color="var(--success)" />
+        <Stat label="Nb paiements (affichés)" value={liste.length} />
         <Stat label="Paiements partiels" value={partiels} color="var(--amber)" />
       </div>
 
@@ -246,6 +266,9 @@ export default function Payments() {
           <button onClick={() => setModalOpen(true)} disabled={!schoolYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: schoolYear ? 1 : 0.7 }}>
             <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Enregistrer un paiement
           </button>
+        )}
+        {payments.length > 0 && !selectMode && (
+          <ChampRecherche value={recherche} onChange={setRecherche} placeholder="Chercher un élève…" label="Chercher un paiement par nom d'élève" style={{ flex: '1 1 220px', maxWidth: 320 }} />
         )}
         {canManage && payments.length > 0 && !selectMode && (
           <button onClick={() => setSelectMode(true)} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}>
@@ -301,6 +324,21 @@ export default function Payments() {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {payments.length > 0 && recherche.trim() && liste.length === 0 && (
+        <p style={{ margin: '14px 2px 0', fontSize: 13, color: 'var(--danger)', fontWeight: 600 }}>
+          Aucun paiement ne correspond à « {recherche.trim()} »{!toutCharge ? ` parmi les ${payments.length} derniers chargés` : ''}.
+        </p>
+      )}
+
+      {!toutCharge && !selectMode && (
+        <div style={{ margin: '16px 0 0', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button type="button" onClick={afficherPlus} disabled={chargementPlus} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: chargementPlus ? 'wait' : 'pointer' }}>
+            {chargementPlus ? 'Chargement…' : `Afficher ${PAGE_PAIEMENTS} paiements de plus`}
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{payments.length} paiements les plus récents chargés. La recherche porte sur ceux-ci.</span>
         </div>
       )}
 
