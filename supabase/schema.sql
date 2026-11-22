@@ -4293,6 +4293,28 @@ alter function public.protect_school_billing() set search_path = public;
 revoke execute on function public.check_plan_feature(uuid, text) from public, anon, authenticated;
 revoke execute on function public.check_whatsapp_quota(uuid) from public, anon, authenticated;
 
+-- Salaires : l'année scolaire est renseignée à chaque versement.
+-- La fonction pay_salary_with_advance_deduction (onglet Salaires) insère sans school_year_id : ces versements restaient invisibles pour
+-- le tableau de bord, le Bilan financier et les Rapports, qui additionnent par année scolaire. Ce déclencheur rattache tout nouveau
+-- versement sans année à l'année dont les dates contiennent la date du versement, à défaut à l'année en cours.
+-- Les versements déjà enregistrés sans année se rattachent à la main (voir la requête de rattrapage donnée avec ce correctif).
+create or replace function public.staff_salaries_annee_par_defaut()
+returns trigger language plpgsql as $$
+begin
+  if new.school_year_id is null then
+    select y.id into new.school_year_id
+    from school_years y
+    where y.school_id = new.school_id
+    order by (new.date between y.date_debut and y.date_fin) desc nulls last, y.is_current desc
+    limit 1;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists trg_staff_salaries_annee on staff_salaries;
+create trigger trg_staff_salaries_annee before insert on staff_salaries
+for each row execute function public.staff_salaries_annee_par_defaut();
+
 -- ---------- Lecture rapide des notes (règles de sécurité de la table grades) ----------
 -- Les règles « grades: select » appelaient current_school_id(), current_role_name() et auth.uid() pour CHAQUE ligne lue.
 -- Quand l'application lit les notes par pages de 1 000 (OFFSET), chaque page réévalue aussi toutes les lignes sautées :
