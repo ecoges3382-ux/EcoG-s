@@ -27,7 +27,7 @@ describe('règles de la base de données rapatriées', () => {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(auth.jwt() ->> 'sub', '')::uuid $$;
     create table auth.users (id uuid primary key default gen_random_uuid());
     create table schools (id uuid primary key default gen_random_uuid(), name text, plan text not null default 'decouverte', statut text not null default 'actif', indicatif_pays text default '229');
-    create table profiles (id uuid primary key references auth.users(id), school_id uuid references schools(id), role text, full_name text);
+    create table profiles (id uuid primary key references auth.users(id), school_id uuid references schools(id), role text, full_name text, permissions jsonb);
     create table platform_admins (user_id uuid primary key);
     create table school_years (id uuid primary key default gen_random_uuid(), school_id uuid references schools(id));
     create table students (id uuid primary key default gen_random_uuid(), school_id uuid references schools(id));
@@ -109,6 +109,8 @@ describe('règles de la base de données rapatriées', () => {
     check('ni changer d\'école', !x.ok && /école/.test(x.e), x);
     x = await A(U.dir, `update profiles set full_name = 'Nom' where id = '${U.dir}'`);
     check('mais peut modifier son nom', x.ok);
+    x = await A(U.dir, `update profiles set permissions = '{"finance": true}' where id = '${U.dir}'`);
+    check('ne peut pas s\'accorder des permissions lui-même', !x.ok);
 
     // ---- messagerie ----
     const gen = (await db.query(`insert into chat_conversations (school_id, type) values ('${S1}','general') returning id`)).rows[0].id;
