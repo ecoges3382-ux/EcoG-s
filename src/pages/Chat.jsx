@@ -6,6 +6,8 @@ import { initials, ROLES } from '../lib/utils.js';
 import { useOnlineUsers } from '../lib/presence.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import NomPersonnel, { LienFiche } from '../components/NomPersonnel.jsx';
+import VisionneuseImage from '../components/VisionneuseImage.jsx';
+import { enregistrerFichierChat, partageDisponible, partagerFichierChat, preparerFichierChat } from '../lib/fichiersChat.js';
 
 const AVATAR_COLORS = ['#0F4C3A', '#C4622D', '#C99A3D', '#2E6B47', '#8F4620', '#4A6670', '#5B3A8E'];
 function avatarColor(seed) {
@@ -95,8 +97,10 @@ function markAsReadIfVisible(conversationId) {
   markAsRead(conversationId);
 }
 
-function SecureChatImage({ src, isMe, onLoad }) {
+function SecureChatImage({ m, src, isMe, onLoad }) {
   const [displayUrl, setDisplayUrl] = useState(null);
+  const [ouverte, setOuverte] = useState(false);
+  const appuiRef = useRef(0);
   useEffect(() => {
     if (!src) return;
     if (src.startsWith('http')) { setDisplayUrl(src); return; }
@@ -105,10 +109,16 @@ function SecureChatImage({ src, isMe, onLoad }) {
     });
   }, [src]);
   if (!displayUrl) return <div style={{ width: 200, height: 150, background: 'var(--line)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-loader animate-spin"></i></div>;
+  // Un appui long ouvre le menu du message (Enregistrer, Partager...) : le relâchement ne doit pas en plus agrandir l'image.
+  const debutAppui = () => { appuiRef.current = Date.now(); };
+  const ouvrir = () => { if (appuiRef.current && Date.now() - appuiRef.current > 420) return; setOuverte(true); };
   return (
-    <a href={displayUrl} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
-      <img src={displayUrl} alt="" onLoad={onLoad} style={{ maxWidth: 240, maxHeight: 240, borderRadius: 10, display: 'block', border: isMe ? '2px solid rgba(255,255,255,0.2)' : '1px solid var(--line)' }} />
-    </a>
+    <>
+      <button type="button" aria-label="Agrandir la photo" onTouchStart={debutAppui} onMouseDown={debutAppui} onClick={ouvrir} style={{ display: 'block', padding: 0, border: 'none', background: 'none', cursor: 'zoom-in' }}>
+        <img src={displayUrl} alt="" draggable={false} onLoad={onLoad} style={{ maxWidth: 240, maxHeight: 240, borderRadius: 10, display: 'block', border: isMe ? '2px solid rgba(255,255,255,0.2)' : '1px solid var(--line)' }} />
+      </button>
+      {ouverte && <VisionneuseImage m={m} url={displayUrl} onClose={() => setOuverte(false)} />}
+    </>
   );
 }
 
@@ -120,7 +130,7 @@ async function openFile(m) {
   else alert("Impossible d'ouvrir le fichier.");
 }
 
-function MessageContent({ m, isMe, onImageLoad }) {
+function MessageContent({ m, isMe, onImageLoad, onFileOptions }) {
   const gap = m.content ? 8 : 0;
   // Message en cours d'envoi : on montre tout de suite l'aperçu local.
   if (m._status && m.file_type === 'image' && m._localPreview) {
@@ -134,13 +144,21 @@ function MessageContent({ m, isMe, onImageLoad }) {
       </div>
     );
   }
-  if (m.file_type === 'image' && m.file_url) return <div style={{ display: 'block', marginBottom: gap }}><SecureChatImage src={m.file_url} isMe={isMe} onLoad={onImageLoad} /></div>;
+  if (m.file_type === 'image' && m.file_url) return <div style={{ display: 'block', marginBottom: gap }}><SecureChatImage m={m} src={m.file_url} isMe={isMe} onLoad={onImageLoad} /></div>;
   if (m.file_type === 'file' && m.file_url) {
     return (
-      <button type="button" onClick={(e) => { e.preventDefault(); openFile(m); }} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: gap, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
-        <i className="ti ti-file" style={{ fontSize: 20 }}></i>
-        <span style={{ fontSize: 12.5, textDecoration: 'underline', wordBreak: 'break-all' }}>{m.file_name}</span>
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: gap }}>
+        <button type="button" onClick={(e) => { e.preventDefault(); openFile(m); }} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+          <i className="ti ti-file" style={{ fontSize: 20, flexShrink: 0 }}></i>
+          <span style={{ fontSize: 12.5, textDecoration: 'underline', wordBreak: 'break-all' }}>{m.file_name}</span>
+        </button>
+        {/* Visible sans appui long : ouvre le menu du message avec Enregistrer et Partager. */}
+        {onFileOptions && (
+          <button type="button" aria-label="Enregistrer ou partager ce fichier" title="Enregistrer ou partager" onClick={() => onFileOptions(m)} style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', border: 'none', background: isMe ? 'rgba(255,255,255,0.16)' : 'var(--line)', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+            <i className="ti ti-download" style={{ fontSize: 16 }} aria-hidden="true"></i>
+          </button>
+        )}
+      </div>
     );
   }
   return null;
@@ -272,7 +290,7 @@ function MessageRow({ item, isMe, showSender, senderOnline, readStatus, original
             <span style={{ fontStyle: 'italic', opacity: 0.75 }}>🚫 {isMe ? 'Vous avez supprimé ce message' : 'Ce message a été supprimé'}</span>
           ) : (
             <>
-              {hasFile && <MessageContent m={m} isMe={isMe} onImageLoad={onImageLoad} />}
+              {hasFile && <MessageContent m={m} isMe={isMe} onImageLoad={onImageLoad} onFileOptions={canAct ? ((x) => onOpenMenu(x, false)) : undefined} />}
               {m.content && <span>{m.content}</span>}
             </>
           )}
@@ -303,6 +321,22 @@ function MessageActionSheet({ m, isMe, isMobile, viaTouch, readInfo, onClose, on
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  const aFichier = !!m.file_type && !!m.file_url && !m.deleted_at;
+  const peutPartager = partageDisponible();
+  const [retour, setRetour] = useState('');
+  // Le partage exige un fichier déjà téléchargé au moment du toucher : on le prépare dès l'ouverture du menu.
+  useEffect(() => { if (aFichier && peutPartager) preparerFichierChat(m); }, [m, aFichier, peutPartager]);
+
+  async function enregistrer() {
+    const ok = await enregistrerFichierChat(m);
+    if (ok) { setRetour('Téléchargement lancé.'); setTimeout(onClose, 900); } else setRetour("Impossible d'enregistrer ce fichier.");
+  }
+  async function partager() {
+    const r = await partagerFichierChat(m);
+    if (r === 'partage' || r === 'annule') onClose();
+    else setRetour("Le partage n'est pas disponible ici. Utilisez « Enregistrer ».");
+  }
 
   async function copyText() {
     try { await navigator.clipboard.writeText(m.content); } catch {
@@ -337,6 +371,9 @@ function MessageActionSheet({ m, isMe, isMobile, viaTouch, readInfo, onClose, on
         ) : (
           <>
             <button type="button" onClick={guard(() => onReply(m))} style={btn}><i className="ti ti-arrow-back-up" style={{ fontSize: 20, color: 'var(--forest-text)' }}></i>Répondre</button>
+            {aFichier && peutPartager && <button type="button" onClick={guard(partager)} style={btn}><i className="ti ti-share-3" style={{ fontSize: 20, color: 'var(--forest-text)' }}></i>Partager</button>}
+            {aFichier && <button type="button" onClick={guard(enregistrer)} style={btn}><i className="ti ti-download" style={{ fontSize: 20, color: 'var(--forest-text)' }}></i>Enregistrer</button>}
+            {retour && <p role="status" style={{ margin: '2px 10px 6px', fontSize: 12.5, color: 'var(--muted)' }}>{retour}</p>}
             {m.content && <button type="button" onClick={guard(copyText)} style={btn}><i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 20, color: 'var(--forest-text)' }}></i>{copied ? 'Copié' : 'Copier'}</button>}
             {isMe && <button type="button" onClick={guard(() => setConfirming(true))} style={{ ...btn, color: 'var(--danger)' }}><i className="ti ti-trash" style={{ fontSize: 20 }}></i>Supprimer pour tous</button>}
           </>
