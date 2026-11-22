@@ -11,6 +11,7 @@ import { guardedFetch } from '../lib/offlineCache.js';
 import { getInscriptionTypeId, inscriptionsCacheKey, remindersCacheKey, loadInscriptions, loadReminders } from '../lib/recouvrementData.js';
 import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
+import { repartitionEleves } from '../lib/repartitionRecouvrement.js';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
@@ -231,12 +232,14 @@ export default function Recouvrement() {
   }, [enrichis, search, filterClasse, filterStatut]);
 
   const pieData = useMemo(() => {
+    const r = repartitionEleves(enrichis);
     return [
-      { name: 'Payé en totalité', value: totaux.nbAJour, color: 'var(--success)' },
-      { name: 'Paiement partiel', value: enrichis.filter(s => s.statutKey === 'dans_les_delais' || s.statutKey === 'solde_restant' || s.statutKey === 'moratoire' || s.statutKey === 'moratoire_expirant').length, color: 'var(--amber)' },
-      { name: 'En retard', value: enrichis.filter(s => s.statutKey === 'a_relancer').length, color: 'var(--danger)' },
+      { name: 'Payé en totalité', value: r.payes, color: 'var(--success)' },
+      { name: 'Partiel, dans les délais', value: r.partiels, color: 'var(--amber)' },
+      { name: 'Rien payé, dans les délais', value: r.rienPaye, color: 'var(--muted)' },
+      { name: 'En retard', value: r.enRetard, color: 'var(--danger)', detail: r.enRetardAvecPaiement > 0 ? `dont ${r.enRetardAvecPaiement} ont déjà payé une partie` : null },
     ].filter(d => d.value > 0);
-  }, [enrichis, totaux.nbAJour]);
+  }, [enrichis]);
 
 
   // Le serveur répond « ok » même quand WhatsApp refuse le message : il faut lire le détail
@@ -422,7 +425,7 @@ export default function Recouvrement() {
               <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color }} />
                 <span style={{ fontSize: 12, fontWeight: 600 }}>{d.name}</span>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value})</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>({d.value}{d.detail ? `, ${d.detail}` : ''})</span>
               </div>
             ))}
           </div>
