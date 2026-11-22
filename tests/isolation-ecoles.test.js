@@ -174,3 +174,112 @@ describe('outils d\'audit', () => {
     expect(sql).toMatch(/pg_policies/);
   });
 });
+
+describe('fichiers du chat (dossier « chat-files »)', () => {
+  const bloc = (() => {
+    const debut = SCHEMA.indexOf('do $chat$');
+    return SCHEMA.slice(debut, SCHEMA.indexOf('$chat$;', debut + 10) + 7);
+  })();
+  const U = { a1: 'a0000000-0000-4000-8000-000000000001', a2: 'a0000000-0000-4000-8000-000000000002', a3: 'a0000000-0000-4000-8000-000000000003', b1: 'b0000000-0000-4000-8000-000000000001' };
+  const E1 = '11111111-1111-4111-8111-111111111111', E2 = '22222222-2222-4222-8222-222222222222';
+  const GENERAL = 'c0000000-0000-4000-8000-000000000001', PRIVEE = 'c0000000-0000-4000-8000-000000000002', AUTRE = 'c0000000-0000-4000-8000-000000000003';
+
+  async function base() {
+    const db = new PGlite();
+    await db.exec(`
+      create schema auth; create schema storage; create role anon; create role authenticated;
+      create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      create table profiles (id uuid primary key, school_id uuid, role text);
+      create table chat_conversations (id uuid primary key, school_id uuid, type text);
+      create table chat_participants (conversation_id uuid, user_id uuid);
+      create function current_school_id() returns uuid language sql stable security definer as $$ select school_id from profiles where id = auth.uid() $$;
+      -- Même règle que la fonction de production (schema.sql, can_access_conversation).
+      create function can_access_conversation(p_conv uuid) returns boolean language sql stable security definer as $$
+        select exists (select 1 from chat_conversations c where c.id = p_conv
+          and c.school_id = (select p.school_id from profiles p where p.id = auth.uid())
+          and (c.type <> 'private' or exists (select 1 from chat_participants cp where cp.conversation_id = c.id and cp.user_id = auth.uid()))) $$;
+      create table storage.buckets (id text primary key, name text, public boolean);
+      create table storage.objects (id serial primary key, bucket_id text, name text);
+      create function storage.foldername(name text) returns text[] language sql as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+      alter table storage.objects enable row level security;
+      grant usage on schema auth, storage to anon, authenticated;
+      grant select, insert, delete on storage.objects to anon, authenticated;
+      grant usage on all sequences in schema storage to authenticated;
+      grant select on profiles, chat_conversations, chat_participants to authenticated;
+      grant execute on all functions in schema public to authenticated;
+      grant execute on all functions in schema storage to anon, authenticated;
+      insert into storage.buckets values ('chat-files', 'chat-files', true);
+      -- Anciennes règles (production avant correction) : lecture ouverte à tous.
+      create policy "chat-files: lecture publique" on storage.objects for select to public using (bucket_id = 'chat-files');
+      insert into profiles values ('${U.a1}', '${E1}', 'fondateur'), ('${U.a2}', '${E1}', 'secretaire'), ('${U.a3}', '${E1}', 'enseignant'), ('${U.b1}', '${E2}', 'fondateur');
+      insert into chat_conversations values ('${GENERAL}', '${E1}', 'general'), ('${PRIVEE}', '${E1}', 'private'), ('${AUTRE}', '${E2}', 'general');
+      insert into chat_participants values ('${PRIVEE}', '${U.a1}'), ('${PRIVEE}', '${U.a2}');
+      insert into storage.objects (bucket_id, name) values
+        ('chat-files', '${E1}/${GENERAL}/general.png'), ('chat-files', '${E1}/${PRIVEE}/prive.png'), ('chat-files', '${E2}/${AUTRE}/autre-ecole.png'),
+        ('chat-files', '${E1}/pas-un-identifiant/x.png'), ('photos', '${E1}/logo.png');
+      ${bloc}
+    `);
+    return db;
+  }
+  const comme = (db, id) => db.exec(id ? `set role authenticated; select set_config('request.jwt.claim.sub', '${id}', false);` : 'set role anon;');
+  const vus = async (db) => (await db.query(`select name from storage.objects where bucket_id = 'chat-files' order by name`)).rows.map((r) => r.name.split('/').slice(1).join('/'));
+
+  it('le dossier devient privé et la lecture publique disparaît', async () => {
+    const db = await base();
+    expect((await db.query(`select public from storage.buckets where id = 'chat-files'`)).rows[0].public).toBe(false);
+    expect((await db.query(`select policyname from pg_policies where tablename = 'objects' and policyname = 'chat-files: lecture publique'`)).rows).toHaveLength(0);
+  });
+  it('un visiteur sans compte ne voit aucun fichier du chat', async () => {
+    const db = await base();
+    await comme(db, null);
+    expect(await vus(db)).toEqual([]);
+  });
+  it('le chat général de son école est lisible par tous les comptes de l\'école', async () => {
+    const db = await base();
+    await comme(db, U.a3);
+    expect(await vus(db)).toEqual([`${GENERAL}/general.png`]);
+  });
+  it('une conversation privée n\'est lisible que par ses participants (pas par un collègue de l\'école)', async () => {
+    const db = await base();
+    await comme(db, U.a1);
+    expect(await vus(db)).toEqual([`${GENERAL}/general.png`, `${PRIVEE}/prive.png`]);
+    await db.exec('reset role');
+    await comme(db, U.a3);
+    expect(await vus(db)).not.toContain(`${PRIVEE}/prive.png`);
+  });
+  it('jamais les fichiers d\'une autre école, et un nom de dossier inattendu ne fait pas échouer la requête', async () => {
+    const db = await base();
+    await comme(db, U.b1);
+    expect(await vus(db)).toEqual([`${AUTRE}/autre-ecole.png`]);
+    await db.exec('reset role');
+    await comme(db, U.a1);
+    expect(await vus(db)).not.toContain('pas-un-identifiant/x.png');
+  });
+  it('dépôt : seulement dans une conversation accessible, de son école', async () => {
+    const db = await base();
+    await comme(db, U.a3);
+    await db.exec(`insert into storage.objects (bucket_id, name) values ('chat-files', '${E1}/${GENERAL}/nouveau.png')`);
+    await expect(db.exec(`insert into storage.objects (bucket_id, name) values ('chat-files', '${E1}/${PRIVEE}/intrus.png')`)).rejects.toThrow(/row-level security/);
+    await expect(db.exec(`insert into storage.objects (bucket_id, name) values ('chat-files', '${E2}/${AUTRE}/intrus.png')`)).rejects.toThrow(/row-level security/);
+  });
+  it('suppression : seulement dans une conversation accessible', async () => {
+    const db = await base();
+    await comme(db, U.a3);
+    await db.exec(`delete from storage.objects where name = '${E1}/${PRIVEE}/prive.png'`);
+    await db.exec('reset role');
+    expect(await vus(db)).toContain(`${PRIVEE}/prive.png`); // le collègue non participant n'a rien supprimé
+    await comme(db, U.a2);
+    await db.exec(`delete from storage.objects where name = '${E1}/${PRIVEE}/prive.png'`);
+    await db.exec('reset role');
+    expect(await vus(db)).not.toContain(`${PRIVEE}/prive.png`);
+  });
+  it('rejouer le bloc ne change rien et ne casse rien', async () => {
+    const db = await base();
+    await db.exec(bloc);
+    expect((await db.query(`select count(*) n from pg_policies where tablename = 'objects' and policyname like 'chat-files:%'`)).rows[0].n).toBe(3);
+  });
+  it('sur une base sans stockage (banc d\'essai), le bloc est ignoré sans erreur', async () => {
+    const db = new PGlite();
+    await db.exec(bloc);
+  });
+});

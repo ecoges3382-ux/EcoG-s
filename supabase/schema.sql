@@ -4488,6 +4488,53 @@ drop trigger if exists trg_staff_salaries_annee on staff_salaries;
 create trigger trg_staff_salaries_annee before insert on staff_salaries
 for each row execute function public.staff_salaries_annee_par_defaut();
 
+-- ---------- Fichiers du chat : dossier privé, accès limité à la conversation ----------
+-- Les pièces jointes du chat sont rangées sous « <école>/<conversation>/<fichier> ». Avant : le dossier était public et la règle de
+-- lecture ouverte à tout le monde (même sans compte), donc les fichiers de toutes les écoles, y compris ceux des conversations
+-- privées, pouvaient être listés et téléchargés. Désormais : dossier privé (l'application n'utilise que des adresses signées), et
+-- lecture, dépôt et suppression réservés à l'école de la personne ET à une conversation à laquelle elle a accès (chat général de son
+-- école, ou conversation privée dont elle est participante). Le deuxième niveau du chemin est l'identifiant de la conversation : on
+-- n'appelle la fonction que s'il a la forme d'un identifiant, pour ne jamais faire échouer une requête sur un nom inattendu.
+-- Ignoré sur une base sans stockage (banc d'essai des tests).
+do $chat$
+begin
+  if to_regclass('storage.objects') is null or to_regprocedure('public.can_access_conversation(uuid)') is null then
+    return;
+  end if;
+  insert into storage.buckets (id, name, public) values ('chat-files', 'chat-files', false)
+    on conflict (id) do update set public = false;
+
+  execute $p$drop policy if exists "chat-files: lecture publique" on storage.objects$p$;
+  execute $p$drop policy if exists "chat-files: dépôt par école" on storage.objects$p$;
+  execute $p$drop policy if exists "chat-files: suppression par école" on storage.objects$p$;
+  execute $p$drop policy if exists "chat-files: lecture par conversation" on storage.objects$p$;
+  execute $p$drop policy if exists "chat-files: dépôt par conversation" on storage.objects$p$;
+  execute $p$drop policy if exists "chat-files: suppression par conversation" on storage.objects$p$;
+
+  execute $p$create policy "chat-files: lecture par conversation" on storage.objects
+    for select to authenticated using (
+      bucket_id = 'chat-files'
+      and (storage.foldername(name))[1] = current_school_id()::text
+      and case when (storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+               then can_access_conversation(((storage.foldername(name))[2])::uuid) else false end
+    )$p$;
+  execute $p$create policy "chat-files: dépôt par conversation" on storage.objects
+    for insert to authenticated with check (
+      bucket_id = 'chat-files'
+      and (storage.foldername(name))[1] = current_school_id()::text
+      and case when (storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+               then can_access_conversation(((storage.foldername(name))[2])::uuid) else false end
+    )$p$;
+  execute $p$create policy "chat-files: suppression par conversation" on storage.objects
+    for delete to authenticated using (
+      bucket_id = 'chat-files'
+      and (storage.foldername(name))[1] = current_school_id()::text
+      and case when (storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+               then can_access_conversation(((storage.foldername(name))[2])::uuid) else false end
+    )$p$;
+end
+$chat$;
+
 -- ---------- Lecture rapide des notes (règles de sécurité de la table grades) ----------
 -- Les règles « grades: select » appelaient current_school_id(), current_role_name() et auth.uid() pour CHAQUE ligne lue.
 -- Quand l'application lit les notes par pages de 1 000 (OFFSET), chaque page réévalue aussi toutes les lignes sautées :
