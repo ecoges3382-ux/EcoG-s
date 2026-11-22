@@ -18,9 +18,9 @@ export const ECHEANCES = [
 // Réglages d'une école à partir de sa ligne « schools » : tant que la base n'a pas les colonnes (ou n'a rien enregistré),
 // tout est activé comme avant. Un jalon inconnu est ignoré ; aucun jalon coché revient à ne rien envoyer.
 export function reglagesRappels(row) {
-  if (!row) return { actif: true, jalons: [...JALONS] };
+  if (!row) return { actif: true, jalons: [...JALONS], validation: false };
   const brut = Array.isArray(row.rappels_jalons) ? row.rappels_jalons : JALONS;
-  return { actif: row.rappels_auto !== false, jalons: JALONS.filter((j) => brut.includes(j)) };
+  return { actif: row.rappels_auto !== false, jalons: JALONS.filter((j) => brut.includes(j)), validation: row.rappels_validation === true };
 }
 
 // Un élève sous moratoire n'est jamais relancé (même règle que src/lib/retard.js et que la fonction serveur).

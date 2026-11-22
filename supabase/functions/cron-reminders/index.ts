@@ -10,16 +10,22 @@
 //  * les élèves sous moratoire ne sont pas relancés ;
 //  * un parent ne reçoit chaque rappel qu'une fois par élève ;
 //  * les messages partent un par un, avec une pause de 2 à 5 secondes, jamais en rafale ;
+//  * validation par le fondateur (réglage rappels_validation) : au lieu d'écrire aux parents, la fonction prépare la liste du jour
+//    (table rappels_a_valider). Le fondateur valide ou refuse ; à HEURE_LIMITE_UTC, tout ce qui n'est pas refusé part tout seul.
+//    La tâche planifiée doit donc tourner jusqu'à cette heure (voir le message de livraison pour la planification) ;
 //  * si le temps maximum de la fonction approche, elle s'arrête proprement : la tâche planifiée la relance
 //    toutes les 10 minutes le matin, et les messages déjà envoyés ne sont jamais renvoyés.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import webpush from 'npm:web-push@3.6.7';
 
 const SITE_URL = 'https://eco-ges.vercel.app';
 const MILESTONES = [15, 7, 3, -3];            // jours avant (+) ou après (-) l'échéance : l'ensemble des jalons possibles
 const DEDUPE_DAYS = 40;                         // fenêtre où un même rappel ne doit pas être renvoyé
 const MAX_FAILURES = 2;                         // au-delà, on arrête de réessayer ce parent pour ce rappel
 const TIME_BUDGET_MS = 110_000;                 // la fonction s'arrête avant sa limite de durée
+// Heure limite de validation, en UTC (11 h UTC = midi au Bénin). Copie de src/lib/validationRappels.js.
+const HEURE_LIMITE_UTC = 11;
 const PAUSE_MIN_MS = 2000;
 const PAUSE_RANGE_MS = 3000;
 
@@ -66,9 +72,29 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Sans colonnes en base ou sans réglage : tout est activé, comme avant. Un jalon inconnu est ignoré.
 // deno-lint-ignore no-explicit-any
 function reglagesRappels(row: any) {
-  if (!row) return { actif: true, jalons: [...MILESTONES] };
+  if (!row) return { actif: true, jalons: [...MILESTONES], validation: false };
   const brut = Array.isArray(row.rappels_jalons) ? row.rappels_jalons : MILESTONES;
-  return { actif: row.rappels_auto !== false, jalons: MILESTONES.filter((j) => brut.includes(j)) };
+  return { actif: row.rappels_auto !== false, jalons: MILESTONES.filter((j) => brut.includes(j)), validation: row.rappels_validation === true };
+}
+
+// --- Validation par le fondateur : copies de src/lib/validationRappels.js (tests/validation-rappels.test.js) ---
+function cleRappel(parentId: string, studentId: string, templateName: string): string {
+  return `${parentId}:${studentId}:${templateName}`;
+}
+
+function peutPartir(statut: string, heureUtc: number): boolean {
+  return statut === 'valide' || (statut === 'a_valider' && heureUtc >= HEURE_LIMITE_UTC);
+}
+
+function planifierValidation(candidats: string[], lignes: { id: string; cle: string; statut: string }[], heureUtc: number) {
+  const parCle = new Map(lignes.map((l) => [l.cle, l]));
+  const presents = new Set(candidats);
+  const aInserer = candidats.filter((c) => !parCle.has(c));
+  const aEnvoyer = candidats
+    .filter((c) => parCle.has(c) && peutPartir(parCle.get(c)!.statut, heureUtc))
+    .map((c) => ({ cle: c, ligneId: parCle.get(c)!.id }));
+  const aAnnuler = lignes.filter((l) => (l.statut === 'a_valider' || l.statut === 'valide') && !presents.has(l.cle)).map((l) => l.id);
+  return { aInserer, aEnvoyer, aAnnuler };
 }
 
 function formatDateFr(dateStr: string | null) {
@@ -249,7 +275,91 @@ type Job = {
   phone: string;
   templateName: string;
   message: string;
+  ligneId?: string; // ligne de rappels_a_valider à marquer « envoye » une fois le message parti
 };
+
+// Texte de la notification envoyée au fondateur quand la liste du jour est prête. Décalage du Bénin : UTC+1.
+function messageNotificationValidation(nombre: number, heureLimiteUtc: number) {
+  const heure = (heureLimiteUtc + 1) % 24;
+  return {
+    title: '🔔 Rappels WhatsApp à valider',
+    body: nombre === 1
+      ? `1 rappel est prêt. Sans votre réponse, il part à ${heure} h.`
+      : `${nombre} rappels sont prêts. Sans votre réponse, ceux que vous ne refusez pas partent à ${heure} h.`,
+    url: '/recouvrement',
+  };
+}
+
+// Prévient le fondateur de l'école (notification sur ses appareils). Jamais bloquant : sans clés de notification, sans appareil
+// enregistré ou en cas d'erreur, la validation fonctionne quand même (le bandeau est dans Recouvrement, et l'envoi automatique a lieu).
+// deno-lint-ignore no-explicit-any
+async function prevenirFondateur(adminClient: any, schoolId: string, nombre: number): Promise<void> {
+  try {
+    const cle = Deno.env.get('VAPID_PUBLIC_KEY');
+    const privee = Deno.env.get('VAPID_PRIVATE_KEY');
+    const sujet = Deno.env.get('VAPID_SUBJECT');
+    if (!cle || !privee || !sujet) return;
+    webpush.setVapidDetails(sujet, cle, privee);
+    const { data: fondateurs } = await adminClient.from('profiles').select('id').eq('school_id', schoolId).eq('role', 'fondateur');
+    const ids = (fondateurs || []).map((f: { id: string }) => f.id);
+    if (ids.length === 0) return;
+    const { data: abonnements } = await adminClient.from('push_subscriptions').select('*').in('user_id', ids);
+    const contenu = JSON.stringify(messageNotificationValidation(nombre, HEURE_LIMITE_UTC));
+    // deno-lint-ignore no-explicit-any
+    for (const sub of (abonnements || []) as any[]) {
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, contenu);
+      } catch (err) {
+        // Appareil désinscrit : on le retire, comme les autres notifications.
+        const code = (err as { statusCode?: number }).statusCode;
+        if (code === 410 || code === 404) await adminClient.from('push_subscriptions').delete().eq('id', sub.id);
+      }
+    }
+  } catch (err) {
+    console.warn('[cron-reminders] notification au fondateur impossible :', schoolId, err instanceof Error ? err.message : err);
+  }
+}
+
+// École avec validation : on ne laisse partir que ce qui est validé, ou ce qui attend encore après l'heure limite.
+// Tout le reste est préparé (visible par le fondateur) ou annulé (le parent a payé entre-temps). En cas d'erreur de lecture ou
+// d'écriture, rien ne part pour cette école ce tour-ci : la tâche planifiée repasse dix minutes plus tard.
+// deno-lint-ignore no-explicit-any
+async function traiterValidation(adminClient: any, schoolId: string, candidats: Job[]): Promise<Job[]> {
+  const maintenant = new Date();
+  const aujourdhui = maintenant.toISOString().slice(0, 10);
+  const parCle = new Map(candidats.map((j) => [cleRappel(j.parentId, j.studentId, j.templateName), j]));
+
+  // Un rappel d'un jour passé, jamais envoyé : il est périmé.
+  await adminClient.from('rappels_a_valider').update({ statut: 'expire' }).eq('school_id', schoolId).lt('jour', aujourdhui).in('statut', ['a_valider', 'valide']);
+
+  const { data: lignes, error } = await adminClient
+    .from('rappels_a_valider')
+    .select('id, statut, parent_access_id, student_id, template_name')
+    .eq('school_id', schoolId)
+    .eq('jour', aujourdhui);
+  if (error) { console.warn('[cron-reminders] validation illisible, école ignorée ce tour-ci :', schoolId, error.message); return []; }
+
+  const plan = planifierValidation(
+    [...parCle.keys()],
+    // deno-lint-ignore no-explicit-any
+    (lignes || []).map((l: any) => ({ id: l.id, cle: cleRappel(l.parent_access_id, l.student_id, l.template_name), statut: l.statut })),
+    maintenant.getUTCHours(),
+  );
+
+  if (plan.aInserer.length > 0) {
+    const rows = plan.aInserer.map((cle) => {
+      const j = parCle.get(cle)!;
+      return { school_id: schoolId, parent_access_id: j.parentId, student_id: j.studentId, template_name: j.templateName, destinataire_phone: j.phone, contenu: j.message, jour: aujourdhui, statut: 'a_valider' };
+    });
+    const { error: insertError } = await adminClient.from('rappels_a_valider').upsert(rows, { onConflict: 'school_id,parent_access_id,student_id,template_name,jour', ignoreDuplicates: true });
+    if (insertError) console.warn('[cron-reminders] préparation des rappels à valider impossible :', schoolId, insertError.message);
+    else await prevenirFondateur(adminClient, schoolId, rows.length); // une seule fois : aux passages suivants, rien de nouveau à préparer
+  }
+  if (plan.aAnnuler.length > 0) {
+    await adminClient.from('rappels_a_valider').update({ statut: 'annule' }).in('id', plan.aAnnuler);
+  }
+  return plan.aEnvoyer.map((e) => ({ ...parCle.get(e.cle)!, ligneId: e.ligneId }));
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -283,7 +393,9 @@ Deno.serve(async (req) => {
       // Le fondateur peut couper les rappels ou choisir ses jalons. Lecture à part : si les colonnes n'existent pas encore
       // (mise à jour de la base pas faite), on garde le comportement d'avant, jamais une panne d'envoi à cause de ça.
       const { data: reglagesRow, error: reglagesError } = await adminClient.from('schools').select('rappels_auto, rappels_jalons').eq('id', schoolId).maybeSingle();
-      const reglages = reglagesRappels(reglagesError ? null : reglagesRow);
+      // La validation se lit à part : si sa colonne n'existe pas encore, les réglages ci-dessus (coupure, jalons) restent respectés.
+      const { data: validationRow, error: validationError } = await adminClient.from('schools').select('rappels_validation').eq('id', schoolId).maybeSingle();
+      const reglages = reglagesRappels(reglagesError ? null : { ...reglagesRow, ...(validationError ? {} : validationRow) });
       if (!reglages.actif || reglages.jalons.length === 0) continue;
 
       const dial = await getSchoolDial(adminClient, schoolId); // indicatif ajouté aux numéros saisis sans « + »
@@ -371,6 +483,7 @@ Deno.serve(async (req) => {
         else done.add(key);
       });
 
+      const debutEcole = jobs.length;
       for (const ms of milestones) {
         const templateName = `rappel_j${ms.jours}_${ms.type}`;
         // deno-lint-ignore no-explicit-any
@@ -407,6 +520,12 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      // Validation demandée par le fondateur : ces messages ne partent pas tels quels, ils passent par la liste du jour.
+      if (reglages.validation) {
+        const candidats = jobs.splice(debutEcole);
+        jobs.push(...await traiterValidation(adminClient, schoolId, candidats));
+      }
     }
 
     // 2. Envoi, un message à la fois, avec une pause : jamais de rafale.
@@ -432,6 +551,7 @@ Deno.serve(async (req) => {
       if (result.ok) {
         sent++;
         await adminClient.from('whatsapp_messages').update({ statut: 'envoye', updated_at: new Date().toISOString() }).eq('id', inserted.id);
+        if (job.ligneId) await adminClient.from('rappels_a_valider').update({ statut: 'envoye' }).eq('id', job.ligneId);
       } else {
         failed++;
         await adminClient.from('whatsapp_messages').update({ statut: 'echec', erreur: result.error, updated_at: new Date().toISOString() }).eq('id', inserted.id);

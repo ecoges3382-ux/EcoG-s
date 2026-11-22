@@ -13,6 +13,7 @@ import { sendWhatsAppMessage } from '../lib/whatsapp.js';
 import HistoricalYearBanner from '../components/HistoricalYearBanner.jsx';
 import { repartitionEleves } from '../lib/repartitionRecouvrement.js';
 import OfflineBanner from '../components/OfflineBanner.jsx';
+import RappelsAValider from '../components/RappelsAValider.jsx';
 import Dropdown from '../components/Dropdown.jsx';
 import { SkeletonCard, SkeletonTableRows } from '../components/Skeleton.jsx';
 import { usePageTour } from '../components/PageTour.jsx';
@@ -386,6 +387,8 @@ export default function Recouvrement() {
           <tour.Button />
         </div>
       </div>
+
+      <RappelsAValider schoolId={profile.school_id} visible={profile.role === 'fondateur' && !isHistorical} />
 
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: 18, marginBottom: 24 }}>
         <div className="card-bold" style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
