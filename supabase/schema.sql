@@ -268,6 +268,18 @@ create policy "photos: suppression par école" on storage.objects
     bucket_id = 'photos' and (storage.foldername(name))[1] = current_school_id()::text
   );
 
+-- ---------- Photos : plus de liste publique des fichiers de toutes les écoles ----------
+-- Le bucket « photos » reste public : une photo ou un logo s'affiche avec son adresse publique, sans aucune règle de lecture (le
+-- stockage ne consulte pas les règles pour une adresse publique). L'ancienne règle « lecture publique » ne servait donc à rien pour
+-- l'affichage, mais elle permettait à n'importe qui, sans compte, de LISTER tous les fichiers de toutes les écoles (dossiers =
+-- identifiants d'école, puis noms de fichiers : photos d'élèves et du personnel). La lecture/liste est maintenant limitée à son école.
+drop policy if exists "photos: lecture publique" on storage.objects;
+drop policy if exists "photos: lecture par école" on storage.objects;
+create policy "photos: lecture par école" on storage.objects
+  for select using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = current_school_id()::text
+  );
+
 -- ---------- Migration 4 : comptes utilisateurs (directeur/secrétaire/enseignant) ----------
 -- Le fondateur peut créer des comptes de connexion pour son équipe (avec
 -- mot de passe qu'il choisit) via l'Edge Function create-staff-account.
@@ -2857,7 +2869,7 @@ set search_path = public
 as $$
   select id from auth.users where lower(email) = lower(trim(p_email)) limit 1
 $$;
-revoke execute on function find_user_id_by_email(text) from public;
+revoke execute on function find_user_id_by_email(text) from public, anon, authenticated;
 grant execute on function find_user_id_by_email(text) to service_role;
 
 -- ---------- Création d'un compte administrateur, indépendante d'une école ----------
@@ -4130,6 +4142,11 @@ begin
   -- school_id : ne peut JAMAIS changer via un UPDATE client.
   if new.school_id is distinct from old.school_id then
     raise exception 'L''école ne peut pas être modifiée ici.';
+  end if;
+  -- permissions : un compte ne peut pas s'accorder des droits lui-même (ex. « finance »). Seul le serveur (Edge Function
+  -- manage-staff-account, appelée par le fondateur) les modifie.
+  if new.permissions is distinct from old.permissions and coalesce(current_setting('role', true), '') <> 'service_role' then
+    raise exception 'Les permissions ne peuvent pas être modifiées ici.';
   end if;
   return new;
 end;
