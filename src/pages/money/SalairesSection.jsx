@@ -10,6 +10,7 @@ import { useConfirm } from '../../components/ConfirmDialog.jsx';
 import { SkeletonRow } from '../../components/Skeleton.jsx';
 import SelectionBar from '../../components/SelectionBar.jsx';
 import { TrashIcon } from './icons.jsx';
+import LienPersonnel from '../../components/LienPersonnel.jsx';
 
 function generateMonthOptions() {
   const months = [];
@@ -182,7 +183,7 @@ export default function SalairesSection() {
                   
                   {/* Cellule figée et opaque */}
                   <div style={{ ...stickyColStyle('var(--paper)'), paddingLeft: 20, zIndex: 2 }}>
-                    <p style={{ margin: 0, fontWeight: 600 }}>{p.full_name}</p>
+                    <p style={{ margin: 0, fontWeight: 600 }}><LienPersonnel id={p.id} nom={p.full_name} /></p>
                     <p style={{ margin: 0, fontSize: 11, color: 'var(--muted)' }}>{libelleRolePersonnel(p.role)}</p>
                   </div>
                   
@@ -221,7 +222,7 @@ export default function SalairesSection() {
                 <input type="checkbox" checked={selectedIds.includes(s.id)} onChange={() => toggleOne(s.id)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
               )}
               <div>
-                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{s.staff?.full_name}</p>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}><LienPersonnel id={s.staff_id} nom={s.staff?.full_name} /></p>
                 <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>
                   {new Date(s.date).toLocaleDateString('fr-FR')} · {s.mode}{s.note ? ` · ${s.note}` : ''}
                 </p>

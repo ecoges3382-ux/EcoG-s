@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials, fmtF, libelleRolePersonnel, downloadCsv, sortClasses, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
+import { initials, fmtF, libelleRolePersonnel, estEnseignant, downloadCsv, sortClasses, stickyColStyle, stickyHeaderStyle } from '../lib/utils.js';
 import NewStaffModal from '../components/NewStaffModal.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
@@ -429,7 +429,7 @@ export default function Staff() {
                           {reste == null ? '—' : fmtF(reste)}
                         </span>
                         <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
-                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{p.role === 'Enseignant' && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
+                        <span style={{ fontSize: 13, color: 'var(--muted)' }}>{estEnseignant(p.role) && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
                       </Link>
                       {!selectMode && (
                         <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', paddingRight: 20 }}>

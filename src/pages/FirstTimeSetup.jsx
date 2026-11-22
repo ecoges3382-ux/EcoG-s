@@ -36,7 +36,7 @@ export default function FirstTimeSetup() {
     const [{ data: cl, error: clError }, { data: su }, { data: te }] = await Promise.all([
       supabase.from('classes').select('*, staff ( full_name )'),
       supabase.from('subjects').select('*, staff ( full_name )').order('nom'),
-      supabase.from('staff').select('id, full_name').eq('role', 'Enseignant').order('full_name'),
+      supabase.from('staff').select('id, full_name').ilike('role', 'enseignant').order('full_name'),
     ]);
     if (clError) { setError(clError.message); return; }
     setClasses(sortClasses(cl || []));
