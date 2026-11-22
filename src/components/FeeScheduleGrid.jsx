@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
-import { NIVEAUX, fmtF } from '../lib/utils.js';
+import { niveauxDesClasses, fmtF } from '../lib/utils.js';
 import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
 import Dropdown from './Dropdown.jsx';
@@ -37,16 +37,15 @@ export default function FeeScheduleGrid({ schoolId, schoolYear, canManage, copyF
 
   async function reload() {
     if (!schoolYear) return;
-    const [{ data, error: e }, { data: cl }] = await Promise.all([
+    const [{ data, error: e }, { data: cl, error: ec }] = await Promise.all([
       supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
       supabase.from('classes').select('niveau'),
     ]);
-    if (e) { setError(e.message); return; }
+    if (e || ec) { setError((e || ec).message); return; }
     const map = {};
     (data || []).forEach((f) => { map[f.niveau] = f; });
     setRows(map);
-    const present = new Set((cl || []).map((c) => c.niveau));
-    const list = NIVEAUX.filter((n) => present.has(n));
+    const list = niveauxDesClasses(cl);
     setNiveauxPresents(list);
     setSelected((prev) => (prev && list.includes(prev) ? prev : (list[0] || '')));
   }

@@ -151,6 +151,27 @@ export const NATIONALITES = [
   'Libanaise', 'Portugaise', 'Russe', 'Suisse', 'Turque', 'Autre'
 ];
 
+// Niveaux réellement utilisés par les classes d'une école, tels qu'ils sont ÉCRITS dans les classes (« 6e », « 6ème »…), du plus petit
+// au plus grand. On ne les filtre PAS sur la liste NIVEAUX : un niveau écrit autrement (« 6ème », saisi à la main ou importé) y
+// serait invisible alors que les élèves, eux, le cherchent avec ce même texte pour retrouver leur tarif.
+export function niveauxDesClasses(classes) {
+  const vus = [...new Set((classes || []).map((c) => c && c.niveau).filter(Boolean))];
+  return vus.sort((a, b) => rangNiveau(a) - rangNiveau(b) || a.localeCompare(b, 'fr'));
+}
+
+// Place d'un niveau dans NIVEAUX, même s'il est écrit autrement (« 6ème », « 6eme », « Terminale », « Seconde », « 1ère »…).
+// Un niveau inconnu va à la fin.
+function rangNiveau(niveau) {
+  const direct = NIVEAUX.indexOf(niveau);
+  if (direct !== -1) return direct;
+  let c = String(niveau).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '');
+  c = c.replace(/^(\d)(eme|e)$/, '$1e');
+  const alias = { terminale: 'tle', seconde: '2nde', premiere: '1ere', '1er': '1ere', '1ere': '1ere', maternelle: 'maternelle' };
+  c = alias[c] || c;
+  const i = NIVEAUX.findIndex((n) => n.toLowerCase() === c);
+  return i === -1 ? NIVEAUX.length : i;
+}
+
 export function sortClasses(list) {
   return [...list].sort((a, b) => {
     const diff = NIVEAUX.indexOf(a.niveau) - NIVEAUX.indexOf(b.niveau);
