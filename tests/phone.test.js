@@ -30,8 +30,17 @@ describe('numéro international complet : respecté tel quel, quel que soit le p
     expect(toInternational('0033612345678', '229')).toBe('+33612345678');
     expect(toInternational('00 228 90 12 34 56', '229')).toBe('+22890123456');
   });
-  it('un numéro déjà au bon format n\'est pas modifié (ancien format béninois avec « + » inclus)', () => {
-    expect(toInternational('+22997000001', '229')).toBe('+22997000001');
+  it('un numéro déjà au bon format n\'est pas modifié', () => {
+    expect(toInternational('+2290197000001', '229')).toBe('+2290197000001');
+    expect(toInternational('+33612345678', '229')).toBe('+33612345678');
+  });
+  it('un ancien numéro béninois à 8 chiffres, même écrit avec « + », reçoit le « 01 » (réforme du 30 novembre 2024)', () => {
+    expect(toInternational('+22997000001', '229')).toBe('+2290197000001');
+    expect(toInternational('+229 97 00 00 01', '229')).toBe('+2290197000001');
+    expect(toInternational('0022997000001', '229')).toBe('+2290197000001');
+  });
+  it('seul le Bénin est concerné : un numéro togolais à 8 chiffres avec « + » reste tel quel', () => {
+    expect(toInternational('+22890123456', '229')).toBe('+22890123456');
   });
 });
 

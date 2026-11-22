@@ -107,6 +107,8 @@ function normalizePhone(phone: string | null | undefined, dial: string = DEFAULT
     if (local.length < 7) return null; // trop court pour un numéro : évite d'enregistrer « +22912345 »
     p = composePhone(indicatif, local);
   }
+  // Ancien numéro béninois enregistré avec « + » et 8 chiffres (+22997000001) : on y ajoute le « 01 » (réforme du 30 novembre 2024).
+  p = p.replace(/^\+229(\d{8})$/, '+22901$1');
   return /^\+[1-9]\d{6,14}$/.test(p) ? p : null;
 }
 
