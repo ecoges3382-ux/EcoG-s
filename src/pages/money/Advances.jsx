@@ -25,6 +25,7 @@ export default function Advances() {
   const { schoolYear } = useSelectedSchoolYear(profile.school_id);
   const [advances, setAdvances] = useState(null);
   const [staff, setStaff] = useState([]);
+  const [staffLoaded, setStaffLoaded] = useState(false); // les demandes arrivent avant la liste du personnel
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
   const [staffId, setStaffId] = useState('');
@@ -69,6 +70,7 @@ export default function Advances() {
     });
     const { data: st } = await supabase.from('staff').select('id, full_name, role').eq('statut', 'actif').order('full_name');
     setStaff(st || []);
+    setStaffLoaded(true);
     if (st?.length && !staffId) setStaffId(st[0].id);
   }
   useEffect(() => { reload(); }, [schoolYear?.id]);
@@ -133,7 +135,9 @@ export default function Advances() {
 
       {advances.length === 0 ? (
         <div className="card-bold" style={{ marginBottom: 20 }}>
-          {staff.length === 0 ? (
+          {!staffLoaded ? (
+            <SkeletonRow count={2} avatar={false} />
+          ) : staff.length === 0 ? (
             <EmptyState icon={<UsersIcon />} title="Aucun membre du personnel" subtitle="Les avances se font pour les membres du personnel." actionLabel="Aller vers Personnel" actionTo="/personnel" />
           ) : (
             <EmptyState icon={<MoneyIcon />} title="Aucune demande d'avance" subtitle="Les demandes d'avance de ton équipe apparaîtront ici." />

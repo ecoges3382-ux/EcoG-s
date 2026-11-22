@@ -31,7 +31,7 @@ export default function SalairesSection() {
   const [mois, setMois] = useState(generateMonthOptions()[0].value);
   const [salaries, setSalaries] = useState(null);
   const [advances, setAdvances] = useState([]);
-  const [staff, setStaff] = useState([]);
+  const [staff, setStaff] = useState(null); // null = pas encore chargé (sinon « Aucun membre… » s'affiche pendant l'attente)
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [error, setError] = useState('');

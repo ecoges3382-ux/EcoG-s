@@ -282,7 +282,7 @@ export default function Notes() {
               options={[{ value: 'Tout', label: 'Tout' }, ...subjectsForNiveau.map((s) => ({ value: s.id, label: s.nom }))]}
             />
           </div>
-          {niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Aucun élève inscrit pour l'instant.</p>}
+          {grades !== null && niveauxPresents.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>Aucun élève inscrit pour l'instant.</p>}
 
           <div data-tour="notes-periods" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 22, alignItems: 'center' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)', marginRight: 4 }}>Période :</span>
