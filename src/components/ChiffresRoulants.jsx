@@ -25,10 +25,13 @@ function Colonne({ chiffre, depart = 0, duree, retard }) {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [chiffre, duree, retard]);
+  // Un chiffre invisible fixe la largeur ET la ligne de base de la colonne : le chiffre qui roule reste aligné avec le reste du texte
+  // (« F CFA », points des milliers). La découpe se fait par clip-path et non par overflow, qui déplacerait la ligne de base vers le bas.
   return (
-    <span style={{ display: 'inline-block', height: '1em', lineHeight: 1, userSelect: 'none', overflow: 'hidden', width: '0.56em', textAlign: 'center', verticalAlign: 'bottom' }}>
-      <span style={{ display: 'block', transform: `translateY(${-pos * 5}%)`, willChange: 'transform' }}>
-        {BANDE.map((n, i) => <span key={i} style={{ display: 'block', height: '1em', lineHeight: 1 }}>{n}</span>)}
+    <span style={{ position: 'relative', display: 'inline-block', textAlign: 'center', userSelect: 'none', clipPath: 'inset(0)' }}>
+      <span style={{ visibility: 'hidden' }}>0</span>
+      <span style={{ position: 'absolute', left: 0, right: 0, top: 0, transform: `translateY(${-pos * 5}%)`, willChange: 'transform' }}>
+        {BANDE.map((n, i) => <span key={i} style={{ display: 'block' }}>{n}</span>)}
       </span>
     </span>
   );
@@ -39,7 +42,7 @@ export default function ChiffresRoulants({ texte, duree = 1100, decalage = 35 })
   const morceaux = useMemo(() => decouperTexte(texte), [texte]);
   if (mode === 'reduit') return <>{texte}</>;
   return (
-    <span style={{ whiteSpace: 'pre' }}>
+    <span style={{ whiteSpace: 'pre', fontVariantNumeric: 'tabular-nums' }}>
       <span className="sr-only">{texte}</span>
       <span aria-hidden="true">
         {morceaux.map((m) => (m.chiffre === null
