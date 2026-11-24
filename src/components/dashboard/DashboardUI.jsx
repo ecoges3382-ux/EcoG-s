@@ -1,4 +1,3 @@
-import ChiffresRoulants from '../ChiffresRoulants.jsx';
 import { Link } from 'react-router-dom';
 
 export const MONTH_LABELS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -36,7 +35,7 @@ export function Stat({ label, value, color, sub, subColor, to }) {
   const content = (
     <>
       <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{label}</p>
-      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color }}>{typeof value === 'string' ? <ChiffresRoulants texte={value} /> : value}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 700, color }}>{value}</p>
       {sub && <p style={{ margin: '2px 0 0', fontSize: 11, color: subColor || 'var(--muted)', fontWeight: subColor ? 600 : 400 }}>{sub}</p>}
     </>
   );

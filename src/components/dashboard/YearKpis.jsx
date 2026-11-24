@@ -3,8 +3,6 @@ import { fmtF } from '../../lib/utils.js';
 import { Stat } from './DashboardUI.jsx';
 import { virgule } from '../../lib/formatNote.js';
 import Sur20 from '../Sur20.jsx';
-import ChiffresRoulants from '../ChiffresRoulants.jsx';
-import AnneauProgression from '../AnneauProgression.jsx';
 
 export default function YearKpis({ students, attendance, classResults }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
@@ -31,26 +29,19 @@ export default function YearKpis({ students, attendance, classResults }) {
         <Link to="/recouvrement" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir le recouvrement détaillé">
           <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff', cursor: 'pointer', height: '100%' }}>
             <p style={{ margin: '0 0 6px', fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}>Taux de recouvrement</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-                  <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}><ChiffresRoulants texte={`${tauxRecouv}%`} /></p>
-                  <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmtF(totalDu)} attendus</p>
-                </div>
-                <div style={{ height: 9, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden' }}>
-                  <div className="fill-bar" style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
-                </div>
-              </div>
-              <div className="hide-on-mobile">
-                <AnneauProgression pct={tauxRecouv} taille={92} epaisseur={9} titre={`Taux de recouvrement ${tauxRecouv} %`} />
-              </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 14 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 46, fontWeight: 700, lineHeight: 1 }}>{tauxRecouv}%</p>
+              <p style={{ margin: 0, fontSize: '13.5px', color: 'rgba(255,255,255,0.65)' }}>de {fmtF(totalDu)} attendus</p>
+            </div>
+            <div style={{ height: 9, background: 'rgba(255,255,255,0.18)', borderRadius: 8, overflow: 'hidden' }}>
+              <div className="fill-bar" style={{ height: '100%', width: `${tauxRecouv}%`, background: 'var(--gold)' }}></div>
             </div>
           </div>
         </Link>
         <Link to="/eleves" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir la liste des élèves">
           <div className="card-bold stat-in" style={{ padding: '22px 24px', cursor: 'pointer', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif global</p>
-            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 38, fontWeight: 700 }}><ChiffresRoulants texte={String(students.length)} /></p>
+            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 38, fontWeight: 700 }}>{students.length}</p>
             <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>élève{students.length > 1 ? 's' : ''} inscrit{students.length > 1 ? 's' : ''}</p>
           </div>
         </Link>
