@@ -191,8 +191,6 @@ function MessageRow({ item, isMe, showSender, senderOnline, readStatus, original
   const rowRef = useRef(null);
   const touchRef = useRef(null);
   const [hover, setHover] = useState(false);
-  // Message tout juste envoyé ou reçu : il glisse et se précise (pas l'historique chargé à l'ouverture)
-  const [recent] = useState(() => !!m._status || (m.created_at && Date.now() - Date.parse(m.created_at) < 3000));
   const deleted = !!m.deleted_at;
   const sending = m._status === 'sending';
   const failed = m._status === 'failed';
@@ -259,7 +257,6 @@ function MessageRow({ item, isMe, showSender, senderOnline, readStatus, original
   return (
     <div
       ref={rowRef}
-      className={recent ? 'msg-entree' : undefined}
       data-mid={m.id}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

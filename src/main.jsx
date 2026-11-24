@@ -6,7 +6,6 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { ConfirmProvider } from './components/ConfirmDialog.jsx';
 import { getInitialTheme, applyTheme } from './lib/theme.js';
-import { demarrerAnimations } from './lib/animations.js';
 import './styles.css';
 
 // Si un fichier de page n'existe plus (version déployée entre-temps), on
@@ -23,8 +22,6 @@ window.addEventListener('vite:preloadError', () => {
 
 // Applique le thème immédiatement avant le rendu de React
 applyTheme(getInitialTheme());
-// Mode d'animations (complet ou réduit) : posé sur <html data-anim> avant le rendu
-demarrerAnimations();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

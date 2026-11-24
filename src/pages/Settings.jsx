@@ -1,7 +1,6 @@
 import SchoolCountryCard from '../components/SchoolCountryCard.jsx';
 import EnableNotifications from '../components/EnableNotifications.jsx';
 import DisplaySizeCard from '../components/DisplaySizeCard.jsx';
-import AnimationsCard from '../components/AnimationsCard.jsx';
 import DiagnosticMiseAJour from '../components/DiagnosticMiseAJour.jsx';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -104,7 +103,7 @@ export default function Settings() {
             Vous n'avez pas l'autorisation d'accéder aux paramètres de l'école. Veuillez contacter le fondateur.
           </p>
         </div>
-        <div style={{ maxWidth: 520, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}><DisplaySizeCard /><AnimationsCard /></div>
+        <div style={{ maxWidth: 520, marginTop: 16 }}><DisplaySizeCard /></div>
       </div>
     );
   }
@@ -241,8 +240,6 @@ export default function Settings() {
         <EnableNotifications />
 
         <DisplaySizeCard />
-
-        <AnimationsCard />
 
         {isFondateur && <DiagnosticMiseAJour />}
 
