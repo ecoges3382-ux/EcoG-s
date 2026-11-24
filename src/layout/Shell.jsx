@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
@@ -86,7 +86,7 @@ function sidebarLinkStyle(isActive) {
   return {
     display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px',
     borderRadius: 10, cursor: 'pointer', marginBottom: 2, textDecoration: 'none',
-    background: isActive ? 'rgba(255,255,255,0.14)' : 'transparent',
+    background: 'transparent', position: 'relative', zIndex: 1,
     color: '#fff',
     fontSize: '13px',
     fontWeight: isActive ? 600 : 500,
@@ -215,6 +215,14 @@ export default function Shell() {
   };
 
   const isChatPage = location.pathname === '/chat';
+  // Ouverture « loupe » de l'écran : une seule fois par session de navigation, pas à chaque visite de page
+  const [premiereOuverture] = useState(() => {
+    try {
+      if (sessionStorage.getItem('ecoges_loupe')) return false;
+      sessionStorage.setItem('ecoges_loupe', '1');
+      return true;
+    } catch { return false; }
+  });
 
   return (
     <SchoolYearProvider schoolId={profile?.school_id}>
@@ -301,7 +309,7 @@ export default function Shell() {
           <div id="sidebar" data-tour="sidebar">
             <SidebarMenu plan={plan} hasAccess={hasAccess} />
           </div>
-          <div id="screen">
+          <div id="screen" className={premiereOuverture ? 'ouverture-loupe' : undefined}>
             <div key={location.pathname} className="page-transition" style={{
               paddingBottom: isChatPage ? 0 : '48px',
               // Page normale : la hauteur suit le contenu (sinon le contenu déborde et la marge du bas est perdue,
@@ -422,8 +430,18 @@ function SidebarMenu({ plan, hasAccess }) {
     return true;
   });
 
+  // Pastille qui glisse jusqu'à l'entrée active (ressort léger) au lieu de changer de fond d'un coup
+  const location = useLocation();
+  const conteneur = useRef(null);
+  const [pastille, setPastille] = useState(null);
+  useLayoutEffect(() => {
+    const actif = conteneur.current?.querySelector('a[aria-current="page"]');
+    setPastille(actif ? { y: actif.offsetTop, h: actif.offsetHeight } : null);
+  }, [location.pathname, visibleItems.length]);
+
   return (
-    <>
+    <div ref={conteneur} style={{ position: 'relative' }}>
+      {pastille && <div className="menu-pastille" aria-hidden="true" style={{ height: pastille.h, transform: `translateY(${pastille.y}px)` }} />}
       {visibleItems.map((item) => (
         <NavLink key={item.to} to={item.to} end={item.end} className="navlink" style={({ isActive }) => sidebarLinkStyle(isActive)} data-tour={item.tourId} {...prefetchHandlers(item.to)}>
           <i className={`ti ${item.icon}`} style={{ fontSize: 16, color: '#fff' }} aria-hidden="true"></i>
@@ -435,6 +453,6 @@ function SidebarMenu({ plan, hasAccess }) {
           )}
         </NavLink>
       ))}
-    </>
+    </div>
   );
 }
