@@ -131,6 +131,21 @@ export function marquerCouleurSynchronisee(userId) {
   try { localStorage.setItem(cleSync(userId), '1'); } catch { /* stockage indisponible */ }
 }
 
+// Un choix (ou un retour à la couleur de l'école) pas encore enregistré sur le profil : l'enregistrement a échoué (réseau, droits…).
+// Tant qu'il est en attente, le choix de cet appareil fait foi et est renvoyé au profil à chaque chargement, au lieu d'être effacé.
+const cleAttente = (userId) => `ecoges_couleur_attente_${userId}`;
+export function couleurEnAttente(userId) {
+  if (typeof window === 'undefined' || !userId) return false;
+  try { return localStorage.getItem(cleAttente(userId)) === '1'; } catch { return false; }
+}
+export function marquerCouleurEnAttente(userId, attente) {
+  if (typeof window === 'undefined' || !userId) return;
+  try {
+    if (attente) localStorage.setItem(cleAttente(userId), '1');
+    else localStorage.removeItem(cleAttente(userId));
+  } catch { /* stockage indisponible */ }
+}
+
 export function resetSchoolColor() {
   if (typeof window === 'undefined') return;
   const root = document.documentElement.style;

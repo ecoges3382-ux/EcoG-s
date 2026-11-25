@@ -1,6 +1,7 @@
 import SchoolCountryCard from '../components/SchoolCountryCard.jsx';
 import EnableNotifications from '../components/EnableNotifications.jsx';
 import DisplaySizeCard from '../components/DisplaySizeCard.jsx';
+import ApparenceCard from '../components/ApparenceCard.jsx';
 import DiagnosticMiseAJour from '../components/DiagnosticMiseAJour.jsx';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -61,16 +62,22 @@ export default function Settings() {
     setSaving(true);
     setError('');
     setSaved(false);
-    const { error: updateError } = await supabase
+    const { data: modifiees, error: updateError } = await supabase
       .from('schools')
       .update({
         name: name.trim(), color, logo_url: logoUrl.trim() || null,
         adresse: adresse.trim() || null, telephone: telephone.trim() || null, email: email.trim() || null,
       })
-      .eq('id', profile.school_id);
+      .eq('id', profile.school_id)
+      .select('id');
     setSaving(false);
     if (updateError) {
       setError(updateError.message);
+      return;
+    }
+    // Une modification refusée par la sécurité ne renvoie ni erreur ni ligne : on ne dit pas « Enregistré » à tort.
+    if (!modifiees || modifiees.length === 0) {
+      setError("Rien n'a été enregistré : seul le fondateur peut modifier les informations de l'école. Pour changer TA couleur, utilise le bouton palette en haut de l'écran.");
       return;
     }
     await refreshProfile();
@@ -103,7 +110,7 @@ export default function Settings() {
             Vous n'avez pas l'autorisation d'accéder aux paramètres de l'école. Veuillez contacter le fondateur.
           </p>
         </div>
-        <div style={{ maxWidth: 520, marginTop: 16 }}><DisplaySizeCard /></div>
+        <div style={{ maxWidth: 520, marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}><ApparenceCard /><DisplaySizeCard /></div>
       </div>
     );
   }
@@ -124,11 +131,14 @@ export default function Settings() {
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Couleur principale de l'application</label>
+            <label style={labelStyle}>Couleur de l'école</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 48, height: 40, borderRadius: 9, border: '1px solid var(--line-strong)', padding: 2, cursor: 'pointer' }} />
               <input value={color} onChange={(e) => setColor(e.target.value)} style={{ ...inputStyle, flex: 1 }} />
             </div>
+            <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--muted)', lineHeight: 1.5 }}>
+              C'est la couleur de départ pour toute l'équipe. Chacun peut choisir la sienne avec le bouton palette en haut de l'écran, sans changer celle des autres.
+            </p>
           </div>
 
           <div style={{ marginBottom: 20 }}>
@@ -238,6 +248,8 @@ export default function Settings() {
         </Link>
 
         <EnableNotifications />
+
+        <ApparenceCard />
 
         <DisplaySizeCard />
 

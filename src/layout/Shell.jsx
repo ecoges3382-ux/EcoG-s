@@ -2,9 +2,10 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
-import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme, couleurPersonnelle, enregistrerCouleurPersonnelle, couleurSynchronisee, marquerCouleurSynchronisee } from '../lib/theme.js';
+import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme, couleurPersonnelle, enregistrerCouleurPersonnelle, couleurSynchronisee, marquerCouleurSynchronisee, couleurEnAttente, marquerCouleurEnAttente } from '../lib/theme.js';
 import { lireCouleurServeur, ecrireCouleurServeur } from '../lib/couleurServeur.js';
 import ChoixCouleur from '../components/ChoixCouleur.jsx';
+import { ApparenceContext } from '../lib/apparence.js';
 import { SchoolYearProvider, useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
@@ -191,6 +192,11 @@ export default function Shell() {
       const { disponible, couleur } = await lireCouleurServeur(supabase, profile.id);
       if (annule || !disponible || choixRecent.current) return;
       const locale = couleurPersonnelle(profile.id);
+      if (couleurEnAttente(profile.id)) {
+        // Le dernier choix fait sur cet appareil n'a pas pu être enregistré : il fait foi, on le renvoie au profil (sans rien effacer).
+        if (await ecrireCouleurServeur(supabase, profile.id, locale)) { marquerCouleurEnAttente(profile.id, false); marquerCouleurSynchronisee(profile.id); }
+        return;
+      }
       if (couleur) {
         setCouleurPerso(enregistrerCouleurPersonnelle(profile.id, couleur));
       } else if (locale && !couleurSynchronisee(profile.id)) {
@@ -207,7 +213,14 @@ export default function Shell() {
     choixRecent.current = true;
     const retenue = enregistrerCouleurPersonnelle(profile.id, hex);
     setCouleurPerso(retenue);
-    ecrireCouleurServeur(supabase, profile.id, retenue).then((ok) => { if (ok) marquerCouleurSynchronisee(profile.id); });
+    marquerCouleurEnAttente(profile.id, true); // levé seulement quand le profil a bien enregistré le choix
+    ecrireCouleurServeur(supabase, profile.id, retenue).then((ok) => { if (ok) { marquerCouleurEnAttente(profile.id, false); marquerCouleurSynchronisee(profile.id); } });
+  };
+
+  const choisirMode = (mode) => {
+    if (!profile?.id) return;
+    applyTheme(mode, profile.id);
+    setTheme(mode);
   };
 
   const handleToggleTheme = () => {
@@ -251,6 +264,7 @@ export default function Shell() {
   const isChatPage = location.pathname === '/chat';
 
   return (
+    <ApparenceContext.Provider value={{ theme, choisirMode, couleur: couleurPerso, couleurEcole: profile?.schools?.color, choisirCouleur }}>
     <SchoolYearProvider schoolId={profile?.school_id}>
       {searchOpen && <GlobalSearch onClose={() => setSearchOpen(false)} />}
 
@@ -377,6 +391,7 @@ export default function Shell() {
 
       </div>
     </SchoolYearProvider>
+    </ApparenceContext.Provider>
   );
 }
 
