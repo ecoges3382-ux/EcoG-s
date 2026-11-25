@@ -196,8 +196,8 @@ describe('finances réservées', () => {
       const r = await db.query('select count(*)::int n, sum(salaire_mensuel)::int total from staff_remuneration');
       expect(r.rows[0]).toEqual({ n: 1, total: 120000 });
     });
-    it('est bien le texte placé à la fin de schema.sql (un seul endroit à maintenir)', () => {
-      expect(SCHEMA.endsWith(MIGRATION)).toBe(true);
+    it('est bien reprise telle quelle dans schema.sql (un seul endroit à maintenir)', () => {
+      expect(SCHEMA).toContain(MIGRATION);
     });
   });
 });

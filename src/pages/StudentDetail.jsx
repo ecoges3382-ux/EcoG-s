@@ -17,6 +17,8 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
+import { lireInscriptions, suffixeCacheArgent } from '../lib/argentInscriptions.js';
+import { peutVoirFinances } from '../lib/droits.js';
 import { translateError } from '../lib/errors.js';
 
 // Importation des composants isolés
@@ -38,6 +40,8 @@ export default function StudentDetail() {
   const retour = depuis && typeof depuis.chemin === 'string' && depuis.chemin.startsWith('/') && !depuis.chemin.startsWith('//') ? depuis : { chemin: '/eleves', libelle: 'Retour aux élèves' };
   const { profile } = useAuth();
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
+  // Ce que la famille doit et a payé n'est montré qu'à ceux qui ont accès aux finances (la base ne le donne pas aux autres).
+  const finance = peutVoirFinances(profile);
   
   const [student, setStudent] = useState(null);
   const [enrollment, setEnrollment] = useState(undefined);
@@ -85,16 +89,15 @@ export default function StudentDetail() {
     setPayments(undefined);
     
     guardedFetch({
-      cacheKey: `enrollment_${id}_${schoolYear.id}`,
+      cacheKey: `enrollment_${id}_${schoolYear.id}${suffixeCacheArgent(finance)}`,
       hasData: false,
       load: async () => {
-        const { data, error: fetchError } = await supabase
-          .from('enrollments')
-          .select('id, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( nom, niveau )')
-          .eq('student_id', id)
-          .eq('school_year_id', schoolYear.id)
-          .maybeSingle();
-        return fetchError ? { error: fetchError } : { data: data || null };
+        const { data, error: fetchError } = await lireInscriptions(supabase, {
+          colonnes: 'classe_id, moratoire_actif, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( nom, niveau )',
+          filtrer: (q) => q.eq('student_id', id).eq('school_year_id', schoolYear.id),
+          finance,
+        });
+        return fetchError ? { error: fetchError } : { data: data?.[0] || null };
       },
       setData: setEnrollment,
       setOffline,
@@ -110,7 +113,7 @@ export default function StudentDetail() {
 
   // FETCH MORATOIRE HISTORY
   useEffect(() => {
-    if (!enrollment?.id) { setMoratoireHistory([]); return; }
+    if (!enrollment?.id || !finance) { setMoratoireHistory([]); return; }
     let cancelled = false;
     supabase.from('moratoire_history').select('id, action, ancien_resume, nouveau_resume, auteur, created_at').eq('enrollment_id', enrollment.id).order('created_at', { ascending: false }).then(({ data }) => { if (!cancelled) setMoratoireHistory(data || []); });
     return () => { cancelled = true; };
@@ -118,7 +121,7 @@ export default function StudentDetail() {
 
   // AUTO-RETRAIT MORATOIRE SI TOUT PAYÉ
   useEffect(() => {
-    if (!enrollment || !schoolYear) return;
+    if (!enrollment || !schoolYear || !finance) return;
     const relance = computeRelance(enrollment, schoolYear, null);
     if (relance?.moratoireRetireAuto) {
       (async () => {
@@ -199,7 +202,7 @@ export default function StudentDetail() {
           <i className="ti ti-arrow-left" style={{ fontSize: 15 }} aria-hidden="true"></i>{retour.libelle || 'Retour'}
         </Link>
         
-        {enrollment && !isHistorical && (
+        {enrollment && !isHistorical && finance && (
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => setEditModalOpen(true)} style={{ background: 'var(--paper)', color: 'var(--ink)', border: '1px solid var(--line-strong)', fontWeight: 600, fontSize: 13, padding: '9px 18px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
               <i className="ti ti-pencil" style={{ fontSize: 15 }} aria-hidden="true"></i>Modifier
@@ -222,26 +225,26 @@ export default function StudentDetail() {
           <p className="page-title" style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{student.full_name}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>{enrollment?.classes?.nom || 'Aucune classe cette année'}</span>
-            {relance?.moratoire && <span style={{ background: 'var(--chip-bg)', color: 'var(--muted)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire</span>}
-            {relance?.moratoireExpirant && <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire — {relance.joursRestantsMoratoire}j restants</span>}
-            {relance?.relance && <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>{reste <= 0 ? 'Connexes à relancer' : 'À relancer'}</span>}
+            {finance && relance?.moratoire && <span style={{ background: 'var(--chip-bg)', color: 'var(--muted)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire</span>}
+            {finance && relance?.moratoireExpirant && <span style={{ background: 'var(--amber-light)', color: 'var(--amber)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>Moratoire — {relance.joursRestantsMoratoire}j restants</span>}
+            {finance && relance?.relance && <span style={{ background: 'var(--danger-light)', color: 'var(--danger)', fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 20 }}>{reste <= 0 ? 'Connexes à relancer' : 'À relancer'}</span>}
           </div>
         </div>
       </div>
 
-      {enrollment ? (
+      {enrollment ? (finance && (
         <StudentFinancials 
           enrollment={enrollment} reste={reste} resteFrais={resteFrais} echeances={echeances} 
           isHistorical={isHistorical} sendRelance={sendRelance} whatsappSending={whatsappSending} 
           whatsappResult={whatsappResult} setShowStatement={setShowStatement} 
         />
-      ) : (
+      )) : (
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--muted)' }}>
           Pas d'inscription pour {isHistorical ? 'cette année scolaire' : "l'année scolaire en cours"}{schoolYear ? ` (${schoolYear.label})` : ''}.
         </p>
       )}
 
-      {enrollment && (
+      {enrollment && finance && (
         <MoratoireSection 
           enrollment={enrollment} history={moratoireHistory} 
           canEdit={CAN_MANAGE_MORATOIRE_ROLES.includes(profile.role) && !isHistorical} 
@@ -249,7 +252,7 @@ export default function StudentDetail() {
         />
       )}
 
-      {schoolYear && (
+      {schoolYear && finance && (
         <div style={{ marginBottom: 20 }}>
           <p style={{ margin: '0 0 10px', fontSize: '12.5px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
             Historique des paiements — {schoolYear.label}
