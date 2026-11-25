@@ -1,3 +1,5 @@
+import { peutVoirFinances, peutGererPersonnel } from '../lib/droits.js';
+import { avecSalairesPrevus } from '../lib/remuneration.js';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
@@ -29,7 +31,6 @@ function IdBadgeIcon() {
   );
 }
 
-const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 function ArchiveIcon() {
   return (
@@ -68,8 +69,8 @@ export default function Staff() {
   const confirm = useConfirm();
   const showToast = useToast();
   
-  const canAccessFinance = profile?.role === 'fondateur' || profile?.permissions?.finance !== false;
-  const canManageStaff = profile?.role === 'fondateur' || profile?.permissions?.personnel !== false;
+  const canAccessFinance = peutVoirFinances(profile);
+  const canManageStaff = peutGererPersonnel(profile);
 
   const [tab, setTab] = useState('annuaire'); 
   const [staff, setStaff] = useState(null);
@@ -84,7 +85,7 @@ export default function Staff() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
   const [showArchives, setShowArchives] = useState(false);
-  const canDelete = CAN_DELETE_ROLES.includes(profile.role);
+  const canDelete = peutGererPersonnel(profile);
   const tour = usePageTour('personnel');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,9 +94,14 @@ export default function Staff() {
   const plan = profile?.schools?.plan || 'decouverte';
   const hasPersonnel = hasFeature(plan, 'personnel');
 
-  const gridCols = selectMode
-    ? '28px 1.5fr 0.65fr 0.8fr 0.9fr 1fr 0.95fr 0.95fr 1.1fr 1.1fr 132px'
-    : '1.5fr 0.65fr 0.8fr 0.9fr 1fr 0.95fr 0.95fr 1.1fr 1.1fr 132px';
+  // Salaire, avance et net : colonnes réservées à ceux qui ont accès aux finances (les autres voient seulement l'annuaire)
+  const gridCols = canAccessFinance
+    ? (selectMode
+      ? '28px 1.5fr 0.65fr 0.8fr 0.9fr 1fr 0.95fr 0.95fr 1.1fr 1.1fr 132px'
+      : '1.5fr 0.65fr 0.8fr 0.9fr 1fr 0.95fr 0.95fr 1.1fr 1.1fr 132px')
+    : (selectMode
+      ? '28px 1.5fr 0.65fr 0.8fr 0.9fr 1.1fr 1.1fr 132px'
+      : '1.5fr 0.65fr 0.8fr 0.9fr 1.1fr 1.1fr 132px');
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
@@ -108,7 +114,8 @@ export default function Staff() {
       hasData: staff !== null,
       load: async () => {
         const { data, error: fetchError } = await supabase.from('staff').select('*').order('full_name');
-        return fetchError ? { error: fetchError } : { data };
+        // Le salaire prévu vient d'une table réservée aux finances : sans ce droit, il reste vide
+        return fetchError ? { error: fetchError } : { data: await avecSalairesPrevus(supabase, data) };
       },
       setData: setStaff,
       setOffline,
@@ -155,7 +162,7 @@ export default function Staff() {
     );
   });
 
-  const actifsSansSalaire = visibleStaff.filter((p) => !showArchives && p.salaire_mensuel == null);
+  const actifsSansSalaire = visibleStaff.filter((p) => canAccessFinance && !showArchives && p.salaire_mensuel == null);
   const nbActifs = showArchives ? 0 : visibleStaff.length;
   const nbAvecSalaire = showArchives ? 0 : nbActifs - actifsSansSalaire.length;
 
@@ -349,7 +356,7 @@ export default function Staff() {
             </div>
           )}
 
-          {!showArchives && nbActifs > 0 && actifsSansSalaire.length === 0 && (
+          {canAccessFinance && !showArchives && nbActifs > 0 && actifsSansSalaire.length === 0 && (
             <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>
               <i className="ti ti-check" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>{nbAvecSalaire} / {nbActifs} membres avec salaire renseigné
             </p>
@@ -378,16 +385,20 @@ export default function Staff() {
                   <span>Matricule</span>
                   <span>Rôle</span>
                   <span>Niveau</span>
-                  <span>Salaire</span>
-                  <span>Avance</span>
-                  <span title="Salaire mensuel moins les avances approuvées. Ne tient pas compte des versements déjà faits : voir l'onglet Salaires.">Net après avance</span>
+                  {canAccessFinance && (
+                    <>
+                      <span>Salaire</span>
+                      <span>Avance</span>
+                      <span title="Salaire mensuel moins les avances approuvées. Ne tient pas compte des versements déjà faits : voir l'onglet Salaires.">Net après avance</span>
+                    </>
+                  )}
                   <span>Classe(s)</span>
                   <span>Matière(s)</span>
                   {!selectMode && <span></span>}
                 </div>
                 
                 {visibleStaff.map((p, i) => {
-                  const salaireManquant = !showArchives && p.salaire_mensuel == null;
+                  const salaireManquant = canAccessFinance && !showArchives && p.salaire_mensuel == null;
                   const avance = avanceFor(p.id);
                   const avanceEnAttente = avanceEnAttenteFor(p.id);
                   const reste = resteFor(p);
@@ -408,26 +419,30 @@ export default function Staff() {
                         <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>{p.matricule}</span>
                         <span style={{ fontSize: 13, color: 'var(--muted)' }}>{libelleRolePersonnel(p.role)}</span>
                         <span style={{ fontSize: 13 }}>{p.niveau_etudes || '—'}</span>
-                        <span style={{ fontSize: 13 }}>
-                          {salaireManquant ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
-                              <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>Manquant
+                        {canAccessFinance && (
+                          <>
+                            <span style={{ fontSize: 13 }}>
+                              {salaireManquant ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'var(--danger-light)', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+                                  <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} aria-hidden="true"></i>Manquant
+                                </span>
+                              ) : canAccessFinance && p.salaire_mensuel != null ? (
+                                <span style={{ fontWeight: 600 }}>{fmtF(p.salaire_mensuel)}</span>
+                              ) : (
+                                <span style={{ color: 'var(--muted)' }}>—</span>
+                              )}
                             </span>
-                          ) : p.salaire_mensuel != null ? (
-                            <span style={{ fontWeight: 600 }}>{fmtF(p.salaire_mensuel)}</span>
-                          ) : (
-                            <span style={{ color: 'var(--muted)' }}>—</span>
-                          )}
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: avance > 0 ? 600 : 400, color: avance > 0 ? 'var(--amber)' : 'var(--muted)' }}>
-                          {fmtF(avance)}
-                          {avanceEnAttente > 0 && (
-                            <span title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`} aria-label={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation`} style={{ color: 'var(--clay-text)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}>*</span>
-                          )}
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: reste == null ? 'var(--muted)' : (reste < 0 ? 'var(--danger)' : 'var(--success)') }}>
-                          {reste == null ? '—' : fmtF(reste)}
-                        </span>
+                            <span style={{ fontSize: 13, fontWeight: avance > 0 ? 600 : 400, color: avance > 0 ? 'var(--amber)' : 'var(--muted)' }}>
+                              {fmtF(avance)}
+                              {avanceEnAttente > 0 && (
+                                <span title={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation — non déduite du salaire`} aria-label={`Dont ${fmtF(avanceEnAttente)} en attente d'approbation`} style={{ color: 'var(--clay-text)', fontSize: 12, marginLeft: 2, cursor: 'help', fontWeight: 700 }}>*</span>
+                              )}
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: reste == null ? 'var(--muted)' : (reste < 0 ? 'var(--danger)' : 'var(--success)') }}>
+                              {reste == null ? '—' : fmtF(reste)}
+                            </span>
+                          </>
+                        )}
                         <span style={{ fontSize: 13, color: 'var(--muted)' }}>{(p.classes || []).length ? p.classes.join(', ') : '—'}</span>
                         <span style={{ fontSize: 13, color: 'var(--muted)' }}>{estEnseignant(p.role) && subjectsFor(p.id).length ? subjectsFor(p.id).join(', ') : '—'}</span>
                       </Link>

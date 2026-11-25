@@ -9,6 +9,9 @@ import PhotoPicker from './PhotoPicker.jsx';
 import NameInput from './NameInput.jsx';
 import MoneyInput from './MoneyInput.jsx';
 import { useToast } from './Toast.jsx';
+import { useAuth } from '../auth/AuthProvider.jsx';
+import { peutVoirFinances } from '../lib/droits.js';
+import { enregistrerSalairePrevu } from '../lib/remuneration.js';
 import Dropdown from './Dropdown.jsx';
 import DatePicker from './DatePicker.jsx';
 import { nextMatricule } from '../lib/ficheDepuisCompte.js';
@@ -111,6 +114,9 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
   const [phoneLocal, setPhoneLocal] = useState(phoneInitial.local);
   const [email, setEmail] = useState(editing?.email || '');
   const [dateEntree, setDateEntree] = useState(editing?.date_entree || '');
+  const { profile } = useAuth();
+  // Le salaire se saisit et se lit seulement avec l'accès aux finances (voir src/lib/droits.js)
+  const canSetSalary = peutVoirFinances(profile);
   const [salaireMensuel, setSalaireMensuel] = useState(editing?.salaire_mensuel ?? '');
   const [photoUrl, setPhotoUrl] = useState(editing?.photo_url || '');
 
@@ -147,7 +153,6 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
       phone: composePhone(phoneDial, phoneLocal),
       email: email.trim(),
       date_entree: dateEntree || null,
-      salaire_mensuel: salaireMensuel ? Number(salaireMensuel) : null,
       photo_url: photoUrl || null,
     };
 
@@ -162,6 +167,15 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
     }
 
     const staffId = savedRow.id;
+    // Salaire prévu : table réservée aux finances. Sans ce droit, on n'y touche pas (on ne l'efface surtout pas).
+    if (canSetSalary) {
+      const { error: salaireError } = await enregistrerSalairePrevu(supabase, { staffId, schoolId, montant: salaireMensuel });
+      if (salaireError) {
+        setSubmitting(false);
+        setError(`La fiche est enregistrée, mais pas le salaire : ${salaireError.message}`);
+        return;
+      }
+    }
     const toAssign = finalSubjectIds;
     const toRelease = availableSubjects.filter((s) => s.enseignant_id === staffId && !finalSubjectIds.includes(s.id)).map((s) => s.id);
     
@@ -260,9 +274,11 @@ export default function NewStaffModal({ schoolId, existingStaff, availableClasse
           <Field label="Date d'entrée">
             <DatePicker value={dateEntree} onChange={setDateEntree} style={inputStyle} />
           </Field>
-          <Field label="Salaire mensuel">
-            <MoneyInput value={salaireMensuel} onChange={setSalaireMensuel} suffix="F CFA" style={inputStyle} />
-          </Field>
+          {canSetSalary && (
+            <Field label="Salaire mensuel">
+              <MoneyInput value={salaireMensuel} onChange={setSalaireMensuel} suffix="F CFA" style={inputStyle} />
+            </Field>
+          )}
         </div>
 
         <Field label="Photo (facultatif)">

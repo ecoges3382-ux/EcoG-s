@@ -6,7 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 
-const SCHEMA = fs.readFileSync(path.resolve(import.meta.dirname, '../supabase/schema.sql'), 'utf8');
+// Ce test porte sur le correctif de vitesse et sur les règles de lecture telles qu'elles étaient AVANT le bloc « Finances réservées »
+// (ajouté plus bas dans schema.sql, testé dans restreindre-finances.test.js) : on ne lit donc le fichier que jusqu'à ce bloc.
+const COMPLET = fs.readFileSync(path.resolve(import.meta.dirname, '../supabase/schema.sql'), 'utf8');
+const SCHEMA = COMPLET.slice(0, COMPLET.indexOf('-- ---------- Finances réservées'));
 const BLOC = SCHEMA.slice(SCHEMA.indexOf('-- ---------- Lecture rapide des autres tables'));
 const TABLES = ['attendance_records', 'payments', 'absence_events', 'late_events', 'enrollments', 'students', 'whatsapp_messages', 'expenses'];
 const REGLES = [

@@ -1,3 +1,5 @@
+import { peutVoirFinances, peutGererPersonnel } from '../lib/droits.js';
+import { avecSalairesPrevus } from '../lib/remuneration.js';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
@@ -15,7 +17,6 @@ import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
 import CompteLieCard from '../components/CompteLieCard.jsx';
 
-const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_MANAGE_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function StaffDetail() {
@@ -38,7 +39,8 @@ export default function StaffDetail() {
       hasData: person !== null,
       load: async () => {
         const { data, error: fetchError } = await supabase.from('staff').select('*').eq('id', id).single();
-        return fetchError ? { error: fetchError } : { data };
+        // Le salaire prévu vient d'une table réservée aux finances : sans ce droit, il reste vide
+        return fetchError ? { error: fetchError } : { data: (await avecSalairesPrevus(supabase, [data]))[0] };
       },
       setData: setPerson,
       setOffline,
@@ -85,8 +87,9 @@ export default function StaffDetail() {
   if (error) return <p style={{ color: 'var(--danger)' }}>Erreur : {error}</p>;
   if (!person) return <div className="card-bold"><SkeletonRow count={3} /></div>;
 
-  const canDelete = CAN_DELETE_ROLES.includes(profile.role);
+  const canDelete = peutGererPersonnel(profile);
   const canManage = CAN_MANAGE_ROLES.includes(profile.role);
+  const canSeeFinance = peutVoirFinances(profile);
   const isArchived = person.statut === 'inactif';
 
   async function handleArchiveToggle() {
@@ -141,12 +144,12 @@ export default function StaffDetail() {
         <Row label="Téléphone" value={person.phone || '—'} />
         <Row label="E-mail" value={person.email || '—'} />
         <Row label="Date d'entrée" value={person.date_entree ? new Date(person.date_entree).toLocaleDateString('fr-FR') : '—'} />
-        <Row label="Salaire mensuel" value={person.salaire_mensuel != null ? fmtF(person.salaire_mensuel) : '—'} topBorder />
+        {canSeeFinance && <Row label="Salaire mensuel" value={person.salaire_mensuel != null ? fmtF(person.salaire_mensuel) : '—'} topBorder />}
       </div>
 
       {profile.role === 'fondateur' && <CompteLieCard person={person} onChanged={() => reloadPerson(() => false)} />}
 
-      {schoolYear && (
+      {canSeeFinance && schoolYear && (
         <SalariesCard
           staffId={id}
           schoolId={profile.school_id}
@@ -159,7 +162,7 @@ export default function StaffDetail() {
         />
       )}
 
-      <AdvancesCard advances={advances} />
+      {canSeeFinance && <AdvancesCard advances={advances} />}
 
       {canDelete && (
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>

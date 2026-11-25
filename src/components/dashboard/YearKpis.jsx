@@ -4,7 +4,7 @@ import { Stat } from './DashboardUI.jsx';
 import { virgule } from '../../lib/formatNote.js';
 import Sur20 from '../Sur20.jsx';
 
-export default function YearKpis({ students, attendance, classResults }) {
+export default function YearKpis({ students, attendance, classResults, finance = true }) {
   const totalDu = students.reduce((a, s) => a + Number(s.montant_du), 0);
   const totalPaye = students.reduce((a, s) => a + Number(s.montant_paye), 0);
   const totalReste = totalDu - totalPaye;
@@ -25,6 +25,7 @@ export default function YearKpis({ students, attendance, classResults }) {
 
   return (
     <>
+      {finance ? (
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 18, marginBottom: 18 }}>
         <Link to="/recouvrement" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir le recouvrement détaillé">
           <div className="card-bold stat-in" style={{ padding: '22px 24px', background: 'var(--forest)', borderColor: 'var(--forest)', color: '#fff', cursor: 'pointer', height: '100%' }}>
@@ -46,12 +47,25 @@ export default function YearKpis({ students, attendance, classResults }) {
           </div>
         </Link>
       </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 18, marginBottom: 18, maxWidth: 360 }}>
+        <Link to="/eleves" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }} title="Voir la liste des élèves">
+          <div className="card-bold stat-in" style={{ padding: '22px 24px', cursor: 'pointer', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>Effectif global</p>
+            <p style={{ margin: '0 0 4px', fontFamily: 'var(--serif)', fontSize: 38, fontWeight: 700 }}>{students.length}</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>élève{students.length > 1 ? 's' : ''} inscrit{students.length > 1 ? 's' : ''}</p>
+          </div>
+        </Link>
+        </div>
+      )}
 
+      {finance && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 16 }} className="desktop-grid-3">
         <Stat label="Écolage encaissé" value={fmtF(totalPaye)} color="var(--success)" to="/recouvrement" />
         <Stat label="Reste à recouvrer" value={fmtF(totalReste)} color="var(--danger)" to="/recouvrement?statut=avec_solde" />
         <Stat label="Élèves à jour / avec solde" value={`${nbAJour} / ${nbAvecSolde}`} to="/recouvrement" />
       </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 26 }} className="desktop-grid-3">
         <Stat label="Taux de présence" value={tauxPresence != null ? `${tauxPresence}%` : '—'} color="var(--success)" to="/presences" />
