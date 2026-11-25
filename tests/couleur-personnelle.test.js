@@ -64,6 +64,15 @@ describe('couleur personnelle', () => {
     for (const c of theme.COULEURS_PROPOSEES) expect(theme.couleurLisible(c.hex)).toBe(c.hex.toLowerCase());
   });
 
+  it('un choix pas encore enregistré sur le profil reste « en attente » pour cet utilisateur seulement', () => {
+    expect(theme.couleurEnAttente('u1')).toBe(false);
+    theme.marquerCouleurEnAttente('u1', true);
+    expect(theme.couleurEnAttente('u1')).toBe(true);
+    expect(theme.couleurEnAttente('u2')).toBe(false);
+    theme.marquerCouleurEnAttente('u1', false);
+    expect(theme.couleurEnAttente('u1')).toBe(false);
+  });
+
   it('le mode clair/sombre reste propre à chaque utilisateur', () => {
     localStorage.setItem('ecoges_theme_u1', 'dark');
     localStorage.setItem('ecoges_theme_u2', 'light');
