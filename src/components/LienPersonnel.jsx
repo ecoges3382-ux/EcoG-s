@@ -10,7 +10,10 @@ export default function LienPersonnel({ id, nom, style, vide = '—' }) {
       to={`/personnel/${id}`}
       onClick={(e) => e.stopPropagation()}
       title="Ouvrir la fiche"
-      style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted currentColor', ...style }}
+      // Aucun soulignement au repos (comme les noms d'élèves, voir StudentLink) : la ligne n'apparaît que sous le pointeur, sur ordinateur
+      style={{ color: 'inherit', textDecoration: 'none', ...style }}
+      onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
     >
       {nom}
     </Link>
