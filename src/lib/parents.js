@@ -67,3 +67,33 @@ export function grouperDoublonsParents(parents) {
     .map(([cle, membres]) => ({ cle, membres, conseille: parentAGarder(membres).id }))
     .sort((a, b) => a.cle.localeCompare(b.cle));
 }
+
+/**
+ * Recherche dans la liste des parents : par nom ou par numéro, sans tenir compte des majuscules ni des accents, dans n'importe quel ordre
+ * des mots. Un numéro se retrouve quelle que soit sa mise en forme (« 97 70 31 54 », « +229 01 97 70 31 54 », « 97703154 »).
+ * Une recherche vide correspond à tous les parents.
+ */
+export function parentCorrespond(parent, recherche) {
+  const mots = sansAccents(recherche).split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return true;
+  const texte = sansAccents(`${parent.full_name || ''} ${parent.nom || ''} ${parent.prenom || ''}`);
+  const chiffres = String(parent.phone || '').replace(/\D/g, '');
+  return mots.every((mot) => {
+    if (texte.includes(mot)) return true;
+    const chiffresMot = mot.replace(/\D/g, '');
+    return chiffresMot.length >= 2 && /^[\d+]+$/.test(mot) && chiffres.includes(chiffresMot);
+  });
+}
+
+// Filtres de la page Parents : tous, sans numéro (aucun rappel WhatsApp possible), ou avec plusieurs enfants.
+export const FILTRES_PARENTS = [
+  { id: 'tous', label: 'Tous' },
+  { id: 'sans_numero', label: 'Sans numéro' },
+  { id: 'plusieurs_enfants', label: 'Plusieurs enfants' },
+];
+
+export function parentDansFiltre(parent, filtre) {
+  if (filtre === 'sans_numero') return !String(parent.phone || '').replace(/\D/g, '');
+  if (filtre === 'plusieurs_enfants') return (parent.parent_access_students || []).length > 1;
+  return true;
+}

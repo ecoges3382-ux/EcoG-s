@@ -1,6 +1,6 @@
 // Parents : repérer un doublon (même nom ET même numéro) avant de créer un deuxième parent.
 import { describe, it, expect } from 'vitest';
-import { trouverDoublonsParent, cleNumero } from '../src/lib/parents.js';
+import { trouverDoublonsParent, cleNumero, parentCorrespond, parentDansFiltre } from '../src/lib/parents.js';
 
 const parents = [
   { id: 'p1', nom: 'KEITA', prenom: 'Ina', full_name: 'KEITA Ina', phone: '+22901 96159994' },
@@ -48,5 +48,55 @@ describe('doublons de parent', () => {
   it('liste vide ou absente : rien', () => {
     expect(trouverDoublonsParent([], { nom: 'A', prenom: 'B', phone: '+22901 96159994' })).toEqual([]);
     expect(trouverDoublonsParent(null, { nom: 'A', prenom: 'B', phone: '+22901 96159994' })).toEqual([]);
+  });
+});
+
+describe('recherche et filtres de la page Parents', () => {
+  const ina = { id: 'p1', nom: 'KEITA', prenom: 'Ina', full_name: 'KEITA Ina', phone: '+22901 97703154', parent_access_students: [{ students: { id: 'e1' } }] };
+  const helene = { id: 'p2', nom: 'DOSSOU', prenom: 'Hélène', full_name: 'DOSSOU Hélène', phone: null, parent_access_students: [{ students: { id: 'e2' } }, { students: { id: 'e3' } }] };
+
+  it('trouve par nom, sans tenir compte des majuscules, des accents ni de l\'ordre des mots', () => {
+    expect(parentCorrespond(ina, 'keita')).toBe(true);
+    expect(parentCorrespond(ina, 'ina keita')).toBe(true);
+    expect(parentCorrespond(helene, 'helene')).toBe(true);
+    expect(parentCorrespond(helene, 'HÉLÈNE dossou')).toBe(true);
+    expect(parentCorrespond(helene, 'keita')).toBe(false);
+  });
+
+  it('trouve par numéro, quelle que soit la mise en forme', () => {
+    expect(parentCorrespond(ina, '97703154')).toBe(true);
+    expect(parentCorrespond(ina, '97 70 31 54')).toBe(true);
+    expect(parentCorrespond(ina, '+229 01 97 70')).toBe(true);
+    expect(parentCorrespond(ina, '99999999')).toBe(false);
+  });
+
+  it('un parent sans numéro n\'est jamais trouvé par un numéro, sans provoquer d\'erreur', () => {
+    expect(parentCorrespond(helene, '97703154')).toBe(false);
+    expect(parentCorrespond({ id: 'x', full_name: 'SANS PHONE' }, '97')).toBe(false);
+  });
+
+  it('une recherche vide, d\'espaces ou absente garde tout le monde', () => {
+    for (const r of ['', '   ', null, undefined]) expect(parentCorrespond(ina, r), String(r)).toBe(true);
+  });
+
+  it('tous les mots doivent correspondre', () => {
+    expect(parentCorrespond(ina, 'keita paul')).toBe(false);
+  });
+
+  it('filtre « sans numéro » : aucun chiffre dans le téléphone', () => {
+    expect(parentDansFiltre(helene, 'sans_numero')).toBe(true);
+    expect(parentDansFiltre(ina, 'sans_numero')).toBe(false);
+    expect(parentDansFiltre({ id: 'y', phone: '  ' }, 'sans_numero')).toBe(true);
+  });
+
+  it('filtre « plusieurs enfants » : au moins deux enfants rattachés', () => {
+    expect(parentDansFiltre(helene, 'plusieurs_enfants')).toBe(true);
+    expect(parentDansFiltre(ina, 'plusieurs_enfants')).toBe(false);
+    expect(parentDansFiltre({ id: 'z' }, 'plusieurs_enfants')).toBe(false);
+  });
+
+  it('filtre « tous » (ou inconnu) : personne n\'est écarté', () => {
+    expect(parentDansFiltre(ina, 'tous')).toBe(true);
+    expect(parentDansFiltre(helene, 'n-importe-quoi')).toBe(true);
   });
 });

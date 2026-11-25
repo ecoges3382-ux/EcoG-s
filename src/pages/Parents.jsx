@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { initials } from '../lib/utils.js';
+import { initials, stickyHeaderStyle } from '../lib/utils.js';
 import SchoolTabs from '../layout/SchoolTabs.jsx';
 import SelectionBar from '../components/SelectionBar.jsx';
 import OfflineBanner from '../components/OfflineBanner.jsx';
@@ -13,6 +13,8 @@ import { useConfirm } from '../components/ConfirmDialog.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
+import useHauteurListe from '../lib/useHauteurListe.js';
+import { parentCorrespond, parentDansFiltre, FILTRES_PARENTS } from '../lib/parents.js';
 import { hasFeature, getPlanLabel, featurePlanRequired } from '../lib/plan.js';
 
 function UsersGroupIcon() {
@@ -49,6 +51,15 @@ export default function Parents() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
+  const [recherche, setRecherche] = useState('');
+  const [filtre, setFiltre] = useState('tous');
+  // Ce que la liste montre : la recherche (nom ou numéro) et le filtre choisi
+  const visibles = useMemo(
+    () => (parents || []).filter((p) => parentDansFiltre(p, filtre) && parentCorrespond(p, recherche)),
+    [parents, filtre, recherche],
+  );
+  // La liste défile dans son cadre (comme la liste des élèves) : le titre et les boutons restent en place
+  const [listeRef, hauteurListe] = useHauteurListe([parents !== null, error, offline, selectMode, (parents || []).length, visibles.length > 0]);
 
   const plan = profile?.schools?.plan || 'decouverte';
   const hasParentAccess = hasFeature(plan, 'parent_portal');
@@ -107,7 +118,7 @@ export default function Parents() {
 
   function toggleAllVisible() {
     setSelectedIds((prev) => {
-      const ids = parents.map((p) => p.id);
+      const ids = visibles.map((p) => p.id);
       return ids.every((id) => prev.includes(id)) ? [] : ids;
     });
   }
@@ -168,14 +179,57 @@ export default function Parents() {
         </div>
       )}
       {parents && parents.length > 0 && (
-        <div className="card-bold" style={{ overflow: 'hidden' }}>
-          {parents.map((p, i) => {
+        <>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 18 }}>
+            {/* Les filtres tiennent sur une seule ligne (qui défile de côté sur téléphone) pour laisser de la place à la liste */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', maxWidth: '100%', paddingBottom: 2 }}>
+              {FILTRES_PARENTS.map((f) => {
+              const actif = filtre === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFiltre(f.id)}
+                  style={{ padding: '8px 15px', borderRadius: 20, fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', border: `1px solid ${actif ? 'var(--forest)' : 'var(--line-strong)'}`, background: actif ? 'var(--forest)' : 'var(--paper)', color: actif ? '#fff' : 'var(--ink)' }}
+                >
+                  {f.label} <span style={{ opacity: 0.7 }}>{parents.filter((p) => parentDansFiltre(p, f.id)).length}</span>
+                </button>
+              );
+            })}
+            </div>
+            <input
+              value={recherche}
+              onChange={(e) => setRecherche(e.target.value)}
+              placeholder="Nom ou numéro du parent..."
+              aria-label="Rechercher un parent"
+              style={{ padding: '8px 12px', borderRadius: 20, border: '1px solid var(--line-strong)', fontSize: 13, flex: '1 1 240px', maxWidth: 360, minWidth: 0, boxSizing: 'border-box', color: 'var(--ink)', marginLeft: 'auto' }}
+            />
+          </div>
+
+          <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--muted)', fontWeight: 600 }}>
+            {visibles.length} parent{visibles.length > 1 ? 's' : ''}
+            {filtre !== 'tous' && ` · ${FILTRES_PARENTS.find((f) => f.id === filtre).label.toLowerCase()}`}
+            {recherche.trim() && ` · recherche "${recherche.trim()}"`}
+          </p>
+
+          {visibles.length === 0 ? (
+            <div className="card-bold" style={{ padding: '28px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13.5 }}>
+              Aucun parent ne correspond{recherche.trim() ? ` à « ${recherche.trim()} »` : ' à ce filtre'}.
+            </div>
+          ) : (
+            <div ref={listeRef} className="card-bold" style={{ maxHeight: hauteurListe ?? 'calc(100vh - 250px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
+              {/* En-tête figé : il reste en haut pendant que la liste défile */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `12px ${selectMode ? 20 : 70}px 12px ${selectMode ? 46 : 20}px`, ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
+                <span style={{ paddingLeft: 48 }}>Parent</span>
+                <span>Enfants</span>
+              </div>
+          {visibles.map((p, i) => {
             const childCount = (p.parent_access_students || []).length;
             return (
               <div
                 key={p.id}
                 className="row-link"
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < parents.length - 1 ? '1px solid var(--line)' : 'none' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: i < visibles.length - 1 ? '1px solid var(--line)' : 'none' }}
               >
                 {selectMode && (
                   <input
@@ -216,13 +270,15 @@ export default function Parents() {
               </div>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {selectMode && (
         <SelectionBar
           count={selectedIds.length}
-          allSelected={!!parents && parents.length > 0 && parents.every((p) => selectedIds.includes(p.id))}
+          allSelected={visibles.length > 0 && visibles.every((p) => selectedIds.includes(p.id))}
           onCancel={exitSelectMode}
           onToggleAll={toggleAllVisible}
           onDelete={handleDeleteSelected}
