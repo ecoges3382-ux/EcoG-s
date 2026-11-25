@@ -2,7 +2,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
-import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme } from '../lib/theme.js';
+import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme, couleurPersonnelle, enregistrerCouleurPersonnelle } from '../lib/theme.js';
+import ChoixCouleur from '../components/ChoixCouleur.jsx';
 import { SchoolYearProvider, useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
 import SchoolYearSelector from '../components/SchoolYearSelector.jsx';
@@ -176,6 +177,14 @@ export default function Shell() {
     }
   }, [theme, profile?.id]);
 
+  // Couleur personnelle : propre à cet utilisateur, sans effet sur les autres. Sans choix, c'est la couleur de l'école.
+  const [couleurPerso, setCouleurPerso] = useState(() => couleurPersonnelle(profile?.id));
+  useEffect(() => { setCouleurPerso(couleurPersonnelle(profile?.id)); }, [profile?.id]);
+  const choisirCouleur = (hex) => {
+    if (!profile?.id) return;
+    setCouleurPerso(enregistrerCouleurPersonnelle(profile.id, hex));
+  };
+
   const handleToggleTheme = () => {
     if (profile?.id) {
       const next = toggleTheme(profile.id);
@@ -206,9 +215,9 @@ export default function Shell() {
   }, []);
 
   useEffect(() => {
-    applySchoolColor(profile?.schools?.color);
+    applySchoolColor(couleurPerso || profile?.schools?.color);
     return () => resetSchoolColor();
-  }, [profile?.schools?.color]);
+  }, [couleurPerso, profile?.schools?.color]);
 
   const handleLogout = async () => {
     if (await confirm('Voulez-vous vraiment vous déconnecter ?', { confirmLabel: 'Se déconnecter', danger: false })) signOut();
@@ -246,6 +255,8 @@ export default function Shell() {
                 <button onClick={handleToggleTheme} className="topbar-action-btn" title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
                   {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
                 </button>
+
+                <ChoixCouleur couleur={couleurPerso} couleurEcole={profile?.schools?.color} onChoisir={choisirCouleur} />
 
                 <Link to="/aide" title="Centre d'aide" className="topbar-action-btn">
                   <HelpIcon />
@@ -285,6 +296,8 @@ export default function Shell() {
               <button onClick={handleToggleTheme} className="topbar-action-btn" title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}>
                 {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
               </button>
+
+              <ChoixCouleur couleur={couleurPerso} couleurEcole={profile?.schools?.color} onChoisir={choisirCouleur} />
 
               <Link to="/aide" title="Centre d'aide" className="topbar-action-btn">
                 <HelpIcon />
