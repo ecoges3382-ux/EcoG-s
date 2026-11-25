@@ -10,8 +10,10 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
+import ParentEditModal from '../components/ParentEditModal.jsx';
 
 const CAN_DELETE_ROLES = ['fondateur', 'directeur', 'secretaire'];
+const CAN_EDIT_ROLES = ['fondateur', 'directeur', 'secretaire'];
 const CAN_SEND_WHATSAPP_ROLES = ['fondateur', 'directeur', 'secretaire'];
 
 export default function ParentDetail() {
@@ -26,6 +28,7 @@ export default function ParentDetail() {
   const [offline, setOffline] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [modification, setModification] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +148,15 @@ export default function ParentDetail() {
         >
           {copied ? 'Lien copié !' : 'Copier le lien à envoyer'}
         </button>
+        {CAN_EDIT_ROLES.includes(profile.role) && (
+          <button
+            type="button"
+            onClick={() => setModification(true)}
+            style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--forest)', background: 'var(--forest)', color: '#fff', fontWeight: 600, fontSize: '13.5px', cursor: 'pointer' }}
+          >
+            Modifier
+          </button>
+        )}
         {CAN_DELETE_ROLES.includes(profile.role) && (
           <button
             type="button"
@@ -156,6 +168,14 @@ export default function ParentDetail() {
           </button>
         )}
       </div>
+
+      {modification && (
+        <ParentEditModal
+          parent={access}
+          onClose={() => setModification(false)}
+          onSaved={(maj) => { setAccess((prev) => ({ ...prev, ...maj })); setModification(false); }}
+        />
+      )}
     </div>
   );
 }
