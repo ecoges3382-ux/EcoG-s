@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { ROLES } from '../lib/utils.js';
-import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme, couleurPersonnelle, enregistrerCouleurPersonnelle } from '../lib/theme.js';
+import { applySchoolColor, resetSchoolColor, getInitialTheme, applyTheme, toggleTheme, couleurPersonnelle, enregistrerCouleurPersonnelle, couleurSynchronisee, marquerCouleurSynchronisee } from '../lib/theme.js';
+import { lireCouleurServeur, ecrireCouleurServeur } from '../lib/couleurServeur.js';
 import ChoixCouleur from '../components/ChoixCouleur.jsx';
 import { SchoolYearProvider, useSelectedSchoolYear } from '../lib/schoolYear.jsx';
 import { useConfirm } from '../components/ConfirmDialog.jsx';
@@ -180,10 +181,33 @@ export default function Shell() {
 
   // Couleur personnelle : propre à cet utilisateur, sans effet sur les autres. Sans choix, c'est la couleur de l'école.
   const [couleurPerso, setCouleurPerso] = useState(() => couleurPersonnelle(profile?.id));
-  useEffect(() => { setCouleurPerso(couleurPersonnelle(profile?.id)); }, [profile?.id]);
+  const choixRecent = useRef(false);
+  useEffect(() => {
+    setCouleurPerso(couleurPersonnelle(profile?.id));
+    if (!profile?.id) return undefined;
+    // La couleur suit l'utilisateur sur tous ses appareils (colonne du profil) ; sans cette colonne, elle reste locale à l'appareil.
+    let annule = false;
+    (async () => {
+      const { disponible, couleur } = await lireCouleurServeur(supabase, profile.id);
+      if (annule || !disponible || choixRecent.current) return;
+      const locale = couleurPersonnelle(profile.id);
+      if (couleur) {
+        setCouleurPerso(enregistrerCouleurPersonnelle(profile.id, couleur));
+      } else if (locale && !couleurSynchronisee(profile.id)) {
+        await ecrireCouleurServeur(supabase, profile.id, locale); // choix fait avant la mise en place de la synchronisation : on l'envoie
+      } else {
+        setCouleurPerso(enregistrerCouleurPersonnelle(profile.id, null));
+      }
+      marquerCouleurSynchronisee(profile.id);
+    })();
+    return () => { annule = true; };
+  }, [profile?.id]);
   const choisirCouleur = (hex) => {
     if (!profile?.id) return;
-    setCouleurPerso(enregistrerCouleurPersonnelle(profile.id, hex));
+    choixRecent.current = true;
+    const retenue = enregistrerCouleurPersonnelle(profile.id, hex);
+    setCouleurPerso(retenue);
+    ecrireCouleurServeur(supabase, profile.id, retenue).then((ok) => { if (ok) marquerCouleurSynchronisee(profile.id); });
   };
 
   const handleToggleTheme = () => {

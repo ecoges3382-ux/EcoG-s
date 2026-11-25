@@ -774,7 +774,7 @@ export default function Recouvrement() {
         </div>
       </div>
 
-      <div data-tour="recouvrement-synthese" className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), #FAF6EC)', borderColor: 'var(--forest)' }}>
+      <div data-tour="recouvrement-synthese" className="card-bold" style={{ padding: '20px 22px', marginTop: 24, background: 'linear-gradient(135deg, var(--forest-light), var(--cream))', borderColor: 'var(--forest)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <i className="ti ti-sum" style={{ fontSize: 20, color: 'var(--forest-text)' }} aria-hidden="true"></i>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 700, color: 'var(--forest-dark-text)' }}>
