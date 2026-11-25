@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase.js';
 import { fmtF, initials, todayIso } from '../../lib/utils.js';
-import { computeRelance } from '../../lib/retard.js';
+import { calendrierConfigure, statutRecouvrement } from '../../lib/retard.js';
 import { SkeletonCard, SkeletonRow } from '../Skeleton.jsx';
 import { Stat } from './DashboardUI.jsx';
 import { lireTout } from '../../lib/fetchAll.js';
@@ -30,13 +30,18 @@ export default function TodaySection({ activeYear, students }) {
     return () => { cancelled = true; };
   }, [activeYear.id]);
 
-  const calendrierConfigure = !!(activeYear.date_tranche1 || activeYear.date_tranche2 || activeYear.date_tranche3);
-  const enRetard = (students || [])
-    .map((s) => ({ ...s, reste: Number(s.montant_du) - Number(s.montant_paye) }))
-    .filter((s) => s.reste > 0)
-    .filter((s) => !calendrierConfigure || computeRelance(s, activeYear, s.feeSchedule).relance)
-    .sort((a, b) => b.reste - a.reste)
-    .slice(0, 5);
+  // Même définition que la page Recouvrement (statutRecouvrement) : le nombre affiché ici est exactement celui de la liste qu'ouvre le lien.
+  // Calendrier de paiement renseigné : « en retard » = statut « À relancer ». Sinon, on ne peut parler que de solde restant.
+  const avecCalendrier = calendrierConfigure(activeYear);
+  const filtreLien = avecCalendrier ? 'a_relancer' : 'avec_solde';
+  const tousEnRetard = (students || [])
+    .map((s) => {
+      const { statutKey, resteEcolage, resteConnexe } = statutRecouvrement(s, activeYear, s.feeSchedule);
+      return { ...s, statutKey, reste: resteEcolage + resteConnexe, resteEcolage, resteConnexe };
+    })
+    .filter((s) => (avecCalendrier ? s.statutKey === 'a_relancer' : (s.resteEcolage > 0 || s.resteConnexe > 0)))
+    .sort((a, b) => b.reste - a.reste);
+  const enRetard = tousEnRetard.slice(0, 5);
 
   return (
     <div style={{ marginBottom: 28 }}>
@@ -56,7 +61,11 @@ export default function TodaySection({ activeYear, students }) {
       <div className="card-bold" style={{ padding: '20px 22px', maxWidth: 640 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <p style={{ margin: 0, fontFamily: 'var(--serif)', fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>Priorité du jour</p>
-          <Link to="/recouvrement?statut=avec_solde" style={{ fontSize: '12.5px', color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>{enRetard.length} élèves →</Link>
+          {students && tousEnRetard.length > 0 && (
+            <Link to={`/recouvrement?statut=${filtreLien}`} style={{ fontSize: '12.5px', color: 'var(--forest-text)', fontWeight: 600, textDecoration: 'none' }}>
+              Voir les {tousEnRetard.length} élève{tousEnRetard.length > 1 ? 's' : ''} {avecCalendrier ? 'à relancer' : 'avec solde'} →
+            </Link>
+          )}
         </div>
         {!students ? <SkeletonRow count={3} /> : null}
         {students && enRetard.length === 0 && <p style={{ fontSize: 13, color: 'var(--muted)' }}>Aucun retard de paiement.</p>}

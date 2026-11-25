@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { fmtF, downloadCsv } from '../lib/utils.js';
 import { useSelectedSchoolYear } from '../lib/schoolYear.jsx';
-import { computeRelance } from '../lib/retard.js';
+import { calendrierConfigure as calendrierRenseigne, statutRecouvrement } from '../lib/retard.js';
 import { useEnrollmentsForYear } from '../lib/enrollments.js';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { getInscriptionTypeId, inscriptionsCacheKey, remindersCacheKey, loadInscriptions, loadReminders } from '../lib/recouvrementData.js';
@@ -116,26 +116,16 @@ export default function Recouvrement() {
     return () => { cancelled = true; };
   }, [schoolYear?.id, profile.school_id]);
 
-  const calendrierConfigure = useMemo(() => !!(schoolYear && (
-    schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe
-  )), [schoolYear]);
+  const calendrierConfigure = useMemo(() => calendrierRenseigne(schoolYear), [schoolYear]);
 
   const enrichis = useMemo(() => {
     if (!students || inscriptionByStudent === null) return [];
     return students.map((s) => {
-      const resteEcolage = Number(s.montant_du) - Number(s.montant_paye);
-      const resteConnexe = Number(s.frais_connexe_du) - Number(s.frais_connexe_paye);
       const inscriptionPaye = inscriptionByStudent[s.id] || 0;
-      const relance = computeRelance(s, schoolYear, s.feeSchedule);
-      let statutKey;
-      if (relance.moratoireExpirant) statutKey = 'moratoire_expirant';
-      else if (relance.moratoire) statutKey = 'moratoire';
-      else if (resteEcolage <= 0 && resteConnexe <= 0) statutKey = 'a_jour';
-      else if (calendrierConfigure) statutKey = (relance.relance || relance.relanceConnexe) ? 'a_relancer' : 'dans_les_delais';
-      else statutKey = 'solde_restant';
+      const { resteEcolage, resteConnexe, relance, statutKey } = statutRecouvrement(s, schoolYear, s.feeSchedule);
       return { ...s, resteEcolage, resteConnexe, inscriptionPaye, relance, statutKey };
     });
-  }, [students, inscriptionByStudent, schoolYear, calendrierConfigure]);
+  }, [students, inscriptionByStudent, schoolYear]);
 
   const totaux = useMemo(() => {
     const totalEcolageDu = enrichis.reduce((a, s) => a + Number(s.montant_du), 0);

@@ -3,7 +3,7 @@
 // Les résultats attendus sont calculés à la main à partir des règles de gestion, pas copiés du code.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { vi } from 'vitest';
-import { computeEcheances, computeRelance, resumeMoratoire, MORATOIRE_ALERTE_JOURS } from '../src/lib/retard.js';
+import { computeEcheances, computeRelance, resumeMoratoire, MORATOIRE_ALERTE_JOURS, statutRecouvrement, calendrierConfigure } from '../src/lib/retard.js';
 
 // « Aujourd'hui » est figé : sinon les tests changeraient de résultat selon le jour où on les lance.
 const AUJOURDHUI = '2026-11-18T12:00:00Z';
@@ -260,5 +260,43 @@ describe('résumé du moratoire', () => {
     expect(t).toContain('Motif : Perte d\'emploi');
     expect(t).toContain('3 mensualité(s)');
     expect(t).toContain('Note : accord oral');
+  });
+});
+
+describe('statut de recouvrement (définition commune au Tableau de bord et à la page Recouvrement)', () => {
+  const g = grille(100000, 100000, 100000);
+
+  it('élève qui a tout payé : à jour, même si la date limite est dépassée', () => {
+    const r = statutRecouvrement(inscr(300000, 300000), annee(PASSE, PASSE, PASSE), g);
+    expect(r.statutKey).toBe('a_jour');
+    expect(r.resteEcolage).toBe(0);
+  });
+
+  it('calendrier renseigné, date limite dépassée, solde restant : à relancer', () => {
+    const r = statutRecouvrement(inscr(300000, 50000), annee(PASSE, PASSE, PASSE), g);
+    expect(r.statutKey).toBe('a_relancer');
+    expect(r.resteEcolage).toBe(250000);
+  });
+
+  it('calendrier renseigné, date limite pas encore atteinte : dans les délais, pas à relancer', () => {
+    const r = statutRecouvrement(inscr(300000, 0), annee(FUTUR, FUTUR, FUTUR), g);
+    expect(r.statutKey).toBe('dans_les_delais');
+  });
+
+  it('sans calendrier : solde restant, jamais « à relancer »', () => {
+    const r = statutRecouvrement(inscr(300000, 0), annee(null, null, null), g);
+    expect(r.statutKey).toBe('solde_restant');
+  });
+
+  it('un frais connexe en retard suffit pour être à relancer', () => {
+    const r = statutRecouvrement(inscr(300000, 300000, { frais_connexe_du: 20000, frais_connexe_paye: 0 }), annee(FUTUR, FUTUR, FUTUR, PASSE), g);
+    expect(r.statutKey).toBe('a_relancer');
+    expect(r.resteConnexe).toBe(20000);
+  });
+
+  it('le calendrier compte aussi la date des frais connexes', () => {
+    expect(calendrierConfigure(annee(null, null, null))).toBe(false);
+    expect(calendrierConfigure(annee(null, null, null, PASSE))).toBe(true);
+    expect(calendrierConfigure(null)).toBe(false);
   });
 });
