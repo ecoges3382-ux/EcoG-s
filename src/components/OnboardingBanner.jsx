@@ -76,7 +76,7 @@ export default function OnboardingBanner() {
       style={{
         padding: '24px 28px',
         marginBottom: 24,
-        background: 'linear-gradient(135deg, #FAF6EC, var(--paper))',
+        background: 'linear-gradient(135deg, var(--cream), var(--paper))',
         borderLeft: '6px solid var(--forest)',
         boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
       }}
