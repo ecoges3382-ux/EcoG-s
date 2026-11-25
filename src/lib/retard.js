@@ -198,3 +198,26 @@ export function computeRelance(enrollment, schoolYear, feeSchedule) {
 
   return { relance: relanceEcolage || relanceConnexe, moratoire: false, relanceEcolage, relanceConnexe };
 }
+
+// Le calendrier de paiement est-il renseigné pour cette année ? Sans dates de tranches, on ne peut pas dire qu'un élève est « en retard »
+// (seulement qu'il lui reste un solde).
+export function calendrierConfigure(schoolYear) {
+  return !!(schoolYear && (schoolYear.date_tranche1 || schoolYear.date_tranche2 || schoolYear.date_tranche3 || schoolYear.date_connexe));
+}
+
+// Statut de recouvrement d'un élève : c'est LA définition, utilisée par la page Recouvrement et par le Tableau de bord
+// pour que les chiffres et les listes des deux écrans soient toujours les mêmes.
+// Statuts : a_jour, a_relancer, dans_les_delais (calendrier configuré, pas encore échu), solde_restant (pas de calendrier),
+// moratoire, moratoire_expirant.
+export function statutRecouvrement(enrollment, schoolYear, feeSchedule) {
+  const resteEcolage = (Number(enrollment.montant_du) || 0) - (Number(enrollment.montant_paye) || 0);
+  const resteConnexe = (Number(enrollment.frais_connexe_du) || 0) - (Number(enrollment.frais_connexe_paye) || 0);
+  const relance = computeRelance(enrollment, schoolYear, feeSchedule);
+  let statutKey;
+  if (relance.moratoireExpirant) statutKey = 'moratoire_expirant';
+  else if (relance.moratoire) statutKey = 'moratoire';
+  else if (resteEcolage <= 0 && resteConnexe <= 0) statutKey = 'a_jour';
+  else if (calendrierConfigure(schoolYear)) statutKey = (relance.relance || relance.relanceConnexe) ? 'a_relancer' : 'dans_les_delais';
+  else statutKey = 'solde_restant';
+  return { statutKey, resteEcolage, resteConnexe, relance };
+}
