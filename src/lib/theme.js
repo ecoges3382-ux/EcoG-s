@@ -1,4 +1,4 @@
-// Applique la couleur principale choisie par l'école
+// Couleur de l'application : celle de l'école par défaut, que chaque utilisateur peut remplacer par la sienne (voir plus bas).
 function hexToRgb(hex) {
   const clean = hex.replace('#', '');
   const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
@@ -64,6 +64,59 @@ export function applySchoolColor(hex) {
     document.head.appendChild(metaTheme);
   }
   metaTheme.setAttribute('content', darkColor);
+}
+
+// ========== COULEUR PERSONNELLE (PROPRE À CHAQUE UTILISATEUR, COMME LE MODE SOMBRE) ==========
+// Chacun choisit sa couleur sans toucher à celle des autres : elle est mémorisée sur l'appareil, sous le nom de l'utilisateur
+// (comme le mode clair/sombre). Sans choix personnel, c'est la couleur de l'école qui s'applique.
+
+export const COULEURS_PROPOSEES = [
+  { nom: 'Vert forêt', hex: '#0F4C3A' },
+  { nom: 'Bleu nuit', hex: '#1E3A8A' },
+  { nom: 'Bleu', hex: '#1D4ED8' },
+  { nom: 'Violet', hex: '#6D28D9' },
+  { nom: 'Prune', hex: '#9D174D' },
+  { nom: 'Rouge brique', hex: '#B91C1C' },
+  { nom: 'Orange brûlé', hex: '#C2410C' },
+  { nom: 'Ardoise', hex: '#334155' },
+];
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const cleCouleur = (userId) => `ecoges_couleur_${userId}`;
+
+// Une couleur trop claire (jaune, rose pâle…) rendrait illisible le texte blanc posé dessus (boutons, barre du haut) :
+// on la fonce juste assez pour que le texte blanc reste lisible (contraste d'au moins 4,5).
+export function couleurLisible(hex) {
+  if (!HEX.test(hex || '')) return null;
+  let amount = 0;
+  let out = hex.toLowerCase();
+  while (contrast(out, '#ffffff') < 4.5 && amount < 0.9) {
+    amount += 0.05;
+    out = mix(hex, '#000000', amount);
+  }
+  return out;
+}
+
+// La couleur choisie par cet utilisateur, ou null s'il n'en a pas choisi.
+export function couleurPersonnelle(userId) {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const saved = localStorage.getItem(cleCouleur(userId));
+    return HEX.test(saved || '') ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+// Mémorise la couleur de cet utilisateur (null = revenir à la couleur de l'école). Renvoie la couleur réellement retenue.
+export function enregistrerCouleurPersonnelle(userId, hex) {
+  const retenue = hex ? couleurLisible(hex) : null;
+  if (typeof window === 'undefined' || !userId) return retenue;
+  try {
+    if (retenue) localStorage.setItem(cleCouleur(userId), retenue);
+    else localStorage.removeItem(cleCouleur(userId));
+  } catch { /* stockage indisponible : le choix vaut pour la session seulement */ }
+  return retenue;
 }
 
 export function resetSchoolColor() {
