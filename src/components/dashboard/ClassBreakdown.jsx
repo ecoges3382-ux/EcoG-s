@@ -4,7 +4,9 @@ import RecouvrementChart from './RecouvrementChart.jsx';
 import { virgule } from '../../lib/formatNote.js';
 import Sur20 from '../Sur20.jsx';
 
-export default function ClassBreakdown({ students, attendance, classResults }) {
+export default function ClassBreakdown({ students, attendance, classResults, finance = true }) {
+  // Sans accès aux finances : ni dû, ni reste, ni taux de recouvrement — seulement effectif, présences et moyennes
+  const colonnes = finance ? '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr' : '1.1fr 0.7fr 1fr 0.9fr';
   const attendanceByStudent = new Map();
   (attendance || []).forEach((r) => {
     const c = attendanceByStudent.get(r.student_id) || { absent: 0, retard: 0, present: 0 };
@@ -29,12 +31,15 @@ export default function ClassBreakdown({ students, attendance, classResults }) {
   const rows = [...byClasse.values()].sort((a, b) => a.nom.localeCompare(b.nom));
 
   function exportCsv() {
-    const header = ['Classe', 'Effectif', 'Dû', 'Payé', 'Reste', 'Taux de recouvrement', 'Absences', 'Retards', 'Moyenne générale'];
+    const header = finance
+      ? ['Classe', 'Effectif', 'Dû', 'Payé', 'Reste', 'Taux de recouvrement', 'Absences', 'Retards', 'Moyenne générale']
+      : ['Classe', 'Effectif', 'Absences', 'Retards', 'Moyenne générale'];
     const lines = rows.map((r) => {
       const reste = r.du - r.paye;
       const taux = r.du > 0 ? Math.round((r.paye / r.du) * 100) : 0;
       const moyenne = resultsByClasse.get(r.classeId)?.moyenne_generale;
-      return [r.nom, r.effectif, r.du, r.paye, reste, `${taux}%`, r.absent, r.retard, moyenne != null ? Number(moyenne).toFixed(2) : ''];
+      const moy = moyenne != null ? Number(moyenne).toFixed(2) : '';
+      return finance ? [r.nom, r.effectif, r.du, r.paye, reste, `${taux}%`, r.absent, r.retard, moy] : [r.nom, r.effectif, r.absent, r.retard, moy];
     });
     downloadCsv('repartition-par-classe.csv', [header, ...lines]);
   }
@@ -47,11 +52,11 @@ export default function ClassBreakdown({ students, attendance, classResults }) {
           <i className="ti ti-upload" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>Export CSV
         </button>
       </div>
-      <RecouvrementChart rows={rows} />
+      {finance && <RecouvrementChart rows={rows} />}
       <div className="card-bold" style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 680 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr', gap: 10, padding: '11px 18px 11px 0', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
-            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 18 }}>Classe</span><span>Effectif</span><span>Reste dû</span><span>Recouvrement</span><span style={{ overflowWrap: 'break-word' }}>Absences/retards</span><span>Moyenne</span>
+          <div style={{ display: 'grid', gridTemplateColumns: colonnes, gap: 10, padding: '11px 18px 11px 0', background: 'var(--forest-light)', fontSize: 11, fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
+            <span style={{ ...stickyColStyle('var(--forest-light)'), paddingLeft: 18 }}>Classe</span><span>Effectif</span>{finance && <><span>Reste dû</span><span>Recouvrement</span></>}<span style={{ overflowWrap: 'break-word' }}>Absences/retards</span><span>Moyenne</span>
           </div>
           {rows.map((r, i) => {
             const reste = r.du - r.paye;
@@ -62,12 +67,11 @@ export default function ClassBreakdown({ students, attendance, classResults }) {
                 key={r.nom}
                 to="/eleves"
                 className="row-link"
-                style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 1.1fr 0.9fr 1fr 0.9fr', gap: 10, padding: '11px 18px 11px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13, textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'grid', gridTemplateColumns: colonnes, gap: 10, padding: '11px 18px 11px 0', alignItems: 'center', borderTop: i > 0 ? '1px solid var(--line)' : 'none', fontSize: 13, textDecoration: 'none', color: 'inherit' }}
               >
                 <span style={{ fontWeight: 600, ...stickyColStyle('var(--row-bg)'), paddingLeft: 18 }}>{r.nom}</span>
                 <span>{r.effectif}</span>
-                <span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>{fmtF(reste)}</span>
-                <span>{taux}%</span>
+                {finance && <><span style={{ color: reste > 0 ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>{fmtF(reste)}</span><span>{taux}%</span></>}
                 <span>{r.absent} / {r.retard}</span>
                 <span>{cr?.moyenne_generale != null ? <>{virgule(cr.moyenne_generale, 2)}<Sur20 /></> : '—'}</span>
               </Link>

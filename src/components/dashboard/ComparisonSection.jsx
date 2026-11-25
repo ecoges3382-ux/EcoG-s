@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase.js';
 import { SkeletonTableRows } from '../Skeleton.jsx';
 import { lireTout } from '../../lib/fetchAll.js';
 
-export default function ComparisonSection({ currentYear, previousYear, currentStudents, currentAttendance }) {
+export default function ComparisonSection({ currentYear, previousYear, currentStudents, currentAttendance, finance = true }) {
   const { students: prevStudents } = useEnrollmentsForYear(previousYear);
   const [prevAttendance, setPrevAttendance] = useState(null);
 
@@ -42,13 +42,14 @@ export default function ComparisonSection({ currentYear, previousYear, currentSt
           currentYear={currentYear} previousYear={previousYear}
           currStudents={currentStudents} currAttendance={currentAttendance}
           prevStudents={prevStudents} prevAttendance={prevAttendance}
+          finance={finance}
         />
       )}
     </div>
   );
 }
 
-function CompareTable({ currentYear, previousYear, currStudents, currAttendance, prevStudents, prevAttendance }) {
+function CompareTable({ currentYear, previousYear, currStudents, currAttendance, prevStudents, prevAttendance, finance }) {
   if (!currStudents || !currAttendance || !prevAttendance) return <div className="card-bold"><SkeletonTableRows count={4} columns={3} /></div>;
 
   const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
@@ -60,13 +61,16 @@ function CompareTable({ currentYear, previousYear, currStudents, currAttendance,
 
   const rows = [
     { label: 'Effectif', cur: currStudents.length, prev: prevStudents.length, fmt: (v) => String(v) },
-    { label: 'Total encaissé', cur: sum(currStudents, (s) => Number(s.montant_paye)), prev: sum(prevStudents, (s) => Number(s.montant_paye)), fmt: fmtF },
-    {
-      label: 'Taux de recouvrement',
-      cur: sum(currStudents, (s) => Number(s.montant_du)) > 0 ? Math.round((sum(currStudents, (s) => Number(s.montant_paye)) / sum(currStudents, (s) => Number(s.montant_du))) * 100) : 0,
-      prev: sum(prevStudents, (s) => Number(s.montant_du)) > 0 ? Math.round((sum(prevStudents, (s) => Number(s.montant_paye)) / sum(prevStudents, (s) => Number(s.montant_du))) * 100) : 0,
-      fmt: (v) => `${v}%`,
-    },
+    // Encaissé et recouvrement : seulement avec l'accès aux finances
+    ...(finance ? [
+      { label: 'Total encaissé', cur: sum(currStudents, (s) => Number(s.montant_paye)), prev: sum(prevStudents, (s) => Number(s.montant_paye)), fmt: fmtF },
+      {
+        label: 'Taux de recouvrement',
+        cur: sum(currStudents, (s) => Number(s.montant_du)) > 0 ? Math.round((sum(currStudents, (s) => Number(s.montant_paye)) / sum(currStudents, (s) => Number(s.montant_du))) * 100) : 0,
+        prev: sum(prevStudents, (s) => Number(s.montant_du)) > 0 ? Math.round((sum(prevStudents, (s) => Number(s.montant_paye)) / sum(prevStudents, (s) => Number(s.montant_du))) * 100) : 0,
+        fmt: (v) => `${v}%`,
+      },
+    ] : []),
     { label: 'Taux de présence', cur: tauxPresenceOf(currAttendance), prev: tauxPresenceOf(prevAttendance), fmt: (v) => (v != null ? `${v}%` : '—') },
   ];
 

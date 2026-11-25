@@ -1,3 +1,4 @@
+import { peutVoirFinances } from '../lib/droits.js';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useSelectedSchoolYear, useSchoolYearSelector } from '../lib/schoolYear.jsx';
@@ -23,6 +24,8 @@ import { lireTout, clePresence } from '../lib/fetchAll.js';
 
 export default function Dashboard() {
   const { profile } = useAuth();
+  // L'argent (encaissements, recouvrement, salaires, dépenses) n'apparaît que pour ceux qui y ont droit : voir src/lib/droits.js
+  const finance = peutVoirFinances(profile);
   const { schoolYear, isHistorical } = useSelectedSchoolYear(profile.school_id);
   const { activeYear, selectableYears } = useSchoolYearSelector();
   const { students, error, offline } = useEnrollmentsForYear(schoolYear);
@@ -117,19 +120,19 @@ export default function Dashboard() {
       {!isHistorical && <OnboardingBanner />}
       {!isHistorical && <PlanUsageBanner />}
 
-      <YearKpis students={students} attendance={attendance} classResults={classResults} />
+      <YearKpis students={students} attendance={attendance} classResults={classResults} finance={finance} />
       
       <div className="desktop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: 18, marginBottom: 28 }}>
-        <TrendsSection schoolYear={schoolYear} attendance={attendance} />
+        <TrendsSection schoolYear={schoolYear} attendance={attendance} finance={finance} />
         <DemographicsSection students={students} />
       </div>
 
-      <ClassBreakdown students={students} attendance={attendance} classResults={classResults} />
-      <PersonnelSection schoolYear={schoolYear} />
+      <ClassBreakdown students={students} attendance={attendance} classResults={classResults} finance={finance} />
+      {finance && <PersonnelSection schoolYear={schoolYear} />}
 
-      {!isHistorical && activeYear && <TodaySection activeYear={activeYear} students={students} />}
+      {!isHistorical && activeYear && <TodaySection activeYear={activeYear} students={students} finance={finance} />}
 
-      <ComparisonSection currentYear={schoolYear} previousYear={previousYear} currentStudents={students} currentAttendance={attendance} />
+      <ComparisonSection currentYear={schoolYear} previousYear={previousYear} currentStudents={students} currentAttendance={attendance} finance={finance} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { avecSalairesPrevus } from '../../lib/remuneration.js';
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../auth/AuthProvider.jsx';
@@ -95,7 +96,7 @@ export default function SalairesSection() {
     else setAdvances(adv || []);
 
     const { data: st } = await supabase.from('staff').select('*').eq('statut', 'actif').order('full_name');
-    setStaff(st || []);
+    setStaff(await avecSalairesPrevus(supabase, st));
   }
 
   async function handleDeleteSalaire(id, nomMembre, montant) {

@@ -8,12 +8,12 @@ import { guardedFetch } from '../../lib/offlineCache.js';
 import { buildMonthsForChart } from './DashboardUI.jsx';
 import { lireTout } from '../../lib/fetchAll.js';
 
-export default function TrendsSection({ schoolYear, attendance }) {
+export default function TrendsSection({ schoolYear, attendance, finance = true }) {
   const [payments, setPayments] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
-    if (!schoolYear) return;
+    if (!schoolYear || !finance) return undefined; // sans accès aux finances, on ne lit pas les paiements
     let cancelled = false;
 
     guardedFetch({
@@ -32,7 +32,7 @@ export default function TrendsSection({ schoolYear, attendance }) {
     });
     
     return () => { cancelled = true; };
-  }, [schoolYear?.id]);
+  }, [schoolYear?.id, finance]);
 
   if (!schoolYear) return null;
 
@@ -76,13 +76,14 @@ export default function TrendsSection({ schoolYear, attendance }) {
         <div>
           <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Tendances mensuelles</p>
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--muted)' }}>
-            Revenus et présences · {months.length} mois affichés
+            {finance ? 'Revenus et présences' : 'Présences'} · {months.length} mois affichés
           </p>
         </div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         
+        {finance && (
         <div style={{ marginBottom: 24 }}>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--forest-text)' }}>
             Revenus totaux {totalPayments > 0 ? `· total ${fmtF(totalPayments)}` : ''}
@@ -122,6 +123,7 @@ export default function TrendsSection({ schoolYear, attendance }) {
           )}
           <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--muted)' }}>Inclut tous les paiements enregistrés : écolage, frais connexes, inscriptions et autres.</p>
         </div>
+        )}
 
         <div>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: 'var(--gold)' }}>

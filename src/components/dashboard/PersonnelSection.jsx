@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase.js';
 import { fmtF } from '../../lib/utils.js';
 import { SkeletonCard } from '../Skeleton.jsx';
 import { Stat } from './DashboardUI.jsx';
+import { avecSalairesPrevus } from '../../lib/remuneration.js';
 
 export default function PersonnelSection({ schoolYear }) {
   const [data, setData] = useState(null);
@@ -12,7 +13,7 @@ export default function PersonnelSection({ schoolYear }) {
     let cancelled = false;
     setData(null);
     Promise.all([
-      supabase.from('staff').select('id, salaire_mensuel, date_entree').eq('statut', 'actif'),
+      supabase.from('staff').select('id, salaire_mensuel, date_entree').eq('statut', 'actif').then(async (r) => ({ ...r, data: await avecSalairesPrevus(supabase, r.data) })),
       supabase.from('staff_salaries').select('staff_id, montant').eq('school_year_id', schoolYear.id),
       supabase.from('salary_advances').select('montant, solde').eq('school_year_id', schoolYear.id).eq('statut', 'approuvee'),
       supabase.from('expenses').select('montant').eq('school_year_id', schoolYear.id),
