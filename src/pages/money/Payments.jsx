@@ -19,6 +19,7 @@ import OfflineBanner from '../../components/OfflineBanner.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import SelectionBar from '../../components/SelectionBar.jsx';
 import { guardedFetch } from '../../lib/offlineCache.js';
+import { lireInscriptions } from '../../lib/argentInscriptions.js';
 import ChampRecherche from '../../components/ChampRecherche.jsx';
 import ChoixTranche from '../../components/ChoixTranche.jsx';
 import { correspondAuxMots } from '../../lib/texte.js';
@@ -139,7 +140,11 @@ export default function Payments() {
       onSuccess: () => setError(''),
     });
 
-    const { data: enr } = await supabase.from('enrollments').select('montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, classes ( nom, niveau ), students ( id, full_name, matricule )').eq('school_year_id', schoolYear.id);
+    const { data: enr } = await lireInscriptions(supabase, {
+      colonnes: 'classes ( nom, niveau ), students ( id, full_name, matricule )',
+      filtrer: (q) => q.eq('school_year_id', schoolYear.id),
+      finance: true, // cette page est réservée aux finances
+    });
     setStudents((enr || [])
       .map((e) => ({
         id: e.students.id,

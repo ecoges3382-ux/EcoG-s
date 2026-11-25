@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase.js';
 import { guardedFetch, saveCache } from './offlineCache.js';
-import { lireTout } from './fetchAll.js';
+import { lireInscriptions, suffixeCacheArgent } from './argentInscriptions.js';
+import { peutVoirFinances } from './droits.js';
+import { useAuth } from '../auth/AuthProvider.jsx';
 
 // Charge les inscriptions d'une année (élèves, classes, frais). Utilisé par la page
-// et par le préchargement en arrière-plan.
-export async function loadEnrollments(schoolYear) {
+// et par le préchargement en arrière-plan. `finance` : l'utilisateur a-t-il accès aux montants ? (sinon ils valent 0, la base ne les lui donne pas)
+export async function loadEnrollments(schoolYear, finance = true) {
   const [{ data, error: e }, { data: fees }] = await Promise.all([
     // Page par page : l'API plafonne chaque réponse à 1 000 lignes (une grande école a plus d'élèves).
-    lireTout(supabase, 'enrollments',
-      'montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, statut, classe_id, moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )',
-      (q) => q.eq('school_year_id', schoolYear.id), { keyOf: null }),
+    lireInscriptions(supabase, {
+      colonnes: 'statut, classe_id, moratoire_actif, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )',
+      filtrer: (q) => q.eq('school_year_id', schoolYear.id),
+      finance,
+      keyOf: null,
+    }),
     supabase.from('fee_schedules').select('*').eq('school_year_id', schoolYear.id),
   ]);
   if (e) return { error: e };
@@ -46,15 +51,17 @@ export async function loadEnrollments(schoolYear) {
 
 // Remplit le cache local en arrière-plan : à la première visite, la page s'affiche
 // tout de suite avec ces données, puis se met à jour.
-export async function prefetchEnrollments(schoolYear) {
+export async function prefetchEnrollments(schoolYear, finance = true) {
   if (!schoolYear) return;
   try {
-    const { data, error } = await loadEnrollments(schoolYear);
-    if (!error && data) await saveCache(`enrollments_${schoolYear.id}`, data);
+    const { data, error } = await loadEnrollments(schoolYear, finance);
+    if (!error && data) await saveCache(`enrollments_${schoolYear.id}${suffixeCacheArgent(finance)}`, data);
   } catch { /* préchargement : sans importance si ça échoue */ }
 }
 
 export function useEnrollmentsForYear(schoolYear) {
+  const { profile } = useAuth();
+  const finance = peutVoirFinances(profile);
   const [students, setStudents] = useState(null);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState(false);
@@ -63,7 +70,7 @@ export function useEnrollmentsForYear(schoolYear) {
     if (!schoolYear) return;
     let cancelled = false;
     guardedFetch({
-      cacheKey: `enrollments_${schoolYear.id}`,
+      cacheKey: `enrollments_${schoolYear.id}${suffixeCacheArgent(finance)}`,
       // hasData doit refléter l'état affiché AU MOMENT de l'appel : si des
       // élèves sont déjà à l'écran (rechargement, année re-sélectionnée),
       // on garde l'affichage actuel plutôt que de repartir du cache local.
@@ -72,7 +79,7 @@ export function useEnrollmentsForYear(schoolYear) {
       // version du jour n'arrive — incohérent avec le reste de l'appli
       // (Staff.jsx, Payments, etc. utilisent tous `xxx !== null`).
       hasData: students !== null,
-      load: () => loadEnrollments(schoolYear),
+      load: () => loadEnrollments(schoolYear, finance),
       setData: setStudents,
       setOffline,
       onError: (e) => setError(e.message),
