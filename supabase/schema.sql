@@ -4816,7 +4816,10 @@ create policy "staff: delete" on staff
 -- (qui est dans quelle classe), mais pas les montants.
 --
 -- APRÈS : les inscriptions restent lisibles par tous les membres du personnel, SANS ces colonnes d'argent :
---     montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_montant_convenu.
+--     montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement,
+--     et tout le moratoire (arrangement de paiement) : moratoire_actif, moratoire_montant_convenu, moratoire_nb_mensualites,
+--     moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance.
+-- (Savoir qu'une famille a négocié un arrangement, c'est déjà savoir qu'elle a du mal à payer.)
 -- Elles se lisent désormais dans la vue « enrollments_argent », qui ne renvoie des lignes qu'aux personnes ayant accès aux finances
 -- (même règle que supabase/restreindre_finances.sql : fondateur, directeur, secrétaire, ou permission « finance » cochée).
 -- L'écriture ne change pas (qui peut inscrire, modifier un montant, enregistrer un paiement : inchangé).
@@ -4827,14 +4830,16 @@ create policy "staff: delete" on staff
 -- ATTENTION pour la suite : une colonne AJOUTÉE plus tard à « enrollments » n'est pas lisible par les utilisateurs tant qu'on ne l'a pas
 -- accordée (grant select (colonne) on enrollments to authenticated). Un test de la base le vérifie (tests/restreindre-finances.test.js).
 --
--- À lancer dans Supabase (SQL Editor), une fois, APRÈS restreindre_finances.sql. Rejouable sans danger. L'application sait travailler
+-- À lancer dans Supabase (SQL Editor), APRÈS restreindre_finances.sql. Rejouable sans danger (à relancer après une mise à jour : il
+-- prend en compte les colonnes du moratoire). L'application sait travailler
 -- avant comme après (voir src/lib/argentInscriptions.js).
 -- Pour annuler : supabase/annuler_restriction_montants_eleves.sql
 -- =====================================================================================================================
 
 do $$
 declare
-  protegees constant text[] := array['montant_du', 'montant_paye', 'frais_connexe_du', 'frais_connexe_paye', 'note_arrangement', 'moratoire_montant_convenu'];
+  protegees constant text[] := array['montant_du', 'montant_paye', 'frais_connexe_du', 'frais_connexe_paye', 'note_arrangement',
+    'moratoire_actif', 'moratoire_montant_convenu', 'moratoire_nb_mensualites', 'moratoire_date_debut', 'moratoire_date_fin', 'moratoire_motif', 'moratoire_prochaine_echeance'];
   colonnes_argent text;
   colonnes_libres text;
 begin
@@ -4850,7 +4855,9 @@ begin
 
   -- 1. La vue des montants : seulement les lignes de MON école, et seulement si j'ai accès aux finances.
   --    (Elle s'exécute avec les droits de son propriétaire, qui peut lire les colonnes d'argent ; le filtre ci-dessous est ce qui protège.)
-  execute 'create or replace view public.enrollments_argent as select e.id, e.school_id, e.school_year_id, e.student_id, ' || colonnes_argent
+  -- (la vue est recréée : une version précédente avait moins de colonnes, et « create or replace » ne sait pas en insérer au milieu)
+  execute 'drop view if exists public.enrollments_argent';
+  execute 'create view public.enrollments_argent as select e.id, e.school_id, e.school_year_id, e.student_id, ' || colonnes_argent
     || ' from public.enrollments e where e.school_id = (select public.current_school_id()) and (select public.peut_voir_finances())';
   execute 'revoke all on public.enrollments_argent from public, anon';
   execute 'grant select on public.enrollments_argent to authenticated, service_role';
@@ -4858,4 +4865,65 @@ begin
   -- 2. Les inscriptions : lisibles par tous les membres du personnel (règles inchangées), mais sans les colonnes d'argent.
   execute 'revoke select on public.enrollments from anon, authenticated';
   execute 'grant select (' || colonnes_libres || ') on public.enrollments to authenticated';
+end $$;
+
+-- =====================================================================================================================
+-- ÉLÈVES : QUI PEUT LES AJOUTER, LES MODIFIER OU LES SUPPRIMER, ET QUI LIT L'HISTORIQUE DES MORATOIRES.
+-- =====================================================================================================================
+--
+-- AVANT : un enseignant pouvait, directement dans la base, ajouter, modifier ou SUPPRIMER n'importe quelle fiche élève de son école
+-- (l'application lui cachait les boutons, mais la base ne l'en empêchait pas). Il pouvait aussi lire l'historique des moratoires
+-- (arrangements de paiement des familles).
+--
+-- APRÈS :
+--   * ajouter, modifier ou supprimer un élève : fondateur, directeur et secrétaire seulement (comme l'application le montre déjà) ;
+--   * lire l'historique des moratoires : seulement ceux qui ont accès aux finances (voir restreindre_finances.sql).
+-- Les enseignants gardent tout ce dont leur travail a besoin : lire la liste des élèves, saisir les notes et les présences.
+--
+-- À lancer dans Supabase (SQL Editor), APRÈS restreindre_finances.sql. Rejouable sans danger.
+-- Pour annuler : supabase/annuler_restriction_ecriture_eleves.sql
+-- =====================================================================================================================
+
+drop policy if exists "students: insert" on students;
+create policy "students: insert" on students
+  for insert with check (
+    school_id = (select current_school_id())
+    and (select current_role_name()) in ('fondateur', 'directeur', 'secretaire')
+  );
+drop policy if exists "students: update" on students;
+create policy "students: update" on students
+  for update using (
+    school_id = (select current_school_id())
+    and (select current_role_name()) in ('fondateur', 'directeur', 'secretaire')
+  ) with check (
+    school_id = (select current_school_id())
+    and (select current_role_name()) in ('fondateur', 'directeur', 'secretaire')
+  );
+drop policy if exists "students: delete" on students;
+create policy "students: delete" on students
+  for delete using (
+    school_id = (select current_school_id())
+    and (select current_role_name()) in ('fondateur', 'directeur', 'secretaire')
+  );
+
+drop policy if exists "moratoire_history: select" on moratoire_history;
+create policy "moratoire_history: select" on moratoire_history
+  for select using (
+    school_id = (select current_school_id())
+    and (select peut_voir_finances())
+  );
+
+-- =====================================================================================================================
+-- COULEUR PERSONNELLE : chaque utilisateur retrouve sa couleur d'application sur tous ses appareils.
+-- =====================================================================================================================
+-- Une colonne sur le profil (couleur_perso, au format #RRGGBB). Chaque utilisateur ne peut modifier que la sienne (la règle « modification
+-- de son propre profil » existe déjà ; le rôle, l'école et les permissions restent verrouillés). Vide = couleur de l'école.
+-- À lancer dans Supabase (SQL Editor). Rejouable sans danger. L'application marche avant comme après.
+-- =====================================================================================================================
+alter table profiles add column if not exists couleur_perso text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_couleur_perso_format' and conrelid = 'public.profiles'::regclass) then
+    alter table profiles add constraint profiles_couleur_perso_format check (couleur_perso is null or couleur_perso ~ '^#[0-9a-fA-F]{6}$');
+  end if;
 end $$;

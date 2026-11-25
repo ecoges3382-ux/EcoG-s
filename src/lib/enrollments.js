@@ -11,7 +11,7 @@ export async function loadEnrollments(schoolYear, finance = true) {
   const [{ data, error: e }, { data: fees }] = await Promise.all([
     // Page par page : l'API plafonne chaque réponse à 1 000 lignes (une grande école a plus d'élèves).
     lireInscriptions(supabase, {
-      colonnes: 'statut, classe_id, moratoire_actif, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )',
+      colonnes: 'statut, classe_id, classes ( id, nom, niveau ), students ( id, full_name, matricule, photo_url, sexe )',
       filtrer: (q) => q.eq('school_year_id', schoolYear.id),
       finance,
       keyOf: null,

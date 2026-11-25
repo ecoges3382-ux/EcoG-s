@@ -119,7 +119,7 @@ export default function Students() {
       load: async () => {
         // Page par page : l'API plafonne chaque réponse à 1 000 lignes (une grande école a plus d'élèves).
         const { data, error: fetchError } = await lireInscriptions(supabase, {
-          colonnes: 'created_at, classe_id, moratoire_actif, moratoire_date_fin, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )',
+          colonnes: 'created_at, classe_id, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )',
           filtrer: (q) => q.eq('school_year_id', schoolYear.id),
           finance,
           tri: [['full_name', { foreignTable: 'students' }]],
@@ -384,20 +384,20 @@ export default function Students() {
         <div data-tour="students-actions" style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
           <button onClick={exportCsv} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)' }}><i className="ti ti-upload" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Exporter</button>
           
-          {!isHistorical && (
+          {!isHistorical && canEdit && (
             <button onClick={downloadTemplate} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', display: 'inline-flex', alignItems: 'center' }}>
               <i className="ti ti-download" style={{ fontSize: 14, marginRight: 6 }} aria-hidden="true"></i>Télécharger le modèle
             </button>
           )}
 
-          {!isHistorical && (
+          {!isHistorical && canEdit && (
             <label style={{ display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--line-strong)', background: 'var(--paper)', color: 'var(--ink)', cursor: importing ? 'default' : 'pointer', opacity: importing ? 0.7 : 1 }}>
               <i className="ti ti-download" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>
               {importing ? 'Import…' : 'Importer'}
               <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={handleImportFile} disabled={importing} style={{ display: 'none' }} />
             </label>
           )}
-          {!isHistorical && (
+          {!isHistorical && canEdit && (
             <button onClick={() => { setEditingStudent(null); setModalOpen(true); }} disabled={classes === null || !activeYear} style={{ fontSize: 13, fontWeight: 600, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--forest)', color: '#fff', opacity: classes === null || !activeYear ? 0.7 : 1 }}>
               <i className="ti ti-plus" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 5 }} aria-hidden="true"></i>Ajouter
             </button>
@@ -516,7 +516,7 @@ export default function Students() {
           })}
           {filtered.length === 0 && (
             classFilter === 'toutes' && !debouncedSearchQuery.trim()
-              ? <EmptyState icon={<UsersIcon />} title="Aucun élève inscrit" subtitle="Ajoute ton premier élève pour commencer à suivre sa scolarité et ses paiements." actionLabel={!isHistorical ? 'Inscrire un élève' : undefined} onAction={!isHistorical ? () => { setEditingStudent(null); setModalOpen(true); } : undefined} />
+              ? <EmptyState icon={<UsersIcon />} title="Aucun élève inscrit" subtitle="Ajoute ton premier élève pour commencer à suivre sa scolarité et ses paiements." actionLabel={!isHistorical && canEdit ? 'Inscrire un élève' : undefined} onAction={!isHistorical && canEdit ? () => { setEditingStudent(null); setModalOpen(true); } : undefined} />
               : <p style={{ padding: 20, color: 'var(--muted)', fontSize: 13 }}>Aucun élève ne correspond à ces critères.</p>
           )}
         </div>

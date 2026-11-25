@@ -119,6 +119,18 @@ export function enregistrerCouleurPersonnelle(userId, hex) {
   return retenue;
 }
 
+// Le profil a-t-il déjà été comparé à cet appareil ? Après la première fois, le profil (donc le dernier choix, sur n'importe quel appareil)
+// fait foi ; avant, un choix déjà fait sur cet appareil est envoyé au profil au lieu d'être effacé.
+const cleSync = (userId) => `ecoges_couleur_sync_${userId}`;
+export function couleurSynchronisee(userId) {
+  if (typeof window === 'undefined' || !userId) return false;
+  try { return localStorage.getItem(cleSync(userId)) === '1'; } catch { return false; }
+}
+export function marquerCouleurSynchronisee(userId) {
+  if (typeof window === 'undefined' || !userId) return;
+  try { localStorage.setItem(cleSync(userId), '1'); } catch { /* stockage indisponible */ }
+}
+
 export function resetSchoolColor() {
   if (typeof window === 'undefined') return;
   const root = document.documentElement.style;

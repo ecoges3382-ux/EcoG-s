@@ -20,7 +20,8 @@ const U = {
   enseignantFinance: 'a0000000-0000-4000-8000-000000000005',
   autreEcole: 'b0000000-0000-4000-8000-000000000001',
 };
-const ARGENT = ['montant_du', 'montant_paye', 'frais_connexe_du', 'frais_connexe_paye', 'note_arrangement', 'moratoire_montant_convenu'];
+const ARGENT = ['montant_du', 'montant_paye', 'frais_connexe_du', 'frais_connexe_paye', 'note_arrangement',
+  'moratoire_actif', 'moratoire_montant_convenu', 'moratoire_nb_mensualites', 'moratoire_date_debut', 'moratoire_date_fin', 'moratoire_motif', 'moratoire_prochaine_echeance'];
 
 describe('montants des élèves réservés', () => {
   let db; let yearId; let classeId; let studentId; let enrollmentId;
@@ -60,7 +61,11 @@ describe('montants des élèves réservés', () => {
     await db.exec('alter table parent_access add column lien_parente text, add column civilite text; alter table students add column if not exists sexe text;');
     // La production a en plus les colonnes du moratoire, absentes de schema.sql : on les ajoute pour tester comme en vrai.
     await db.exec(`alter table enrollments add column if not exists moratoire_actif boolean not null default false, add column if not exists moratoire_montant_convenu numeric,
-      add column if not exists moratoire_nb_mensualites int, add column if not exists moratoire_date_fin date;`);
+      add column if not exists moratoire_nb_mensualites int, add column if not exists moratoire_date_debut date, add column if not exists moratoire_date_fin date,
+      add column if not exists moratoire_motif text, add column if not exists moratoire_prochaine_echeance date;
+      -- la version précédente du script (6 colonnes) a déjà été lancée en production : la nouvelle doit la remplacer proprement
+      drop view if exists enrollments_argent;
+      create view enrollments_argent as select id, school_id, school_year_id, student_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_montant_convenu from enrollments;`);
     // La migration est relancée après l'ajout de ces colonnes (elle les prend alors en compte, comme en production).
     await db.exec(`grant usage on schema public, auth to authenticated, service_role; grant execute on function auth.jwt(), auth.uid() to authenticated, anon;`);
     await db.exec(`
@@ -163,10 +168,18 @@ describe('montants des élèves réservés', () => {
       const lu = await comme(U.secretaire, 'select montant_du from enrollments_argent');
       expect(Number(lu.rows[0].montant_du)).toBe(160000);
     });
+    it('le moratoire est caché à l’enseignant : ni lisible, ni devinable', async () => {
+      for (const c of ['moratoire_actif', 'moratoire_motif', 'moratoire_date_fin', 'moratoire_prochaine_echeance']) {
+        expect((await comme(U.enseignant, `select ${c} from enrollments`)).erreur, c).toMatch(/permission denied/);
+      }
+      expect((await comme(U.enseignant, 'select id from enrollments where moratoire_actif')).erreur).toMatch(/permission denied/);
+    });
     it('un moratoire s’enregistre (écriture des colonnes protégées)', async () => {
-      const r = await comme(U.secretaire, `update enrollments set moratoire_actif = true, moratoire_montant_convenu = 90000, note_arrangement = 'Accord' where id = '${enrollmentId}'`);
+      const r = await comme(U.secretaire, `update enrollments set moratoire_actif = true, moratoire_montant_convenu = 90000, moratoire_motif = 'Maladie', note_arrangement = 'Accord' where id = '${enrollmentId}'`);
       expect(r.erreur).toBeUndefined();
-      const lu = await comme(U.secretaire, 'select moratoire_montant_convenu, note_arrangement from enrollments_argent');
+      const lu = await comme(U.secretaire, 'select moratoire_actif, moratoire_motif, moratoire_montant_convenu, note_arrangement from enrollments_argent');
+      expect(lu.rows[0].moratoire_actif).toBe(true);
+      expect(lu.rows[0].moratoire_motif).toBe('Maladie');
       expect(Number(lu.rows[0].moratoire_montant_convenu)).toBe(90000);
       expect(lu.rows[0].note_arrangement).toBe('Accord');
     });
@@ -210,8 +223,8 @@ describe('montants des élèves réservés', () => {
       expect(r.rows[0].n).toBeGreaterThan(0);
       expect((await comme(U.enseignant, 'select montant_du from enrollments')).erreur).toMatch(/permission denied/);
     });
-    it('est bien le texte placé à la fin de schema.sql (un seul endroit à maintenir)', () => {
-      expect(SCHEMA.endsWith(MIGRATION)).toBe(true);
+    it('est bien reprise telle quelle dans schema.sql (un seul endroit à maintenir)', () => {
+      expect(SCHEMA).toContain(MIGRATION);
     });
     it('le script d’annulation redonne l’accès, et la migration peut ensuite être relancée', async () => {
       await db.exec(ANNULATION);

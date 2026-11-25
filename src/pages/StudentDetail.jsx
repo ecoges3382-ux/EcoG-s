@@ -93,7 +93,7 @@ export default function StudentDetail() {
       hasData: false,
       load: async () => {
         const { data, error: fetchError } = await lireInscriptions(supabase, {
-          colonnes: 'classe_id, moratoire_actif, moratoire_nb_mensualites, moratoire_date_debut, moratoire_date_fin, moratoire_motif, moratoire_prochaine_echeance, classes ( nom, niveau )',
+          colonnes: 'classe_id, classes ( nom, niveau )',
           filtrer: (q) => q.eq('student_id', id).eq('school_year_id', schoolYear.id),
           finance,
         });

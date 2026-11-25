@@ -91,6 +91,58 @@ describe('cache hors ligne', () => {
   });
 });
 
-it('la liste des colonnes d’argent est celle de la base', () => {
-  expect(COLONNES_ARGENT.split(',').map((c) => c.trim()).sort()).toEqual(['frais_connexe_du', 'frais_connexe_paye', 'montant_du', 'montant_paye', 'moratoire_montant_convenu', 'note_arrangement']);
+it('la liste des colonnes d’argent est celle de la base (montants + moratoire)', () => {
+  expect(COLONNES_ARGENT.split(',').map((c) => c.trim()).sort()).toEqual([
+    'frais_connexe_du', 'frais_connexe_paye', 'montant_du', 'montant_paye', 'moratoire_actif', 'moratoire_date_debut', 'moratoire_date_fin',
+    'moratoire_montant_convenu', 'moratoire_motif', 'moratoire_nb_mensualites', 'moratoire_prochaine_echeance', 'note_arrangement',
+  ]);
+  expect(Object.keys(ARGENT_VIDE).sort()).toEqual(COLONNES_ARGENT.split(',').map((c) => c.trim()).sort());
+});
+
+describe('vue de la première version (sans le moratoire)', () => {
+  // Faux client qui se comporte comme la base après la 1re version du script : la vue n'a pas les colonnes du moratoire (erreur 42703),
+  // mais la table les laisse encore lire.
+  function premiereVersion() {
+    const appels = [];
+    return {
+      appels,
+      from(table) {
+        const requete = {
+          select(colonnes) { appels.push({ table, colonnes }); requete.colonnes = colonnes; return requete; },
+          eq() { return requete; }, order() { return requete; },
+          range() {
+            const c = requete.colonnes || '';
+            if (table === 'enrollments_argent' && /moratoire_actif/.test(c)) return Promise.resolve({ data: null, error: { code: '42703', message: 'column enrollments_argent.moratoire_actif does not exist' }, count: null });
+            if (table === 'enrollments_argent') return Promise.resolve({ data: argent.map((a) => ({ id: a.id, montant_du: a.montant_du, montant_paye: a.montant_paye, frais_connexe_du: a.frais_connexe_du, frais_connexe_paye: a.frais_connexe_paye, note_arrangement: a.note_arrangement, moratoire_montant_convenu: null })), error: null, count: 2 });
+            if (/moratoire_actif/.test(c)) return Promise.resolve({ data: [{ id: 'e1', moratoire_actif: true, moratoire_nb_mensualites: 3, moratoire_date_debut: null, moratoire_date_fin: '2026-12-01', moratoire_motif: 'Maladie', moratoire_prochaine_echeance: null }, { id: 'e2', moratoire_actif: false, moratoire_nb_mensualites: null, moratoire_date_debut: null, moratoire_date_fin: null, moratoire_motif: null, moratoire_prochaine_echeance: null }], error: null, count: 2 });
+            return Promise.resolve({ data: ordinaires, error: null, count: 2 });
+          },
+        };
+        return requete;
+      },
+    };
+  }
+
+  it('les montants viennent de la vue, le moratoire de la table : l’écran marche pendant la mise à jour', async () => {
+    const client = premiereVersion();
+    const { data, error } = await lireInscriptions(client, { colonnes, finance: true });
+    expect(error).toBeNull();
+    expect(data[0]).toMatchObject({ id: 'e1', montant_du: 150000, montant_paye: 50000, moratoire_actif: true, moratoire_nb_mensualites: 3, moratoire_motif: 'Maladie', moratoire_date_fin: '2026-12-01' });
+    expect(data[1]).toMatchObject({ id: 'e2', montant_paye: 150000, moratoire_actif: false });
+  });
+});
+
+describe('colonnes ordinaires', () => {
+  it('ne contiennent aucune colonne protégée (sinon la lecture échouerait pour un enseignant)', async () => {
+    const fichiers = ['src/lib/enrollments.js', 'src/pages/Students.jsx', 'src/pages/StudentDetail.jsx'];
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const protegees = /\b(montant_du|montant_paye|frais_connexe_du|frais_connexe_paye|note_arrangement|moratoire_[a-z_]+)\b/;
+    for (const f of fichiers) {
+      const texte = fs.readFileSync(path.join(import.meta.dirname, '..', f), 'utf8');
+      const lectures = [...texte.matchAll(/colonnes:\s*'([^']*)'/g)].map((m) => m[1]);
+      expect(lectures.length, f).toBeGreaterThan(0);
+      for (const l of lectures) expect(l, f).not.toMatch(protegees);
+    }
+  });
 });
