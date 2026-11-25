@@ -17,7 +17,8 @@ import OfflineBanner from '../components/OfflineBanner.jsx';
 import { guardedFetch } from '../lib/offlineCache.js';
 import { translateError } from '../lib/errors.js';
 import { usePageTour } from '../components/PageTour.jsx';
-import { lireTout } from '../lib/fetchAll.js';
+import { lireInscriptions, suffixeCacheArgent } from '../lib/argentInscriptions.js';
+import { peutVoirFinances } from '../lib/droits.js';
 
 function statusOf(s, schoolYear, feeSchedule) {
   const relance = computeRelance(s, schoolYear, feeSchedule);
@@ -98,9 +99,12 @@ export default function Students() {
   const canEdit = CAN_EDIT_ROLES.includes(profile.role);
   const tour = usePageTour('eleves');
 
+  // Les montants (colonnes Reste et Statut) ne sont montrés qu'à ceux qui ont accès aux finances : la base ne les donne pas aux autres.
+  const finance = peutVoirFinances(profile);
+  const colonnesMontants = finance ? ' 0.9fr 1fr' : '';
   const gridCols = selectMode
-    ? '28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px'
-    : '2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr 0.9fr 1fr 100px';
+    ? `28px 2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr${colonnesMontants} 100px`
+    : `2fr 0.9fr 0.5fr 0.8fr 0.9fr 1fr${colonnesMontants} 100px`;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
@@ -110,13 +114,16 @@ export default function Students() {
   async function reload() {
     if (!schoolYear) return;
     await guardedFetch({
-      cacheKey: `students_${profile.school_id}_${schoolYear.id}`,
+      cacheKey: `students_${profile.school_id}_${schoolYear.id}${suffixeCacheArgent(finance)}`,
       hasData: students !== null,
       load: async () => {
         // Page par page : l'API plafonne chaque réponse à 1 000 lignes (une grande école a plus d'élèves).
-        const { data, error: fetchError } = await lireTout(supabase, 'enrollments',
-          'id, created_at, classe_id, montant_du, montant_paye, frais_connexe_du, frais_connexe_paye, note_arrangement, moratoire_actif, moratoire_date_fin, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )',
-          (q) => q.eq('school_year_id', schoolYear.id), { tri: [['full_name', { foreignTable: 'students' }]] });
+        const { data, error: fetchError } = await lireInscriptions(supabase, {
+          colonnes: 'created_at, classe_id, moratoire_actif, moratoire_date_fin, classes ( nom, niveau ), students ( id, full_name, nom, prenom, matricule, sexe, parent_phone, photo_url, date_naissance )',
+          filtrer: (q) => q.eq('school_year_id', schoolYear.id),
+          finance,
+          tri: [['full_name', { foreignTable: 'students' }]],
+        });
         if (fetchError) return { error: fetchError };
         return {
           data: (data || []).map((e) => ({
@@ -181,9 +188,9 @@ export default function Students() {
   });
 
   function exportCsv() {
-    const rows = [['Nom', 'Matricule', 'Sexe', 'Classe', "Date d'inscription", 'Montant dû', 'Payé', 'Reste', 'Téléphone parent']];
+    const rows = [['Nom', 'Matricule', 'Sexe', 'Classe', "Date d'inscription", ...(finance ? ['Montant dû', 'Payé', 'Reste'] : []), 'Téléphone parent']];
     students.forEach((s) => {
-      rows.push([s.full_name, s.matricule || '', s.sexe === 'F' ? 'F' : 'M', s.niveau, new Date(s.created_at).toLocaleDateString('fr-FR'), s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye), s.parent_phone || '']);
+      rows.push([s.full_name, s.matricule || '', s.sexe === 'F' ? 'F' : 'M', s.niveau, new Date(s.created_at).toLocaleDateString('fr-FR'), ...(finance ? [s.montant_du, s.montant_paye, Number(s.montant_du) - Number(s.montant_paye)] : []), s.parent_phone || '']);
     });
     downloadCsv('eleves.csv', rows);
   }
@@ -455,13 +462,13 @@ export default function Students() {
             <span>Classe</span>
             <span>Inscription</span>
             <span>Tél. Parent</span>
-            <span>Reste</span>
-            <span>Statut</span>
+            {finance && <span>Reste</span>}
+            {finance && <span>Statut</span>}
             {!selectMode && <span></span>}
           </div>
 
           {filtered.map((s, i) => {
-            const status = statusOf(s, schoolYear, feeSchedulesByNiveau[s.classeNiveau]);
+            const status = finance ? statusOf(s, schoolYear, feeSchedulesByNiveau[s.classeNiveau]) : null;
             const reste = Number(s.montant_du) - Number(s.montant_paye);
             return (
               <div key={s.id} className="row-link" style={{ display: 'grid', gridTemplateColumns: gridCols, gap: 8, padding: selectMode ? '13px 20px' : '13px 20px 13px 0', alignItems: 'center', borderBottom: i < filtered.length - 1 ? '1px solid var(--line)' : 'none', backgroundColor: 'var(--paper)' }}>
@@ -487,8 +494,8 @@ export default function Students() {
                   <span style={{ fontSize: 13, fontWeight: 600 }}>{s.niveau}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{new Date(s.created_at).toLocaleDateString('fr-FR')}</span>
                   <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{s.parent_phone || '—'}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{reste < 0 ? `Crédit ${fmtF(-reste)}` : fmtF(reste)}</span>
-                  <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>{status.label}</span>
+                  {finance && <span style={{ fontSize: 13, fontWeight: 600, color: reste > 0 ? 'var(--danger)' : 'var(--success)' }}>{reste < 0 ? `Crédit ${fmtF(-reste)}` : fmtF(reste)}</span>}
+                  {finance && <span style={{ background: status.bg, color: status.fg, fontSize: '11.5px', fontWeight: 600, padding: '4px 11px', borderRadius: 20, width: 'fit-content' }}>{status.label}</span>}
                 </Link>
                 {!selectMode && (canEdit || canDelete) && (
                   <div style={{ display: 'flex', gap: 2, flexShrink: 0, justifyContent: 'flex-end', paddingRight: 20 }}>

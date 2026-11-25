@@ -16,6 +16,7 @@ import { startPresence, stopPresence } from '../lib/presence.js';
 import UpdateButton from '../components/UpdateButton.jsx';
 import { prefetchHandlers, prefetchRoutesWhenIdle, canPrefetch, whenNetworkQuiet } from '../lib/pageLoaders.js';
 import { prefetchEnrollments } from '../lib/enrollments.js';
+import { peutVoirFinances } from '../lib/droits.js';
 import { prefetchRecouvrement } from '../lib/recouvrementData.js';
 
 const SIDEBAR_ITEMS = [
@@ -379,7 +380,7 @@ function Warmup({ plan, hasAccess }) {
       stopRoutes = prefetchRoutesWhenIdle(paths);
       dataTimer = setTimeout(() => {
         // Le tableau de bord remplit déjà ce cache quand c'est la page d'arrivée.
-        if (finance && window.location.pathname !== '/') prefetchEnrollments(schoolYear);
+        if (finance && window.location.pathname !== '/') prefetchEnrollments(schoolYear, peutVoirFinances(profile));
         if (finance) prefetchRecouvrement(schoolYear, schoolId);
       }, 1000);
     }, { ready: () => !document.querySelector('[class*="skeleton"]') });
