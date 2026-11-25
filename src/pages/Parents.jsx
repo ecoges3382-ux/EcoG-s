@@ -14,6 +14,7 @@ import { guardedFetch } from '../lib/offlineCache.js';
 import { SkeletonRow } from '../components/Skeleton.jsx';
 import { translateError } from '../lib/errors.js';
 import useHauteurListe from '../lib/useHauteurListe.js';
+import ParentEditModal from '../components/ParentEditModal.jsx';
 import { parentCorrespond, parentDansFiltre, FILTRES_PARENTS } from '../lib/parents.js';
 import { hasFeature, getPlanLabel, featurePlanRequired } from '../lib/plan.js';
 
@@ -29,6 +30,15 @@ function UsersGroupIcon() {
 }
 
 const MANAGER_ROLES = ['fondateur', 'directeur', 'secretaire'];
+
+function PencilIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  );
+}
 
 function TrashIcon() {
   return (
@@ -51,6 +61,7 @@ export default function Parents() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
+  const [parentModifie, setParentModifie] = useState(null);
   const [recherche, setRecherche] = useState('');
   const [filtre, setFiltre] = useState('tous');
   // Ce que la liste montre : la recherche (nom ou numéro) et le filtre choisi
@@ -72,7 +83,7 @@ export default function Parents() {
       load: async () => {
         const { data, error: fetchError } = await supabase
           .from('parent_access')
-          .select('id, full_name, nom, prenom, phone, created_at, parent_access_students ( students ( id ) )')
+          .select('id, full_name, nom, prenom, phone, lien_parente, created_at, parent_access_students ( students ( id ) )')
           .order('full_name');
         return fetchError ? { error: fetchError } : { data };
       },
@@ -219,7 +230,7 @@ export default function Parents() {
           ) : (
             <div ref={listeRef} className="card-bold" style={{ maxHeight: hauteurListe ?? 'calc(100vh - 250px)', overflowY: 'auto', scrollbarGutter: 'stable' }}>
               {/* En-tête figé : il reste en haut pendant que la liste défile */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `12px ${selectMode ? 20 : 70}px 12px ${selectMode ? 46 : 20}px`, ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `12px ${selectMode ? 20 : 110}px 12px ${selectMode ? 46 : 20}px`, ...stickyHeaderStyle('var(--forest-light)'), fontSize: '11.5px', fontWeight: 700, color: 'var(--forest-dark-text)', textTransform: 'uppercase' }}>
                 <span style={{ paddingLeft: 48 }}>Parent</span>
                 <span>Enfants</span>
               </div>
@@ -260,6 +271,17 @@ export default function Parents() {
                 {!selectMode && (
                   <button
                     type="button"
+                    onClick={() => setParentModifie(p)}
+                    title="Modifier"
+                    aria-label={`Modifier ${p.full_name}`}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    <PencilIcon />
+                  </button>
+                )}
+                {!selectMode && (
+                  <button
+                    type="button"
                     onClick={() => handleDeleteOne(p.id, p.full_name)}
                     title="Supprimer"
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, padding: 0, borderRadius: 9, border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', flexShrink: 0 }}
@@ -273,6 +295,18 @@ export default function Parents() {
             </div>
           )}
         </>
+      )}
+
+      {parentModifie && (
+        <ParentEditModal
+          parent={parentModifie}
+          onClose={() => setParentModifie(null)}
+          onSaved={(maj) => {
+            setParents((prev) => (prev || []).map((x) => (x.id === maj.id ? { ...x, ...maj } : x)));
+            setParentModifie(null);
+            reload();
+          }}
+        />
       )}
 
       {selectMode && (
