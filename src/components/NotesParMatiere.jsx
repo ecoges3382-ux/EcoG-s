@@ -15,7 +15,7 @@ const GROUPES = [
   { type: 'examen', titre: 'Examens', couleur: 'var(--danger)', fond: 'var(--danger-light)' },
 ];
 
-const LARGEUR_NOTE = 46; // largeur minimale d'une pastille « 17,8/20 » (le /20 est petit)
+const LARGEUR_NOTE = 62; // largeur d'une pastille « 19,75/20 » (≈ 46 px de texte + marges) : sert à plafonner la ligne à environ trois notes
 const ECART_NOTES = 5;
 
 function couleurNote(note, sur) {
@@ -27,9 +27,10 @@ function couleurNote(note, sur) {
 const moyenneStyle = (m) => ({ fontWeight: 700, color: m == null ? 'var(--muted)' : couleurNote(m, 20), fontVariantNumeric: 'tabular-nums' });
 const cellule = { textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums' };
 
-// Un type de notes : sa pastille et son compteur, puis les notes juste en dessous, TROIS PAR LIGNE au plus (les suivantes passent
-// à la ligne). La grille est plafonnée à la largeur de trois pastilles ; quand la colonne est trop étroite (demi-largeur d'un
-// téléphone), elle n'en met que deux par ligne plutôt que de les écraser. Colonnes de même largeur : notes alignées.
+// Un type de notes : sa pastille et son compteur, puis les notes juste en dessous. Chaque pastille prend la largeur de SA note (jamais
+// de texte qui déborde, quelle que soit la longueur : « 8,5/20 » plus étroite que « 19,75/20 »). Environ trois par ligne : la ligne est
+// plafonnée à la largeur de trois pastilles, et quand la colonne est trop étroite (demi-largeur d'un téléphone) les suivantes passent
+// à la ligne plutôt que d'être écrasées.
 function GroupeNotes({ groupe, notes, annuel }) {
   return (
     <div style={{ minWidth: 0 }}>
@@ -40,10 +41,10 @@ function GroupeNotes({ groupe, notes, annuel }) {
       {notes.length === 0 ? (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>Aucune note</p>
       ) : (
-        <div data-notes-ligne style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${LARGEUR_NOTE}px, 1fr))`, gap: ECART_NOTES, maxWidth: 3 * LARGEUR_NOTE + 2 * ECART_NOTES }}>
+        <div data-notes-ligne style={{ display: 'flex', flexWrap: 'wrap', gap: ECART_NOTES, maxWidth: 3 * LARGEUR_NOTE + 2 * ECART_NOTES }}>
           {notes.map((n, i) => (
             <span key={n.id || i} title={`${groupe.titre.replace(/s$/, '')} · ${n.periode}${n.created_at ? ` · ${new Date(n.created_at).toLocaleDateString('fr-FR')}` : ''}`}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: 0, padding: '3px 1px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontSize: 12, fontWeight: 600, opacity: groupe.type === 'examen' ? 0.75 : 1, whiteSpace: 'nowrap' }}>
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: '0 0 auto', minWidth: 44, maxWidth: '100%', boxSizing: 'border-box', padding: '3px 9px', borderRadius: 14, background: 'var(--chip-bg)', color: couleurNote(n.note, n.sur), fontSize: 12, fontWeight: 600, opacity: groupe.type === 'examen' ? 0.75 : 1, whiteSpace: 'nowrap' }}>
               {annuel && <span style={{ fontSize: 9.5, fontWeight: 500, color: 'var(--muted)', lineHeight: 1.1 }}>{COURT[n.periode] || n.periode}</span>}
               <span>{noteTexte(n.note)}<Sur20 sur={n.sur} /></span>
             </span>
