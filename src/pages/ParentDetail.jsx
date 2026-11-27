@@ -216,7 +216,7 @@ function IndividualMessage({ parentAccessId }) {
         type="button"
         onClick={handleSend}
         disabled={sending || !contenu.trim()}
-        style={{ fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: '#25D366', color: '#fff', opacity: (sending || !contenu.trim()) ? 0.7 : 1, cursor: (sending || !contenu.trim()) ? 'default' : 'pointer' }}
+        style={{ fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: '#25D366', color: 'var(--wa-icon)', opacity: (sending || !contenu.trim()) ? 0.7 : 1, cursor: (sending || !contenu.trim()) ? 'default' : 'pointer' }}
       >
         <i className="ti ti-brand-whatsapp" style={{ fontSize: 15, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
         {sending ? 'Envoi…' : 'Envoyer'}

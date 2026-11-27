@@ -168,7 +168,7 @@ export default function Aide() {
       <Section title="7. Besoin d'aide supplémentaire ?" icon={<CheckCircle />}>
         <p style={{ marginTop: 0 }}>Si vous ne trouvez pas la réponse à votre question, notre équipe est là pour vous aider.</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 16 }}>
-          <a href={waLink} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, background: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 600, fontSize: 13.5 }}>
+          <a href={waLink} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 10, background: '#25D366', color: 'var(--wa-icon)', textDecoration: 'none', fontWeight: 600, fontSize: 13.5 }}>
             <i className="ti ti-brand-whatsapp" style={{ fontSize: 16 }} aria-hidden="true"></i>
             Discuter sur WhatsApp
           </a>

@@ -465,7 +465,7 @@ function AnnounceRow({ a, isLast, canManage, deleting, onEdit, onSetStatut, onDe
             <>
               <button onClick={onEdit} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Modifier</button>
               <button onClick={() => onSetStatut('archivee')} style={actionBtnStyle('var(--paper)', 'var(--ink)', true)}>Archiver</button>
-              <button onClick={diffuserWhatsApp} disabled={waSending} style={actionBtnStyle('#25D366', '#fff')}>
+              <button onClick={diffuserWhatsApp} disabled={waSending} style={actionBtnStyle('#25D366', 'var(--wa-icon)')}>
                 <i className="ti ti-brand-whatsapp" style={{ fontSize: 13, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
                 {waSending ? 'Diffusion…' : 'WhatsApp'}
               </button>
