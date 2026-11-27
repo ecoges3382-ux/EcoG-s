@@ -73,7 +73,7 @@ export default function StudentFinancials({
                 type="button"
                 onClick={sendRelance}
                 disabled={whatsappSending}
-                style={{ fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: '#25D366', color: '#fff', opacity: whatsappSending ? 0.7 : 1, cursor: whatsappSending ? 'default' : 'pointer' }}
+                style={{ fontSize: 12.5, fontWeight: 600, padding: '9px 16px', borderRadius: 9, border: 'none', background: '#25D366', color: 'var(--wa-icon)', opacity: whatsappSending ? 0.7 : 1, cursor: whatsappSending ? 'default' : 'pointer' }}
               >
                 <i className="ti ti-brand-whatsapp" style={{ fontSize: 15, verticalAlign: '-3px', marginRight: 6 }} aria-hidden="true"></i>
                 {whatsappSending ? 'Envoi…' : 'Envoyer une relance WhatsApp'}

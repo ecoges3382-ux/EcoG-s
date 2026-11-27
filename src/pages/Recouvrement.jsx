@@ -477,7 +477,7 @@ export default function Recouvrement() {
             <button
               onClick={() => handleBulkRelance(selectedPriorityIds, () => setSelectedPriorityIds([]))}
               disabled={selectedPriorityIds.length === 0 || bulkSending}
-              style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: selectedPriorityIds.length > 0 ? '#ff8c00' : 'var(--line)', color: selectedPriorityIds.length > 0 ? '#fff' : 'var(--muted)', cursor: (selectedPriorityIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', opacity: (selectedPriorityIds.length === 0 || bulkSending) ? 0.7 : 1 }}
+              style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: selectedPriorityIds.length > 0 ? '#ff8c00' : 'var(--line)', color: selectedPriorityIds.length > 0 ? 'var(--wa-icon)' : 'var(--muted)', cursor: (selectedPriorityIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', opacity: (selectedPriorityIds.length === 0 || bulkSending) ? 0.7 : 1 }}
             >
               <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
               {bulkSending ? 'Envoi…' : `Relancer la sélection (${selectedPriorityIds.length})`}
@@ -487,7 +487,7 @@ export default function Recouvrement() {
               <button
                 onClick={() => handleBulkRelance(elevesPrioritaires.map(s => s.id), () => setSelectedPriorityIds([]))}
                 disabled={bulkSending}
-                style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: '#25D366', color: '#fff', cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
+                style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: '#25D366', color: 'var(--wa-icon)', cursor: bulkSending ? 'default' : 'pointer', opacity: bulkSending ? 0.6 : 1 }}
               >
                 <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
                 {bulkSending ? 'Envoi…' : 'Tout relancer'}
@@ -650,7 +650,7 @@ export default function Recouvrement() {
           <button
             onClick={() => handleBulkRelance(selectedDetailIds, () => setSelectedDetailIds([]))}
             disabled={selectedDetailIds.length === 0 || bulkSending}
-            style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: selectedDetailIds.length > 0 ? '#ff8c00' : 'var(--line)', color: selectedDetailIds.length > 0 ? '#fff' : 'var(--muted)', cursor: (selectedDetailIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', opacity: (selectedDetailIds.length === 0 || bulkSending) ? 0.7 : 1 }}
+            style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: 'none', background: selectedDetailIds.length > 0 ? '#ff8c00' : 'var(--line)', color: selectedDetailIds.length > 0 ? 'var(--wa-icon)' : 'var(--muted)', cursor: (selectedDetailIds.length === 0 || bulkSending) ? 'not-allowed' : 'pointer', opacity: (selectedDetailIds.length === 0 || bulkSending) ? 0.7 : 1 }}
           >
             <i className="ti ti-brand-whatsapp" style={{ fontSize: 14, verticalAlign: '-2px', marginRight: 4 }} aria-hidden="true"></i>
             {bulkSending ? 'Envoi…' : `Relancer la sélection (${selectedDetailIds.length})`}
